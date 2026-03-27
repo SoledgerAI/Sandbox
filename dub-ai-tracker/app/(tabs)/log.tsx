@@ -2,6 +2,7 @@
 // Phase 6: Food Logging -- Core
 // Phase 10: Added sleep, mood, gratitude, meditation, stress, therapy entry points
 // Phase 11: Added workout and strength entry points
+// Phase 13: Added supplements, personal care, sexual, cycle, digestive, injury, bloodwork, custom
 
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -364,6 +365,70 @@ export default function LogScreen() {
         >
           <Ionicons name="chatbubbles-outline" size={20} color={Colors.primaryBackground} />
           <Text style={styles.addFoodText}>Therapy</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/supplements')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="flask-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Supplements</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/personalcare')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="sparkles-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Self Care</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/sexual')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="heart-half-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Sexual</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/cycle')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="flower-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Cycle</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/digestive')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="nutrition-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Digestive</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/injury')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="bandage-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Injury</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/bloodwork')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="water-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Bloodwork</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/custom')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="pricetag-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Custom</Text>
         </TouchableOpacity>
       </View>
 

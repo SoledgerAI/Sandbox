@@ -1,0 +1,72 @@
+{
+  "vitamin_d": {
+    "name": "Vitamin D",
+    "ul_value": 4000,
+    "ul_unit": "IU",
+    "ul_note": "100 mcg per day",
+    "source": "NIH ODS / NAM DRI"
+  },
+  "calcium": {
+    "name": "Calcium",
+    "ul_value": 2500,
+    "ul_unit": "mg",
+    "ul_note": "2,500 mg ages 19-50; 2,000 mg ages 51+",
+    "source": "NIH ODS / NAM DRI"
+  },
+  "iron": {
+    "name": "Iron",
+    "ul_value": 45,
+    "ul_unit": "mg",
+    "ul_note": null,
+    "source": "NIH ODS / NAM DRI"
+  },
+  "zinc": {
+    "name": "Zinc",
+    "ul_value": 40,
+    "ul_unit": "mg",
+    "ul_note": null,
+    "source": "NIH ODS / NAM DRI"
+  },
+  "vitamin_c": {
+    "name": "Vitamin C",
+    "ul_value": 2000,
+    "ul_unit": "mg",
+    "ul_note": null,
+    "source": "NIH ODS / NAM DRI"
+  },
+  "vitamin_a": {
+    "name": "Vitamin A",
+    "ul_value": 10000,
+    "ul_unit": "IU",
+    "ul_note": "3,000 mcg RAE per day",
+    "source": "NIH ODS / NAM DRI"
+  },
+  "folate": {
+    "name": "Folate",
+    "ul_value": 1000,
+    "ul_unit": "mcg",
+    "ul_note": "From supplements and fortified foods only, not naturally occurring food folate",
+    "source": "NIH ODS / NAM DRI"
+  },
+  "magnesium": {
+    "name": "Magnesium",
+    "ul_value": 350,
+    "ul_unit": "mg",
+    "ul_note": "From supplements only, not food",
+    "source": "NIH ODS / NAM DRI"
+  },
+  "niacin_b3": {
+    "name": "Niacin (B3)",
+    "ul_value": 35,
+    "ul_unit": "mg",
+    "ul_note": "From supplements and fortified foods only",
+    "source": "NIH ODS / NAM DRI"
+  },
+  "vitamin_b6": {
+    "name": "Vitamin B6",
+    "ul_value": 100,
+    "ul_unit": "mg",
+    "ul_note": null,
+    "source": "NIH ODS / NAM DRI"
+  }
+}
