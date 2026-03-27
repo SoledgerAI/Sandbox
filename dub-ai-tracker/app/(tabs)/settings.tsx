@@ -1,11 +1,13 @@
-// Settings screen with API key management
-// Phase 14: AI Coach
+// Settings screen with API key management and notification preferences
+// Phase 15: EOD Questionnaire and Notifications
 
 import { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -20,6 +22,8 @@ import {
   deleteApiKey,
   hasApiKey as checkHasApiKey,
 } from '../../src/services/anthropic';
+import { useNotifications } from '../../src/hooks/useNotifications';
+import { EODQuestionnaire } from '../../src/components/notifications/EODQuestionnaire';
 
 export default function SettingsScreen() {
   const [hasKey, setHasKey] = useState(false);
@@ -27,6 +31,23 @@ export default function SettingsScreen() {
   const [showKeyInput, setShowKeyInput] = useState(false);
   const [keyInput, setKeyInput] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const {
+    enabled: notifEnabled,
+    eodEnabled,
+    remindersEnabled,
+    permissionGranted,
+    unloggedTags,
+    showEOD,
+    eodTime,
+    loading: notifLoading,
+    setEnabled: setNotifEnabled,
+    setEodEnabled,
+    setRemindersEnabled,
+    openEOD,
+    dismissEOD,
+    refreshUnlogged,
+  } = useNotifications();
 
   const loadKeyStatus = useCallback(async () => {
     setLoading(true);
@@ -156,13 +177,111 @@ export default function SettingsScreen() {
         )}
       </View>
 
+      {/* Notification Preferences */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Notifications</Text>
+
+        {!permissionGranted && notifEnabled && (
+          <View style={styles.infoBox}>
+            <Ionicons name="alert-circle-outline" size={18} color={Colors.warning} />
+            <Text style={styles.infoText}>
+              Notification permission not granted. Enable notifications in your device settings.
+            </Text>
+          </View>
+        )}
+
+        {notifLoading ? (
+          <ActivityIndicator color={Colors.accent} style={styles.loader} />
+        ) : (
+          <>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Enable Notifications</Text>
+                <Text style={styles.settingDesc}>Master toggle for all DUB notifications</Text>
+              </View>
+              <Switch
+                value={notifEnabled}
+                onValueChange={setNotifEnabled}
+                trackColor={{ false: Colors.divider, true: Colors.accent }}
+                thumbColor={Colors.text}
+              />
+            </View>
+
+            {notifEnabled && (
+              <>
+                <View style={styles.settingRow}>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>Evening Check-in</Text>
+                    <Text style={styles.settingDesc}>
+                      End-of-day questionnaire for unlogged tags
+                      {eodTime
+                        ? ` — ${formatTime(eodTime.hour, eodTime.minute)}`
+                        : ''}
+                    </Text>
+                  </View>
+                  <Switch
+                    value={eodEnabled}
+                    onValueChange={setEodEnabled}
+                    trackColor={{ false: Colors.divider, true: Colors.accent }}
+                    thumbColor={Colors.text}
+                  />
+                </View>
+
+                <View style={styles.settingRow}>
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>Daily Reminders</Text>
+                    <Text style={styles.settingDesc}>
+                      Tier-based logging reminders throughout the day
+                    </Text>
+                  </View>
+                  <Switch
+                    value={remindersEnabled}
+                    onValueChange={setRemindersEnabled}
+                    trackColor={{ false: Colors.divider, true: Colors.accent }}
+                    thumbColor={Colors.text}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.eodPreviewButton}
+                  onPress={openEOD}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="moon-outline" size={18} color={Colors.accent} />
+                  <Text style={styles.eodPreviewText}>
+                    Preview Evening Check-in ({unloggedTags.length} unlogged tag
+                    {unloggedTags.length !== 1 ? 's' : ''})
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color={Colors.secondaryText} />
+                </TouchableOpacity>
+              </>
+            )}
+          </>
+        )}
+      </View>
+
       {/* Placeholder for other settings */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Preferences</Text>
-        <Text style={styles.placeholderText}>Preferences and configuration</Text>
+        <Text style={styles.placeholderText}>Additional preferences and configuration</Text>
       </View>
+
+      {/* EOD Questionnaire Modal */}
+      <Modal visible={showEOD} animationType="slide" presentationStyle="fullScreen">
+        <EODQuestionnaire
+          unloggedTags={unloggedTags}
+          onDismiss={dismissEOD}
+          onRefresh={refreshUnlogged}
+        />
+      </Modal>
     </ScrollView>
   );
+}
+
+function formatTime(hour: number, minute: number): string {
+  const h = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+  const ampm = hour >= 12 ? 'PM' : 'AM';
+  return `${h}:${String(minute).padStart(2, '0')} ${ampm}`;
 }
 
 const styles = StyleSheet.create({
@@ -288,5 +407,45 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: Colors.secondaryText,
     fontSize: 14,
+  },
+  settingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 8,
+  },
+  settingInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  settingLabel: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  settingDesc: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  eodPreviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 4,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    borderStyle: 'dashed',
+  },
+  eodPreviewText: {
+    color: Colors.accent,
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
   },
 });
