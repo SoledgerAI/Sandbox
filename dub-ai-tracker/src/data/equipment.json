@@ -1,0 +1,22 @@
+{
+  "equipment": [
+    { "id": "barbell", "name": "Barbell" },
+    { "id": "dumbbell", "name": "Dumbbell" },
+    { "id": "kettlebell", "name": "Kettlebell" },
+    { "id": "cable_machine", "name": "Cable Machine" },
+    { "id": "smith_machine", "name": "Smith Machine" },
+    { "id": "resistance_band", "name": "Resistance Band" },
+    { "id": "bodyweight", "name": "Bodyweight" },
+    { "id": "pull_up_bar", "name": "Pull-Up Bar" },
+    { "id": "dip_station", "name": "Dip Station" },
+    { "id": "bench", "name": "Bench (Flat, Incline, Decline)" },
+    { "id": "leg_press", "name": "Leg Press" },
+    { "id": "hack_squat", "name": "Hack Squat" },
+    { "id": "medicine_ball", "name": "Medicine Ball" },
+    { "id": "stability_ball", "name": "Stability Ball" },
+    { "id": "trx_suspension", "name": "TRX / Suspension" },
+    { "id": "battle_ropes", "name": "Battle Ropes" },
+    { "id": "foam_roller", "name": "Foam Roller" },
+    { "id": "machine", "name": "Machine (General)" }
+  ]
+}

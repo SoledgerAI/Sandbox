@@ -1,6 +1,7 @@
 // Log tab -- quick logging hub with food list, favorites, templates
 // Phase 6: Food Logging -- Core
 // Phase 10: Added sleep, mood, gratitude, meditation, stress, therapy entry points
+// Phase 11: Added workout and strength entry points
 
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -291,6 +292,22 @@ export default function LogScreen() {
         >
           <Ionicons name="wine-outline" size={20} color={Colors.primaryBackground} />
           <Text style={styles.addFoodText}>Substances</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/workout')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="fitness-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Workout</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/strength')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="barbell-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Strength</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.quickLogBtn}

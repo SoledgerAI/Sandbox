@@ -1,0 +1,28 @@
+{
+  "muscle_groups": [
+    { "id": "chest", "name": "Chest", "category": "upper" },
+    { "id": "upper_back", "name": "Upper Back", "category": "upper" },
+    { "id": "lats", "name": "Lats", "category": "upper" },
+    { "id": "lower_back", "name": "Lower Back", "category": "upper" },
+    { "id": "shoulders_anterior", "name": "Anterior Deltoid", "category": "upper" },
+    { "id": "shoulders_lateral", "name": "Lateral Deltoid", "category": "upper" },
+    { "id": "shoulders_posterior", "name": "Posterior Deltoid", "category": "upper" },
+    { "id": "biceps", "name": "Biceps", "category": "upper" },
+    { "id": "triceps", "name": "Triceps", "category": "upper" },
+    { "id": "forearms", "name": "Forearms", "category": "upper" },
+    { "id": "abs_upper", "name": "Upper Abs", "category": "core" },
+    { "id": "abs_lower", "name": "Lower Abs", "category": "core" },
+    { "id": "obliques", "name": "Obliques", "category": "core" },
+    { "id": "quadriceps", "name": "Quadriceps", "category": "lower" },
+    { "id": "hamstrings", "name": "Hamstrings", "category": "lower" },
+    { "id": "glutes", "name": "Glutes", "category": "lower" },
+    { "id": "calves", "name": "Calves", "category": "lower" },
+    { "id": "hip_flexors", "name": "Hip Flexors", "category": "lower" },
+    { "id": "adductors", "name": "Adductors", "category": "lower" },
+    { "id": "abductors", "name": "Abductors", "category": "lower" },
+    { "id": "traps", "name": "Traps", "category": "upper" },
+    { "id": "rhomboids", "name": "Rhomboids", "category": "upper" },
+    { "id": "serratus", "name": "Serratus", "category": "upper" },
+    { "id": "neck", "name": "Neck", "category": "upper" }
+  ]
+}
