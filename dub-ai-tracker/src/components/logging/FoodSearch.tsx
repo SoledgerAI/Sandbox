@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { usdaSearch } from '../../services/usda';
+import { textSearchWaterfall } from '../../utils/foodwaterfall';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../utils/storage';
 import type { FoodItem } from '../../types/food';
 
@@ -23,9 +23,10 @@ interface FoodSearchProps {
   onSelect: (food: FoodItem) => void;
   onManualEntry: () => void;
   onQuickLog: () => void;
+  onBarcodeScan?: () => void;
 }
 
-export function FoodSearch({ onSelect, onManualEntry, onQuickLog }: FoodSearchProps) {
+export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan }: FoodSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodItem[]>([]);
   const [recentFoods, setRecentFoods] = useState<FoodItem[]>([]);
@@ -61,8 +62,9 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog }: FoodSearchPr
         f.name.toLowerCase().includes(text.toLowerCase()),
       );
 
-      // Search USDA API
-      const apiResults = await usdaSearch(text);
+      // Search via waterfall (FatSecret -> USDA -> Open Food Facts)
+      const waterfallResult = await textSearchWaterfall(text);
+      const apiResults = waterfallResult.items;
 
       // Merge: cached first (exact matches), then API results
       const seen = new Set<string>();
@@ -85,7 +87,7 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog }: FoodSearchPr
         await storageSet(STORAGE_KEYS.FOOD_CACHE, updated);
       }
     } catch (err) {
-      // If API fails, show cached results only
+      // If all APIs fail, show cached results only
       const cache = await storageGet<FoodItem[]>(STORAGE_KEYS.FOOD_CACHE);
       const cached = (cache ?? []).filter((f) =>
         f.name.toLowerCase().includes(text.toLowerCase()),
@@ -159,6 +161,12 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog }: FoodSearchPr
 
       {/* Quick action buttons */}
       <View style={styles.quickActions}>
+        {onBarcodeScan && (
+          <TouchableOpacity style={styles.quickBtn} onPress={onBarcodeScan}>
+            <Ionicons name="barcode-outline" size={18} color={Colors.accent} />
+            <Text style={styles.quickBtnText}>Scan</Text>
+          </TouchableOpacity>
+        )}
         <TouchableOpacity style={styles.quickBtn} onPress={onManualEntry}>
           <Ionicons name="create-outline" size={18} color={Colors.accent} />
           <Text style={styles.quickBtnText}>Manual Entry</Text>

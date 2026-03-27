@@ -11,10 +11,11 @@ import { FoodSearch } from '../../src/components/logging/FoodSearch';
 import { FoodEntryForm } from '../../src/components/logging/FoodEntryForm';
 import { QuickLog } from '../../src/components/logging/QuickLog';
 import { ServingSizeSelector } from '../../src/components/logging/ServingSizeSelector';
+import { BarcodeScanner } from '../../src/components/logging/BarcodeScanner';
 import { Button } from '../../src/components/common/Button';
 import type { FoodItem, FoodEntry, MealType } from '../../src/types/food';
 
-type Screen = 'search' | 'configure' | 'manual' | 'quicklog';
+type Screen = 'search' | 'configure' | 'manual' | 'quicklog' | 'barcode';
 
 function todayDateString(): string {
   const now = new Date();
@@ -54,6 +55,17 @@ export default function FoodLogScreen() {
     [],
   );
 
+  const handleBarcodeFound = useCallback((food: FoodItem) => {
+    setSelectedFood(food);
+    setServingIndex(food.default_serving_index);
+    setQuantity(1);
+    setScreen('configure');
+  }, []);
+
+  const handleBarcodeNotFound = useCallback((_barcode: string) => {
+    setScreen('manual');
+  }, []);
+
   const handleFoodSelected = useCallback((food: FoodItem) => {
     setSelectedFood(food);
     setServingIndex(food.default_serving_index);
@@ -88,6 +100,15 @@ export default function FoodLogScreen() {
             onSelect={handleFoodSelected}
             onManualEntry={() => setScreen('manual')}
             onQuickLog={() => setScreen('quicklog')}
+            onBarcodeScan={() => setScreen('barcode')}
+          />
+        )}
+
+        {screen === 'barcode' && (
+          <BarcodeScanner
+            onFoodFound={handleBarcodeFound}
+            onNotFound={handleBarcodeNotFound}
+            onCancel={() => setScreen('search')}
           />
         )}
 
