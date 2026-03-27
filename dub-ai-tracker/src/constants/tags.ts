@@ -15,6 +15,19 @@ export interface TagDefault {
   defaultEnabledForTiers: EngagementTier[];
 }
 
+// Sub-tag IDs for routing from Log tab to specific screens
+export const HYDRATION_SUB_TAGS = {
+  WATER: 'hydration.water',
+  CAFFEINE: 'hydration.caffeine',
+} as const;
+
+export const SUBSTANCE_SUB_TAGS = {
+  ALCOHOL: 'substances.alcohol',
+  CANNABIS: 'substances.cannabis',
+  TOBACCO: 'substances.tobacco',
+  CAFFEINE: 'substances.caffeine',
+} as const;
+
 // Section 1: Health and Fitness (non-sensitive)
 export const HEALTH_FITNESS_TAGS: TagDefault[] = [
   {

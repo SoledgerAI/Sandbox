@@ -257,15 +257,41 @@ export default function LogScreen() {
         </Text>
       </View>
 
-      {/* Add Food button */}
-      <TouchableOpacity
-        style={styles.addFoodBtn}
-        onPress={() => router.push('/log/food')}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="add-circle" size={24} color={Colors.primaryBackground} />
-        <Text style={styles.addFoodText}>Log Food</Text>
-      </TouchableOpacity>
+      {/* Quick log buttons */}
+      <View style={styles.quickLogGrid}>
+        <TouchableOpacity
+          style={styles.addFoodBtn}
+          onPress={() => router.push('/log/food')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="restaurant-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Food</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/water')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="water-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Water</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/caffeine')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="cafe-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Caffeine</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/substances')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="wine-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Substances</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Daily totals */}
       {foodEntries.length > 0 && (
@@ -398,19 +424,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
+  quickLogGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
   addFoodBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: Colors.accent,
-    borderRadius: 14,
-    paddingVertical: 14,
-    gap: 8,
-    marginBottom: 16,
+    borderRadius: 12,
+    paddingVertical: 12,
+    gap: 6,
+    flexBasis: '48%',
+    flexGrow: 1,
+    minHeight: 48,
+  },
+  quickLogBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 12,
+    gap: 6,
+    flexBasis: '48%',
+    flexGrow: 1,
+    minHeight: 48,
   },
   addFoodText: {
     color: Colors.primaryBackground,
-    fontSize: 17,
+    fontSize: 15,
     fontWeight: '700',
   },
   totalsCard: {
