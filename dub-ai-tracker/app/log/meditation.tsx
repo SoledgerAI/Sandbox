@@ -1,0 +1,54 @@
+// Meditation logging screen
+// Phase 10: Sleep and Mood Logging
+
+import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { Colors } from '../../src/constants/colors';
+import { MeditationLogger } from '../../src/components/logging/MeditationLogger';
+
+export default function MeditationScreen() {
+  return (
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity
+          onPress={() => router.back()}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          style={styles.backBtn}
+        >
+          <Ionicons name="arrow-back" size={24} color={Colors.text} />
+        </TouchableOpacity>
+        <Text style={styles.title}>Meditation</Text>
+        <View style={styles.backBtn} />
+      </View>
+
+      <MeditationLogger />
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: Colors.primaryBackground,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: 56,
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  backBtn: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  title: {
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+});

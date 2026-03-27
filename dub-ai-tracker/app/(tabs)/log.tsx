@@ -1,5 +1,6 @@
 // Log tab -- quick logging hub with food list, favorites, templates
 // Phase 6: Food Logging -- Core
+// Phase 10: Added sleep, mood, gratitude, meditation, stress, therapy entry points
 
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -298,6 +299,54 @@ export default function LogScreen() {
         >
           <Ionicons name="scale-outline" size={20} color={Colors.primaryBackground} />
           <Text style={styles.addFoodText}>Body</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/sleep')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="moon-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Sleep</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/mood')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="happy-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Mood</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/gratitude')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="heart-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Gratitude</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/meditation')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="leaf-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Meditation</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/stress')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="pulse-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Stress</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/therapy')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="chatbubbles-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Therapy</Text>
         </TouchableOpacity>
       </View>
 
