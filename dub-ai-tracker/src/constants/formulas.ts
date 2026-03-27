@@ -146,3 +146,19 @@ export const INCHES_PER_FOOT = 12;
 
 export const SUGAR_TARGET_MALE_G = 36; // grams/day
 export const SUGAR_TARGET_FEMALE_G = 25; // grams/day
+
+// ============================================================================
+// AI Coach Constants (Phase 14)
+// ============================================================================
+
+export const COACH_MODEL_ID = 'claude-sonnet-4-20250514';
+
+// Tier-specific temperature for Coach API calls
+// Per Expert 4 Audit: subtle tone reinforcement via temperature
+export const TIER_TEMPERATURES: Record<string, number> = {
+  precision: 0.4,
+  structured: 0.5,
+  balanced: 0.6,
+  flexible: 0.7,
+  mindful: 0.7,
+};

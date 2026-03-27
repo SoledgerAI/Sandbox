@@ -1,12 +1,156 @@
-import { StyleSheet, Text, View } from 'react-native';
+// Coach DUB chat interface
+// Phase 14: AI Coach
+
+import { useState, useRef, useEffect } from 'react';
+import {
+  FlatList,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+  ActivityIndicator,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { ChatBubble } from '../../src/components/coach/ChatBubble';
+import { SuggestedPrompts } from '../../src/components/coach/SuggestedPrompts';
+import { DataContextBanner } from '../../src/components/coach/DataContextBanner';
+import { useCoach } from '../../src/hooks/useCoach';
+import type { ChatMessage } from '../../src/types/coach';
 
 export default function CoachScreen() {
+  const {
+    messages,
+    loading,
+    sending,
+    apiKeyConfigured,
+    error,
+    tagsLogged,
+    sendUserMessage,
+    refresh,
+  } = useCoach();
+
+  const [inputText, setInputText] = useState('');
+  const flatListRef = useRef<FlatList<ChatMessage>>(null);
+
+  // Scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [messages.length]);
+
+  // Refresh API key status on focus
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  const handleSend = async () => {
+    const text = inputText.trim();
+    if (!text || sending) return;
+    setInputText('');
+    await sendUserMessage(text);
+  };
+
+  const handleSuggestedPrompt = async (prompt: string) => {
+    if (sending) return;
+    await sendUserMessage(prompt);
+  };
+
+  const renderEmpty = () => {
+    if (loading) {
+      return (
+        <View style={styles.emptyContainer}>
+          <ActivityIndicator color={Colors.accent} size="large" />
+        </View>
+      );
+    }
+
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons name="chatbubbles-outline" size={48} color={Colors.divider} />
+        <Text style={styles.emptyTitle}>Coach DUB</Text>
+        <Text style={styles.emptySubtitle}>
+          Your AI wellness coach. Ask about your nutrition, workouts, sleep, or any health topic.
+        </Text>
+      </View>
+    );
+  };
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Coach</Text>
-      <Text style={styles.subtitle}>AI-powered coaching</Text>
-    </View>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      keyboardVerticalOffset={90}
+    >
+      <DataContextBanner tagsLogged={tagsLogged} hasApiKey={apiKeyConfigured} />
+
+      <FlatList
+        ref={flatListRef}
+        data={messages}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => <ChatBubble message={item} />}
+        ListEmptyComponent={renderEmpty}
+        contentContainerStyle={messages.length === 0 ? styles.emptyList : styles.messageList}
+        onContentSizeChange={() => {
+          if (messages.length > 0) {
+            flatListRef.current?.scrollToEnd({ animated: false });
+          }
+        }}
+      />
+
+      <SuggestedPrompts
+        onSelect={handleSuggestedPrompt}
+        visible={messages.length === 0 && apiKeyConfigured}
+      />
+
+      {sending && (
+        <View style={styles.typingRow}>
+          <ActivityIndicator size="small" color={Colors.accent} />
+          <Text style={styles.typingText}>Coach DUB is thinking...</Text>
+        </View>
+      )}
+
+      {error && (
+        <View style={styles.errorRow}>
+          <Ionicons name="alert-circle-outline" size={16} color={Colors.danger} />
+          <Text style={styles.errorText}>{error}</Text>
+        </View>
+      )}
+
+      <View style={styles.inputRow}>
+        <TextInput
+          style={styles.input}
+          placeholder={apiKeyConfigured ? 'Ask Coach DUB...' : 'Add API key in Settings first'}
+          placeholderTextColor={Colors.secondaryText}
+          value={inputText}
+          onChangeText={setInputText}
+          multiline
+          maxLength={2000}
+          editable={apiKeyConfigured && !sending}
+          returnKeyType="send"
+          onSubmitEditing={handleSend}
+          blurOnSubmit
+        />
+        <TouchableOpacity
+          style={[styles.sendButton, (!inputText.trim() || sending || !apiKeyConfigured) && styles.sendButtonDisabled]}
+          onPress={handleSend}
+          disabled={!inputText.trim() || sending || !apiKeyConfigured}
+          activeOpacity={0.7}
+        >
+          <Ionicons
+            name="send"
+            size={20}
+            color={inputText.trim() && apiKeyConfigured ? Colors.primaryBackground : Colors.secondaryText}
+          />
+        </TouchableOpacity>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -14,17 +158,84 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.primaryBackground,
+  },
+  messageList: {
+    paddingVertical: 8,
+  },
+  emptyList: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    gap: 12,
+  },
+  emptyTitle: {
+    color: Colors.text,
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  emptySubtitle: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  typingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    gap: 8,
+  },
+  typingText: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 6,
+    gap: 6,
+    backgroundColor: Colors.inputBackground,
+  },
+  errorText: {
+    color: Colors.danger,
+    fontSize: 13,
+    flex: 1,
+  },
+  inputRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderTopWidth: 1,
+    borderTopColor: Colors.divider,
+    backgroundColor: Colors.primaryBackground,
+    gap: 8,
+  },
+  input: {
+    flex: 1,
+    backgroundColor: Colors.inputBackground,
+    color: Colors.text,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    fontSize: 15,
+    maxHeight: 100,
+  },
+  sendButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  title: {
-    color: Colors.text,
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  subtitle: {
-    color: Colors.secondaryText,
-    fontSize: 16,
-    marginTop: 8,
+  sendButtonDisabled: {
+    backgroundColor: Colors.divider,
   },
 });
