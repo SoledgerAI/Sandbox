@@ -1,451 +1,228 @@
-// Settings screen with API key management and notification preferences
-// Phase 15: EOD Questionnaire and Notifications
+// Settings tab: navigation hub to all settings sub-screens
+// Phase 17: Settings and Profile Management
+// Per Phase 17 spec: navigation hub to sub-screens
 
 import { useState, useEffect, useCallback } from 'react';
 import {
-  Alert,
-  Modal,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   ActivityIndicator,
 } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
-import {
-  getApiKey,
-  setApiKey,
-  deleteApiKey,
-  hasApiKey as checkHasApiKey,
-} from '../../src/services/anthropic';
-import { useNotifications } from '../../src/hooks/useNotifications';
-import { EODQuestionnaire } from '../../src/components/notifications/EODQuestionnaire';
+import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
+import { hasApiKey as checkHasApiKey } from '../../src/services/anthropic';
+import type { UserProfile, EngagementTier } from '../../src/types/profile';
+
+interface SettingsItem {
+  id: string;
+  icon: string;
+  label: string;
+  subtitle: string;
+  route: string;
+  badge?: string;
+}
 
 export default function SettingsScreen() {
-  const [hasKey, setHasKey] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showKeyInput, setShowKeyInput] = useState(false);
-  const [keyInput, setKeyInput] = useState('');
-  const [saving, setSaving] = useState(false);
+  const [profileName, setProfileName] = useState('');
+  const [tier, setTier] = useState<string>('');
+  const [hasKey, setHasKey] = useState(false);
 
-  const {
-    enabled: notifEnabled,
-    eodEnabled,
-    remindersEnabled,
-    permissionGranted,
-    unloggedTags,
-    showEOD,
-    eodTime,
-    loading: notifLoading,
-    setEnabled: setNotifEnabled,
-    setEodEnabled,
-    setRemindersEnabled,
-    openEOD,
-    dismissEOD,
-    refreshUnlogged,
-  } = useNotifications();
-
-  const loadKeyStatus = useCallback(async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
-    const exists = await checkHasApiKey();
-    setHasKey(exists);
+    const [profile, tierVal, keyExists] = await Promise.all([
+      storageGet<UserProfile>(STORAGE_KEYS.PROFILE),
+      storageGet<EngagementTier>(STORAGE_KEYS.TIER),
+      checkHasApiKey(),
+    ]);
+    setProfileName(profile?.name || 'Not set');
+    setTier(tierVal ? tierVal.charAt(0).toUpperCase() + tierVal.slice(1) : 'Balanced');
+    setHasKey(keyExists);
     setLoading(false);
   }, []);
 
   useEffect(() => {
-    loadKeyStatus();
-  }, [loadKeyStatus]);
+    loadData();
+  }, [loadData]);
 
-  const handleSaveKey = async () => {
-    const key = keyInput.trim();
-    if (!key) return;
+  // Also reload on component re-mount (navigation back)
+  useEffect(() => {
+    loadData();
+  }, []);
 
-    if (!key.startsWith('sk-ant-')) {
-      Alert.alert('Invalid Key', 'Anthropic API keys start with "sk-ant-". Please check your key.');
-      return;
-    }
-
-    setSaving(true);
-    try {
-      await setApiKey(key);
-      setHasKey(true);
-      setShowKeyInput(false);
-      setKeyInput('');
-    } catch {
-      Alert.alert('Error', 'Failed to save API key. Please try again.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleRemoveKey = () => {
-    Alert.alert(
-      'Remove API Key',
-      'Coach DUB will not be able to respond without an API key. Remove it?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Remove',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteApiKey();
-            setHasKey(false);
-          },
-        },
-      ],
-    );
-  };
+  const settingsItems: SettingsItem[] = [
+    {
+      id: 'profile',
+      icon: 'person-outline',
+      label: 'Profile',
+      subtitle: profileName,
+      route: '/settings/profile',
+    },
+    {
+      id: 'tier',
+      icon: 'speedometer-outline',
+      label: 'Engagement Tier',
+      subtitle: `${tier} tier`,
+      route: '/settings/tier',
+    },
+    {
+      id: 'tags',
+      icon: 'pricetags-outline',
+      label: 'Tags',
+      subtitle: 'Manage tracking categories',
+      route: '/settings/tags',
+    },
+    {
+      id: 'notifications',
+      icon: 'notifications-outline',
+      label: 'Notifications',
+      subtitle: 'Reminders and check-ins',
+      route: '/settings/notifications',
+    },
+    {
+      id: 'apikey',
+      icon: 'key-outline',
+      label: 'API Key',
+      subtitle: hasKey ? 'Configured' : 'Not configured',
+      route: '/settings/apikey',
+      badge: hasKey ? undefined : 'Setup',
+    },
+    {
+      id: 'devices',
+      icon: 'watch-outline',
+      label: 'Devices',
+      subtitle: 'Connected health devices',
+      route: '/settings/devices',
+    },
+    {
+      id: 'export',
+      icon: 'download-outline',
+      label: 'Data Export',
+      subtitle: 'Export your data as JSON',
+      route: '/settings/export',
+    },
+    {
+      id: 'about',
+      icon: 'information-circle-outline',
+      label: 'About & Legal',
+      subtitle: 'Version, privacy, data deletion',
+      route: '/settings/about',
+    },
+  ];
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Settings</Text>
 
-      {/* API Key Section */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Coach DUB API Key</Text>
-
-        <View style={styles.infoBox}>
-          <Ionicons name="information-circle-outline" size={18} color={Colors.accent} />
-          <Text style={styles.infoText}>
-            Coach DUB uses the Anthropic API with your personal API key.
-            Estimated cost: $3-8/month depending on usage (approximately $0.02
-            per Coach message). You can monitor your usage at console.anthropic.com.
-          </Text>
-        </View>
-
-        {loading ? (
-          <ActivityIndicator color={Colors.accent} style={styles.loader} />
-        ) : hasKey ? (
-          <View style={styles.keyStatusRow}>
-            <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
-            <Text style={styles.keyStatusText}>API key configured</Text>
-            <TouchableOpacity onPress={handleRemoveKey} activeOpacity={0.7}>
-              <Text style={styles.removeText}>Remove</Text>
-            </TouchableOpacity>
-          </View>
-        ) : showKeyInput ? (
-          <View style={styles.keyInputContainer}>
-            <TextInput
-              style={styles.keyInput}
-              placeholder="sk-ant-..."
-              placeholderTextColor={Colors.secondaryText}
-              value={keyInput}
-              onChangeText={setKeyInput}
-              autoCapitalize="none"
-              autoCorrect={false}
-              secureTextEntry
-              editable={!saving}
-            />
-            <View style={styles.keyButtonRow}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => {
-                  setShowKeyInput(false);
-                  setKeyInput('');
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.saveButton, !keyInput.trim() && styles.saveButtonDisabled]}
-                onPress={handleSaveKey}
-                disabled={!keyInput.trim() || saving}
-                activeOpacity={0.7}
-              >
-                {saving ? (
-                  <ActivityIndicator size="small" color={Colors.primaryBackground} />
-                ) : (
-                  <Text style={styles.saveButtonText}>Save Key</Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
-        ) : (
+      {loading ? (
+        <ActivityIndicator color={Colors.accent} style={styles.loader} />
+      ) : (
+        <>
+          {/* Profile Card */}
           <TouchableOpacity
-            style={styles.addKeyButton}
-            onPress={() => setShowKeyInput(true)}
+            style={styles.profileCard}
+            onPress={() => router.push('/settings/profile')}
             activeOpacity={0.7}
           >
-            <Ionicons name="key-outline" size={18} color={Colors.accent} />
-            <Text style={styles.addKeyText}>Add Anthropic API Key</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Notification Preferences */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Notifications</Text>
-
-        {!permissionGranted && notifEnabled && (
-          <View style={styles.infoBox}>
-            <Ionicons name="alert-circle-outline" size={18} color={Colors.warning} />
-            <Text style={styles.infoText}>
-              Notification permission not granted. Enable notifications in your device settings.
-            </Text>
-          </View>
-        )}
-
-        {notifLoading ? (
-          <ActivityIndicator color={Colors.accent} style={styles.loader} />
-        ) : (
-          <>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Enable Notifications</Text>
-                <Text style={styles.settingDesc}>Master toggle for all DUB notifications</Text>
-              </View>
-              <Switch
-                value={notifEnabled}
-                onValueChange={setNotifEnabled}
-                trackColor={{ false: Colors.divider, true: Colors.accent }}
-                thumbColor={Colors.text}
-              />
+            <View style={styles.profileAvatar}>
+              <Text style={styles.profileInitial}>
+                {profileName.charAt(0).toUpperCase() || '?'}
+              </Text>
             </View>
+            <View style={styles.profileInfo}>
+              <Text style={styles.profileName}>{profileName}</Text>
+              <Text style={styles.profileTier}>{tier} tier</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={Colors.secondaryText} />
+          </TouchableOpacity>
 
-            {notifEnabled && (
-              <>
-                <View style={styles.settingRow}>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingLabel}>Evening Check-in</Text>
-                    <Text style={styles.settingDesc}>
-                      End-of-day questionnaire for unlogged tags
-                      {eodTime
-                        ? ` — ${formatTime(eodTime.hour, eodTime.minute)}`
-                        : ''}
-                    </Text>
-                  </View>
-                  <Switch
-                    value={eodEnabled}
-                    onValueChange={setEodEnabled}
-                    trackColor={{ false: Colors.divider, true: Colors.accent }}
-                    thumbColor={Colors.text}
-                  />
+          {/* Settings List */}
+          <View style={styles.section}>
+            {settingsItems.map((item) => (
+              <TouchableOpacity
+                key={item.id}
+                style={styles.settingRow}
+                onPress={() => router.push(item.route as any)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name={item.icon as any} size={22} color={Colors.accent} />
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>{item.label}</Text>
+                  <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
                 </View>
-
-                <View style={styles.settingRow}>
-                  <View style={styles.settingInfo}>
-                    <Text style={styles.settingLabel}>Daily Reminders</Text>
-                    <Text style={styles.settingDesc}>
-                      Tier-based logging reminders throughout the day
-                    </Text>
+                {item.badge ? (
+                  <View style={styles.badge}>
+                    <Text style={styles.badgeText}>{item.badge}</Text>
                   </View>
-                  <Switch
-                    value={remindersEnabled}
-                    onValueChange={setRemindersEnabled}
-                    trackColor={{ false: Colors.divider, true: Colors.accent }}
-                    thumbColor={Colors.text}
-                  />
-                </View>
-
-                <TouchableOpacity
-                  style={styles.eodPreviewButton}
-                  onPress={openEOD}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="moon-outline" size={18} color={Colors.accent} />
-                  <Text style={styles.eodPreviewText}>
-                    Preview Evening Check-in ({unloggedTags.length} unlogged tag
-                    {unloggedTags.length !== 1 ? 's' : ''})
-                  </Text>
-                  <Ionicons name="chevron-forward" size={16} color={Colors.secondaryText} />
-                </TouchableOpacity>
-              </>
-            )}
-          </>
-        )}
-      </View>
-
-      {/* Placeholder for other settings */}
-      <View style={styles.section}>
-        <Text style={styles.sectionTitle}>Preferences</Text>
-        <Text style={styles.placeholderText}>Additional preferences and configuration</Text>
-      </View>
-
-      {/* EOD Questionnaire Modal */}
-      <Modal visible={showEOD} animationType="slide" presentationStyle="fullScreen">
-        <EODQuestionnaire
-          unloggedTags={unloggedTags}
-          onDismiss={dismissEOD}
-          onRefresh={refreshUnlogged}
-        />
-      </Modal>
+                ) : (
+                  <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+        </>
+      )}
     </ScrollView>
   );
 }
 
-function formatTime(hour: number, minute: number): string {
-  const h = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
-  const ampm = hour >= 12 ? 'PM' : 'AM';
-  return `${h}:${String(minute).padStart(2, '0')} ${ampm}`;
-}
-
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.primaryBackground,
-  },
-  content: {
-    padding: 16,
-    paddingTop: 60,
-  },
+  container: { flex: 1, backgroundColor: Colors.primaryBackground },
+  content: { padding: 16, paddingTop: 60, paddingBottom: 40 },
   title: {
     color: Colors.text,
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 24,
   },
-  section: {
-    marginBottom: 28,
-  },
-  sectionTitle: {
-    color: Colors.text,
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 12,
-  },
-  infoBox: {
-    flexDirection: 'row',
-    backgroundColor: Colors.inputBackground,
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
-    marginBottom: 12,
-    alignItems: 'flex-start',
-  },
-  infoText: {
-    color: Colors.secondaryText,
-    fontSize: 13,
-    lineHeight: 18,
-    flex: 1,
-  },
-  loader: {
-    paddingVertical: 12,
-  },
-  keyStatusRow: {
+  loader: { paddingVertical: 40 },
+  profileCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.cardBackground,
     borderRadius: 12,
-    padding: 14,
-    gap: 8,
+    padding: 16,
+    marginBottom: 24,
+    gap: 12,
   },
-  keyStatusText: {
-    color: Colors.text,
-    fontSize: 15,
-    flex: 1,
-  },
-  removeText: {
-    color: Colors.danger,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  keyInputContainer: {
-    gap: 10,
-  },
-  keyInput: {
-    backgroundColor: Colors.inputBackground,
-    color: Colors.text,
-    borderRadius: 12,
-    padding: 14,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: Colors.divider,
-  },
-  keyButtonRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  cancelButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: Colors.divider,
-  },
-  cancelButtonText: {
-    color: Colors.secondaryText,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  saveButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 12,
+  profileAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: Colors.accent,
-  },
-  saveButtonDisabled: {
-    opacity: 0.5,
-  },
-  saveButtonText: {
-    color: Colors.primaryBackground,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  addKeyButton: {
-    flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
-    padding: 14,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: Colors.divider,
-    borderStyle: 'dashed',
+    justifyContent: 'center',
   },
-  addKeyText: {
-    color: Colors.accent,
-    fontSize: 15,
-    fontWeight: '600',
+  profileInitial: {
+    color: Colors.primaryBackground,
+    fontSize: 20,
+    fontWeight: 'bold',
   },
-  placeholderText: {
-    color: Colors.secondaryText,
-    fontSize: 14,
-  },
+  profileInfo: { flex: 1 },
+  profileName: { color: Colors.text, fontSize: 17, fontWeight: '600' },
+  profileTier: { color: Colors.secondaryText, fontSize: 13, marginTop: 2 },
+  section: { gap: 6 },
   settingRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
+    borderRadius: 10,
     padding: 14,
-    marginBottom: 8,
+    gap: 12,
   },
-  settingInfo: {
-    flex: 1,
-    marginRight: 12,
+  settingInfo: { flex: 1 },
+  settingLabel: { color: Colors.text, fontSize: 15, fontWeight: '500' },
+  settingSubtitle: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
+  badge: {
+    backgroundColor: Colors.accent,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
   },
-  settingLabel: {
-    color: Colors.text,
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  settingDesc: {
-    color: Colors.secondaryText,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  eodPreviewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 4,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: Colors.divider,
-    borderStyle: 'dashed',
-  },
-  eodPreviewText: {
-    color: Colors.accent,
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-  },
+  badgeText: { color: Colors.primaryBackground, fontSize: 11, fontWeight: '700' },
 });
