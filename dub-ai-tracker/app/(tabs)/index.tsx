@@ -10,6 +10,7 @@ import { CalorieSummary } from '../../src/components/dashboard/CalorieSummary';
 import { StreakCounter } from '../../src/components/dashboard/StreakCounter';
 import { DashboardCard } from '../../src/components/dashboard/DashboardCard';
 import { ALL_DEFAULT_TAGS } from '../../src/constants/tags';
+import { BodyCard } from '../../src/components/dashboard/BodyCard';
 
 export default function DashboardScreen() {
   const {
@@ -74,6 +75,9 @@ export default function DashboardScreen() {
 
       {/* Streak Counter */}
       <StreakCounter streak={streak} />
+
+      {/* Body Card */}
+      <BodyCard />
 
       {/* Tag Cards */}
       {orderedTags.map((tagId) => {

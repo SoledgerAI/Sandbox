@@ -291,6 +291,14 @@ export default function LogScreen() {
           <Ionicons name="wine-outline" size={20} color={Colors.primaryBackground} />
           <Text style={styles.addFoodText}>Substances</Text>
         </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.quickLogBtn}
+          onPress={() => router.push('/log/body')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="scale-outline" size={20} color={Colors.primaryBackground} />
+          <Text style={styles.addFoodText}>Body</Text>
+        </TouchableOpacity>
       </View>
 
       {/* Daily totals */}
