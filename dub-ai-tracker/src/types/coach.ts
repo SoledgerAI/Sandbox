@@ -1,0 +1,98 @@
+// AI Coach types for DUB_AI Tracker
+// Phase 2: Type System and Storage Layer
+// Per Section 12: AI Coach
+
+import type { EngagementTier, UserProfile } from './profile';
+
+export type MessageRole = 'user' | 'assistant' | 'system';
+
+export interface ChatMessage {
+  id: string;
+  role: MessageRole;
+  content: string;
+  timestamp: string; // ISO datetime
+}
+
+export interface SuggestedPrompt {
+  text: string;
+  category: 'general' | 'nutrition' | 'fitness' | 'sleep' | 'patterns' | 'recovery';
+}
+
+export interface CoachContext {
+  profile: UserProfile;
+  tier: EngagementTier;
+  today_data: TodayDataSummary;
+  rolling_7d: RollingStats;
+  bmr: number | null;
+  tdee: number | null;
+  recovery_score: number | null;
+  active_correlations: PatternInsight[];
+  active_injuries: InjurySummary[];
+  latest_bloodwork: BloodworkSummary | null;
+  cycle_phase: string | null;
+  sobriety_goals: SobrietyGoalSummary[];
+  supplement_flags: string[];
+  therapy_today: boolean;
+}
+
+export interface TodayDataSummary {
+  calories_consumed: number;
+  calories_burned: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  water_oz: number;
+  caffeine_mg: number;
+  steps: number;
+  workouts: string[];
+  mood: number | null;
+  sleep_hours: number | null;
+  sleep_quality: number | null;
+  tags_logged: string[];
+}
+
+export interface RollingStats {
+  avg_calories: number | null;
+  avg_protein_g: number | null;
+  avg_carbs_g: number | null;
+  avg_fat_g: number | null;
+  avg_water_oz: number | null;
+  avg_sleep_hours: number | null;
+  avg_mood: number | null;
+  avg_weight: number | null;
+  workout_count: number;
+}
+
+export interface PatternInsight {
+  id: string;
+  category: string;
+  observation: string;
+  data_range: string;
+  sample_size: number;
+  correlation_note: string;
+  detected_at: string; // ISO datetime
+}
+
+export interface InjurySummary {
+  location: string;
+  severity: number;
+  type: 'acute' | 'chronic' | 'recurring';
+  aggravators: string[];
+}
+
+export interface BloodworkSummary {
+  date: string;
+  flagged_markers: Array<{
+    name: string;
+    value: number;
+    unit: string;
+    reference_range: string;
+    status: 'low' | 'high';
+  }>;
+}
+
+export interface SobrietyGoalSummary {
+  substance: string;
+  goal_type: 'reduce' | 'quit' | 'monitor';
+  current_streak_days: number;
+}
