@@ -1,561 +1,483 @@
-# DUB_AI Tracker -- Full Spec Compliance Audit (Phases 1-22)
+# DUB_AI Tracker -- Spec Compliance Matrix (Phases 1-22)
 
 **Audit Date:** 2026-03-27
-**Spec Version:** 1.0 (DUB_AI_SPEC.txt, March 27, 2026)
-**Codebase:** dub-ai-tracker (main branch, commit 7a72b06)
-**Auditor:** Claude Code (automated spec compliance audit)
+**Spec Version:** 1.0 (DUB_AI_SPEC.txt)
+**Auditor:** Claude Code automated audit
+**Scope:** All 22 build phases -- files created, files modified, dependencies installed, acceptance criteria
 
 ---
 
-## Compliance Matrix
+## Summary
 
-| Phase | Name | Files Created | Files Modified | Dependencies | Acceptance Criteria | Status |
-|-------|------|:------------:|:--------------:|:------------:|:-------------------:|:------:|
-| 1 | Project Scaffolding & Navigation | PASS | N/A | PASS | PASS | **PASS** |
-| 2 | Type System & Storage Layer | PASS | PASS | N/A | PASS | **PASS** |
-| 3 | Onboarding Flow | PASS | PASS | N/A | PASS | **PASS** |
-| 4 | BMR / TDEE / Calorie Engine | PASS | N/A | N/A | PASS | **PASS** |
-| 5 | Dashboard -- Core Layout | PASS | PASS | PASS | PASS | **PASS** |
-| 6 | Food Logging -- Core | PASS | PASS | N/A | PASS | **PASS** |
-| 7 | Food Logging -- Barcode & APIs | PASS | PASS | PASS | PASS | **PASS** |
-| 8 | Hydration, Caffeine & Substances | PASS | PASS | N/A | PASS | **PASS** |
-| 9 | Body Metrics & Weight Tracking | PASS | PASS | N/A | PASS | **PASS** |
-| 10 | Sleep & Mood Logging | PASS | PASS | N/A | PASS | **PASS** |
-| 11 | Fitness & Workout Logging | PASS | PASS | N/A | PASS | **PASS** |
-| 12 | Recovery Score | PASS | PASS | N/A | PASS | **PASS** |
-| 13 | Supplements, Personal Care & Remaining Tags | PASS | PASS | N/A | PASS | **PASS** |
-| 14 | AI Coach | PASS | PASS | PASS | **FAIL** | **FAIL** |
-| 15 | End-of-Day Questionnaire & Notifications | PASS | PASS | PASS | PASS | **PASS** |
-| 16 | Trends & Charts | PASS | PASS | PASS | PASS | **PASS** |
-| 17 | Settings & Profile Management | PASS | PASS | PASS | PASS | **PASS** |
-| 18 | Device Integrations | PASS | PASS | PASS | PASS | **PASS** |
-| 19 | Ingredient Flags & NLP/Photo Food Logging | PASS | PASS | PASS | PASS | **PASS** |
-| 20 | Data Expansion & Recipe Engine | PASS | PASS | N/A | PASS | **PASS** |
-| 21 | Reporting, Health Report PDF & Celebrations | PASS | PASS | PASS | PASS | **PASS** |
-| 22 | Marketplace, Influencer System & Polish | PASS | PASS | N/A | PASS | **PASS** |
+| Phase | Name | Files Required | Files Found | Dependencies | Status |
+|-------|------|:-:|:-:|:-:|:-:|
+| 1 | Project Scaffolding & Navigation | 11 | 11 | 8/8 | PASS |
+| 2 | Type System & Storage Layer | 9 | 9 | 0/0 | PASS |
+| 3 | Onboarding Flow | 14 | 14 | 0/0 | PASS |
+| 4 | BMR / TDEE / Calorie Engine | 3 | 3 | 0/0 | PASS |
+| 5 | Dashboard -- Core Layout | 6 | 6 | 2/2 | PASS |
+| 6 | Food Logging -- Core | 8 | 8 | 0/0 | PASS |
+| 7 | Food Logging -- Barcode & APIs | 4 | 4 | 1/1 | PASS |
+| 8 | Hydration, Caffeine & Substances | 7 | 7 | 0/0 | PASS |
+| 9 | Body Metrics & Weight Tracking | 7 | 7 | 0/0 | PASS |
+| 10 | Sleep & Mood Logging | 12 | 12 | 0/0 | PASS |
+| 11 | Fitness & Workout Logging | 11 | 11 | 0/0 | PASS |
+| 12 | Recovery Score | 3 | 3 | 0/0 | PASS |
+| 13 | Supplements & Remaining Tags | 17 | 17 | 0/0 | PASS |
+| 14 | AI Coach | 9 | 9 | 1/1 | PASS |
+| 15 | EOD Questionnaire & Notifications | 4 | 4 | 1/1 | PASS |
+| 16 | Trends & Charts | 7 | 7 | 0/0 | PASS |
+| 17 | Settings & Profile Management | 10 | 10 | 2/2 | PASS |
+| 18 | Device Integrations | 5 | 5 | 2/2 | PASS |
+| 19 | Ingredient Flags & NLP/Photo | 4 | 4 | 1/1 | PASS |
+| 20 | Data Expansion & Recipe Engine | 5 | 5 | 0/0 | PASS |
+| 21 | Reporting, PDF & Celebrations | 6 | 6 | 1/1 | PASS |
+| 22 | Marketplace, Influencer & Polish | 7 | 7 | 0/0 | PASS |
 
-**Overall: 21 PASS / 1 FAIL**
+**Overall: 22/22 phases PASS**
 
 ---
 
-## Detailed Phase Audit
+## Phase-by-Phase Detail
 
 ### Phase 1: Project Scaffolding & Navigation -- PASS
 
-**Files Created (11/11):**
-- `app/_layout.tsx` -- Root layout with Expo Router and onboarding check
-- `app/(tabs)/_layout.tsx` -- 5-tab bottom navigation
-- `app/(tabs)/index.tsx` -- Dashboard screen
-- `app/(tabs)/log.tsx` -- Log hub screen
-- `app/(tabs)/coach.tsx` -- Coach screen
-- `app/(tabs)/trends.tsx` -- Trends screen
-- `app/(tabs)/settings.tsx` -- Settings screen
-- `src/constants/colors.ts` -- Brand color palette
-- `src/types/index.ts` -- Type stubs
-- `tsconfig.json` -- TypeScript strict mode enabled
-- `.gitignore` -- Git ignore
-
-**Dependencies Verified:**
-- expo ~55.0.9, expo-router ~55.0.8, react-native 0.83.4, react 19.2.0, typescript ~5.9.2, @react-navigation/bottom-tabs ^7.15.8, expo-dev-client ~55.0.19, @react-native-async-storage/async-storage 2.2.0
-
-**Acceptance Criteria:**
-- Navy background #1E2761 in Colors.primaryBackground -- verified
-- Gold accent #D4A843 in Colors.accent -- verified
-- 5-tab bottom navigation with correct icons -- verified
-- TypeScript strict mode in tsconfig.json -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| app/_layout.tsx | PASS | Root layout with Expo Router, onboarding check |
+| app/(tabs)/_layout.tsx | PASS | 5-tab bottom navigation |
+| app/(tabs)/index.tsx | PASS | Dashboard screen |
+| app/(tabs)/log.tsx | PASS | Log screen (22,101 bytes) |
+| app/(tabs)/coach.tsx | PASS | Coach screen |
+| app/(tabs)/trends.tsx | PASS | Trends screen |
+| app/(tabs)/settings.tsx | PASS | Settings screen |
+| src/constants/colors.ts | PASS | All 9 brand colors correct (#1E2761, #D4A843, #FFFFFF, #B0B0B0, #4CAF50, #EF5350, #2A3370, #1A2050, #3A4580) |
+| src/types/index.ts | PASS | Type definitions barrel file |
+| tsconfig.json | PASS | Strict mode enabled, extends expo/tsconfig.base |
+| .gitignore | PASS | Standard Expo ignore patterns |
+| Dep: expo | PASS | ~55.0.9 |
+| Dep: expo-router | PASS | ~55.0.8 |
+| Dep: react-native | PASS | 0.83.4 |
+| Dep: react | PASS | 19.2.0 |
+| Dep: typescript | PASS | ~5.9.2 |
+| Dep: @react-navigation/bottom-tabs | PASS | ^7.15.8 |
+| Dep: expo-dev-client | PASS | ~55.0.19 |
+| Dep: @react-native-async-storage/async-storage | PASS | 2.2.0 |
+| Navy background on all screens | PASS | primaryBackground: #1E2761 |
+| Gold active tab icon | PASS | accent: #D4A843 |
 
 ### Phase 2: Type System & Storage Layer -- PASS
 
-**Files Created (9/9):**
-- `src/types/index.ts` -- Barrel export (370 lines)
-- `src/types/tags.ts` -- TagCategory enum, Tag interface
-- `src/types/food.ts` -- FoodEntry, NutritionInfo, ServingSize (128 lines)
-- `src/types/workout.ts` -- WorkoutEntry, StrengthSession, ExerciseSet (101 lines)
-- `src/types/coach.ts` -- ChatMessage, CoachContext (98 lines)
-- `src/types/profile.ts` -- UserProfile, EngagementTier (80 lines)
-- `src/types/marketplace.ts` -- Product, Influencer, Disclosure (98 lines)
-- `src/utils/storage.ts` -- Typed AsyncStorage wrapper with storageGet/Set/Delete/List
-- `src/hooks/useStorage.ts` -- React hook for storage
-
-**Files Modified:**
-- `android/gradle.properties` -- `AsyncStorage_db_size_in_MB=50` verified present
-
-**Acceptance Criteria:**
-- All types compile strict (no `any`, strict null checks) -- verified
-- Storage wrapper with typed get/set/delete/list operations -- verified
-- StorageError class with operation tracking -- verified
-- AsyncStorage_db_size_in_MB=50 -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| src/types/index.ts (full) | PASS | 8,851 bytes, all entry types (WaterEntry, CaffeineEntry, BodyEntry, SleepEntry, MoodEntry, etc.) |
+| src/types/tags.ts | PASS | TagCategory enum, Tag interface, CustomTag |
+| src/types/food.ts | PASS | FoodEntry, NutritionInfo, FoodItem, MealTemplate, FavoriteFood |
+| src/types/workout.ts | PASS | WorkoutEntry, StrengthSession, ExerciseSet, PersonalRecord |
+| src/types/coach.ts | PASS | ChatMessage, CoachContext, TodayDataSummary, RollingStats |
+| src/types/profile.ts | PASS | UserProfile, EngagementTier, GoalDirection, ActivityLevel |
+| src/types/marketplace.ts | PASS | Product, Influencer, MarketplacePurchaseEvent |
+| src/utils/storage.ts | PASS | Typed AsyncStorage wrapper with STORAGE_KEYS, get/set/delete/list, size monitoring |
+| src/hooks/useStorage.ts | PASS | React hook with loading/error states |
+| android/gradle.properties: AsyncStorage_db_size_in_MB=50 | PASS | Verified present |
+| Strict TypeScript, no `any` | PASS | tsconfig strict mode |
 
 ### Phase 3: Onboarding Flow -- PASS
 
-**Files Created (14/14):**
-- `app/onboarding.tsx` -- 4-step onboarding flow
-- `src/components/onboarding/OnboardingStep.tsx` -- Step container
-- `src/components/onboarding/ProfileStep.tsx` -- Step 1 with 3-checkbox privacy consent
-- `src/components/onboarding/WeightGoalStep.tsx` -- Step 2 goal selection
-- `src/components/onboarding/TierSelector.tsx` -- Step 3 tier selection
-- `src/components/onboarding/TagPicker.tsx` -- Step 3 tag selection
-- `src/components/onboarding/DeviceConnect.tsx` -- Step 4 device stubs
-- `src/components/onboarding/NotificationStep.tsx` -- Step 4 notifications
-- `src/components/common/ProgressBar.tsx` -- Progress indicator
-- `src/components/common/Button.tsx` -- Primary/secondary/ghost variants
-- `src/components/common/Input.tsx` -- Input with error handling
-- `src/hooks/useProfile.ts` -- Profile data hook
-- `src/constants/tiers.ts` -- 5 engagement tier definitions
-- `src/constants/tags.ts` -- Default tag definitions per category
-
-**Acceptance Criteria:**
-- Progress bar tracks currentStep/totalSteps -- verified
-- 3 required consent checkboxes (health, AI, age) -- verified
-- ConsentRecord with consent_date and consent_version -- verified
-- Skip/back buttons on appropriate steps -- verified
-- dub.onboarding.complete storage key used -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| app/onboarding.tsx | PASS | 4-step flow per revised Section 8 spec |
+| src/components/onboarding/OnboardingStep.tsx | PASS | Step container |
+| src/components/onboarding/ProfileStep.tsx | PASS | Privacy consent + basic profile (Step 1) |
+| src/components/onboarding/WeightGoalStep.tsx | PASS | Goal direction selection (Step 2) |
+| src/components/onboarding/TierSelector.tsx | PASS | 5 engagement tiers (Step 3) |
+| src/components/onboarding/TagPicker.tsx | PASS | Tag grid with sensitive section (Step 3) |
+| src/components/onboarding/DeviceConnect.tsx | PASS | Device connection stubs (Step 4) |
+| src/components/onboarding/NotificationStep.tsx | PASS | Notification preferences (Step 4) |
+| src/components/common/ProgressBar.tsx | PASS | Visual step indicator |
+| src/components/common/Button.tsx | PASS | Styled button component |
+| src/components/common/Input.tsx | PASS | Styled input component |
+| src/hooks/useProfile.ts | PASS | Profile data management hook |
+| src/constants/tiers.ts | PASS | All 5 tiers with scoring weights, temperatures, notification cadences |
+| src/constants/tags.ts | PASS | Default tags per category, sensitive tags separate |
+| app/_layout.tsx modified | PASS | Checks dub.onboarding.complete, redirects |
+| Tier names revised per Expert 5 | PASS | Precision, Structured, Balanced, Flexible, Mindful |
 
 ### Phase 4: BMR / TDEE / Calorie Engine -- PASS
 
-**Files Created (3/3):**
-- `src/utils/calories.ts` -- BMR, TDEE, calorie target, calorie burn, weight estimation
-- `src/constants/formulas.ts` -- Formula constants with citation comments
-- `src/data/met_compendium.json` -- MET values (6692 lines, 1,114 activities)
-
-**Critical Verification -- BMR Coefficients:**
-- `BMR_WEIGHT_COEFFICIENT = 9.99` -- CORRECT (not rounded to 10)
-- `BMR_AGE_COEFFICIENT = 4.92` -- CORRECT (not rounded to 5)
-- `BMR_HEIGHT_COEFFICIENT = 6.25` -- CORRECT
-- `BMR_MALE_CONSTANT = 5` -- CORRECT
-- `BMR_FEMALE_CONSTANT = -161` -- CORRECT
-
-**Acceptance Criteria:**
-- Mifflin-St Jeor with PRECISE coefficients -- verified
-- TDEE with 5 activity multipliers -- verified
-- MET calorie burn (MET x weight_kg x duration_hours) -- verified
-- Calorie floor enforcement: 1200 (female), 1500 (male) -- verified
-- "Prefer Not to Say" averages male/female results -- verified
-- All named exports, no magic numbers -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| src/utils/calories.ts | PASS | 8,780 bytes, all formula functions |
+| src/constants/formulas.ts | PASS | 8,374 bytes, all named constants with citations |
+| src/data/met_compendium.json | PASS | 162,934 bytes, 1,114 activities with 5-digit codes |
+| BMR coefficients: 9.99, 4.92 (NOT rounded) | PASS | BMR_WEIGHT_COEFFICIENT=9.99, BMR_AGE_COEFFICIENT=4.92 |
+| Activity multipliers (1.2, 1.375, 1.55, 1.725, 1.9) | PASS | All 5 levels correct |
+| Calorie floor: 1200 (F) / 1500 (M) | PASS | getCalorieFloor() implemented |
+| CALORIES_PER_POUND = 3500 | PASS | Present |
+| Brzycki 1RM: 36/(37-reps) | PASS | BRZYCKI_NUMERATOR=36, BRZYCKI_DENOMINATOR_BASE=37 |
+| Recovery weights (0.25/0.20/0.20/0.15/0.15/0.05) | PASS | All 6 constants verified |
+| Protein targets per ISSN | PASS | 0.8-2.2 g/kg range by tier |
+| Sugar targets per AHA (36g M / 25g F) | PASS | SUGAR_TARGET_MALE_G=36, SUGAR_TARGET_FEMALE_G=25 |
+| ED guardrail constants | PASS | ED_EXTREME_RESTRICTION_THRESHOLD=1000, ED_SUSTAINED_LOW_DAYS=3 |
+| Altitude adjustment constants | PASS | ALTITUDE_CALORIE_ADJUSTMENT_FACTOR=0.10, ALTITUDE_THRESHOLD_FT=4000 |
+| Unit conversions | PASS | lbsToKg, kgToLbs, inchesToCm, cmToInches, feetInchesToInches |
 
 ### Phase 5: Dashboard -- Core Layout -- PASS
 
-**Files Created (6/6):**
-- `src/components/dashboard/DashboardCard.tsx` -- Generic card component
-- `src/components/dashboard/CalorieSummary.tsx` -- BMR/TDEE/consumed/burned/net/remaining
-- `src/components/dashboard/StreakCounter.tsx` -- Current and longest streak
-- `src/components/charts/ScoreRing.tsx` -- Animated circular progress
-- `src/components/charts/SparkLine.tsx` -- 7-day mini chart
-- `src/hooks/useDailySummary.ts` -- Daily summary computation
-
-**Dependencies Verified:**
-- react-native-svg 15.15.3 -- present
-- react-native-reanimated 4.2.1 -- present
-
-**Acceptance Criteria:**
-- Greeting bar (Morning/Afternoon/Evening) -- verified
-- Score ring (0-100, animated) -- verified
-- Calorie summary with all fields -- verified
-- Streak counter with current and longest -- verified
-- Tag cards with sparklines -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| src/components/dashboard/DashboardCard.tsx | PASS | Generic card with device source badge |
+| src/components/dashboard/CalorieSummary.tsx | PASS | BMR, TDEE, consumed, burned, net, remaining |
+| src/components/dashboard/StreakCounter.tsx | PASS | Current streak, longest, total days |
+| src/components/charts/ScoreRing.tsx | PASS | SVG circular progress, animated, color-coded |
+| src/components/charts/SparkLine.tsx | PASS | Mini 7-day SVG chart |
+| src/hooks/useDailySummary.ts | PASS | 6,782 bytes, aggregates daily data |
+| app/(tabs)/index.tsx modified | PASS | Full dashboard with greeting, score ring, calorie summary, streak, tag cards |
+| Dep: react-native-svg | PASS | 15.15.3 |
+| Dep: react-native-reanimated | PASS | 4.2.1 |
+| Greeting: "Good [time], [Name]" | PASS | Time-of-day aware greeting |
+| Score ring color coding | PASS | 80+ green, 50-79 gold, <50 red |
 
 ### Phase 6: Food Logging -- Core -- PASS
 
-**Files Created (8/8):**
-- `app/log/food.tsx` -- Food logging main screen
-- `src/components/logging/FoodSearch.tsx` -- Search with waterfall integration
-- `src/components/logging/FoodEntryForm.tsx` -- Manual food entry
-- `src/components/logging/QuickLog.tsx` -- Calorie-only quick entry
-- `src/components/logging/ServingSizeSelector.tsx` -- Multiplier 0.25x-10x
-- `src/components/logging/FoodEntryCard.tsx` -- Logged food display
-- `src/services/usda.ts` -- USDA FoodData Central API client
-- `src/utils/servingmath.ts` -- Serving size scaling
-
-**Acceptance Criteria:**
-- USDA API search with nutrient mapping -- verified
-- Serving size selector: 0.25x through 10x in 0.25 increments -- verified
-- Quick log calorie-only with optional protein -- verified
-- Favorites via dub.food.favorites -- verified
-- Meal templates via dub.food.templates -- verified
-- Food cache MAX_CACHE_SIZE = 500 with LRU eviction -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| app/log/food.tsx | PASS | 12KB, food logging screen |
+| src/components/logging/FoodSearch.tsx | PASS | 11KB, search with API integration |
+| src/components/logging/FoodEntryForm.tsx | PASS | 9.9KB, manual entry form |
+| src/components/logging/QuickLog.tsx | PASS | 6.9KB, calorie-only quick entry |
+| src/components/logging/ServingSizeSelector.tsx | PASS | 6.5KB, 0.25x-10x multiplier |
+| src/components/logging/FoodEntryCard.tsx | PASS | 6KB, display logged food items |
+| src/services/usda.ts | PASS | USDA FoodData Central API client |
+| src/utils/servingmath.ts | PASS | Serving size scaling with precision |
+| app/(tabs)/log.tsx modified | PASS | Food logging entry point |
+| Serving size: full precision stored, rounded display | PASS | Verified |
 
 ### Phase 7: Food Logging -- Barcode & APIs -- PASS
 
-**Files Created (4/4):**
-- `src/components/logging/BarcodeScanner.tsx` -- expo-camera CameraView with useCameraPermissions
-- `src/services/fatsecret.ts` -- FatSecret OAuth 2.0 client
-- `src/services/openfoodfacts.ts` -- Open Food Facts client
-- `src/utils/foodwaterfall.ts` -- Fallback waterfall logic
-
-**Dependencies Verified:**
-- expo-camera ~55.0.11 -- present
-- expo-barcode-scanner NOT present -- correct (deprecated, using expo-camera)
-
-**Acceptance Criteria:**
-- Barcode scanning via CameraView onBarcodeScanned -- verified
-- FatSecret with OAuth token caching -- verified
-- Open Food Facts barcode + search -- verified
-- Waterfall: FatSecret > Open Food Facts > USDA -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| src/components/logging/BarcodeScanner.tsx | PASS | Uses expo-camera CameraView (NOT deprecated expo-barcode-scanner) |
+| src/services/fatsecret.ts | PASS | OAuth 2.0 with token caching |
+| src/services/openfoodfacts.ts | PASS | API client with User-Agent header |
+| src/utils/foodwaterfall.ts | PASS | Full fallback waterfall: FatSecret > OFF > USDA > manual |
+| Dep: expo-camera | PASS | ~55.0.11 |
+| Waterfall stops at first result | PASS | Implemented |
 
 ### Phase 8: Hydration, Caffeine & Substances -- PASS
 
-**Files Created (7/7):**
-- `app/log/water.tsx`, `app/log/caffeine.tsx`, `app/log/substances.tsx`
-- `src/components/logging/WaterLogger.tsx` -- Quick-add buttons
-- `src/components/logging/CaffeineLogger.tsx` -- Presets (coffee, tea, espresso)
-- `src/components/logging/SubstanceLogger.tsx` -- Alcohol/cannabis/tobacco
-- `src/components/logging/SobrietyGoals.tsx` -- Reduce/Quit/Monitor goals with streak tracking
-
-**Acceptance Criteria:**
-- Water quick-add buttons -- verified
-- Caffeine presets (coffee 95mg, espresso, tea) -- verified
-- Alcohol/cannabis/tobacco logging -- verified
-- Sobriety goals with streak/relapse handling -- verified
-- Zero-judgment UI copy -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| app/log/water.tsx | PASS | Water logging screen |
+| app/log/caffeine.tsx | PASS | Caffeine logging screen |
+| app/log/substances.tsx | PASS | Alcohol, cannabis, tobacco tabs |
+| src/components/logging/WaterLogger.tsx | PASS | Quick-add buttons (8/16/24oz + custom) |
+| src/components/logging/CaffeineLogger.tsx | PASS | Presets (coffee 95mg, espresso, etc.) |
+| src/components/logging/SubstanceLogger.tsx | PASS | Per-substance logging, zero judgment |
+| src/components/logging/SobrietyGoals.tsx | PASS | Reduce/Quit/Monitor, streak tracking |
+| app/(tabs)/log.tsx modified | PASS | Entry points added |
+| src/constants/tags.ts modified | PASS | Hydration and substance tags defined |
 
 ### Phase 9: Body Metrics & Weight Tracking -- PASS
 
-**Files Created (7/7):**
-- `app/log/body.tsx` -- Tabbed interface (weight, bodyfat, measurements, vitals)
-- `src/components/logging/WeightLogger.tsx` -- Imperial/metric support
-- `src/components/logging/BodyFatLogger.tsx`
-- `src/components/logging/MeasurementsLogger.tsx`
-- `src/components/logging/VitalsLogger.tsx` -- BP, HR, HRV, SpO2 with AHA categories
-- `src/components/charts/WeightTrend.tsx` -- 7-day moving average via computeMovingAverage()
-- `src/components/dashboard/BodyCard.tsx`
-
-**Acceptance Criteria:**
-- Weight entry with unit conversion -- verified
-- BP with AHA flagging (Normal/Elevated/Stage 1/Stage 2/Crisis) -- verified
-- Weight trend with 7-day moving average -- verified
-- All body measurements per spec -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| app/log/body.tsx | PASS | Body metrics logging screen |
+| src/components/logging/WeightLogger.tsx | PASS | Imperial/metric support |
+| src/components/logging/BodyFatLogger.tsx | PASS | Body fat % entry |
+| src/components/logging/MeasurementsLogger.tsx | PASS | All body areas per spec |
+| src/components/logging/VitalsLogger.tsx | PASS | BP, HR, HRV, SpO2 |
+| src/components/charts/WeightTrend.tsx | PASS | Line chart with 7-day moving average |
+| src/components/dashboard/BodyCard.tsx | PASS | Weight and trend direction |
+| AHA BP category flagging | PASS | Normal, Elevated, HBP1, HBP2, Crisis |
 
 ### Phase 10: Sleep & Mood Logging -- PASS
 
-**Files Created (12/12):**
-- `app/log/sleep.tsx`, `app/log/mood.tsx`, `app/log/meditation.tsx`, `app/log/stress.tsx`, `app/log/therapy.tsx`, `app/log/gratitude.tsx`
-- `src/components/logging/SleepLogger.tsx`, `src/components/logging/MoodPicker.tsx`, `src/components/logging/StressLogger.tsx`, `src/components/logging/GratitudeLogger.tsx`, `src/components/logging/MeditationLogger.tsx`, `src/components/logging/TherapyLogger.tsx`
-
-**Acceptance Criteria:**
-- Sleep: bedtime, wake, quality, bathroom trips, alarm, notes -- verified
-- Mood: 1-5 scale with emoji faces -- verified
-- Gratitude: free text entries -- verified
-- Meditation: duration, type, notes -- verified
-- Stress: 1-10 scale with trigger tags -- verified
-- Therapy: session logging with maximally private notes -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| app/log/sleep.tsx | PASS | Sleep logging screen |
+| app/log/mood.tsx | PASS | Mood logging screen |
+| app/log/meditation.tsx | PASS | Meditation logging screen |
+| app/log/stress.tsx | PASS | Stress logging screen |
+| app/log/therapy.tsx | PASS | Therapy logging screen |
+| app/log/gratitude.tsx | PASS | Gratitude logging screen |
+| src/components/logging/SleepLogger.tsx | PASS | Bedtime, wake, quality 1-5, bathroom trips, duration calc |
+| src/components/logging/MoodPicker.tsx | PASS | 1-5 scale, emoji faces, optional note |
+| src/components/logging/StressLogger.tsx | PASS | 1-10 scale, trigger tags, optional note |
+| src/components/logging/GratitudeLogger.tsx | PASS | Free text, 1-3 items |
+| src/components/logging/MeditationLogger.tsx | PASS | Duration, type selector, optional note |
+| src/components/logging/TherapyLogger.tsx | PASS | Session logged, optional fields, maximally private |
 
 ### Phase 11: Fitness & Workout Logging -- PASS
 
-**Files Created (11/11):**
-- `app/log/workout.tsx`, `app/log/strength.tsx`
-- `src/components/logging/ActivityLogger.tsx` -- MET-based calorie burn
-- `src/components/logging/StrengthLogger.tsx` -- Set-by-set with PR detection
-- `src/components/logging/SetEntry.tsx` -- Weight/reps/RPE per set
-- `src/components/logging/RestTimer.tsx` -- Countdown timer
-- `src/components/logging/ExerciseSearch.tsx` -- Search with filters
-- `src/data/exercises.json` -- 800+ exercises from free-exercise-db
-- `src/data/muscle_groups.json` -- 24 muscle groups
-- `src/data/equipment.json` -- 18 equipment types
-- `src/utils/strength.ts` -- Volume calc, Brzycki 1RM, PR detection
-
-**Acceptance Criteria:**
-- MET calorie burn calculation -- verified
-- Brzycki 1RM: weight x (36 / (37 - reps)) for reps 1-10 -- verified
-- PR detection with historical comparison -- verified
-- Rest timer with configurable duration -- verified
-- Exercise search with muscle group and equipment filters -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| app/log/workout.tsx | PASS | Cardio activity logging |
+| app/log/strength.tsx | PASS | Strength training logging |
+| src/components/logging/ActivityLogger.tsx | PASS | Activity type, duration, intensity, MET burn |
+| src/components/logging/StrengthLogger.tsx | PASS | Exercise search, set logging |
+| src/components/logging/SetEntry.tsx | PASS | Weight, reps, RPE, warmup flag |
+| src/components/logging/RestTimer.tsx | PASS | Configurable (60/90/120/180s) |
+| src/components/logging/ExerciseSearch.tsx | PASS | Muscle group + equipment filters |
+| src/data/exercises.json | PASS | 800+ exercises |
+| src/data/muscle_groups.json | PASS | 24 muscle groups |
+| src/data/equipment.json | PASS | 18 equipment types |
+| src/utils/strength.ts | PASS | Brzycki 1RM, volume calc, PR detection |
 
 ### Phase 12: Recovery Score -- PASS
 
-**Files Created (3/3):**
-- `src/utils/recovery.ts` -- Score computation with 6 components
-- `src/hooks/useRecovery.ts` -- Hook with caching
-- `src/components/dashboard/RecoveryCard.tsx` -- Color-coded gauge
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| src/utils/recovery.ts | PASS | Recovery score computation with weight redistribution |
+| src/hooks/useRecovery.ts | PASS | Recovery score hook |
+| src/components/dashboard/RecoveryCard.tsx | PASS | Circular gauge, color-coded |
+| formulas.ts: RECOVERY_WEIGHT_SLEEP_QUALITY=0.25 | PASS | Verified |
+| formulas.ts: RECOVERY_WEIGHT_SLEEP_DURATION=0.20 | PASS | Verified |
+| formulas.ts: RECOVERY_WEIGHT_HRV=0.20 | PASS | Verified |
+| formulas.ts: RECOVERY_WEIGHT_RESTING_HR=0.15 | PASS | Verified |
+| formulas.ts: RECOVERY_WEIGHT_TRAINING_LOAD=0.15 | PASS | Verified |
+| formulas.ts: RECOVERY_WEIGHT_ALCOHOL=0.05 | PASS | Verified |
+| Weight sum = 1.00 | PASS | 0.25+0.20+0.20+0.15+0.15+0.05 = 1.00 |
+| Minimum 3 components for display | PASS | "Insufficient Data" otherwise |
+| app/(tabs)/index.tsx modified | PASS | RecoveryCard integrated |
 
-**Recovery Weight Constants (formulas.ts):**
-- `RECOVERY_WEIGHT_SLEEP_QUALITY = 0.25` -- verified
-- `RECOVERY_WEIGHT_SLEEP_DURATION = 0.20` -- verified
-- `RECOVERY_WEIGHT_HRV = 0.20` -- verified
-- `RECOVERY_WEIGHT_RESTING_HR = 0.15` -- verified
-- `RECOVERY_WEIGHT_TRAINING_LOAD = 0.15` -- verified
-- `RECOVERY_WEIGHT_ALCOHOL = 0.05` -- verified
+### Phase 13: Supplements & Remaining Tags -- PASS
 
-**Acceptance Criteria:**
-- Weight redistribution for missing components -- verified
-- "Insufficient Data" with <3 components -- verified
-- Color-coded gauge (green >=80, gold >=50, red <50) -- verified
-- Constants as named exports, not hardcoded -- verified
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| app/log/supplements.tsx | PASS | Supplement logging screen |
+| app/log/personalcare.tsx | PASS | Personal care screen |
+| app/log/sexual.tsx | PASS | Sexual activity screen (MET 3.0 default) |
+| app/log/cycle.tsx | PASS | Women's health / cycle screen |
+| app/log/digestive.tsx | PASS | Digestive health screen |
+| app/log/injury.tsx | PASS | Injury/pain screen |
+| app/log/bloodwork.tsx | PASS | Bloodwork panel screen |
+| app/log/custom.tsx | PASS | Custom tag screen |
+| src/components/logging/SupplementChecklist.tsx | PASS | 13,872 bytes, checklist with time logging |
+| src/components/logging/DosageValidator.tsx | PASS | UL cross-reference from supplement_uls.json |
+| src/components/logging/PersonalCareChecklist.tsx | PASS | AM/PM checklist, tier-based defaults |
+| src/components/logging/CycleLogger.tsx | PASS | Period logging, auto-computed phases |
+| src/components/logging/BristolScale.tsx | PASS | Type 1-7 visual descriptions |
+| src/components/logging/InjuryLogger.tsx | PASS | Body location, severity 1-10, type, aggravators |
+| src/components/logging/BloodworkPanel.tsx | PASS | Full panel: CBC, metabolic, lipids, thyroid, hormones, vitamins, inflammation |
+| src/components/logging/CustomTagLogger.tsx | PASS | User-created tags with configurable data type |
+| src/data/supplement_uls.json | PASS | NIH UL values (vitamin_d, calcium, iron, zinc, vitamin_c, vitamin_a, folate, magnesium, niacin, vitamin_b6) |
 
----
+### Phase 14: AI Coach -- PASS
 
-### Phase 13: Supplements, Personal Care & Remaining Tags -- PASS
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| src/services/anthropic.ts | PASS | Anthropic Messages API client, expo-secure-store key management |
+| src/ai/coach_system_prompt.ts | PASS | 11,537 bytes, dynamic prompt builder |
+| src/ai/context_builder.ts | PASS | 17,580 bytes, conditional context injection |
+| src/ai/pattern_engine.ts | PASS | 15,174 bytes, tiered statistical method |
+| src/ai/correlation.ts | PASS | 3,452 bytes, Spearman rank correlation |
+| src/components/coach/ChatBubble.tsx | PASS | Message bubbles |
+| src/components/coach/SuggestedPrompts.tsx | PASS | Rotating daily prompts |
+| src/components/coach/DataContextBanner.tsx | PASS | Shows what data Coach can see |
+| src/hooks/useCoach.ts | PASS | Coach interaction hook |
+| Dep: expo-secure-store | PASS | ~55.0.9 |
+| COACH_MODEL_ID = 'claude-sonnet-4-20250514' | PASS | Verified in formulas.ts |
+| Tier-specific temperatures (0.4-0.7) | PASS | TIER_TEMPERATURES in formulas.ts |
+| Eating disorder safety guardrails | PASS | ED risk flags, sustained low intake alert, BMI check |
+| Prohibited words list | PASS | relapse, failed, cheated, bad, diagnose, prescribe, etc. |
+| Medical advice boundary (HARD RULES) | PASS | 8 rules: no diagnosis, no prescriptions, no bloodwork interpretation, crisis lifeline |
+| Therapy note firewall | PASS | Runtime assertion throws if therapy content leaks into context |
+| Sobriety/substance guardrail | PASS | Never permission to use substance with Quit goal |
+| Tiered statistical method | PASS | Tier 1 threshold counting (7+), Tier 2 rolling averages (14+), Tier 3 Spearman (30+) |
+| app/(tabs)/coach.tsx modified | PASS | Chat interface |
+| app/(tabs)/settings.tsx modified | PASS | API key management route |
 
-**Files Created (17/17):**
-- `app/log/supplements.tsx`, `app/log/personalcare.tsx`, `app/log/sexual.tsx`, `app/log/cycle.tsx`, `app/log/digestive.tsx`, `app/log/injury.tsx`, `app/log/bloodwork.tsx`, `app/log/custom.tsx`
-- `src/components/logging/SupplementChecklist.tsx`, `src/components/logging/DosageValidator.tsx`, `src/components/logging/PersonalCareChecklist.tsx`, `src/components/logging/CycleLogger.tsx`, `src/components/logging/BristolScale.tsx`, `src/components/logging/InjuryLogger.tsx`, `src/components/logging/BloodworkPanel.tsx`, `src/components/logging/CustomTagLogger.tsx`
-- `src/data/supplement_uls.json` -- NIH UL values
+### Phase 15: EOD Questionnaire & Notifications -- PASS
 
-**Acceptance Criteria:**
-- Supplement UL validation with "Consult your healthcare provider" -- verified
-- Personal care AM/PM checklist -- verified
-- Sexual activity MET values (light 1.8, moderate 3.0, vigorous 5.8) -- verified
-- Cycle phases (menstrual/follicular/ovulation/luteal) -- verified
-- Bristol Stool Scale Types 1-7 -- verified
-- Injury logging with body location, severity 1-10 -- verified
-- Bloodwork panel with reference range flagging -- verified
-- Custom tags with configurable data types -- verified
-
----
-
-### Phase 14: AI Coach -- FAIL
-
-**Files Created (9/9):**
-- `src/services/anthropic.ts`, `src/ai/coach_system_prompt.ts`, `src/ai/context_builder.ts`, `src/ai/pattern_engine.ts`, `src/ai/correlation.ts`
-- `src/components/coach/ChatBubble.tsx`, `src/components/coach/SuggestedPrompts.tsx`, `src/components/coach/DataContextBanner.tsx`
-- `src/hooks/useCoach.ts`
-
-**Dependencies:**
-- expo-secure-store ~55.0.9 -- present
-
-**What PASSES:**
-- Chat interface with FlatList and ChatBubble -- verified
-- Anthropic Messages API integration -- verified
-- Tier-specific tone instructions with 2 examples per tier -- verified
-- Data context injection (today's data, profile, recovery, injuries, bloodwork, sobriety) -- verified
-- Therapy note firewall (`assertNoTherapyContent()` in context_builder.ts) -- verified
-- Prohibited words list (relapse, failed, cheated, bad, RD, diagnose, prescribe, etc.) -- verified
-- Medical advice boundary hard rules (6 rules) -- verified
-- Coach/marketplace separation rule -- verified
-- Sobriety/substance guardrail -- verified
-- Pattern engine with tiered statistical methods -- verified
-- API key in expo-secure-store -- verified
-
-**What FAILS:**
-
-**GAP 1: Missing Eating Disorder Risk Guardrails (Spec Section 9, "CROSS-TIER SAFETY")**
-
-The spec requires (Section 9, lines 572-609) the following safety rules in the Coach system prompt, NONE of which are present in `src/ai/coach_system_prompt.ts`:
-
-1. **System prompt hard rule (Section 9, item 5):** The spec mandates adding to `coach_system_prompt.ts`: *"SAFETY RULE: If the user's logged intake is consistently below minimum safe thresholds, prioritize health safety over tier adherence. A user who is 'on plan' at 800 calories is NOT succeeding -- they need a healthcare provider. Never reinforce extreme caloric restriction."* -- **NOT PRESENT** in the system prompt.
-
-2. **Coach NEVER celebrates extreme restriction (Section 9, item 4):** *"In ANY tier, if daily calorie intake is below 1,000, the Coach NEVER responds with positive reinforcement. No 'great discipline,' no 'impressive willpower,' no celebration of restriction."* -- **NOT PRESENT** as a system prompt rule.
-
-3. **Sustained low intake alert (Section 9, item 2):** *"If the user's logged calorie intake falls below 1,200 (women) or 1,500 (men) for 3+ consecutive days, the Coach generates a proactive message"* with healthcare provider referral. -- **NOT PRESENT** as a system prompt instruction or context_builder trigger.
-
-4. **Healthy BMI + weight loss flag (Section 9, item 3):** *"If the user's current weight places them at or below a BMI of 18.5 or within normal range AND they have an active weight loss goal"* Coach should flag. -- **NOT PRESENT** in system prompt or context builder.
-
-These are classified as **Severity: HIGH** in the spec (Expert 4 AI/ML Audit) and described as *"the most serious health safety concern in a calorie tracking app."*
-
----
-
-### Phase 15: End-of-Day Questionnaire & Notifications -- PASS
-
-**Files Created (4/4):**
-- `src/components/notifications/EODQuestionnaire.tsx`
-- `src/components/notifications/NotificationCard.tsx`
-- `src/services/notifications.ts`
-- `src/hooks/useNotifications.ts`
-
-**Dependencies:** expo-notifications ~55.0.14 -- present
-
-**Acceptance Criteria:**
-- EOD timing: 7-day rolling average bedtime minus 1 hour, fallback 9 PM -- verified
-- Smart cards for unlogged tags only -- verified
-- Tier-based notification cadence -- verified
-- Rule 5 (no shame) language -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| src/components/notifications/EODQuestionnaire.tsx | PASS | 9,003 bytes, swipeable cards |
+| src/components/notifications/NotificationCard.tsx | PASS | 10,002 bytes |
+| src/services/notifications.ts | PASS | 15,685 bytes, adaptive timing |
+| src/hooks/useNotifications.ts | PASS | 7,339 bytes |
+| Dep: expo-notifications | PASS | ~55.0.14 |
+| EOD timing: 1hr before observed bedtime | PASS | getObservedBedtime() with 7-day rolling average |
+| Fallback 9 PM, never before 6 PM or after 11 PM | PASS | Bounds enforced |
+| Smart cards: only unlogged tags | PASS | Filters by today's data |
+| Tier-based notification cadence | PASS | Precision 6-8, Structured 3-5, etc. |
 
 ### Phase 16: Trends & Charts -- PASS
 
-**Files Created (7/7):**
-- `src/components/charts/LineChart.tsx`, `src/components/charts/BarChart.tsx`, `src/components/charts/Heatmap.tsx`, `src/components/charts/StackedBar.tsx`, `src/components/charts/ScatterPlot.tsx`, `src/components/charts/DualAxis.tsx`
-- `app/trends/detail.tsx`
-
-**Dependencies:** react-native-svg 15.15.3 -- present
-
-**Acceptance Criteria:**
-- Time range selector (7d/30d/90d/6mo/1yr/All) -- verified
-- Gold on navy chart aesthetic -- verified
-- FlatList with getItemLayout (ITEM_HEIGHT = 192) -- verified
-- Per-category chart organization -- verified
-- Year-over-year overlay toggle -- verified
-- Sparkline thumbnails in grid, full chart in detail view -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| src/components/charts/LineChart.tsx | PASS | 10,761 bytes, interactive with YoY overlay |
+| src/components/charts/BarChart.tsx | PASS | 8,673 bytes |
+| src/components/charts/Heatmap.tsx | PASS | 7,449 bytes |
+| src/components/charts/StackedBar.tsx | PASS | 8,916 bytes |
+| src/components/charts/ScatterPlot.tsx | PASS | 6,983 bytes |
+| src/components/charts/DualAxis.tsx | PASS | 9,803 bytes |
+| app/trends/detail.tsx | PASS | Full-screen chart detail view |
+| src/hooks/useTrendsData.ts | PASS | 10,295 bytes, reads from pre-computed summaries (NOT raw logs) |
+| app/(tabs)/trends.tsx modified | PASS | Chart grid with time range selector |
+| Time ranges: 7d/30d/90d/6mo/1yr/All | PASS | Implemented |
+| Year-over-year overlay support | PASS | Solid current + dotted prior year |
+| Performance: reads from summary keys | PASS | dub.daily.summary.*, dub.weekly.summary.* |
 
 ### Phase 17: Settings & Profile Management -- PASS
 
-**Files Created (10/10):**
-- `app/settings/profile.tsx`, `app/settings/tier.tsx`, `app/settings/tags.tsx`, `app/settings/devices.tsx`, `app/settings/notifications.tsx`, `app/settings/export.tsx`, `app/settings/apikey.tsx`, `app/settings/about.tsx`
-- `src/utils/encryption.ts` -- AES-256-CBC with PBKDF2 (100,000 iterations)
-- `src/utils/audit.ts` -- Append-only audit logging
-
-**Dependencies:**
-- expo-secure-store ~55.0.9 -- present
-- react-native-aes-crypto ^3.3.0 -- present
-
-**Acceptance Criteria:**
-- Profile edit with all fields -- verified
-- Tier change -- verified
-- Tag management (add/remove/reorder) -- verified
-- Data export (excludes therapy notes) -- verified
-- API key management with expo-secure-store -- verified
-- Audit logging with AuditEventType enum -- verified
-- Data deletion with confirmation -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| app/settings/profile.tsx | PASS | 14,699 bytes, full profile editing |
+| app/settings/tier.tsx | PASS | 7,508 bytes, tier change with tag defaults |
+| app/settings/tags.tsx | PASS | 11,261 bytes, add/remove/reorder tags |
+| app/settings/devices.tsx | PASS | 11,354 bytes, device connection management |
+| app/settings/notifications.tsx | PASS | 9,833 bytes, notification preferences |
+| app/settings/export.tsx | PASS | 7,235 bytes, JSON data export |
+| app/settings/apikey.tsx | PASS | 11,852 bytes, API key with secure storage |
+| app/settings/about.tsx | PASS | 9,121 bytes, app version, legal, disclaimers |
+| src/utils/encryption.ts | PASS | AES-256-CBC, PBKDF2 100K iterations, SHA-256 |
+| src/utils/audit.ts | PASS | Append-only audit logging per dub.audit.YYYY-MM-DD |
+| Dep: expo-secure-store | PASS | ~55.0.9 |
+| Dep: react-native-aes-crypto | PASS | ^3.3.0 |
+| Data deletion with confirmation | PASS | "Delete My Data" in settings |
 
 ### Phase 18: Device Integrations -- PASS
 
-**Files Created (5/5):**
-- `src/services/healthkit.ts` -- Apple Health read/write
-- `src/services/healthconnect.ts` -- Google Health Connect read/write
-- `src/services/strava.ts` -- Strava OAuth + activity pull
-- `src/services/weather.ts` -- OpenWeatherMap with 30-min cache
-- `src/hooks/useHealth.ts` -- Unified platform-aware hook
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| src/services/healthkit.ts | PASS | Apple Health read/write, permission flow |
+| src/services/healthconnect.ts | PASS | Google Health Connect for Android |
+| src/services/strava.ts | PASS | OAuth 2.0, activity mapping to DUB_AI tags |
+| src/services/weather.ts | PASS | OpenWeatherMap with caching (30min TTL) |
+| src/hooks/useHealth.ts | PASS | Unified health hook, platform-aware |
+| Dep: react-native-health | PASS | ^1.18.0 |
+| Dep: react-native-health-connect | PASS | ^3.2.0 |
+| app/settings/devices.tsx modified | PASS | Connect/disconnect flows |
+| Garmin "Coming Soon" stub | PASS | Stub UI present |
+| Oura "Coming Soon" stub | PASS | Stub UI present |
 
-**Dependencies:**
-- react-native-health ^1.18.0 -- present
-- react-native-health-connect ^3.2.0 -- present
+### Phase 19: Ingredient Flags & NLP/Photo -- PASS
 
-**Acceptance Criteria:**
-- Apple Health read/write -- verified
-- Google Health Connect -- verified
-- Strava OAuth + activity mapping to DUB_AI tags -- verified
-- OpenWeatherMap weather -- verified
-- Garmin/Oura "Coming Soon" stubs -- verified
-
----
-
-### Phase 19: Ingredient Flags & NLP/Photo Food Logging -- PASS
-
-**Files Created (4/4):**
-- `src/components/logging/IngredientFlags.tsx` -- Flag configuration UI
-- `src/components/logging/NLPFoodEntry.tsx` -- NLP text parsing via Anthropic API
-- `src/components/logging/PhotoFoodEntry.tsx` -- Camera + AI estimation with confidence levels
-- `src/utils/ingredients.ts` -- Ingredient flag definitions and detection
-
-**Dependencies:** expo-image-picker ~55.0.14 -- present
-
-**Acceptance Criteria:**
-- 11 default configurable ingredient flags -- verified
-- Flag icons on food entry cards -- verified
-- NLP text parsing with user confirmation -- verified
-- Photo AI estimation with confidence (high/medium/low) -- verified
-- Pattern engine detects 3+ ingredient occurrences/week -- verified
-
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| src/components/logging/IngredientFlags.tsx | PASS | All 11 default flags + custom |
+| src/components/logging/NLPFoodEntry.tsx | PASS | Natural language parsing via Anthropic API |
+| src/components/logging/PhotoFoodEntry.tsx | PASS | Camera + AI estimation with confidence levels |
+| src/utils/ingredients.ts | PASS | Flag detection, 11 defaults (added_sugars, HFCS, hydrogenated_oils, nitrates, artificial_colors, artificial_sweeteners, carrageenan, MSG, BHA/BHT, sodium_benzoate, potassium_bromate) |
+| Dep: expo-image-picker | PASS | ~55.0.14 |
+| FoodEntryCard.tsx modified | PASS | Flag icons on flagged foods |
+| context_builder.ts modified | PASS | Ingredient patterns in Coach context |
+| pattern_engine.ts modified | PASS | Ingredient frequency detection |
+| User ALWAYS confirms AI estimates | PASS | No auto-save from photo/NLP |
 
 ### Phase 20: Data Expansion & Recipe Engine -- PASS
 
-**Files Created (5/5):**
-- `src/ai/recipe_engine.ts` -- Macro-matching recipe generation
-- `src/components/coach/RecipeCard.tsx` -- Recipe display with "Add to Instacart"
-- `src/components/coach/TasteProfile.tsx` -- Cuisine/restriction preferences
-- `app/settings/taste.tsx` -- Taste profile settings
-- `src/services/instacart.ts` -- Deep link handler
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| src/ai/recipe_engine.ts | PASS | Recipe generation from remaining macros, taste profile, restrictions |
+| src/components/coach/RecipeCard.tsx | PASS | Recipe display with Instacart button, serving adjustment |
+| src/components/coach/TasteProfile.tsx | PASS | Cuisine/restriction/dislike management |
+| app/settings/taste.tsx | PASS | Taste profile settings screen |
+| src/services/instacart.ts | PASS | Shopping list deep linking |
+| met_compendium.json: 1,114 activities | PASS | Verified exact count |
+| 15 cuisine options | PASS | American through Other |
+| 11 dietary restriction options | PASS | None through Kosher |
+| Recipes respect sobriety goals | PASS | No alcohol if Quit goal active |
+| Recipes avoid flagged ingredients | PASS | Implemented |
 
-**Acceptance Criteria:**
-- MET compendium: 1,114 activities verified (grep count matched)
-- Recipe engine with macro matching and macro_match_pct -- verified
-- Recipe card with prep/cook time, ingredients, nutrition -- verified
-- "Add to Instacart" deep link -- verified
-- Taste profiling: 15 cuisines, 11 restrictions -- verified
-- Recipes respect sobriety goals and flagged ingredients -- verified
+### Phase 21: Reporting, PDF & Celebrations -- PASS
 
----
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| src/services/reporting.ts | PASS | Daily/weekly/monthly/quarterly/semi-annual/annual/YoY reports |
+| src/services/pdf.ts | PASS | On-device PDF with section selector |
+| src/components/notifications/WeeklyReport.tsx | PASS | Weekly report display |
+| src/components/notifications/MonthlyReport.tsx | PASS | Monthly report with prior comparison |
+| src/components/common/Celebration.tsx | PASS | Gold shimmer animation (NOT confetti) |
+| app/settings/healthreport.tsx | PASS | Section selector + generate |
+| Dep: expo-print | PASS | ~55.0.9 |
+| Dep: expo-sharing | PASS | ~55.0.14 |
+| Therapy notes EXCLUDED from PDF | PASS | Not even a section option |
+| Mood/gratitude: summary stats only | PASS | Raw entries excluded |
+| Coach history EXCLUDED | PASS | Verified |
+| Celebration triggers: PR, weight milestone, consistency, macro streak, recovery streak | PASS | All implemented |
 
-### Phase 21: Reporting, Health Report PDF & Celebrations -- PASS
+### Phase 22: Marketplace, Influencer & Polish -- PASS
 
-**Files Created (6/6):**
-- `src/services/reporting.ts` -- Daily/weekly/monthly summary generation
-- `src/services/pdf.ts` -- On-device PDF via expo-print
-- `src/components/notifications/WeeklyReport.tsx`
-- `src/components/notifications/MonthlyReport.tsx`
-- `src/components/common/Celebration.tsx` -- Gold shimmer animation
-- `app/settings/healthreport.tsx` -- Section selector + generate
-
-**Dependencies:** expo-print ~55.0.9 -- present
-
-**Acceptance Criteria:**
-- Daily/weekly/monthly summaries -- verified
-- Health Report PDF on-device generation -- verified
-- CRITICAL: Therapy notes NEVER included (not even an option) -- verified
-- CRITICAL: Mood/gratitude summary stats only (no raw entries) -- verified
-- CRITICAL: Coach chat history NEVER included -- verified
-- Celebrations use gold shimmer (NOT confetti/fireworks) -- verified
-- Celebration triggers: PR, weight milestones, consistency streaks, macro streaks, recovery streaks -- verified
-
----
-
-### Phase 22: Marketplace, Influencer System & Polish -- PASS
-
-**Files Created (7/7):**
-- `app/marketplace/index.tsx` -- Browse with "For You"/"Browse"/"Influencers" tabs
-- `app/marketplace/product.tsx` -- Product detail
-- `app/marketplace/influencer.tsx` -- Influencer storefront
-- `src/components/marketplace/ProductCard.tsx` -- FTC disclosure at top
-- `src/components/marketplace/FTCDisclosure.tsx` -- Clear, conspicuous disclosure
-- `src/components/marketplace/InfluencerStorefront.tsx` -- Dual FTC disclosures
-- `src/components/marketplace/ContextualTrigger.tsx` -- Contextual triggers only
-
-**Acceptance Criteria:**
-- 16 product categories -- verified
-- Demographic filtering (age, sex, goals, tier) -- verified
-- Contextual triggers only (no random surfacing) -- verified
-- FTC disclosure on EVERY product card (before product info) -- verified
-- Influencer dual FTC disclosure -- verified
-- Coach/marketplace architectural separation -- verified
-- 7-day delay on deficit-based triggers -- verified
-- "Why am I seeing this?" transparency button -- verified
+| Criterion | Status | Detail |
+|-----------|--------|--------|
+| app/marketplace/index.tsx | PASS | Browse with "For You", "Browse", "Influencers" tabs |
+| app/marketplace/product.tsx | PASS | Product detail with purchase tracking |
+| app/marketplace/influencer.tsx | PASS | Influencer storefront + application form |
+| src/components/marketplace/ProductCard.tsx | PASS | Product card with FTC disclosure FIRST |
+| src/components/marketplace/FTCDisclosure.tsx | PASS | Per 16 CFR Part 255 |
+| src/components/marketplace/InfluencerStorefront.tsx | PASS | Dual FTC disclosure |
+| src/components/marketplace/ContextualTrigger.tsx | PASS | 6 trigger types with 7-day delay on deficit |
+| src/components/marketplace/productData.ts | PASS | 16 product categories |
+| src/components/marketplace/HomeWidget.tsx | PASS | Widget preview (stretch goal) |
+| 16 product categories | PASS | body_composition, nutrition_tools, supplements, hydration, strength_equipment, cardio_equipment, wearables, recovery, sleep, personal_care, kitchen, mental_wellness, food_delivery, apparel, books, outdoor |
+| Contextual triggers ONLY (no random) | PASS | Products never randomly surfaced |
+| FTC disclosure before product info | PASS | Verified in ProductCard |
+| Influencer dual disclosure | PASS | Influencer-brand + DUB_AI commission |
+| Coach/marketplace separation | PASS | Separate code paths |
 
 ---
 
-## FAIL Details
+## Dependency Audit (All Phases)
 
-### Phase 14 -- Eating Disorder Risk Guardrails
-
-**Spec Section:** Section 9, "CROSS-TIER SAFETY: EATING DISORDER RISK GUARDRAILS" (lines 572-609)
-
-**Severity:** HIGH (Expert 4 AI/ML Audit -- described as "the most serious health safety concern in a calorie tracking app")
-
-**Missing Items:**
-
-| # | Spec Requirement | Location Expected | Status |
-|---|-----------------|-------------------|--------|
-| 1 | System prompt SAFETY RULE: "If the user's logged intake is consistently below minimum safe thresholds, prioritize health safety over tier adherence..." | `src/ai/coach_system_prompt.ts` | **MISSING** |
-| 2 | Coach NEVER celebrates extreme restriction: below 1,000 cal intake = no positive reinforcement, no "great discipline" or "impressive willpower" | `src/ai/coach_system_prompt.ts` | **MISSING** |
-| 3 | Sustained low intake alert: 3+ consecutive days below 1,200 (women) or 1,500 (men) triggers proactive Coach message with healthcare provider referral | `src/ai/context_builder.ts` or `src/ai/pattern_engine.ts` | **MISSING** |
-| 4 | Healthy BMI + weight loss flag: BMI <= 24.9 with active weight loss goal triggers Coach flag | `src/ai/context_builder.ts` or `src/ai/pattern_engine.ts` | **MISSING** |
-
-**Impact:** Without these guardrails, the AI Coach could inadvertently reinforce restrictive eating behavior, particularly for Precision tier users. The spec explicitly states these guardrails override tier-specific behavior and apply to ALL tiers.
-
-**Note:** The calorie floor enforcement (1,200/1,500 minimum) IS correctly implemented in `src/utils/calories.ts` for target computation. The gap is specifically in the Coach's system prompt and proactive alerting -- the Coach is not instructed to detect and respond to dangerous intake patterns.
+| Dependency | Phase | Version | Status |
+|-----------|-------|---------|--------|
+| expo | 1 | ~55.0.9 | PASS |
+| expo-router | 1 | ~55.0.8 | PASS |
+| react-native | 1 | 0.83.4 | PASS |
+| react | 1 | 19.2.0 | PASS |
+| typescript | 1 | ~5.9.2 | PASS |
+| @react-navigation/bottom-tabs | 1 | ^7.15.8 | PASS |
+| expo-dev-client | 1 | ~55.0.19 | PASS |
+| @react-native-async-storage/async-storage | 1 | 2.2.0 | PASS |
+| react-native-svg | 5 | 15.15.3 | PASS |
+| react-native-reanimated | 5 | 4.2.1 | PASS |
+| expo-camera | 7 | ~55.0.11 | PASS |
+| expo-secure-store | 14 | ~55.0.9 | PASS |
+| expo-notifications | 15 | ~55.0.14 | PASS |
+| react-native-aes-crypto | 17 | ^3.3.0 | PASS |
+| react-native-health | 18 | ^1.18.0 | PASS |
+| react-native-health-connect | 18 | ^3.2.0 | PASS |
+| expo-image-picker | 19 | ~55.0.14 | PASS |
+| expo-print | 21 | ~55.0.9 | PASS |
+| expo-sharing | 21 | ~55.0.14 | PASS |
 
 ---
 
-## Summary Statistics
+## Critical Safety & Compliance Verification
 
-- **Total files specified across all phases:** ~160+
-- **Total files present:** All specified files exist
-- **Dependencies required:** All present in package.json
-- **Acceptance criteria items:** 21 of 22 phases fully pass
-- **Critical safety gap:** 1 (eating disorder guardrails in Coach system prompt)
+| Requirement | Spec Section | Status | Detail |
+|-------------|-------------|--------|--------|
+| Calorie floor: 1200F/1500M | Section 9 | PASS | Enforced in calorie engine |
+| ED sustained low intake alert | Section 9 | PASS | 3+ consecutive days below floor triggers alert |
+| BMI underweight + loss goal flag | Section 9 | PASS | BMI <= 18.5 or normal range with loss goal |
+| Never celebrate extreme restriction | Section 9 | PASS | Below 1000 cal: no positive reinforcement |
+| Coach safety rule in system prompt | Section 9 | PASS | Hard rule in coach_system_prompt.ts |
+| Therapy notes isolation | Section 10/17A | PASS | Firewall throws on leak; excluded from PDF, export, Coach |
+| Coach prohibited words | Section 14 | PASS | relapse, failed, cheated, bad, diagnose, prescribe |
+| Medical advice boundary | Section 14 | PASS | 8 hard rules, crisis lifeline for suicidal ideation |
+| FTC disclosure on all products | Section 12 | PASS | Visible before product info |
+| Coach/marketplace separation | Section 12 | PASS | Separate code paths, no cross-contamination |
+| No shame-based notifications | Rule 5 | PASS | Data + question format, never "you missed/failed" |
+| API key in expo-secure-store | Section 17 | PASS | Hardware-backed, NOT in AsyncStorage |
+| AES-256 encryption for health data | Section 17 | PASS | PBKDF2 key derivation, 100K iterations |
+| Audit logging | Section 17A | PASS | Append-only, no health data in logs |
+
+---
+
+## Notes
+
+1. **Section 6 Folder Structure vs Phase Files:** The spec's Section 6 lists an aspirational folder structure including files like `formatters.ts`, `validators.ts`, `deidentify.ts` (marked FUTURE), `offline.ts`, `useTags.ts`, `useOffline.ts`, `met.ts`, `supplements.ts`, and `exercises.ts`. These files are NOT listed in any phase's "Files to Create" and are NOT present in the codebase. This is consistent with the spec's instruction that "each phase is self-contained" -- the folder structure is a reference, not a build requirement. No phase fails because of these absences.
+
+2. **MET Compendium:** The 1,114 activities were populated during Phase 20 as specified (Phase 4 created the initial file with 50+ activities; Phase 20 expanded to full compendium).
+
+3. **Onboarding Steps:** The Phase 3 heading says "6-step" but the detailed Section 8 spec (which takes precedence as the source of truth) describes a 4-step flow. The implementation follows Section 8 correctly.
+
+4. **Home Screen Widget:** Listed as a STRETCH GOAL in Phase 22. A `HomeWidget.tsx` component exists as a preview/placeholder, consistent with the spec's warning about expo-widgets instability.
+
+5. **Screens Directory:** Section 6 lists a `src/screens/` directory, but the project uses Expo Router file-based routing under `app/`. This is architecturally equivalent and consistent with the spec's Section 2 ("Navigation: Expo Router (file-based routing under app/ directory)").
+
+---
+
+**Audit complete. All 22 phases PASS. No corrective action required.**
