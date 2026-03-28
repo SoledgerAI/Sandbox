@@ -1,11 +1,12 @@
 // Settings > Device Connections
-// Phase 17: Settings and Profile Management
-// Connection status display, OAuth initiation for Strava
+// Phase 18: Device Integrations
+// Connection status display, OAuth initiation for Strava,
+// Apple Health / Google Health Connect native permissions,
+// Garmin / Oura "Coming Soon" stubs.
 
 import { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,17 +18,17 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
-import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
+import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import { logAuditEvent } from '../../src/utils/audit';
+import { useHealth, type DeviceType } from '../../src/hooks/useHealth';
 import type { DeviceSyncState } from '../../src/types/profile';
+import type { UserProfile } from '../../src/types/profile';
 
 interface DeviceConfig {
-  id: string;
+  id: DeviceType;
   name: string;
   icon: string;
-  storageKey: string;
   platform: 'ios' | 'android' | 'all';
-  available: boolean;
   comingSoon?: boolean;
 }
 
@@ -36,68 +37,53 @@ const DEVICES: DeviceConfig[] = [
     id: 'apple',
     name: 'Apple Health',
     icon: 'heart-outline',
-    storageKey: STORAGE_KEYS.DEVICES_APPLE,
     platform: 'ios',
-    available: true,
   },
   {
     id: 'google',
     name: 'Google Health Connect',
     icon: 'fitness-outline',
-    storageKey: STORAGE_KEYS.DEVICES_GOOGLE,
     platform: 'android',
-    available: true,
   },
   {
     id: 'strava',
     name: 'Strava',
     icon: 'bicycle-outline',
-    storageKey: STORAGE_KEYS.DEVICES_STRAVA,
     platform: 'all',
-    available: true,
   },
   {
     id: 'garmin',
     name: 'Garmin',
     icon: 'watch-outline',
-    storageKey: STORAGE_KEYS.DEVICES_GARMIN,
     platform: 'all',
-    available: false,
     comingSoon: true,
   },
   {
     id: 'oura',
     name: 'Oura',
     icon: 'ellipse-outline',
-    storageKey: STORAGE_KEYS.DEVICES_OURA,
     platform: 'all',
-    available: false,
     comingSoon: true,
   },
 ];
 
 export default function DevicesScreen() {
-  const [loading, setLoading] = useState(true);
-  const [syncStates, setSyncStates] = useState<Record<string, DeviceSyncState | null>>({});
+  const {
+    devices,
+    syncing,
+    loading,
+    connectDevice,
+    disconnectDevice,
+    syncDevice,
+    refreshDeviceStates,
+  } = useHealth();
 
-  const loadDeviceStates = useCallback(async () => {
-    setLoading(true);
-    const states: Record<string, DeviceSyncState | null> = {};
-    for (const device of DEVICES) {
-      states[device.id] = await storageGet<DeviceSyncState>(device.storageKey);
-    }
-    setSyncStates(states);
-    setLoading(false);
-  }, []);
+  const [syncingDeviceId, setSyncingDeviceId] = useState<string | null>(null);
 
-  useEffect(() => {
-    loadDeviceStates();
-  }, [loadDeviceStates]);
+  async function handleConnect(config: DeviceConfig) {
+    if (config.comingSoon) return;
 
-  function handleConnect(device: DeviceConfig) {
-    if (!device.available) return;
-
-    if (device.id === 'strava') {
+    if (config.id === 'strava') {
       Alert.alert(
         'Connect Strava',
         'You will be redirected to Strava to authorize DUB_AI to read your activity data.',
@@ -106,11 +92,14 @@ export default function DevicesScreen() {
           {
             text: 'Connect',
             onPress: async () => {
-              await logAuditEvent('DEVICE_CONNECTED', { device: 'strava', status: 'initiated' });
-              Alert.alert(
-                'Strava Integration',
-                'Strava OAuth requires a registered app with Strava. Full integration will be available in Phase 18.',
-              );
+              try {
+                await connectDevice('strava');
+              } catch {
+                Alert.alert(
+                  'Strava',
+                  'Could not open Strava authorization. Please ensure you have Strava credentials configured.',
+                );
+              }
             },
           },
         ],
@@ -118,30 +107,84 @@ export default function DevicesScreen() {
       return;
     }
 
-    if (device.id === 'apple' || device.id === 'google') {
+    if (config.id === 'apple') {
       Alert.alert(
-        `Connect ${device.name}`,
-        `${device.name} integration requires native permissions. Full integration will be available in Phase 18.`,
+        'Connect Apple Health',
+        'DUB_AI will request permission to read steps, heart rate, HRV, sleep, weight, and workouts from Apple Health. You can modify these permissions anytime in iOS Settings.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Connect',
+            onPress: async () => {
+              const ok = await connectDevice('apple');
+              if (ok) {
+                Alert.alert('Connected', 'Apple Health connected successfully.');
+              } else {
+                Alert.alert('Error', 'Could not connect to Apple Health. Please check permissions in iOS Settings.');
+              }
+            },
+          },
+        ],
       );
+      return;
+    }
+
+    if (config.id === 'google') {
+      Alert.alert(
+        'Connect Health Connect',
+        'DUB_AI will request permission to read steps, heart rate, HRV, sleep, weight, and workouts from Health Connect. You can modify these permissions anytime in Android Settings.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Connect',
+            onPress: async () => {
+              const ok = await connectDevice('google');
+              if (ok) {
+                Alert.alert('Connected', 'Health Connect connected successfully.');
+              } else {
+                Alert.alert('Error', 'Could not connect to Health Connect. Please check that Health Connect is installed and permissions are granted.');
+              }
+            },
+          },
+        ],
+      );
+      return;
     }
   }
 
-  function handleDisconnect(device: DeviceConfig) {
+  function handleDisconnect(config: DeviceConfig) {
     Alert.alert(
-      `Disconnect ${device.name}`,
-      `Stop syncing data from ${device.name}?`,
+      `Disconnect ${config.name}`,
+      `Stop syncing data from ${config.name}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Disconnect',
           style: 'destructive',
           onPress: async () => {
-            await logAuditEvent('DEVICE_REVOKED', { device: device.id });
-            // Clear sync state would happen here in Phase 18
+            await disconnectDevice(config.id);
           },
         },
       ],
     );
+  }
+
+  async function handleSync(config: DeviceConfig) {
+    setSyncingDeviceId(config.id);
+    try {
+      const profile = await storageGet<UserProfile>(STORAGE_KEYS.PROFILE);
+      const weightLbs = profile?.weight_lbs ?? 170;
+      const result = await syncDevice(config.id, weightLbs);
+      Alert.alert(
+        result.success ? 'Sync Complete' : 'Sync Failed',
+        result.message,
+      );
+      await refreshDeviceStates();
+    } catch {
+      Alert.alert('Sync Error', 'An unexpected error occurred during sync.');
+    } finally {
+      setSyncingDeviceId(null);
+    }
   }
 
   const platformDevices = DEVICES.filter(
@@ -170,21 +213,22 @@ export default function DevicesScreen() {
         Connect your fitness devices and health platforms to automatically sync data.
       </Text>
 
-      {platformDevices.map((device) => {
-        const state = syncStates[device.id];
-        const connected = state?.connected === true;
+      {platformDevices.map((config) => {
+        const deviceStatus = devices.find((d) => d.id === config.id);
+        const connected = deviceStatus?.connected === true;
+        const isSyncing = syncingDeviceId === config.id;
 
         return (
-          <View key={device.id} style={styles.deviceCard}>
+          <View key={config.id} style={styles.deviceCard}>
             <View style={styles.deviceInfo}>
-              <Ionicons name={device.icon as any} size={24} color={Colors.accent} />
+              <Ionicons name={config.icon as any} size={24} color={Colors.accent} />
               <View style={styles.deviceTextContainer}>
-                <Text style={styles.deviceName}>{device.name}</Text>
-                {device.comingSoon ? (
+                <Text style={styles.deviceName}>{config.name}</Text>
+                {config.comingSoon ? (
                   <Text style={styles.comingSoon}>Coming Soon</Text>
                 ) : connected ? (
                   <Text style={styles.connectedText}>
-                    Connected{state?.last_sync ? ` — Last sync: ${formatDate(state.last_sync)}` : ''}
+                    Connected{deviceStatus?.lastSync ? ` — Last sync: ${formatDate(deviceStatus.lastSync)}` : ''}
                   </Text>
                 ) : (
                   <Text style={styles.notConnected}>Not connected</Text>
@@ -192,25 +236,42 @@ export default function DevicesScreen() {
               </View>
             </View>
 
-            {!device.comingSoon && (
-              <TouchableOpacity
-                style={[
-                  styles.connectButton,
-                  connected && styles.disconnectButton,
-                ]}
-                onPress={() => (connected ? handleDisconnect(device) : handleConnect(device))}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.connectButtonText,
-                    connected && styles.disconnectButtonText,
-                  ]}
+            <View style={styles.buttonRow}>
+              {connected && !config.comingSoon && (
+                <TouchableOpacity
+                  style={styles.syncButton}
+                  onPress={() => handleSync(config)}
+                  activeOpacity={0.7}
+                  disabled={isSyncing}
                 >
-                  {connected ? 'Disconnect' : 'Connect'}
-                </Text>
-              </TouchableOpacity>
-            )}
+                  {isSyncing ? (
+                    <ActivityIndicator color={Colors.accent} size="small" />
+                  ) : (
+                    <Ionicons name="sync-outline" size={18} color={Colors.accent} />
+                  )}
+                </TouchableOpacity>
+              )}
+
+              {!config.comingSoon && (
+                <TouchableOpacity
+                  style={[
+                    styles.connectButton,
+                    connected && styles.disconnectButton,
+                  ]}
+                  onPress={() => (connected ? handleDisconnect(config) : handleConnect(config))}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={[
+                      styles.connectButtonText,
+                      connected && styles.disconnectButtonText,
+                    ]}
+                  >
+                    {connected ? 'Disconnect' : 'Connect'}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         );
       })}
@@ -272,6 +333,16 @@ const styles = StyleSheet.create({
   connectedText: { color: Colors.success, fontSize: 12, marginTop: 2 },
   notConnected: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
   comingSoon: { color: Colors.warning, fontSize: 12, marginTop: 2, fontStyle: 'italic' },
+  buttonRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  syncButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   connectButton: {
     paddingHorizontal: 16,
     paddingVertical: 8,
