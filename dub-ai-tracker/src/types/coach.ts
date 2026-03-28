@@ -18,6 +18,13 @@ export interface SuggestedPrompt {
   category: 'general' | 'nutrition' | 'fitness' | 'sleep' | 'patterns' | 'recovery';
 }
 
+export type EdRiskFlagType = 'sustained_low_intake' | 'extreme_restriction_today' | 'healthy_bmi_loss_goal';
+
+export interface EdRiskFlag {
+  type: EdRiskFlagType;
+  detail: string;
+}
+
 export interface CoachContext {
   profile: UserProfile;
   tier: EngagementTier;
@@ -33,6 +40,7 @@ export interface CoachContext {
   sobriety_goals: SobrietyGoalSummary[];
   supplement_flags: string[];
   therapy_today: boolean;
+  ed_risk_flags: EdRiskFlag[];
 }
 
 export interface TodayDataSummary {

@@ -16,6 +16,9 @@ import type {
   WorkoutEntry,
 } from '../types';
 
+import type { UserProfile } from '../types/profile';
+import { CALORIE_FLOOR_FEMALE, CALORIE_FLOOR_MALE, ED_SUSTAINED_LOW_DAYS } from '../constants/formulas';
+
 const MAX_NEW_PATTERNS_PER_WEEK = 3;
 
 function todayDateString(): string {
@@ -305,11 +308,43 @@ export async function runPatternEngine(): Promise<PatternInsight[]> {
     }
   }
 
+  // Pattern 7: Sustained low calorie intake (eating safety)
+  // This is a SAFETY pattern -- bypasses the normal 3-per-week limit.
+  const safetyPatterns: PatternInsight[] = [];
+  {
+    const profile = await storageGet<UserProfile>(STORAGE_KEYS.PROFILE);
+    const calorieFloor = profile?.sex === 'female' ? CALORIE_FLOOR_FEMALE : CALORIE_FLOOR_MALE;
+    const recentDays = days.slice(0, 7); // newest first
+    const daysWithFood = recentDays.filter((d) => d.calories > 0);
+
+    // Find longest streak of consecutive low-calorie days (from most recent)
+    let consecutiveLow = 0;
+    for (const d of daysWithFood) {
+      if (d.calories < calorieFloor) {
+        consecutiveLow++;
+      } else {
+        break;
+      }
+    }
+
+    if (consecutiveLow >= ED_SUSTAINED_LOW_DAYS) {
+      safetyPatterns.push({
+        id: generateId(),
+        category: 'eating_safety',
+        observation: `Your calorie intake has been below ${calorieFloor} cal for ${consecutiveLow} consecutive days. This level may not support your health and wellbeing. Consider discussing your nutrition goals with a healthcare provider.`,
+        data_range: `${daysWithFood[consecutiveLow - 1]?.date ?? 'N/A'} to ${daysWithFood[0]?.date ?? 'N/A'}`,
+        sample_size: consecutiveLow,
+        correlation_note: 'Safety alert -- eating disorder risk guardrail',
+        detected_at: new Date().toISOString(),
+      });
+    }
+  }
+
   // Filter: avoid duplicating existing pattern categories
   const existingCategories = new Set(existingPatterns.map((p) => p.category));
   const trulyNew = newPatterns.filter((p) => !existingCategories.has(p.category));
 
-  // Limit to MAX_NEW_PATTERNS_PER_WEEK
+  // Limit to MAX_NEW_PATTERNS_PER_WEEK (safety patterns bypass this limit)
   const oneWeekAgo = Date.now() - 7 * 24 * 3600 * 1000;
   const recentExisting = existingPatterns.filter(
     (p) => new Date(p.detected_at).getTime() > oneWeekAgo,
@@ -317,8 +352,11 @@ export async function runPatternEngine(): Promise<PatternInsight[]> {
   const slotsAvailable = Math.max(0, MAX_NEW_PATTERNS_PER_WEEK - recentExisting.length);
   const toAdd = trulyNew.slice(0, slotsAvailable);
 
+  // Safety patterns always added (not subject to weekly limit or dedup)
+  const trulyNewSafety = safetyPatterns.filter((p) => !existingCategories.has(p.category));
+
   // Merge and save
-  const allPatterns = [...existingPatterns, ...toAdd];
+  const allPatterns = [...existingPatterns, ...toAdd, ...trulyNewSafety];
   await storageSet(STORAGE_KEYS.COACH_PATTERNS, allPatterns);
 
   return allPatterns;

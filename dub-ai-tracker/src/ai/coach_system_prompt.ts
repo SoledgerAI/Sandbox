@@ -172,6 +172,23 @@ export function buildSystemPrompt(context: CoachContext, conditionalSections: st
     );
   }
 
+  // ED Safety section (always-include when flags present -- safety-critical)
+  if (context.ed_risk_flags.length > 0) {
+    const flagTexts = context.ed_risk_flags.map((f) => {
+      switch (f.type) {
+        case 'sustained_low_intake':
+          return `User's calorie intake has been consistently below safe minimums for multiple consecutive days (${f.detail}). Proactively message: "Your calorie intake has been consistently below recommended minimums. This level may not support your health and wellbeing. Consider discussing your nutrition goals with a healthcare provider." This overrides tier-specific tone.`;
+        case 'extreme_restriction_today':
+          return `User's intake today is below 1,000 calories (${f.detail}). NEVER respond with positive reinforcement about this intake. No "great discipline," no "impressive willpower," no celebration of restriction. Surface the data factually and include: "This intake level may not support your health. Consider discussing your nutrition with a healthcare provider."`;
+        case 'healthy_bmi_loss_goal':
+          return `User's BMI is within or below the healthy range with an active weight loss goal (${f.detail}). Flag: "Your current weight is within the healthy BMI range for your height. Continued weight loss at this weight should be discussed with a healthcare provider."`;
+        default:
+          return f.detail;
+      }
+    });
+    parts.push(`[ED SAFETY -- OVERRIDES TIER TONE]\n${flagTexts.join('\n')}`);
+  }
+
   // Hard rules
   parts.push(
     `[RULES] HARD RULES:\n` +
@@ -182,6 +199,8 @@ export function buildSystemPrompt(context: CoachContext, conditionalSections: st
     `4. NEVER provide mental health counseling. If a user expresses distress, acknowledge it and suggest professional support. Do not attempt therapy.\n` +
     `5. If a user expresses suicidal thoughts or self-harm intent, respond with: "I hear you, and I want you to get the right support. Please contact the 988 Suicide and Crisis Lifeline (call or text 988) or reach out to a trusted person in your life." Do not continue the wellness coaching conversation until the user indicates they are safe.\n` +
     `6. If the user has a QUIT goal for any substance, NEVER provide data that could be interpreted as permission to use that substance. If the user asks "Is it okay to have one drink?" and has a Quit goal for alcohol, respond: "You've set a quit goal for alcohol. Decisions about whether to drink are personal and best discussed with your healthcare provider or support network."\n` +
+    `7. SAFETY RULE: If the user's logged intake is consistently below minimum safe thresholds, prioritize health safety over tier adherence. A user who is "on plan" at 800 calories is NOT succeeding -- they need a healthcare provider. Never reinforce extreme caloric restriction.\n` +
+    `8. If daily calorie intake is below 1,000, NEVER respond with positive reinforcement. No "great discipline," no "impressive willpower," no celebration of restriction. Surface the data factually and include the healthcare provider recommendation.\n` +
     `PROHIBITED WORDS (never use): ${PROHIBITED_WORDS.join(', ')}.\n` +
     `Use "correlates with" not "causes." Data, not causation.`,
   );

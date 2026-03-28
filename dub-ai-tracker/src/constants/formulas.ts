@@ -121,6 +121,19 @@ export const CALORIE_FLOOR_FEMALE = 1200; // kcal/day minimum for women
 export const CALORIE_FLOOR_MALE = 1500; // kcal/day minimum for men
 
 // ============================================================================
+// Eating Disorder Risk Guardrails (Cross-Tier Safety)
+// Per Expert 4 AI/ML Audit (Severity: HIGH): "the most serious health safety
+// concern in a calorie tracking app."
+// These constants are used by the Coach context builder and system prompt to
+// detect and respond to dangerous intake patterns.
+// ============================================================================
+
+export const ED_EXTREME_RESTRICTION_THRESHOLD = 1000; // cal/day -- Coach NEVER celebrates below this
+export const ED_SUSTAINED_LOW_DAYS = 3; // consecutive days below floor triggers alert
+export const BMI_UNDERWEIGHT = 18.5;
+export const BMI_NORMAL_UPPER = 24.9;
+
+// ============================================================================
 // Default Goal Rates (applied during onboarding when user selects goal
 // direction but rate selection is deferred to Settings)
 // ============================================================================

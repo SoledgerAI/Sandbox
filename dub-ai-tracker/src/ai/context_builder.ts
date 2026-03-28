@@ -14,7 +14,17 @@ import type {
   InjurySummary,
   BloodworkSummary,
   SobrietyGoalSummary,
+  EdRiskFlag,
 } from '../types/coach';
+import {
+  CALORIE_FLOOR_FEMALE,
+  CALORIE_FLOOR_MALE,
+  ED_EXTREME_RESTRICTION_THRESHOLD,
+  ED_SUSTAINED_LOW_DAYS,
+  BMI_NORMAL_UPPER,
+  LBS_PER_KG,
+  CM_PER_INCH,
+} from '../constants/formulas';
 import type {
   FoodEntry,
   WaterEntry,
@@ -306,6 +316,60 @@ export async function buildCoachContext(userMessage: string): Promise<{
     }
   }
 
+  // ---- Eating Disorder Risk Detection (always computed, safety-critical) ----
+  const edRiskFlags: EdRiskFlag[] = [];
+
+  // Determine sex-aware calorie floor
+  const calorieFloor = profile?.sex === 'female' ? CALORIE_FLOOR_FEMALE : CALORIE_FLOOR_MALE;
+
+  // Flag 1: Extreme restriction today (below 1,000 cal with food logged)
+  if (foods.length > 0 && todayData.calories_consumed < ED_EXTREME_RESTRICTION_THRESHOLD) {
+    edRiskFlags.push({
+      type: 'extreme_restriction_today',
+      detail: `Today's intake is ${todayData.calories_consumed} cal (below ${ED_EXTREME_RESTRICTION_THRESHOLD} cal threshold)`,
+    });
+  }
+
+  // Flag 2: Sustained low intake (3+ consecutive days below calorie floor)
+  {
+    let consecutiveLowDays = 0;
+    for (let i = 0; i < ED_SUSTAINED_LOW_DAYS + 4; i++) {
+      const date = pastDateString(i);
+      const dayFoods = i === 0 ? foods : await storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, date));
+      const dayArr = dayFoods ?? [];
+      if (dayArr.length === 0) break; // no food logged = not trackable
+      const dayCal = dayArr.reduce((s, f) => s + (f.computed_nutrition?.calories ?? 0), 0);
+      if (dayCal > 0 && dayCal < calorieFloor) {
+        consecutiveLowDays++;
+      } else {
+        break;
+      }
+    }
+    if (consecutiveLowDays >= ED_SUSTAINED_LOW_DAYS) {
+      edRiskFlags.push({
+        type: 'sustained_low_intake',
+        detail: `Calorie intake below ${calorieFloor} cal for ${consecutiveLowDays} consecutive days`,
+      });
+    }
+  }
+
+  // Flag 3: Healthy BMI + active weight loss goal
+  if (
+    profile?.weight_lbs != null &&
+    profile?.height_inches != null &&
+    profile?.goal?.direction === 'LOSE'
+  ) {
+    const weightKg = profile.weight_lbs / LBS_PER_KG;
+    const heightM = (profile.height_inches * CM_PER_INCH) / 100;
+    const bmi = weightKg / (heightM * heightM);
+    if (bmi <= BMI_NORMAL_UPPER) {
+      edRiskFlags.push({
+        type: 'healthy_bmi_loss_goal',
+        detail: `BMI is ${bmi.toFixed(1)} (at or below ${BMI_NORMAL_UPPER}) with active weight loss goal`,
+      });
+    }
+  }
+
   const context: CoachContext = {
     profile: profile ?? {
       name: 'User',
@@ -341,6 +405,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
     sobriety_goals: sobrietyGoals,
     supplement_flags: supplementFlags,
     therapy_today: therapyToday,
+    ed_risk_flags: edRiskFlags,
   };
 
   // Therapy note firewall: verify no therapy content leaked
