@@ -1,8 +1,10 @@
 // Dynamic system prompt builder for Coach DUB
 // Phase 14: AI Coach
+// Phase 20: Recipe context additions
 
 import type { EngagementTier } from '../types/profile';
 import type { CoachContext } from '../types/coach';
+import type { TasteProfile } from './recipe_engine';
 
 const TIER_INSTRUCTIONS: Record<EngagementTier, { tone: string; examples: string; negative: string }> = {
   precision: {
@@ -59,7 +61,7 @@ const PROHIBITED_WORDS = [
   'prescription',
 ];
 
-export function buildSystemPrompt(context: CoachContext, conditionalSections: string[]): string {
+export function buildSystemPrompt(context: CoachContext, conditionalSections: string[], tasteProfile?: TasteProfile): string {
   const tier = context.tier;
   const tierInfo = TIER_INSTRUCTIONS[tier];
 
@@ -149,6 +151,25 @@ export function buildSystemPrompt(context: CoachContext, conditionalSections: st
   // Therapy boolean only
   if (context.therapy_today) {
     parts.push('[THERAPY] User logged a therapy session today: yes');
+  }
+
+  // Recipe context (Phase 20)
+  if (tasteProfile) {
+    const cuisines = tasteProfile.cuisines.length > 0 ? tasteProfile.cuisines.join(', ') : 'any';
+    const restrictions = tasteProfile.restrictions.length > 0
+      ? tasteProfile.restrictions.filter((r) => r !== 'None').join(', ')
+      : 'none';
+    const dislikes = tasteProfile.dislikes.length > 0 ? tasteProfile.dislikes.join(', ') : 'none';
+    parts.push(
+      `[RECIPE CONTEXT] When recommending recipes or meals:\n` +
+      `Preferred cuisines: ${cuisines}\n` +
+      `Dietary restrictions: ${restrictions}\n` +
+      `Disliked ingredients: ${dislikes}\n` +
+      `Remaining macros for today: ${Math.max(0, (context.tdee ?? 2000) - context.today_data.calories_consumed)}cal, ` +
+      `${Math.max(0, (context.rolling_7d.avg_protein_g ?? 150) - context.today_data.protein_g)}g protein remaining.\n` +
+      `NEVER include alcohol in recipe suggestions if user has a Quit goal for alcohol.\n` +
+      `NEVER include user-flagged or disliked ingredients.`,
+    );
   }
 
   // Hard rules

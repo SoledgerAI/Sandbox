@@ -93,6 +93,13 @@ export default function SettingsScreen() {
       badge: hasKey ? undefined : 'Setup',
     },
     {
+      id: 'taste',
+      icon: 'restaurant-outline',
+      label: 'Taste Profile',
+      subtitle: 'Cuisines, restrictions, dislikes',
+      route: '/settings/taste',
+    },
+    {
       id: 'devices',
       icon: 'watch-outline',
       label: 'Devices',
