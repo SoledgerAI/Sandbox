@@ -1,5 +1,6 @@
 // Notification scheduling service
 // Phase 15: EOD Questionnaire and Notifications
+// Phase 21: Report notification triggers
 
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
@@ -9,6 +10,8 @@ import { ALL_DEFAULT_TAGS } from '../constants/tags';
 import type { EngagementTier } from '../types/profile';
 import type { AppSettings } from '../types/profile';
 import type { SleepEntry } from '../types';
+import { checkDueReports, generateDailySummary, generateWeeklySummary, generateMonthlySummary } from './reporting';
+import { checkCelebrations } from '../components/common/Celebration';
 
 // ============================================================
 // Notification Channel Setup
@@ -317,8 +320,150 @@ export async function rescheduleAll(): Promise<void> {
   if (settings && !settings.notification_enabled) return;
 
   await configureNotifications();
+  await configureReportChannel();
   await scheduleEODNotification();
   await scheduleTierReminders();
+}
+
+// ============================================================
+// Report Notification Triggers (Phase 21)
+// ============================================================
+
+/**
+ * Schedule report generation notification channel (Android).
+ */
+async function configureReportChannel(): Promise<void> {
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('reports', {
+      name: 'Reports & Summaries',
+      importance: Notifications.AndroidImportance.DEFAULT,
+      vibrationPattern: [0, 100],
+      lightColor: '#D4A843',
+    });
+  }
+}
+
+/**
+ * Trigger report generation based on what's due today.
+ * Called at EOD or app foreground to generate any pending reports.
+ */
+export async function triggerDueReports(): Promise<void> {
+  const dueReports = await checkDueReports();
+  const now = new Date();
+  const todayStr = formatDate(now);
+
+  for (const cadence of dueReports) {
+    switch (cadence) {
+      case 'daily': {
+        // Generate yesterday's summary
+        const yesterday = new Date(now);
+        yesterday.setDate(yesterday.getDate() - 1);
+        await generateDailySummary(formatDate(yesterday));
+        break;
+      }
+      case 'weekly': {
+        // Generate last week's summary (start = 7 days ago)
+        const weekStart = new Date(now);
+        weekStart.setDate(weekStart.getDate() - 7);
+        await generateWeeklySummary(weekStart);
+        await sendReportNotification(
+          'Weekly Report Ready',
+          'Your weekly health summary is available. Tap to view.',
+          'weekly-report',
+        );
+        break;
+      }
+      case 'monthly': {
+        // Generate last month's summary
+        const lastMonth = now.getMonth() === 0 ? 12 : now.getMonth();
+        const year = now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear();
+        await generateMonthlySummary(year, lastMonth);
+        await sendReportNotification(
+          'Monthly Report Ready',
+          'Your monthly health summary is available. Tap to view.',
+          'monthly-report',
+        );
+        break;
+      }
+      case 'quarterly':
+        await sendReportNotification(
+          'Quarterly Report Ready',
+          'Your 90-day health analysis is available.',
+          'quarterly-report',
+        );
+        break;
+      case 'semi_annual':
+        await sendReportNotification(
+          'Semi-Annual Report Ready',
+          'Your 6-month comprehensive review is available.',
+          'semi-annual-report',
+        );
+        break;
+      case 'annual':
+        await sendReportNotification(
+          'Annual Report Ready',
+          'Your year in review is available. Tap to see your progress.',
+          'annual-report',
+        );
+        break;
+      case 'yoy':
+        await sendReportNotification(
+          'Year-over-Year Comparison Ready',
+          'See how this year compares to last year.',
+          'yoy-report',
+        );
+        break;
+    }
+  }
+}
+
+async function sendReportNotification(
+  title: string,
+  body: string,
+  type: string,
+): Promise<void> {
+  const settings = await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS);
+  if (settings && !settings.notification_enabled) return;
+
+  const hasPermission = await requestPermissions();
+  if (!hasPermission) return;
+
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      data: { type },
+      ...(Platform.OS === 'android' ? { channelId: 'reports' } : {}),
+    },
+    trigger: null, // Immediate
+  });
+}
+
+/**
+ * Check for celebration-worthy events and send notifications.
+ */
+export async function triggerCelebrationCheck(): Promise<void> {
+  const now = new Date();
+  const todayStr = formatDate(now);
+  const events = await checkCelebrations(todayStr);
+
+  for (const event of events) {
+    const settings = await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS);
+    if (settings && !settings.notification_enabled) return;
+
+    const hasPermission = await requestPermissions();
+    if (!hasPermission) return;
+
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: event.title,
+        body: event.detail,
+        data: { type: 'celebration', trigger: event.trigger },
+        ...(Platform.OS === 'android' ? { channelId: 'reports' } : {}),
+      },
+      trigger: null,
+    });
+  }
 }
 
 // ============================================================
