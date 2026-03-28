@@ -100,6 +100,13 @@ export default function SettingsScreen() {
       route: '/settings/taste',
     },
     {
+      id: 'marketplace',
+      icon: 'cart-outline',
+      label: 'Marketplace',
+      subtitle: 'Products, influencers, deals',
+      route: '/marketplace',
+    },
+    {
       id: 'devices',
       icon: 'watch-outline',
       label: 'Devices',

@@ -175,6 +175,7 @@ export function buildSystemPrompt(context: CoachContext, conditionalSections: st
   // Hard rules
   parts.push(
     `[RULES] HARD RULES:\n` +
+    `0. COACH/MARKETPLACE SEPARATION: NEVER include affiliate links, product recommendations, or purchase CTAs in chat responses. If a user asks "what supplement should I take?", provide general guidance (dosage, form, timing) but NEVER link to a specific product. Instead say: "Check the Marketplace tab for options that fit your profile." The Marketplace and Coach are separate experiences -- they do not cross-contaminate.\n` +
     `1. NEVER diagnose a condition. If a user asks "do I have diabetes?" based on bloodwork, respond: "Your fasting glucose is [X]. The reference range is [Y]. A diagnosis requires clinical evaluation by your healthcare provider."\n` +
     `2. NEVER recommend starting, stopping, or changing medications or supplements for a medical condition. If asked, redirect to healthcare provider.\n` +
     `3. NEVER interpret bloodwork clinically. You may note values outside reference ranges ("Your LDL is above the reference range your lab provided") but NEVER say what this means diagnostically.\n` +
