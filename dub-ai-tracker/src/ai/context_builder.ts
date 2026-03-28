@@ -1,5 +1,6 @@
 // Assemble user data context per Coach message
 // Phase 14: AI Coach
+// Phase 19: Ingredient flag patterns in Coach context
 // Includes conditional context injection and therapy note firewall
 
 import { storageGet, STORAGE_KEYS, dateKey, storageList } from '../utils/storage';
@@ -50,6 +51,7 @@ const CYCLE_KEYWORDS = ['cycle', 'period', 'menstrual', 'phase', 'ovulation'];
 const SUBSTANCE_KEYWORDS = ['drink', 'alcohol', 'sober', 'substance', 'cannabis', 'tobacco'];
 const SUPPLEMENT_KEYWORDS = ['supplement', 'vitamin', 'medication', 'dosage'];
 const THERAPY_KEYWORDS = ['therapy', 'therapist', 'mental health', 'counseling'];
+const INGREDIENT_KEYWORDS = ['ingredient', 'flag', 'additive', 'sweetener', 'sugar', 'msg', 'artificial'];
 
 function messageMatchesKeywords(message: string, keywords: string[]): boolean {
   const lower = message.toLowerCase();
@@ -276,6 +278,32 @@ export async function buildCoachContext(userMessage: string): Promise<{
   if (messageMatchesKeywords(userMessage, THERAPY_KEYWORDS)) {
     const therapyEntry = await storageGet<{ session_logged: boolean }>(dateKey(STORAGE_KEYS.LOG_THERAPY, today));
     therapyToday = therapyEntry?.session_logged ?? false;
+  }
+
+  // Ingredient flag patterns (conditional)
+  if (messageMatchesKeywords(userMessage, INGREDIENT_KEYWORDS)) {
+    // Count flagged ingredient occurrences in the past 7 days of food entries
+    const flagCounts = new Map<string, number>();
+    for (let i = 0; i < 7; i++) {
+      const date = pastDateString(i);
+      const dayFoods = await storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, date));
+      if (dayFoods) {
+        for (const f of dayFoods) {
+          if (f.flagged_ingredients) {
+            for (const flag of f.flagged_ingredients) {
+              flagCounts.set(flag, (flagCounts.get(flag) ?? 0) + 1);
+            }
+          }
+        }
+      }
+    }
+    if (flagCounts.size > 0) {
+      const parts = Array.from(flagCounts.entries())
+        .sort((a, b) => b[1] - a[1])
+        .map(([name, count]) => `${name}:${count}x`)
+        .join(' ');
+      conditionalSections.push(`[INGREDIENT FLAGS 7d] ${parts}`);
+    }
   }
 
   const context: CoachContext = {

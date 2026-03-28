@@ -24,9 +24,11 @@ interface FoodSearchProps {
   onManualEntry: () => void;
   onQuickLog: () => void;
   onBarcodeScan?: () => void;
+  onNLPEntry?: () => void;
+  onPhotoEntry?: () => void;
 }
 
-export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan }: FoodSearchProps) {
+export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan, onNLPEntry, onPhotoEntry }: FoodSearchProps) {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<FoodItem[]>([]);
   const [recentFoods, setRecentFoods] = useState<FoodItem[]>([]);
@@ -175,6 +177,18 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan 
           <Ionicons name="flash-outline" size={18} color={Colors.accent} />
           <Text style={styles.quickBtnText}>Quick Log</Text>
         </TouchableOpacity>
+        {onNLPEntry && (
+          <TouchableOpacity style={styles.quickBtn} onPress={onNLPEntry}>
+            <Ionicons name="chatbubble-outline" size={18} color={Colors.accent} />
+            <Text style={styles.quickBtnText}>Describe</Text>
+          </TouchableOpacity>
+        )}
+        {onPhotoEntry && (
+          <TouchableOpacity style={styles.quickBtn} onPress={onPhotoEntry}>
+            <Ionicons name="camera-outline" size={18} color={Colors.accent} />
+            <Text style={styles.quickBtnText}>Photo</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Loading indicator */}

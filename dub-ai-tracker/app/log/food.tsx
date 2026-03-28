@@ -1,7 +1,8 @@
 // Food logging screen -- search, select, configure serving, save
 // Phase 6: Food Logging -- Core
+// Phase 19: NLP text entry and photo food entry integration
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { StyleSheet, View, SafeAreaView } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
@@ -12,10 +13,13 @@ import { FoodEntryForm } from '../../src/components/logging/FoodEntryForm';
 import { QuickLog } from '../../src/components/logging/QuickLog';
 import { ServingSizeSelector } from '../../src/components/logging/ServingSizeSelector';
 import { BarcodeScanner } from '../../src/components/logging/BarcodeScanner';
+import { NLPFoodEntry } from '../../src/components/logging/NLPFoodEntry';
+import { PhotoFoodEntry } from '../../src/components/logging/PhotoFoodEntry';
 import { Button } from '../../src/components/common/Button';
-import type { FoodItem, FoodEntry, MealType } from '../../src/types/food';
+import { loadIngredientFlags, detectFlaggedIngredients } from '../../src/utils/ingredients';
+import type { FoodItem, FoodEntry, MealType, IngredientFlag } from '../../src/types/food';
 
-type Screen = 'search' | 'configure' | 'manual' | 'quicklog' | 'barcode';
+type Screen = 'search' | 'configure' | 'manual' | 'quicklog' | 'barcode' | 'nlp' | 'photo';
 
 function todayDateString(): string {
   const now = new Date();
@@ -36,6 +40,11 @@ export default function FoodLogScreen() {
   const [servingIndex, setServingIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [mealType] = useState<MealType>(guessMealType);
+  const [ingredientFlags, setIngredientFlags] = useState<IngredientFlag[]>([]);
+
+  useEffect(() => {
+    loadIngredientFlags().then(setIngredientFlags);
+  }, []);
 
   const saveEntry = useCallback(
     async (partial: Omit<FoodEntry, 'id' | 'timestamp'>) => {
@@ -77,6 +86,7 @@ export default function FoodLogScreen() {
     if (selectedFood == null) return;
     const serving = selectedFood.serving_sizes[servingIndex];
     const computed = scaleNutrition(selectedFood.nutrition_per_100g, serving, quantity);
+    const flagged = detectFlaggedIngredients(selectedFood.ingredients, ingredientFlags);
 
     saveEntry({
       meal_type: mealType,
@@ -87,10 +97,154 @@ export default function FoodLogScreen() {
       source: selectedFood.source,
       photo_uri: null,
       photo_confidence: null,
-      flagged_ingredients: [],
+      flagged_ingredients: flagged,
       notes: null,
     });
-  }, [selectedFood, servingIndex, quantity, mealType, saveEntry]);
+  }, [selectedFood, servingIndex, quantity, mealType, saveEntry, ingredientFlags]);
+
+  const handleNLPConfirm = useCallback(
+    (items: Array<{ name: string; portion: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g?: number | null; sugar_g?: number | null; sodium_mg?: number | null }>) => {
+      const today = todayDateString();
+      const key = dateKey(STORAGE_KEYS.LOG_FOOD, today);
+
+      (async () => {
+        const existing = (await storageGet<FoodEntry[]>(key)) ?? [];
+        const newEntries: FoodEntry[] = items.map((item) => ({
+          id: `food_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          timestamp: new Date().toISOString(),
+          meal_type: mealType,
+          food_item: {
+            source: 'nlp' as const,
+            source_id: `nlp:${Date.now()}`,
+            name: item.name,
+            brand: null,
+            barcode: null,
+            nutrition_per_100g: {
+              calories: item.calories,
+              protein_g: item.protein_g,
+              carbs_g: item.carbs_g,
+              fat_g: item.fat_g,
+              fiber_g: item.fiber_g ?? null,
+              sugar_g: item.sugar_g ?? null,
+              added_sugar_g: null,
+              sodium_mg: item.sodium_mg ?? null,
+              cholesterol_mg: null,
+              saturated_fat_g: null,
+              trans_fat_g: null,
+              potassium_mg: null,
+              vitamin_d_mcg: null,
+              calcium_mg: null,
+              iron_mg: null,
+            },
+            serving_sizes: [{ description: item.portion, unit: 'each', gram_weight: 0, quantity: 1 }],
+            default_serving_index: 0,
+            ingredients: null,
+            last_accessed: new Date().toISOString(),
+          },
+          serving: { description: item.portion, unit: 'each', gram_weight: 0, quantity: 1 },
+          quantity: 1,
+          computed_nutrition: {
+            calories: item.calories,
+            protein_g: item.protein_g,
+            carbs_g: item.carbs_g,
+            fat_g: item.fat_g,
+            fiber_g: item.fiber_g ?? null,
+            sugar_g: item.sugar_g ?? null,
+            added_sugar_g: null,
+            sodium_mg: item.sodium_mg ?? null,
+            cholesterol_mg: null,
+            saturated_fat_g: null,
+            trans_fat_g: null,
+            potassium_mg: null,
+            vitamin_d_mcg: null,
+            calcium_mg: null,
+            iron_mg: null,
+          },
+          source: 'nlp' as const,
+          photo_uri: null,
+          photo_confidence: null,
+          flagged_ingredients: [],
+          notes: null,
+        }));
+
+        await storageSet(key, [...existing, ...newEntries]);
+        router.back();
+      })();
+    },
+    [mealType],
+  );
+
+  const handlePhotoConfirm = useCallback(
+    (items: Array<{ name: string; portion: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; confidence: 'high' | 'medium' | 'low'; note: string | null }>, photoUri: string) => {
+      const today = todayDateString();
+      const key = dateKey(STORAGE_KEYS.LOG_FOOD, today);
+
+      (async () => {
+        const existing = (await storageGet<FoodEntry[]>(key)) ?? [];
+        const newEntries: FoodEntry[] = items.map((item) => ({
+          id: `food_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          timestamp: new Date().toISOString(),
+          meal_type: mealType,
+          food_item: {
+            source: 'ai_photo' as const,
+            source_id: `photo:${Date.now()}`,
+            name: item.name,
+            brand: null,
+            barcode: null,
+            nutrition_per_100g: {
+              calories: item.calories,
+              protein_g: item.protein_g,
+              carbs_g: item.carbs_g,
+              fat_g: item.fat_g,
+              fiber_g: null,
+              sugar_g: null,
+              added_sugar_g: null,
+              sodium_mg: null,
+              cholesterol_mg: null,
+              saturated_fat_g: null,
+              trans_fat_g: null,
+              potassium_mg: null,
+              vitamin_d_mcg: null,
+              calcium_mg: null,
+              iron_mg: null,
+            },
+            serving_sizes: [{ description: item.portion, unit: 'each', gram_weight: 0, quantity: 1 }],
+            default_serving_index: 0,
+            ingredients: null,
+            last_accessed: new Date().toISOString(),
+          },
+          serving: { description: item.portion, unit: 'each', gram_weight: 0, quantity: 1 },
+          quantity: 1,
+          computed_nutrition: {
+            calories: item.calories,
+            protein_g: item.protein_g,
+            carbs_g: item.carbs_g,
+            fat_g: item.fat_g,
+            fiber_g: null,
+            sugar_g: null,
+            added_sugar_g: null,
+            sodium_mg: null,
+            cholesterol_mg: null,
+            saturated_fat_g: null,
+            trans_fat_g: null,
+            potassium_mg: null,
+            vitamin_d_mcg: null,
+            calcium_mg: null,
+            iron_mg: null,
+          },
+          source: 'ai_photo' as const,
+          photo_uri: photoUri,
+          photo_confidence: item.confidence,
+          flagged_ingredients: [],
+          notes: item.note,
+        }));
+
+        await storageSet(key, [...existing, ...newEntries]);
+        router.back();
+      })();
+    },
+    [mealType],
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -101,6 +255,8 @@ export default function FoodLogScreen() {
             onManualEntry={() => setScreen('manual')}
             onQuickLog={() => setScreen('quicklog')}
             onBarcodeScan={() => setScreen('barcode')}
+            onNLPEntry={() => setScreen('nlp')}
+            onPhotoEntry={() => setScreen('photo')}
           />
         )}
 
@@ -153,6 +309,22 @@ export default function FoodLogScreen() {
           <QuickLog
             mealType={mealType}
             onSave={saveEntry}
+            onCancel={() => setScreen('search')}
+          />
+        )}
+
+        {screen === 'nlp' && (
+          <NLPFoodEntry
+            mealType={mealType}
+            onConfirm={handleNLPConfirm}
+            onCancel={() => setScreen('search')}
+          />
+        )}
+
+        {screen === 'photo' && (
+          <PhotoFoodEntry
+            mealType={mealType}
+            onConfirm={handlePhotoConfirm}
             onCancel={() => setScreen('search')}
           />
         )}

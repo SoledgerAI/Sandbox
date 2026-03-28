@@ -1,11 +1,16 @@
 // Display a logged food item in the daily food list
 // Phase 6: Food Logging -- Core
+// Phase 19: Ingredient flag icons on flagged foods
 
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { useState } from 'react';
+import { Alert, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import type { FoodEntry } from '../../types/food';
 import { formatNutrient } from '../../utils/servingmath';
+
+const INGREDIENT_FLAG_DISCLAIMER =
+  'Ingredient flags are informational only. DUB_AI does not make health claims about specific ingredients.';
 
 interface FoodEntryCardProps {
   entry: FoodEntry;
@@ -22,12 +27,13 @@ const MEAL_LABELS: Record<string, string> = {
 };
 
 export function FoodEntryCard({ entry, onPress, onDelete, onFavorite }: FoodEntryCardProps) {
-  const { food_item, computed_nutrition, quantity, serving, meal_type } = entry;
+  const { food_item, computed_nutrition, quantity, serving, meal_type, flagged_ingredients } = entry;
   const cal = Math.round(computed_nutrition.calories);
   const servingDesc =
     quantity !== 1
       ? `${quantity}x ${serving.description}`
       : serving.description;
+  const hasFlaggedIngredients = flagged_ingredients && flagged_ingredients.length > 0;
 
   return (
     <TouchableOpacity
@@ -37,9 +43,14 @@ export function FoodEntryCard({ entry, onPress, onDelete, onFavorite }: FoodEntr
     >
       <View style={styles.mainRow}>
         <View style={styles.info}>
-          <Text style={styles.name} numberOfLines={1}>
-            {food_item.name}
-          </Text>
+          <View style={styles.nameRow}>
+            <Text style={styles.name} numberOfLines={1}>
+              {food_item.name}
+            </Text>
+            {hasFlaggedIngredients && (
+              <FlagBadge ingredients={flagged_ingredients} />
+            )}
+          </View>
           <Text style={styles.details} numberOfLines={1}>
             {servingDesc}
             {food_item.brand ? ` \u2022 ${food_item.brand}` : ''}
@@ -75,6 +86,29 @@ export function FoodEntryCard({ entry, onPress, onDelete, onFavorite }: FoodEntr
   );
 }
 
+function FlagBadge({ ingredients }: { ingredients: string[] }) {
+  return (
+    <TouchableOpacity
+      onPress={() =>
+        Alert.alert(
+          'Flagged Ingredients',
+          `${ingredients.join(', ')}\n\n${INGREDIENT_FLAG_DISCLAIMER}`,
+        )
+      }
+      hitSlop={6}
+      style={styles.flagBadge}
+    >
+      <Ionicons name="flag" size={12} color={Colors.warning} />
+      <TouchableOpacity
+        onPress={() => Alert.alert('Info', INGREDIENT_FLAG_DISCLAIMER)}
+        hitSlop={4}
+      >
+        <Ionicons name="information-circle-outline" size={11} color={Colors.secondaryText} />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+}
+
 function MacroPill({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.macroPill}>
@@ -100,10 +134,25 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 12,
   },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
   name: {
     color: Colors.text,
     fontSize: 15,
     fontWeight: '600',
+    flexShrink: 1,
+  },
+  flagBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: Colors.warning + '18',
+    borderRadius: 6,
+    paddingHorizontal: 5,
+    paddingVertical: 2,
   },
   details: {
     color: Colors.secondaryText,

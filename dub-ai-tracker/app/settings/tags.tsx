@@ -1,10 +1,12 @@
 // Settings > Tag Management
 // Phase 17: Settings and Profile Management
+// Phase 19: Ingredient flag management link
 // Add/remove tags, reorder dashboard cards
 
 import { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
+  SafeAreaView,
   ScrollView,
   StyleSheet,
   Text,
@@ -21,11 +23,13 @@ import {
   PERSONAL_PRIVATE_TAGS,
 } from '../../src/constants/tags';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
+import { IngredientFlags } from '../../src/components/logging/IngredientFlags';
 
 export default function TagsScreen() {
   const [loading, setLoading] = useState(true);
   const [enabledTags, setEnabledTags] = useState<string[]>([]);
   const [tagOrder, setTagOrder] = useState<string[]>([]);
+  const [showIngredientFlags, setShowIngredientFlags] = useState(false);
 
   const loadTags = useCallback(async () => {
     setLoading(true);
@@ -87,6 +91,17 @@ export default function TagsScreen() {
     Alert.alert('Tags Updated', 'Your tag preferences have been saved.', [
       { text: 'OK', onPress: () => router.back() },
     ]);
+  }
+
+  if (showIngredientFlags) {
+    return (
+      <SafeAreaView style={{ flex: 1, backgroundColor: Colors.primaryBackground }}>
+        <IngredientFlags
+          onBack={() => setShowIngredientFlags(false)}
+          onSave={() => setShowIngredientFlags(false)}
+        />
+      </SafeAreaView>
+    );
   }
 
   if (loading) {
@@ -215,6 +230,23 @@ export default function TagsScreen() {
         ))}
       </View>
 
+      {/* Ingredient Flags */}
+      <View style={styles.section}>
+        <Text style={styles.sectionTitle}>Ingredient Flags</Text>
+        <Text style={styles.sectionSubtitle}>
+          Flag specific ingredients to track in your food logs
+        </Text>
+        <TouchableOpacity
+          style={styles.ingredientFlagButton}
+          onPress={() => setShowIngredientFlags(true)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="flag" size={20} color={Colors.accent} />
+          <Text style={styles.ingredientFlagText}>Manage Ingredient Flags</Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+        </TouchableOpacity>
+      </View>
+
       <View style={styles.footer}>
         <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.7}>
           <Text style={styles.saveButtonText}>Save Tag Preferences</Text>
@@ -291,6 +323,20 @@ const styles = StyleSheet.create({
   },
   orderTagName: { color: Colors.text, fontSize: 14, fontWeight: '500', flex: 1 },
   orderButtons: { flexDirection: 'row', gap: 8 },
+  ingredientFlagButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    padding: 14,
+    gap: 10,
+  },
+  ingredientFlagText: {
+    flex: 1,
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '500',
+  },
   footer: { marginTop: 8, marginBottom: 32 },
   saveButton: {
     backgroundColor: Colors.accent,

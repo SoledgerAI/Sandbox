@@ -1,5 +1,6 @@
 // Proactive pattern recognition engine
 // Phase 14: AI Coach
+// Phase 19: Ingredient frequency detection
 // Runs on app open and end-of-day
 
 import { storageGet, storageSet, STORAGE_KEYS, dateKey, storageList } from '../utils/storage';
@@ -267,6 +268,40 @@ export async function runPatternEngine(): Promise<PatternInsight[]> {
         correlation_note: `${confidenceLabel(foodSleepDays.length)} ${statisticalTier(foodSleepDays.length)}`,
         detected_at: new Date().toISOString(),
       });
+    }
+  }
+
+  // Pattern 6: Ingredient flag frequency (7-day rolling)
+  // Detects 3+ occurrences of same flagged ingredient per week
+  {
+    const flagCounts = new Map<string, number>();
+    const recentDays = days.slice(0, 7); // last 7 days
+    for (const day of recentDays) {
+      // Load food entries to check flagged ingredients
+      const dayFoods = await storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, day.date));
+      if (dayFoods) {
+        for (const f of dayFoods) {
+          if (f.flagged_ingredients) {
+            for (const flag of f.flagged_ingredients) {
+              flagCounts.set(flag, (flagCounts.get(flag) ?? 0) + 1);
+            }
+          }
+        }
+      }
+    }
+
+    for (const [ingredientName, count] of flagCounts) {
+      if (count >= 3) {
+        newPatterns.push({
+          id: generateId(),
+          category: `ingredient-frequency-${ingredientName.toLowerCase().replace(/\s+/g, '-')}`,
+          observation: `You've logged foods containing ${ingredientName} ${count} times this week. No judgment -- just making sure you see the pattern.`,
+          data_range: `${recentDays[recentDays.length - 1]?.date ?? 'N/A'} to ${recentDays[0]?.date ?? 'N/A'}`,
+          sample_size: recentDays.length,
+          correlation_note: 'Ingredient frequency (7-day count)',
+          detected_at: new Date().toISOString(),
+        });
+      }
     }
   }
 
