@@ -73,5 +73,8 @@
       }
     }
   },
+  "overrides": {
+    "@expo/log-box": "55.0.3"
+  },
   "private": true
 }
