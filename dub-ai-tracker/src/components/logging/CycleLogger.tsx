@@ -269,6 +269,8 @@ export function CycleLogger() {
         <Ionicons name="information-circle-outline" size={16} color={Colors.secondaryText} />
         <Text style={styles.disclaimerText}>
           This is an estimate based on your cycle data. It is not a medical fertility assessment.
+          This should not be used as a method of contraception. Consult your healthcare provider
+          for family planning guidance.
         </Text>
       </View>
     </ScrollView>

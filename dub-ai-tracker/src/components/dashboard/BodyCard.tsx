@@ -8,6 +8,7 @@ import { Colors } from '../../constants/colors';
 import { DashboardCard } from './DashboardCard';
 import { SparkLine } from '../charts/SparkLine';
 import { LBS_PER_KG } from '../../constants/formulas';
+import { WEIGHT_PROJECTION_DISCLAIMER } from '../../utils/calories';
 import {
   storageGet,
   storageList,
@@ -123,6 +124,7 @@ export function BodyCard() {
           color={trendColor}
         />
       </View>
+      <Text style={styles.disclaimer}>{WEIGHT_PROJECTION_DISCLAIMER}</Text>
     </DashboardCard>
   );
 }
@@ -164,5 +166,12 @@ const styles = StyleSheet.create({
   emptyText: {
     color: Colors.secondaryText,
     fontSize: 13,
+  },
+  disclaimer: {
+    color: Colors.secondaryText,
+    fontSize: 10,
+    marginTop: 8,
+    fontStyle: 'italic',
+    lineHeight: 14,
   },
 });

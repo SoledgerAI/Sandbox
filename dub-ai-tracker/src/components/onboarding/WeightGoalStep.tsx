@@ -4,12 +4,13 @@
 // Rate/target/deficit details deferred to Settings
 
 import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Alert, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { OnboardingStep } from './OnboardingStep';
 import { Button } from '../common/Button';
-import type { GoalDirection } from '../../types/profile';
+import { BMI_NORMAL_UPPER, BMI_UNDERWEIGHT, LBS_PER_KG, CM_PER_INCH } from '../../constants/formulas';
+import type { GoalDirection, UserProfile } from '../../types/profile';
 
 interface GoalOption {
   direction: GoalDirection;
@@ -41,15 +42,58 @@ const GOAL_OPTIONS: GoalOption[] = [
 
 interface WeightGoalStepProps {
   currentGoal: GoalDirection | null;
+  /** Profile data collected in Step 1 — used for BMI guardrail (D6-002) */
+  profile?: Partial<UserProfile>;
   onComplete: (direction: GoalDirection) => void;
   onBack: () => void;
 }
 
-export function WeightGoalStep({ currentGoal, onComplete, onBack }: WeightGoalStepProps) {
+export function WeightGoalStep({ currentGoal, profile, onComplete, onBack }: WeightGoalStepProps) {
   const [selected, setSelected] = useState<GoalDirection | null>(currentGoal);
+  const [bmiWarningShown, setBmiWarningShown] = useState(false);
+
+  function computeBmi(): number | null {
+    if (profile?.weight_lbs == null || profile?.height_inches == null) return null;
+    const weightKg = profile.weight_lbs / LBS_PER_KG;
+    const heightM = (profile.height_inches * CM_PER_INCH) / 100;
+    if (heightM <= 0) return null;
+    return weightKg / (heightM * heightM);
+  }
 
   function handleContinue() {
-    onComplete(selected ?? 'MAINTAIN');
+    const direction = selected ?? 'MAINTAIN';
+
+    // D6-002: BMI guardrail at onboarding
+    if (direction === 'LOSE' && !bmiWarningShown) {
+      const bmi = computeBmi();
+      if (bmi != null) {
+        if (bmi <= BMI_UNDERWEIGHT) {
+          Alert.alert(
+            'Health Advisory',
+            `Your estimated BMI is ${bmi.toFixed(1)}, which is below the healthy range. ` +
+            'Weight loss at this weight is not recommended without guidance from a healthcare provider. ' +
+            'You can still proceed, but please consider consulting a professional.',
+            [
+              { text: 'Go Back', style: 'cancel' },
+              { text: 'Continue Anyway', onPress: () => { setBmiWarningShown(true); onComplete(direction); } },
+            ],
+          );
+          return;
+        } else if (bmi <= BMI_NORMAL_UPPER) {
+          Alert.alert(
+            'Health Advisory',
+            `Your current weight is within the healthy BMI range (${bmi.toFixed(1)}). ` +
+            'Continued weight loss should be discussed with a healthcare provider.',
+            [
+              { text: 'OK', onPress: () => { setBmiWarningShown(true); onComplete(direction); } },
+            ],
+          );
+          return;
+        }
+      }
+    }
+
+    onComplete(direction);
   }
 
   function handleSkip() {

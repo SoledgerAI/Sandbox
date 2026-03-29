@@ -1,6 +1,9 @@
 // Dynamic system prompt builder for Coach DUB
 // Phase 14: AI Coach
 // Phase 20: Recipe context additions
+//
+// NOTE: Current format exceeds ~2,100 token target. Compression to
+// pipe-delimited format is deferred to Phase 22 polish.
 
 import type { EngagementTier } from '../types/profile';
 import type { CoachContext } from '../types/coach';
@@ -59,6 +62,12 @@ const PROHIBITED_WORDS = [
   'diagnosis',
   'prescribe',
   'prescription',
+  'you missed',
+  "you're behind",
+  "don't give up",
+  'gave up',
+  'fell off',
+  'fell short',
 ];
 
 export function buildSystemPrompt(context: CoachContext, conditionalSections: string[], tasteProfile?: TasteProfile): string {
@@ -182,6 +191,8 @@ export function buildSystemPrompt(context: CoachContext, conditionalSections: st
           return `User's intake today is below 1,000 calories (${f.detail}). NEVER respond with positive reinforcement about this intake. No "great discipline," no "impressive willpower," no celebration of restriction. Surface the data factually and include: "This intake level may not support your health. Consider discussing your nutrition with a healthcare provider."`;
         case 'healthy_bmi_loss_goal':
           return `User's BMI is within or below the healthy range with an active weight loss goal (${f.detail}). Flag: "Your current weight is within the healthy BMI range for your height. Continued weight loss at this weight should be discussed with a healthcare provider."`;
+        case 'underweight_bmi':
+          return `User's BMI indicates underweight status (${f.detail}). Proactively recommend: "Your current BMI suggests you may be underweight. Please consider discussing your weight and nutrition with a healthcare provider to ensure you're getting adequate nutrition for your health." This overrides tier-specific tone.`;
         default:
           return f.detail;
       }
@@ -206,4 +217,60 @@ export function buildSystemPrompt(context: CoachContext, conditionalSections: st
   );
 
   return parts.join('\n\n');
+}
+
+const POSITIVE_REINFORCEMENT_PATTERNS = [
+  'great discipline',
+  'impressive willpower',
+  'amazing control',
+  'good job',
+  'well done',
+  'proud of you',
+  'keep it up',
+];
+
+export function filterCoachResponse(
+  response: string,
+  context: CoachContext,
+): { filtered: boolean; text: string; warnings: string[] } {
+  let text = response;
+  const warnings: string[] = [];
+  let filtered = false;
+
+  // Check for prohibited words (case-insensitive)
+  const lowerText = text.toLowerCase();
+  for (const word of PROHIBITED_WORDS) {
+    if (lowerText.includes(word.toLowerCase())) {
+      // Replace the prohibited word with a safe alternative
+      const regex = new RegExp(word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+      text = text.replace(regex, '[removed]');
+      warnings.push(`Prohibited word removed: "${word}"`);
+      filtered = true;
+    }
+  }
+
+  // Check for positive reinforcement co-occurring with extreme restriction
+  const hasExtremeRestriction = context.ed_risk_flags.some(
+    (f) => f.type === 'extreme_restriction_today',
+  );
+
+  if (hasExtremeRestriction) {
+    const lowerFiltered = text.toLowerCase();
+    for (const pattern of POSITIVE_REINFORCEMENT_PATTERNS) {
+      if (lowerFiltered.includes(pattern)) {
+        const regex = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi');
+        text = text.replace(regex, '[removed]');
+        warnings.push(
+          `Positive reinforcement removed during extreme restriction: "${pattern}"`,
+        );
+        filtered = true;
+      }
+    }
+    if (warnings.some((w) => w.includes('extreme restriction'))) {
+      text +=
+        '\n\nNote: This intake level may not support your health. Consider discussing your nutrition with a healthcare provider.';
+    }
+  }
+
+  return { filtered, text, warnings };
 }

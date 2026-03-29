@@ -200,6 +200,14 @@ export function BloodworkPanel() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      {/* Disclaimer */}
+      <View style={styles.disclaimerBanner}>
+        <Ionicons name="information-circle-outline" size={18} color={Colors.secondaryText} />
+        <Text style={styles.disclaimerText}>
+          Reference ranges are general guidelines. Values outside ranges are not a diagnosis. Discuss all bloodwork results with your healthcare provider.
+        </Text>
+      </View>
+
       {/* Summary */}
       {savedEntry && (
         <View style={styles.summaryCard}>
@@ -314,6 +322,23 @@ export function BloodworkPanel() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 32 },
+  disclaimerBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  disclaimerText: {
+    flex: 1,
+    color: Colors.secondaryText,
+    fontSize: 12,
+    lineHeight: 17,
+  },
   summaryCard: {
     backgroundColor: Colors.cardBackground,
     borderRadius: 12,

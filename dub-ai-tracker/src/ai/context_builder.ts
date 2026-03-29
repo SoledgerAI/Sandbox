@@ -4,7 +4,7 @@
 // Includes conditional context injection and therapy note firewall
 
 import { storageGet, STORAGE_KEYS, dateKey, storageList } from '../utils/storage';
-import { calculateBmr, calculateTdee, computeAge } from '../utils/calories';
+import { calculateBmr, calculateTdee, computeAge, lbsToKg, inchesToCm } from '../utils/calories';
 import type { UserProfile, EngagementTier, SobrietyGoal } from '../types/profile';
 import type {
   CoachContext,
@@ -21,6 +21,7 @@ import {
   CALORIE_FLOOR_MALE,
   ED_EXTREME_RESTRICTION_THRESHOLD,
   ED_SUSTAINED_LOW_DAYS,
+  BMI_UNDERWEIGHT,
   BMI_NORMAL_UPPER,
   LBS_PER_KG,
   CM_PER_INCH,
@@ -159,8 +160,8 @@ export async function buildCoachContext(userMessage: string): Promise<{
     profile?.activity_level != null
   ) {
     const age = computeAge(profile.dob);
-    const weightKg = profile.weight_lbs / 2.20462;
-    const heightCm = profile.height_inches * 2.54;
+    const weightKg = lbsToKg(profile.weight_lbs);
+    const heightCm = inchesToCm(profile.height_inches);
     bmr = calculateBmr({ weightKg, heightCm, ageYears: age, sex: profile.sex });
     tdee = calculateTdee(bmr, profile.activity_level);
   }
@@ -330,30 +331,41 @@ export async function buildCoachContext(userMessage: string): Promise<{
     });
   }
 
-  // Flag 2: Sustained low intake (3+ consecutive days below calorie floor)
+  // Flag 2: Sustained low intake (3+ days below calorie floor in a 7-day rolling window, skipping no-log days)
   {
-    let consecutiveLowDays = 0;
-    for (let i = 0; i < ED_SUSTAINED_LOW_DAYS + 4; i++) {
+    let lowDays = 0;
+    for (let i = 0; i < 7; i++) {
       const date = pastDateString(i);
       const dayFoods = i === 0 ? foods : await storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, date));
       const dayArr = dayFoods ?? [];
-      if (dayArr.length === 0) break; // no food logged = not trackable
+      if (dayArr.length === 0) continue; // no food logged = skip, not a streak-breaker
       const dayCal = dayArr.reduce((s, f) => s + (f.computed_nutrition?.calories ?? 0), 0);
       if (dayCal > 0 && dayCal < calorieFloor) {
-        consecutiveLowDays++;
-      } else {
-        break;
+        lowDays++;
       }
     }
-    if (consecutiveLowDays >= ED_SUSTAINED_LOW_DAYS) {
+    if (lowDays >= ED_SUSTAINED_LOW_DAYS) {
       edRiskFlags.push({
         type: 'sustained_low_intake',
-        detail: `Calorie intake below ${calorieFloor} cal for ${consecutiveLowDays} consecutive days`,
+        detail: `Calorie intake below ${calorieFloor} cal on ${lowDays} of the last 7 days`,
       });
     }
   }
 
-  // Flag 3: Healthy BMI + active weight loss goal
+  // Flag 3: Underweight BMI (regardless of goal)
+  if (profile?.weight_lbs != null && profile?.height_inches != null) {
+    const weightKg = profile.weight_lbs / LBS_PER_KG;
+    const heightM = (profile.height_inches * CM_PER_INCH) / 100;
+    const bmi = weightKg / (heightM * heightM);
+    if (bmi <= BMI_UNDERWEIGHT) {
+      edRiskFlags.push({
+        type: 'underweight_bmi',
+        detail: `BMI is ${bmi.toFixed(1)} (at or below ${BMI_UNDERWEIGHT}), which is classified as underweight`,
+      });
+    }
+  }
+
+  // Flag 4: Healthy BMI + active weight loss goal
   if (
     profile?.weight_lbs != null &&
     profile?.height_inches != null &&
@@ -416,6 +428,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
 }
 
 async function compute7DayRolling(today: string): Promise<RollingStats | null> {
+  let workouts = 0;
   const stats: {
     calories: number[];
     protein: number[];
@@ -470,6 +483,14 @@ async function compute7DayRolling(today: string): Promise<RollingStats | null> {
     if (bodyEntry?.weight_lbs != null) {
       stats.weight.push(bodyEntry.weight_lbs);
     }
+
+    const [workoutEntries, strengthEntries] = await Promise.all([
+      storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, date)),
+      storageGet<any[]>(dateKey(STORAGE_KEYS.LOG_STRENGTH, date)),
+    ]);
+    if ((workoutEntries && workoutEntries.length > 0) || (strengthEntries && strengthEntries.length > 0)) {
+      workouts++;
+    }
   }
 
   const avg = (arr: number[]) => arr.length > 0 ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
@@ -483,6 +504,6 @@ async function compute7DayRolling(today: string): Promise<RollingStats | null> {
     avg_sleep_hours: avg(stats.sleep),
     avg_mood: avg(stats.mood),
     avg_weight: avg(stats.weight),
-    workout_count: 0,
+    workout_count: workouts,
   };
 }

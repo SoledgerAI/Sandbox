@@ -18,7 +18,7 @@ export interface SuggestedPrompt {
   category: 'general' | 'nutrition' | 'fitness' | 'sleep' | 'patterns' | 'recovery';
 }
 
-export type EdRiskFlagType = 'sustained_low_intake' | 'extreme_restriction_today' | 'healthy_bmi_loss_goal';
+export type EdRiskFlagType = 'sustained_low_intake' | 'extreme_restriction_today' | 'healthy_bmi_loss_goal' | 'underweight_bmi';
 
 export interface EdRiskFlag {
   type: EdRiskFlagType;

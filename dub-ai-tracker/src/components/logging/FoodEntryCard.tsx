@@ -2,7 +2,7 @@
 // Phase 6: Food Logging -- Core
 // Phase 19: Ingredient flag icons on flagged foods
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Alert, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -26,7 +26,7 @@ const MEAL_LABELS: Record<string, string> = {
   snack: 'Snack',
 };
 
-export function FoodEntryCard({ entry, onPress, onDelete, onFavorite }: FoodEntryCardProps) {
+export const FoodEntryCard = React.memo(function FoodEntryCard({ entry, onPress, onDelete, onFavorite }: FoodEntryCardProps) {
   const { food_item, computed_nutrition, quantity, serving, meal_type, flagged_ingredients } = entry;
   const cal = Math.round(computed_nutrition.calories);
   const servingDesc =
@@ -84,7 +84,7 @@ export function FoodEntryCard({ entry, onPress, onDelete, onFavorite }: FoodEntr
       </View>
     </TouchableOpacity>
   );
-}
+});
 
 function FlagBadge({ ingredients }: { ingredients: string[] }) {
   return (
@@ -218,5 +218,9 @@ const styles = StyleSheet.create({
   },
   actionBtn: {
     padding: 4,
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

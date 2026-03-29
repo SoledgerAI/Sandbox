@@ -1,6 +1,7 @@
 // Chat message bubble component
 // Phase 14: AI Coach
 
+import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 import type { ChatMessage } from '../../types/coach';
@@ -9,7 +10,7 @@ interface ChatBubbleProps {
   message: ChatMessage;
 }
 
-export function ChatBubble({ message }: ChatBubbleProps) {
+export const ChatBubble = React.memo(function ChatBubble({ message }: ChatBubbleProps) {
   const isUser = message.role === 'user';
 
   return (
@@ -24,7 +25,7 @@ export function ChatBubble({ message }: ChatBubbleProps) {
       </View>
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   row: {

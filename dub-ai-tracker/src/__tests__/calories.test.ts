@@ -33,6 +33,20 @@ describe('Calorie Engine', () => {
       expect(bmr).toBeCloseTo(1769.1, 1);
     });
 
+    it('computes BMR for prefer_not_to_say: average of male and female (80kg, 178cm, 30y = ~1686.1)', () => {
+      // prefer_not_to_say averages male (1769.1) and female (1603.1) = 1686.1
+      const bmr = calculateBmr({
+        weightKg: 80,
+        heightCm: 178,
+        ageYears: 30,
+        sex: 'prefer_not_to_say',
+      });
+      const maleBmr = calculateBmr({ weightKg: 80, heightCm: 178, ageYears: 30, sex: 'male' });
+      const femaleBmr = calculateBmr({ weightKg: 80, heightCm: 178, ageYears: 30, sex: 'female' });
+      expect(bmr).toBeCloseTo((maleBmr + femaleBmr) / 2, 1);
+      expect(bmr).toBeCloseTo(1686.1, 1);
+    });
+
     it('computes BMR for female: 65kg, 165cm, 25y = ~1396.6 kcal', () => {
       // Spec: Female, 65kg, 165cm, 25 years = 1396.6 kcal
       // Formula: (9.99 * 65) + (6.25 * 165) - (4.92 * 25) - 161
@@ -108,6 +122,10 @@ describe('Calorie Engine', () => {
     it('male floor = 1500', () => {
       expect(CALORIE_FLOOR_MALE).toBe(1500);
       expect(getCalorieFloor('male')).toBe(1500);
+    });
+
+    it('prefer_not_to_say floor = 1500', () => {
+      expect(getCalorieFloor('prefer_not_to_say')).toBe(1500);
     });
 
     it('clamps female target below 1200 to 1200', () => {

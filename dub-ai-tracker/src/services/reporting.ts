@@ -22,6 +22,7 @@ import type {
   CycleEntry,
 } from '../types';
 import type { UserProfile, StreakData } from '../types/profile';
+import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge, lbsToKg, inchesToCm } from '../utils/calories';
 
 // ============================================================
 // Types
@@ -177,9 +178,32 @@ export async function generateDailySummary(dateStr: string): Promise<DailySummar
   if (sleepEntry) tagsLogged.push('sleep.tracking');
   if (moodEntries && moodEntries.length > 0) tagsLogged.push('mental.wellness');
 
-  // Get profile for calorie targets
+  // Compute calorie target from profile; fall back to 2000 if data is incomplete
   const profile = await storageGet<UserProfile>(STORAGE_KEYS.PROFILE);
-  const calorieTarget = 2000; // Default; actual target computed from profile elsewhere
+  let calorieTarget = 2000;
+  if (
+    profile?.weight_lbs != null &&
+    profile?.height_inches != null &&
+    profile?.dob != null &&
+    profile?.sex != null &&
+    profile?.activity_level != null
+  ) {
+    const age = computeAge(profile.dob);
+    const bmr = calculateBmr({
+      weightKg: lbsToKg(profile.weight_lbs),
+      heightCm: inchesToCm(profile.height_inches),
+      ageYears: age,
+      sex: profile.sex,
+    });
+    const tdee = calculateTdee(bmr, profile.activity_level);
+    calorieTarget = calculateCalorieTarget({
+      tdee,
+      goalDirection: profile.goal?.direction ?? 'MAINTAIN',
+      sex: profile.sex,
+      rateLbsPerWeek: profile.goal?.rate_lbs_per_week ?? undefined,
+      surplusCalories: profile.goal?.surplus_calories ?? undefined,
+    });
+  }
 
   const summary: DailySummary = {
     date: dateStr,

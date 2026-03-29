@@ -110,6 +110,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 14,
     paddingVertical: 8,
+    minHeight: 44,
     gap: 6,
     borderWidth: 1,
     borderColor: Colors.divider,

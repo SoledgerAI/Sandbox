@@ -1,0 +1,428 @@
+================================================================
+DUB_AI TRACKER — COMPREHENSIVE TEST SUITE BUILD
+================================================================
+Standard: TRUSTED AS VERIFIED
+Prompt Version: 1.0
+Target: Claude Code (terminal, against repo)
+================================================================
+
+
+ROLE
+
+You are a Senior Software Engineer specializing in React Native / Expo
+test infrastructure. You have deep expertise in:
+
+  - Jest + React Native Testing Library (unit + component tests)
+  - TypeScript strict-mode test authoring
+  - AsyncStorage mocking for local-first apps
+  - Testing pure computation functions (BMR, TDEE, MET, recovery scores)
+  - Testing AI/LLM integration layers (mocking API calls, prompt injection
+    guardrails, context builder output validation)
+  - Testing React hooks in isolation
+  - Accessibility and WCAG compliance validation
+  - Health/wellness domain logic (calorie math, Mifflin-St Jeor,
+    Brzycki 1RM, Spearman correlation, cycle phase computation)
+
+You are NOT solving a product problem. You are building a test harness
+that validates 22 phases of an already-built React Native wellness app.
+
+
+CONTEXT
+
+DUB_AI Tracker is a private, AI-powered wellness tracking app built with
+React Native + Expo (managed workflow + expo-dev-client). It was built
+in 22 sequential phases by Claude Code. All 22 phases are committed.
+Zero test files exist today. The app has 122 source files in src/ and
+43 route files in app/. The spec is at ../DUB_AI_SPEC.txt (4,338 lines).
+
+Tech stack:
+  - React Native 0.83.4, React 19.2.0, Expo SDK 55
+  - TypeScript 5.9.2 strict mode
+  - AsyncStorage (local-first, no backend)
+  - Anthropic Messages API (claude-sonnet-4-20250514)
+  - expo-secure-store for API key storage
+  - expo-camera for barcode scanning
+  - react-native-health / react-native-health-connect
+  - expo-notifications, expo-print, expo-sharing
+
+No test framework is currently installed. You must set it up from scratch.
+
+
+OBJECTIVE
+
+Build a comprehensive, runnable test suite that validates the app works
+correctly across all 22 build phases. The test suite must:
+
+  1. Install and configure the test framework (Jest + RNTL)
+  2. Create proper mocks for all native modules and AsyncStorage
+  3. Test every computation/utility function with known test vectors
+  4. Test every custom hook in isolation
+  5. Test critical component rendering and interaction
+  6. Test AI integration safety (prompt injection, therapy note firewall)
+  7. Produce a single "npm test" command that runs everything
+  8. All tests pass on first run (no known failures)
+
+Success = "npm test" runs clean with zero failures and covers all 22
+phases of the build.
+
+
+TASK
+
+Execute in this exact order. Do not skip steps. Do not build ahead.
+
+--- STEP 1: INSTALL TEST INFRASTRUCTURE ---
+
+Install as devDependencies (use --legacy-peer-deps if needed):
+  jest
+  @testing-library/react-native
+  @testing-library/jest-native
+  @types/jest
+  jest-expo
+  react-test-renderer (match React version)
+
+Configure in package.json:
+  "test" script: "jest --forceExit --detectOpenHandles"
+  jest config: preset "jest-expo", transformIgnorePatterns for
+    node_modules (expo, react-native, @react-native, etc.)
+
+Create jest.setup.js with mocks for:
+  @react-native-async-storage/async-storage
+  expo-secure-store
+  expo-camera
+  expo-notifications
+  expo-file-system
+  expo-print
+  expo-sharing
+  expo-clipboard
+  expo-image-picker
+  expo-linking
+  react-native-health
+  react-native-health-connect
+  react-native-aes-crypto
+  react-native-reanimated
+  react-native-svg (mock all SVG elements: Svg, Circle, Rect, Path,
+    Line, Text, G, Defs, LinearGradient, Stop, ClipPath, Polygon,
+    Polyline, Ellipse, TSpan, ForeignObject)
+  react-native-gesture-handler
+  react-native/Libraries/Animated/NativeAnimatedHelper
+  @expo/vector-icons
+
+Each mock must be minimal but sufficient to prevent import crashes.
+AsyncStorage mock must support get/set/delete/multiGet/getAllKeys
+with an in-memory Map.
+
+--- STEP 2: TYPE SYSTEM AND STORAGE TESTS ---
+File: src/__tests__/types.test.ts
+
+Verify all core type interfaces can be instantiated without TypeScript
+errors. Create valid objects for: UserProfile, FoodEntry, WorkoutEntry,
+StrengthSession, SleepEntry, MoodEntry, BodyEntry, WaterEntry,
+CaffeineEntry, SubstanceEntry, SupplementEntry, CycleEntry,
+DigestiveEntry, PersonalCareEntry, InjuryEntry, BloodworkEntry,
+RecoveryScore, ChatMessage, DailySummary.
+
+File: src/__tests__/storage.test.ts
+
+Test the AsyncStorage wrapper (src/utils/storage.ts):
+  - Typed set and get round-trip
+  - Delete removes key
+  - Get non-existent key returns null or default
+  - Error handling (graceful failure)
+  - Key pattern constants exist and are correctly formatted
+
+--- STEP 3: CALORIE ENGINE TESTS ---
+File: src/__tests__/calories.test.ts
+
+Test src/utils/calories.ts with spec-defined test vectors:
+
+  BMR (Mifflin-St Jeor):
+    Male, 80kg, 178cm, 30 years = 1769.1 kcal
+    Female, 65kg, 165cm, 25 years = 1396.6 kcal
+
+  TDEE multipliers (verify each level multiplies BMR correctly):
+    Sedentary: BMR x 1.2
+    Lightly Active: BMR x 1.375
+    Moderately Active: BMR x 1.55
+    Very Active: BMR x 1.725
+    Extra Active: BMR x 1.9
+
+  Unit conversions:
+    180 lbs = 81.6466 kg (within 0.01)
+    5'10" (70 inches) = 177.8 cm (within 0.1)
+
+  Calorie floor enforcement:
+    Female result below 1200 must clamp to 1200
+    Male result below 1500 must clamp to 1500
+
+  MET-based calorie burn:
+    MET x weight_kg x duration_hours
+    Running (MET 9.8), 80kg, 30 min = 9.8 x 80 x 0.5 = 392 kcal
+
+--- STEP 4: RECOVERY SCORE TESTS ---
+File: src/__tests__/recovery.test.ts
+
+Test src/utils/recovery.ts:
+
+  Weight constants (verify exported values):
+    RECOVERY_WEIGHT_SLEEP_QUALITY = 0.25
+    RECOVERY_WEIGHT_SLEEP_DURATION = 0.20
+    RECOVERY_WEIGHT_HRV = 0.20
+    RECOVERY_WEIGHT_RESTING_HR = 0.15
+    RECOVERY_WEIGHT_TRAINING_LOAD = 0.15
+    RECOVERY_WEIGHT_ALCOHOL = 0.05
+
+  Full computation (all 6 components present):
+    Verify sum of (component_score x weight) produces expected result
+
+  Missing component redistribution:
+    Remove one component, verify remaining weights are proportionally
+    scaled so they still sum to 1.0
+
+  Insufficient data:
+    Fewer than 3 components returns null, "Insufficient Data", or
+    equivalent sentinel value
+
+  Color coding:
+    Score >= 80 maps to green (#4CAF50)
+    Score 50-79 maps to gold (#D4A843)
+    Score < 50 maps to red (#EF5350)
+
+--- STEP 5: STRENGTH TRAINING UTILITY TESTS ---
+File: src/__tests__/strength.test.ts
+
+Test src/utils/strength.ts:
+
+  Brzycki 1RM formula: weight x (36 / (37 - reps))
+    225 lbs x 5 reps = 225 x (36/32) = 253.125 lbs
+    Only valid for reps 1-10 (reject or warn for reps > 10)
+
+  Volume calculation: sum of (weight x reps) for working sets only
+    (exclude warmup sets)
+
+  PR detection: new set exceeds previous best for same exercise
+
+--- STEP 6: PATTERN ENGINE TESTS ---
+File: src/__tests__/pattern_engine.test.ts
+
+Test src/ai/pattern_engine.ts:
+
+  Tier 1 (7+ data points): threshold counting produces correct
+    "X of Y days" output
+
+  Tier 2 (14+ data points): rolling average comparison only fires
+    when difference exceeds 15%
+
+  Tier 3 (30+ data points): correlation analysis only fires when
+    rho >= 0.4
+
+  Minimum data point enforcement:
+    6 data points returns no patterns
+    7 data points can return Tier 1 patterns
+    13 data points cannot return Tier 2 patterns
+    14 data points can return Tier 2 patterns
+
+  False positive mitigation:
+    Maximum 3 new patterns surfaced per run
+    Pattern must persist across 2+ seven-day windows
+
+--- STEP 7: FOOD WATERFALL AND INGREDIENT TESTS ---
+File: src/__tests__/food.test.ts
+
+Test src/utils/foodwaterfall.ts:
+  Verify waterfall priority order is maintained (USDA first, then
+  OpenFoodFacts, then FatSecret, etc. per spec Section 10)
+
+Test src/utils/ingredients.ts:
+  Ingredient flag detection identifies flagged ingredients
+  Frequency counting tracks 3+ per week threshold
+
+Test src/utils/servingmath.ts:
+  Serving size scaling (2x serving = 2x calories/macros)
+  Fractional servings (0.5 serving = half values)
+
+--- STEP 8: AI COACH SAFETY TESTS ---
+File: src/__tests__/coach_safety.test.ts
+
+Test src/ai/coach_system_prompt.ts:
+  System prompt contains calorie floor language
+  System prompt contains medical disclaimer language
+  System prompt contains substance sensitivity rules
+  System prompt does NOT contain credential claims (RD, CPT, CSCS)
+  System prompt includes eating disorder guardrail language
+
+Test src/ai/context_builder.ts:
+  THERAPY NOTE FIREWALL: Create a mock therapy entry with canary
+  string "THERAPY_CANARY_12345". Build context. Verify canary does
+  NOT appear anywhere in assembled context string.
+
+  Context includes: today's logs, profile, tier, recovery score
+  Context excludes: raw therapy note content
+
+Test src/ai/correlation.ts:
+  Language uses "correlates with" not "causes"
+
+Test src/ai/recipe_engine.ts:
+  Recipe output contains required fields (ingredients, instructions)
+  Allergen/restriction filtering works
+
+--- STEP 9: HOOK TESTS ---
+File: src/__tests__/hooks.test.ts
+
+Test each custom hook in isolation using renderHook:
+
+  useStorage: get/set/delete operations work
+  useProfile: returns typed UserProfile, handles missing profile
+  useCoach: sends messages, receives responses (mock API)
+  useRecovery: computes score from mock data
+  useDailySummary: aggregates daily logs correctly
+  useTrendsData: returns chart-ready data arrays
+  useNotifications: schedules and cancels notifications
+  useHealth: handles HealthKit/HealthConnect permission flow
+
+Each hook test must:
+  - Mock AsyncStorage with relevant test data
+  - Verify return types match TypeScript interfaces
+  - Test error/empty states
+
+--- STEP 10: COMPONENT RENDER TESTS ---
+File: src/__tests__/components.test.ts
+
+Verify critical components render without crashing:
+
+  Common: Button, Input, ProgressBar, Celebration
+  Dashboard: DashboardCard, CalorieSummary, RecoveryCard, StreakCounter
+  Onboarding: ProfileStep, TierSelector, TagPicker, WeightGoalStep
+  Logging: MoodPicker, WaterLogger, WeightLogger, FoodSearch,
+    StrengthLogger, SleepLogger, SupplementChecklist
+  Coach: ChatBubble, SuggestedPrompts, DataContextBanner
+  Charts: ScoreRing, SparkLine, BarChart, LineChart
+  Marketplace: ProductCard, FTCDisclosure
+
+For each: render with minimal required props, verify no crash,
+verify key elements are in the tree (text, buttons, inputs).
+
+--- STEP 11: CONSTANTS AND CONFIGURATION TESTS ---
+File: src/__tests__/constants.test.ts
+
+Test src/constants/colors.ts:
+  primaryBackground = '#1E2761'
+  accent = '#D4A843'
+  danger = '#EF5350' (NOT #E53935 — that was the old value)
+  success = '#4CAF50'
+
+Test src/constants/tiers.ts:
+  Five tiers exist: Precision, Structured, Balanced, Flexible, Mindful
+  NO references to old names: Draconian, Disciplined, Committed,
+  Lifestyle, "Calorie Conscious"
+
+Test src/constants/tags.ts:
+  All tag categories from the spec exist
+  Each tag has required fields (id, category, label)
+
+Test src/constants/formulas.ts:
+  All recovery weights exported
+  MET values exist for key activities
+  Sexual activity MET = 3.0 (NOT 5.8)
+
+--- STEP 12: SERVICE LAYER TESTS ---
+File: src/__tests__/services.test.ts
+
+Test src/services/usda.ts:
+  Constructs correct USDA FoodData Central API URL
+  Parses response into FoodEntry type
+
+Test src/services/openfoodfacts.ts:
+  Barcode lookup constructs correct URL
+  Handles product-not-found gracefully
+
+Test src/services/anthropic.ts:
+  Constructs correct request with x-api-key header
+  Endpoint is https://api.anthropic.com/v1/messages
+  Model is claude-sonnet-4-20250514
+  Max tokens is 1024
+  Handles missing API key gracefully (error, not crash)
+  Handles API error response gracefully
+
+Test src/services/notifications.ts:
+  Notification scheduling uses correct channel/category
+  Cancellation works
+
+Test src/services/pdf.ts and src/services/reporting.ts:
+  Report generation produces expected structure
+  Health report includes required sections
+
+--- STEP 13: ENCRYPTION AND SECURITY TESTS ---
+File: src/__tests__/security.test.ts
+
+Test src/utils/encryption.ts:
+  Encrypt then decrypt round-trip produces original data
+  Different keys produce different ciphertext
+
+Test src/utils/audit.ts:
+  Audit log captures expected events
+  Timestamps are ISO 8601 format
+
+Verify expo-secure-store is used for API key (not AsyncStorage):
+  Check anthropic.ts imports expo-secure-store
+  Check no API key stored in plain AsyncStorage
+
+--- STEP 14: RUN AND VERIFY ---
+
+Run: npm test
+
+If any tests fail:
+  1. Read the error message carefully
+  2. Determine if the failure is a test bug or an app bug
+  3. If test bug: fix the test to match actual implementation
+  4. If app bug: document it in a BUGS section but still make the
+     test pass by adjusting expectations and adding a TODO comment
+  5. Re-run until all tests pass
+
+Do NOT leave failing tests. Every test must pass.
+
+--- STEP 15: COMMIT AND REPORT ---
+
+When all tests pass:
+
+  git add -A
+  git commit -m "test: comprehensive test suite covering all 22 phases"
+  git push origin main
+
+Then output:
+  1. Total number of test files created
+  2. Total number of test cases (it blocks)
+  3. Total pass count
+  4. Any app bugs discovered (with file and line reference)
+  5. Coverage summary if available
+
+
+CONSTRAINTS
+
+  - Do NOT modify any existing source files. Tests only.
+  - Do NOT use "any" type in test files. Strict TypeScript.
+  - Do NOT fabricate test vectors. Use only values from the spec or
+    values computable from spec-defined formulas.
+  - Do NOT assume function signatures. Read the actual source files
+    before writing tests. If a function doesn't exist or has a
+    different signature, note it and skip that test with a TODO.
+  - Mark any assumption with [ASSUMPTION] in a comment.
+  - If a mock is insufficient and causes a cascade of failures,
+    fix the mock rather than disabling tests.
+  - Use --legacy-peer-deps for npm install if peer conflicts arise.
+
+
+OUTPUT
+
+The deliverable is:
+  - Installed test framework in the project
+  - jest.setup.js with all native module mocks
+  - 13 test files in src/__tests__/
+  - Updated package.json with test script and jest config
+  - All tests passing
+  - Git commit pushed to origin main
+  - Completion report printed to terminal
+
+
+================================================================
+END OF PROMPT
+================================================================

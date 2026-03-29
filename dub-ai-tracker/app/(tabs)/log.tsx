@@ -5,6 +5,7 @@
 // Phase 13: Added supplements, personal care, sexual, cycle, digestive, injury, bloodwork, custom
 
 import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   StyleSheet,
   Text,
@@ -69,10 +70,11 @@ export default function LogScreen() {
   }, [loadData]);
 
   // Reload when returning from food logging screen
-  useEffect(() => {
-    const interval = setInterval(loadData, 2000);
-    return () => clearInterval(interval);
-  }, [loadData]);
+  useFocusEffect(
+    useCallback(() => {
+      loadData();
+    }, [loadData])
+  );
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);

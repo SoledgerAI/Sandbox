@@ -15,8 +15,11 @@ import {
 } from 'react-native';
 import { Colors } from '../../constants/colors';
 import { storageGet, storageSet, dateKey, STORAGE_KEYS } from '../../utils/storage';
+import { ED_EXTREME_RESTRICTION_THRESHOLD, CALORIE_FLOOR_FEMALE, CALORIE_FLOOR_MALE } from '../../constants/formulas';
 import type { StreakData } from '../../types/profile';
+import type { UserProfile } from '../../types/profile';
 import type { DailySummary, RecoveryScore } from '../../types';
+import type { FoodEntry } from '../../types/food';
 
 // ============================================================
 // Celebration Types
@@ -159,6 +162,52 @@ export async function checkCelebrations(todayStr: string): Promise<CelebrationEv
   const events: CelebrationEvent[] = [];
   const shownKey = `dub.celebrations.shown.${todayStr}`;
   const alreadyShown = await storageGet<string[]>(shownKey) ?? [];
+
+  // D6-004: Suppress ALL celebrations during extreme caloric restriction
+  const userProfile = await storageGet<UserProfile>(STORAGE_KEYS.PROFILE);
+  const todayFoodEntries = await storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, todayStr)) ?? [];
+
+  if (todayFoodEntries.length > 0) {
+    const todayCalories = todayFoodEntries.reduce(
+      (sum, entry) => sum + (entry.computed_nutrition?.calories ?? 0),
+      0,
+    );
+
+    // Hard stop: today under extreme restriction threshold
+    if (todayCalories < ED_EXTREME_RESTRICTION_THRESHOLD) {
+      return events; // empty -- suppress all celebrations
+    }
+
+    // Soft stop: rolling 7-day average below sex-based calorie floor
+    const calorieFloor = userProfile?.sex === 'female'
+      ? CALORIE_FLOOR_FEMALE
+      : CALORIE_FLOOR_MALE; // male and prefer_not_to_say both use male floor
+
+    const today = new Date(todayStr + 'T00:00:00');
+    let totalCals = todayCalories;
+    let daysWithData = 1;
+
+    for (let i = 1; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const dayEntries = await storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, dStr));
+      if (dayEntries && dayEntries.length > 0) {
+        totalCals += dayEntries.reduce(
+          (sum, entry) => sum + (entry.computed_nutrition?.calories ?? 0),
+          0,
+        );
+        daysWithData++;
+      }
+    }
+
+    if (daysWithData >= 3) {
+      const rollingAvg = totalCals / daysWithData;
+      if (rollingAvg < calorieFloor) {
+        return events; // empty -- suppress all celebrations
+      }
+    }
+  }
 
   // Check consistency milestones
   const streaks = await storageGet<StreakData>(STORAGE_KEYS.STREAKS);

@@ -5,6 +5,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   StyleSheet,
   Text,
@@ -19,6 +20,7 @@ import { ChatBubble } from '../../src/components/coach/ChatBubble';
 import { SuggestedPrompts } from '../../src/components/coach/SuggestedPrompts';
 import { DataContextBanner } from '../../src/components/coach/DataContextBanner';
 import { useCoach } from '../../src/hooks/useCoach';
+import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import type { ChatMessage } from '../../src/types/coach';
 
 export default function CoachScreen() {
@@ -34,7 +36,24 @@ export default function CoachScreen() {
   } = useCoach();
 
   const [inputText, setInputText] = useState('');
+  const [showDisclaimer, setShowDisclaimer] = useState(true);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
+
+  // Check if coach disclaimer has already been acknowledged
+  useEffect(() => {
+    (async () => {
+      const settings = await storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS);
+      if (settings && settings.coach_disclaimer_acknowledged) {
+        setShowDisclaimer(false);
+      }
+    })();
+  }, []);
+
+  const acknowledgeDisclaimer = async () => {
+    const settings = (await storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS)) || {};
+    await storageSet(STORAGE_KEYS.SETTINGS, { ...settings, coach_disclaimer_acknowledged: true });
+    setShowDisclaimer(false);
+  };
 
   // Scroll to bottom when new messages arrive
   useEffect(() => {
@@ -88,6 +107,28 @@ export default function CoachScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={90}
     >
+      <Modal
+        visible={showDisclaimer && apiKeyConfigured}
+        transparent
+        animationType="fade"
+        onRequestClose={acknowledgeDisclaimer}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>About Coach DUB</Text>
+            <Text style={styles.modalText}>
+              Coach DUB is an AI wellness assistant powered by Anthropic's Claude. It is NOT a
+              licensed healthcare provider, dietitian, or trainer. Do not use it for medical
+              emergencies, diagnosis, or treatment decisions. Always consult qualified professionals
+              for medical advice.
+            </Text>
+            <TouchableOpacity style={styles.modalButton} onPress={acknowledgeDisclaimer}>
+              <Text style={styles.modalButtonText}>I Understand</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <DataContextBanner tagsLogged={tagsLogged} hasApiKey={apiKeyConfigured} />
 
       <FlatList
@@ -237,5 +278,44 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: Colors.divider,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContent: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    color: Colors.text,
+    fontSize: 20,
+    fontWeight: 'bold',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalText: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+    lineHeight: 22,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  modalButton: {
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  modalButtonText: {
+    color: Colors.primaryBackground,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

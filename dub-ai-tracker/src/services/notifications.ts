@@ -241,23 +241,40 @@ export async function scheduleTierReminders(): Promise<string[]> {
   const startHour = 8;
   const interval = (eodHour - startHour) / (count + 1);
 
+  // D6-003: Precision tier uses 3 batch checkpoints (post-lunch, post-dinner, EOD)
+  // to prevent per-meal punishment loops. Other tiers use standard reminders.
+  const PRECISION_BATCH_CHECKPOINTS = [
+    { hour: 13, text: "Post-lunch check-in: here's your morning and lunch summary." },
+    { hour: 19, text: "Post-dinner check-in: here's your afternoon and dinner summary." },
+    { hour: 21, text: "End-of-day review: here's your full day summary." },
+  ];
+
   const REMINDER_MESSAGES = [
     { hour: 8, text: "Good morning! Start your day by logging breakfast." },
     { hour: 10, text: "Mid-morning check: how's your water intake?" },
-    { hour: 12, text: "Lunchtime — don't forget to log your meal." },
-    { hour: 14, text: "Afternoon check-in: staying on track!" },
-    { hour: 16, text: "Pre-dinner reminder: log any snacks or activity." },
+    { hour: 12, text: "Around lunchtime — ready to log?" },
+    { hour: 14, text: "Afternoon check-in: how's your day going?" },
+    { hour: 16, text: "Pre-dinner check-in: anything to log?" },
     { hour: 18, text: "Evening time — how was your workout today?" },
     { hour: 20, text: "Winding down? Log your evening activities." },
   ];
 
+  // Use batch checkpoints for precision tier
+  const messagesForTier = tier === 'precision' ? PRECISION_BATCH_CHECKPOINTS : REMINDER_MESSAGES;
+  const countForTier = tier === 'precision' ? PRECISION_BATCH_CHECKPOINTS.length : count;
+
   const ids: string[] = [];
 
-  for (let i = 0; i < count && i < REMINDER_MESSAGES.length; i++) {
-    const reminderHour = Math.round(startHour + interval * (i + 1));
-    const closest = REMINDER_MESSAGES.reduce((prev, curr) =>
-      Math.abs(curr.hour - reminderHour) < Math.abs(prev.hour - reminderHour) ? curr : prev,
-    );
+  for (let i = 0; i < countForTier && i < messagesForTier.length; i++) {
+    // Precision tier uses fixed checkpoint hours; other tiers spread across waking hours
+    const reminderHour = tier === 'precision'
+      ? messagesForTier[i].hour
+      : Math.round(startHour + interval * (i + 1));
+    const closest = tier === 'precision'
+      ? messagesForTier[i]
+      : messagesForTier.reduce((prev, curr) =>
+          Math.abs(curr.hour - reminderHour) < Math.abs(prev.hour - reminderHour) ? curr : prev,
+        );
 
     const id = await Notifications.scheduleNotificationAsync({
       content: {

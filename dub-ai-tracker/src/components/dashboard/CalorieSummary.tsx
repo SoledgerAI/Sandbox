@@ -3,6 +3,7 @@
 
 import { StyleSheet, View, Text } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { CALORIE_FLOOR_FEMALE, CALORIE_FLOOR_MALE } from '../../constants/formulas';
 import { DashboardCard } from './DashboardCard';
 
 interface CalorieSummaryProps {
@@ -68,6 +69,12 @@ export function CalorieSummary({
           {Math.round(remaining).toLocaleString()}
         </Text>
       </View>
+
+      {(calorieTarget === CALORIE_FLOOR_FEMALE || calorieTarget === CALORIE_FLOOR_MALE) && (
+        <Text style={styles.floorNote}>
+          Your target has been set to the minimum safe level.
+        </Text>
+      )}
     </DashboardCard>
   );
 }
@@ -130,5 +137,12 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
     fontVariant: ['tabular-nums'],
+  },
+  floorNote: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    fontStyle: 'italic',
+    marginTop: 8,
+    textAlign: 'center',
   },
 });

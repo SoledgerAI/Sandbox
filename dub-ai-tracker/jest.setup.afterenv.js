@@ -2,4 +2,6 @@
 
 beforeEach(() => {
   jest.clearAllMocks();
+  global.__mockStore.clear();
+  global.__mockSecureStore.clear();
 });

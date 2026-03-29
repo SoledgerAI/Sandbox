@@ -3,8 +3,9 @@
 import { buildSystemPrompt } from '../ai/coach_system_prompt';
 import { buildCoachContext } from '../ai/context_builder';
 import { spearmanCorrelation } from '../ai/correlation';
-import type { CoachContext, TodayDataSummary, RollingStats } from '../types/coach';
+import type { CoachContext, TodayDataSummary, RollingStats, EdRiskFlagType } from '../types/coach';
 import type { EngagementTier } from '../types/profile';
+import { ED_SUSTAINED_LOW_DAYS } from '../constants/formulas';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 function makeMinimalContext(overrides?: Partial<CoachContext>): CoachContext {
@@ -194,6 +195,22 @@ describe('Context Builder -- Therapy Note Firewall', () => {
     expect(context.profile.name).toBe('Test User');
     expect(context.tier).toBe('structured');
     expect(context.today_data).toBeDefined();
+  });
+});
+
+describe('ED Risk Constants and Types', () => {
+  it('ED_SUSTAINED_LOW_DAYS equals 3', () => {
+    expect(ED_SUSTAINED_LOW_DAYS).toBe(3);
+  });
+
+  it('EdRiskFlagType includes sustained_low_intake', () => {
+    const flag: EdRiskFlagType = 'sustained_low_intake';
+    expect(flag).toBe('sustained_low_intake');
+  });
+
+  it('EdRiskFlagType includes underweight_bmi', () => {
+    const flag: EdRiskFlagType = 'underweight_bmi';
+    expect(flag).toBe('underweight_bmi');
   });
 });
 

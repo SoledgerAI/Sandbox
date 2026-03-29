@@ -25,6 +25,7 @@ import type {
   AlcoholType,
   CannabisMethod,
 } from '../../types';
+import type { SobrietyGoal } from '../../types/profile';
 
 type SubstanceTab = 'alcohol' | 'cannabis' | 'tobacco';
 
@@ -96,6 +97,29 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
       const updated = [...entries, newEntry];
       await storageSet(key, updated);
       setEntries(updated);
+
+      // D10-007: Auto-reset sobriety streak on substance log
+      try {
+        const sobrietyGoals = await storageGet<Record<string, SobrietyGoal>>(STORAGE_KEYS.SOBRIETY);
+        if (sobrietyGoals) {
+          const substanceKey = entry.substance;
+          const goal = sobrietyGoals[substanceKey];
+          if (goal && goal.goal_type === 'quit') {
+            const resetGoals: Record<string, SobrietyGoal> = {
+              ...sobrietyGoals,
+              [substanceKey]: {
+                ...goal,
+                current_streak_days: 0,
+                sobriety_start_date: todayDateString(),
+              },
+            };
+            await storageSet(STORAGE_KEYS.SOBRIETY, resetGoals);
+          }
+        }
+      } catch {
+        // Streak reset is best-effort; do not block the log save
+      }
+
       onEntryLogged?.();
     },
     [entries, onEntryLogged],

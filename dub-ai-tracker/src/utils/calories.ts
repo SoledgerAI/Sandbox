@@ -69,6 +69,10 @@ interface BmrParams {
 
 /** Calculate BMR using Mifflin-St Jeor with PRECISE coefficients (9.99, 4.92) */
 export function calculateBmr({ weightKg, heightCm, ageYears, sex }: BmrParams): number {
+  if (ageYears < 18) {
+    throw new Error('BMR calculation requires age >= 18');
+  }
+
   const base =
     BMR_WEIGHT_COEFFICIENT * weightKg +
     BMR_HEIGHT_COEFFICIENT * heightCm -

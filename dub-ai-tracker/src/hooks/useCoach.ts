@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { storageGet, storageSet, STORAGE_KEYS } from '../utils/storage';
 import { sendMessage, hasApiKey as checkApiKey, AnthropicError } from '../services/anthropic';
 import { buildCoachContext } from '../ai/context_builder';
-import { buildSystemPrompt } from '../ai/coach_system_prompt';
+import { buildSystemPrompt, filterCoachResponse } from '../ai/coach_system_prompt';
 import { runPatternEngine } from '../ai/pattern_engine';
 import type { ChatMessage } from '../types/coach';
 import type { AnthropicMessage } from '../services/anthropic';
@@ -103,11 +103,14 @@ export function useCoach(): UseCoachResult {
         tier: context.tier,
       });
 
+      // Apply post-generation safety filter (D6-008)
+      const { text: filteredText } = filterCoachResponse(responseText, context);
+
       // Add assistant message
       const assistantMsg: ChatMessage = {
         id: generateId(),
         role: 'assistant',
-        content: responseText,
+        content: filteredText,
         timestamp: new Date().toISOString(),
       };
 

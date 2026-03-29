@@ -165,6 +165,10 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1,
     borderColor: Colors.divider,
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   warmupText: {
     color: Colors.secondaryText,
@@ -211,6 +215,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.divider,
     justifyContent: 'center',
+    alignItems: 'center',
+    minHeight: 44,
+    minWidth: 44,
   },
   unitText: {
     color: Colors.accent,
@@ -218,6 +225,9 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   deleteBtn: {
-    paddingBottom: 6,
+    minHeight: 44,
+    minWidth: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

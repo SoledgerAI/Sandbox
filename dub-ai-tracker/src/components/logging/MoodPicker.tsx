@@ -108,6 +108,8 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
             key={score}
             style={[styles.moodBtn, selectedScore === score && styles.moodBtnActive]}
             onPress={() => setSelectedScore(score)}
+            accessibilityLabel={`${MOOD_EMOJIS[score].label}, ${score} out of 5`}
+            accessibilityRole="radio"
           >
             <Text style={styles.moodEmoji}>{MOOD_EMOJIS[score].emoji}</Text>
             <Text style={[styles.moodLabel, selectedScore === score && styles.moodLabelActive]}>

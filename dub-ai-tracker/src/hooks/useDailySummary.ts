@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { storageGet, STORAGE_KEYS, dateKey } from '../utils/storage';
-import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge } from '../utils/calories';
+import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge, lbsToKg, inchesToCm } from '../utils/calories';
 import type { UserProfile, StreakData, EngagementTier } from '../types/profile';
 import type { DailySummary, FoodEntry, WaterEntry, CaffeineEntry } from '../types';
 
@@ -114,8 +114,8 @@ export function useDailySummary(): DailySummaryResult {
         p?.activity_level != null
       ) {
         const age = computeAge(p.dob);
-        const weightKg = p.weight_lbs / 2.20462;
-        const heightCm = p.height_inches * 2.54;
+        const weightKg = lbsToKg(p.weight_lbs);
+        const heightCm = inchesToCm(p.height_inches);
 
         computedBmr = calculateBmr({
           weightKg,

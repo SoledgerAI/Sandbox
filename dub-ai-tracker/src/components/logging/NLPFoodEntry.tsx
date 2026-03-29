@@ -102,7 +102,7 @@ export function NLPFoodEntry({ mealType, onConfirm, onCancel }: NLPFoodEntryProp
       }
 
       const data = await response.json();
-      const textBlock = data.content?.find((b: any) => b.type === 'text');
+      const textBlock = data.content?.find((b: { type: string; text?: string }) => b.type === 'text');
       if (!textBlock?.text) {
         throw new Error('Empty response from API');
       }

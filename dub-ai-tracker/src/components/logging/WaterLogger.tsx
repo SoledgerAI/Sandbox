@@ -148,6 +148,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
             style={styles.quickAddBtn}
             onPress={() => logWater(opt.amount)}
             activeOpacity={0.7}
+            accessibilityLabel={`Add ${opt.label} of water`}
           >
             <Ionicons name="water-outline" size={20} color={Colors.primaryBackground} />
             <Text style={styles.quickAddText}>{opt.label}</Text>

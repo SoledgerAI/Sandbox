@@ -108,10 +108,10 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
         <Text style={styles.scoreLabel}>/ 10</Text>
       </View>
 
-      {/* 1-10 scale */}
+      {/* 1-10 scale (split into two rows of 5 for larger touch targets) */}
       <Text style={styles.sectionTitle}>Stress Level</Text>
       <View style={styles.scaleRow}>
-        {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+        {Array.from({ length: 5 }, (_, i) => i + 1).map((n) => (
           <TouchableOpacity
             key={n}
             style={[
@@ -119,6 +119,24 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
               score === n && { backgroundColor: stressColor(n), borderColor: stressColor(n) },
             ]}
             onPress={() => setScore(n)}
+            accessibilityLabel={`Stress level ${n} out of 10`}
+            accessibilityRole="radio"
+          >
+            <Text style={[styles.scaleNum, score === n && styles.scaleNumActive]}>{n}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <View style={styles.scaleRow}>
+        {Array.from({ length: 5 }, (_, i) => i + 6).map((n) => (
+          <TouchableOpacity
+            key={n}
+            style={[
+              styles.scaleBtn,
+              score === n && { backgroundColor: stressColor(n), borderColor: stressColor(n) },
+            ]}
+            onPress={() => setScore(n)}
+            accessibilityLabel={`Stress level ${n} out of 10`}
+            accessibilityRole="radio"
           >
             <Text style={[styles.scaleNum, score === n && styles.scaleNumActive]}>{n}</Text>
           </TouchableOpacity>
@@ -256,6 +274,7 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.inputBackground,
     borderRadius: 8,
     paddingVertical: 10,
+    minHeight: 44,
     borderWidth: 1,
     borderColor: Colors.divider,
   },

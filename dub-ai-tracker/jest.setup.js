@@ -293,6 +293,10 @@ jest.mock('expo-router', () => ({
   useRouter: jest.fn(() => ({ push: jest.fn(), replace: jest.fn(), back: jest.fn() })),
   useLocalSearchParams: jest.fn(() => ({})),
   useSegments: jest.fn(() => []),
+  useFocusEffect: jest.fn((cb) => {
+    const { useEffect } = require('react');
+    useEffect(() => { cb(); }, []);
+  }),
   Link: 'Link',
   Stack: { Screen: 'Screen' },
   Tabs: { Screen: 'Screen' },
@@ -318,4 +322,6 @@ global.fetch = jest.fn(() =>
   })
 );
 
-// Clear store between tests -- done via setupFilesAfterFramework
+// Expose stores globally so setupFilesAfterEnv can clear them between tests
+global.__mockStore = mockStore;
+global.__mockSecureStore = mockSecureStore;
