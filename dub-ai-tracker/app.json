@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
-    "newArchEnabled": true,
     "scheme": "dub-ai-tracker",
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -14,7 +13,11 @@
       "backgroundColor": "#1E2761"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.soledgerai.dubaitracker",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -31,7 +34,14 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-sharing"
-    ]
+      "expo-sharing",
+      "expo-font"
+    ],
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "8b88960a-8aa4-4872-bd3c-93f03cea249f"
+      }
+    }
   }
 }
