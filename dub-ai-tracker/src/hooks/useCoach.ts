@@ -7,6 +7,7 @@ import { sendMessage, hasApiKey as checkApiKey, AnthropicError } from '../servic
 import { buildCoachContext } from '../ai/context_builder';
 import { buildSystemPrompt, filterCoachResponse } from '../ai/coach_system_prompt';
 import { runPatternEngine } from '../ai/pattern_engine';
+import { estimateTokens } from '../utils/tokenEstimator';
 import type { ChatMessage } from '../types/coach';
 import type { AnthropicMessage } from '../services/anthropic';
 
@@ -89,6 +90,10 @@ export function useCoach(): UseCoachResult {
       setTagsLogged(context.today_data.tags_logged);
 
       const systemPrompt = buildSystemPrompt(context, conditionalSections);
+
+      if (__DEV__) {
+        console.log(`[Coach] System prompt: ~${estimateTokens(systemPrompt)} estimated tokens`);
+      }
 
       // Build conversation history for API (last 10 messages for context window)
       const recentMessages = updatedMessages.slice(-10);
