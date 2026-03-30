@@ -10,6 +10,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -88,7 +90,8 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
     : null;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Average mood card */}
       {entries.length > 0 && (
         <View style={styles.avgCard}>
@@ -172,6 +175,7 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
         </>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

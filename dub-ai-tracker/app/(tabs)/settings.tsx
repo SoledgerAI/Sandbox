@@ -55,77 +55,100 @@ export default function SettingsScreen() {
     loadData();
   }, []);
 
-  const settingsItems: SettingsItem[] = [
+  const settingsSections: { title: string; items: SettingsItem[] }[] = [
     {
-      id: 'profile',
-      icon: 'person-outline',
-      label: 'Profile',
-      subtitle: profileName,
-      route: '/settings/profile',
+      title: 'TRACKING',
+      items: [
+        {
+          id: 'tags',
+          icon: 'pricetags-outline',
+          label: 'Tags',
+          subtitle: 'Manage tracking categories',
+          route: '/settings/tags',
+        },
+        {
+          id: 'taste',
+          icon: 'restaurant-outline',
+          label: 'Taste Profile',
+          subtitle: 'Cuisines, restrictions, dislikes',
+          route: '/settings/taste',
+        },
+      ],
     },
     {
-      id: 'tier',
-      icon: 'speedometer-outline',
-      label: 'Engagement Tier',
-      subtitle: `${tier} tier`,
-      route: '/settings/tier',
+      title: 'AI COACH',
+      items: [
+        {
+          id: 'apikey',
+          icon: 'key-outline',
+          label: 'API Key',
+          subtitle: hasKey ? 'Configured' : 'Not configured',
+          route: '/settings/apikey',
+          badge: hasKey ? undefined : 'Setup',
+        },
+      ],
     },
     {
-      id: 'tags',
-      icon: 'pricetags-outline',
-      label: 'Tags',
-      subtitle: 'Manage tracking categories',
-      route: '/settings/tags',
+      title: 'NOTIFICATIONS',
+      items: [
+        {
+          id: 'notifications',
+          icon: 'notifications-outline',
+          label: 'Notifications',
+          subtitle: 'Reminders and check-ins',
+          route: '/settings/notifications',
+        },
+      ],
     },
     {
-      id: 'notifications',
-      icon: 'notifications-outline',
-      label: 'Notifications',
-      subtitle: 'Reminders and check-ins',
-      route: '/settings/notifications',
+      title: 'INTEGRATIONS',
+      items: [
+        {
+          id: 'devices',
+          icon: 'watch-outline',
+          label: 'Devices',
+          subtitle: 'Connected health devices',
+          route: '/settings/devices',
+        },
+        {
+          id: 'marketplace',
+          icon: 'cart-outline',
+          label: 'Marketplace',
+          subtitle: 'Products, influencers, deals',
+          route: '/marketplace',
+        },
+      ],
     },
     {
-      id: 'apikey',
-      icon: 'key-outline',
-      label: 'API Key',
-      subtitle: hasKey ? 'Configured' : 'Not configured',
-      route: '/settings/apikey',
-      badge: hasKey ? undefined : 'Setup',
+      title: 'DATA',
+      items: [
+        {
+          id: 'export',
+          icon: 'download-outline',
+          label: 'Data Export',
+          subtitle: 'Export your data as JSON',
+          route: '/settings/export',
+        },
+        {
+          id: 'tier',
+          icon: 'speedometer-outline',
+          label: 'Engagement Tier',
+          subtitle: `${tier} tier`,
+          route: '/settings/tier',
+        },
+      ],
     },
     {
-      id: 'taste',
-      icon: 'restaurant-outline',
-      label: 'Taste Profile',
-      subtitle: 'Cuisines, restrictions, dislikes',
-      route: '/settings/taste',
-    },
-    {
-      id: 'marketplace',
-      icon: 'cart-outline',
-      label: 'Marketplace',
-      subtitle: 'Products, influencers, deals',
-      route: '/marketplace',
-    },
-    {
-      id: 'devices',
-      icon: 'watch-outline',
-      label: 'Devices',
-      subtitle: 'Connected health devices',
-      route: '/settings/devices',
-    },
-    {
-      id: 'export',
-      icon: 'download-outline',
-      label: 'Data Export',
-      subtitle: 'Export your data as JSON',
-      route: '/settings/export',
-    },
-    {
-      id: 'about',
-      icon: 'information-circle-outline',
-      label: 'About & Legal',
-      subtitle: 'Version, privacy, data deletion',
-      route: '/settings/about',
+      title: 'ABOUT',
+      items: [
+        {
+          id: 'about',
+          icon: 'information-circle-outline',
+          label: 'About & Legal',
+          subtitle: 'Version, privacy, data deletion',
+          route: '/settings/about',
+        },
+      ],
     },
   ];
 
@@ -155,30 +178,35 @@ export default function SettingsScreen() {
             <Ionicons name="chevron-forward" size={20} color={Colors.secondaryText} />
           </TouchableOpacity>
 
-          {/* Settings List */}
-          <View style={styles.section}>
-            {settingsItems.map((item) => (
-              <TouchableOpacity
-                key={item.id}
-                style={styles.settingRow}
-                onPress={() => router.push(item.route as any)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name={item.icon as any} size={22} color={Colors.accent} />
-                <View style={styles.settingInfo}>
-                  <Text style={styles.settingLabel}>{item.label}</Text>
-                  <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
-                </View>
-                {item.badge ? (
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{item.badge}</Text>
-                  </View>
-                ) : (
-                  <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
+          {/* Grouped Settings */}
+          {settingsSections.map((section) => (
+            <View key={section.title} style={styles.sectionGroup}>
+              <Text style={styles.sectionHeader}>{section.title}</Text>
+              <View style={styles.section}>
+                {section.items.map((item) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={styles.settingRow}
+                    onPress={() => router.push(item.route as any)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name={item.icon as any} size={22} color={Colors.accent} />
+                    <View style={styles.settingInfo}>
+                      <Text style={styles.settingLabel}>{item.label}</Text>
+                      <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
+                    </View>
+                    {item.badge ? (
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>{item.badge}</Text>
+                      </View>
+                    ) : (
+                      <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ))}
         </>
       )}
     </ScrollView>
@@ -220,6 +248,15 @@ const styles = StyleSheet.create({
   profileInfo: { flex: 1 },
   profileName: { color: Colors.text, fontSize: 17, fontWeight: '600' },
   profileTier: { color: Colors.secondaryText, fontSize: 13, marginTop: 2 },
+  sectionGroup: { marginBottom: 20 },
+  sectionHeader: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
   section: { gap: 6 },
   settingRow: {
     flexDirection: 'row',

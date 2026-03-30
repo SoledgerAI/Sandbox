@@ -11,6 +11,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -41,6 +43,7 @@ const CANNABIS_METHODS: { label: string; method: CannabisMethod }[] = [
   { label: 'Vaped', method: 'vaped' },
   { label: 'Edible', method: 'edible' },
   { label: 'Topical', method: 'topical' },
+  { label: 'Beverage', method: 'beverage' },
 ];
 
 function todayDateString(): string {
@@ -401,7 +404,12 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Tab bar */}
       <View style={styles.tabBar}>
         {(['alcohol', 'cannabis', 'tobacco'] as SubstanceTab[]).map((tab) => (
@@ -466,6 +474,7 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
         </>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

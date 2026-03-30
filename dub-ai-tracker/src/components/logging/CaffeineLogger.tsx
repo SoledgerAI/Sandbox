@@ -10,6 +10,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -103,7 +105,8 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Daily total */}
       <View style={styles.summaryCard}>
         <View style={styles.summaryRow}>
@@ -213,6 +216,7 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
         </>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -11,6 +11,8 @@ import {
   ScrollView,
   Switch,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -199,7 +201,8 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Bedtime */}
       <Text style={styles.sectionTitle}>Bedtime (last night)</Text>
       <View style={styles.timeRow}>
@@ -360,6 +363,7 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
         <Text style={styles.logBtnText}>Log Sleep</Text>
       </TouchableOpacity>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

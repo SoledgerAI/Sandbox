@@ -5,6 +5,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -17,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
+import { DateTimePicker } from '../../src/components/common/DateTimePicker';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import type {
   UserProfile,
@@ -47,9 +50,8 @@ export default function ProfileScreen() {
 
   // Form state
   const [name, setName] = useState('');
-  const [dobMonth, setDobMonth] = useState('');
-  const [dobDay, setDobDay] = useState('');
-  const [dobYear, setDobYear] = useState('');
+  const [dobDate, setDobDate] = useState<Date>(new Date(1990, 0, 1));
+  const [dobSet, setDobSet] = useState(false);
   const [units, setUnits] = useState<UnitPreference>('imperial');
   const [sex, setSex] = useState<BiologicalSex | null>(null);
   const [heightFeet, setHeightFeet] = useState('');
@@ -67,10 +69,10 @@ export default function ProfileScreen() {
       setProfile(p);
       setName(p.name || '');
       if (p.dob) {
-        const d = new Date(p.dob);
-        setDobMonth(String(d.getMonth() + 1).padStart(2, '0'));
-        setDobDay(String(d.getDate()).padStart(2, '0'));
-        setDobYear(String(d.getFullYear()));
+        // Parse "YYYY-MM-DD" without timezone shift
+        const [y, m, d] = p.dob.split('-').map(Number);
+        setDobDate(new Date(y, m - 1, d));
+        setDobSet(true);
       }
       setUnits(p.units || 'imperial');
       setSex(p.sex || null);
@@ -99,23 +101,9 @@ export default function ProfileScreen() {
     loadProfile();
   }, [loadProfile]);
 
-  function parseDob(): Date | null {
-    const m = parseInt(dobMonth, 10);
-    const d = parseInt(dobDay, 10);
-    const y = parseInt(dobYear, 10);
-    if (!m || !d || !y || m < 1 || m > 12 || d < 1 || d > 31 || y < 1920) return null;
-    const date = new Date(y, m - 1, d);
-    if (date.getMonth() !== m - 1 || date.getDate() !== d) return null;
-    return date;
-  }
-
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
     if (!name.trim()) newErrors.name = 'Name is required';
-    const dob = parseDob();
-    if (!dob) {
-      newErrors.dob = 'Please enter a valid date of birth';
-    }
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -124,7 +112,8 @@ export default function ProfileScreen() {
     if (!validate()) return;
     setSaving(true);
 
-    const dobDate = parseDob()!;
+    // Store DOB as plain "YYYY-MM-DD" — no UTC conversion
+    const dobString = `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, '0')}-${String(dobDate.getDate()).padStart(2, '0')}`;
 
     // Convert height to inches for storage
     let heightInchesVal: number | null = null;
@@ -157,7 +146,7 @@ export default function ProfileScreen() {
         altitude_acclimated: false,
       }),
       name: name.trim(),
-      dob: dobDate.toISOString().split('T')[0],
+      dob: dobString,
       units,
       sex,
       height_inches: heightInchesVal,
@@ -189,7 +178,12 @@ export default function ProfileScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: Colors.primaryBackground }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
@@ -197,6 +191,28 @@ export default function ProfileScreen() {
         <Text style={styles.title}>Edit Profile</Text>
         <View style={{ width: 24 }} />
       </View>
+
+      {/* Profile photo placeholder */}
+      <TouchableOpacity
+        style={styles.avatarContainer}
+        onPress={() =>
+          Alert.alert(
+            'Profile Photo',
+            'Coming in a future update. Your profile photo will appear here and on the Settings screen.',
+            [{ text: 'OK' }],
+          )
+        }
+        activeOpacity={0.7}
+      >
+        <View style={styles.avatar}>
+          <Text style={styles.avatarInitial}>
+            {name.charAt(0).toUpperCase() || '?'}
+          </Text>
+        </View>
+        <View style={styles.cameraIcon}>
+          <Ionicons name="camera" size={14} color={Colors.primaryBackground} />
+        </View>
+      </TouchableOpacity>
 
       <Input
         label="Name"
@@ -206,36 +222,17 @@ export default function ProfileScreen() {
         error={errors.name}
       />
 
-      <Text style={styles.label}>Date of Birth</Text>
-      <View style={styles.dobRow}>
-        <Input
-          placeholder="MM"
-          value={dobMonth}
-          onChangeText={(t) => setDobMonth(t.replace(/\D/g, '').slice(0, 2))}
-          keyboardType="number-pad"
-          maxLength={2}
-          style={styles.dobInput}
-        />
-        <Text style={styles.dobSeparator}>/</Text>
-        <Input
-          placeholder="DD"
-          value={dobDay}
-          onChangeText={(t) => setDobDay(t.replace(/\D/g, '').slice(0, 2))}
-          keyboardType="number-pad"
-          maxLength={2}
-          style={styles.dobInput}
-        />
-        <Text style={styles.dobSeparator}>/</Text>
-        <Input
-          placeholder="YYYY"
-          value={dobYear}
-          onChangeText={(t) => setDobYear(t.replace(/\D/g, '').slice(0, 4))}
-          keyboardType="number-pad"
-          maxLength={4}
-          style={styles.dobInputYear}
-        />
-      </View>
-      {errors.dob ? <Text style={styles.errorText}>{errors.dob}</Text> : null}
+      <DateTimePicker
+        label="Date of Birth"
+        mode="date"
+        value={dobDate}
+        onChange={(d) => {
+          setDobDate(d);
+          setDobSet(true);
+        }}
+        minimumDate={new Date(1920, 0, 1)}
+        maximumDate={new Date(new Date().getFullYear() - 13, new Date().getMonth(), new Date().getDate())}
+      />
 
       <Text style={styles.label}>Units</Text>
       <View style={styles.optionRow}>
@@ -357,6 +354,7 @@ export default function ProfileScreen() {
         <Button title="Save Profile" onPress={handleSave} loading={saving} />
       </View>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -376,6 +374,36 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: { color: Colors.text, fontSize: 22, fontWeight: 'bold' },
+  avatarContainer: {
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarInitial: {
+    color: Colors.primaryBackground,
+    fontSize: 32,
+    fontWeight: 'bold',
+  },
+  cameraIcon: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: Colors.secondaryText,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: Colors.primaryBackground,
+  },
   label: {
     color: Colors.text,
     fontSize: 14,
@@ -383,15 +411,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   dobRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 0 },
-  dobInput: { textAlign: 'center', width: 56 },
-  dobInputYear: { textAlign: 'center', width: 72 },
+  dobInput: { textAlign: 'center' as const, width: 56 },
   dobSeparator: {
     color: Colors.secondaryText,
     fontSize: 14,
     marginHorizontal: 4,
     marginBottom: 16,
   },
-  errorText: { color: Colors.danger, fontSize: 12, marginTop: 4, marginBottom: 12 },
   optionRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   option: {
     flex: 1,

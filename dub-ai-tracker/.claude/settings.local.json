@@ -45,7 +45,15 @@
       "Bash(npm config:*)",
       "Bash(find /c/Users/joshs/Documents/Sandbox/dub-ai-tracker/app -type f -name *.tsx -o -name *.ts)",
       "Bash(npm test:*)",
-      "Bash(npm ci:*)"
+      "Bash(npm ci:*)",
+      "Bash(grep -l TextInput app/**/*.tsx src/components/**/*.tsx)",
+      "Bash(while read:*)",
+      "Bash(do if:*)",
+      "Bash(then echo:*)",
+      "Bash(fi)",
+      "Bash(done)",
+      "Bash(grep:*)",
+      "Bash(head:*)"
     ]
   }
 }

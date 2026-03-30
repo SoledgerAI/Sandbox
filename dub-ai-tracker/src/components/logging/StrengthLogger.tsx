@@ -11,6 +11,8 @@ import {
   ScrollView,
   Alert,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -272,7 +274,8 @@ export function StrengthLogger({ onEntryLogged }: StrengthLoggerProps) {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Session name */}
       <TextInput
         style={styles.sessionNameInput}
@@ -413,6 +416,7 @@ export function StrengthLogger({ onEntryLogged }: StrengthLoggerProps) {
         </View>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

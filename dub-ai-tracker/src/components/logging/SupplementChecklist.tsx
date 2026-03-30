@@ -1,5 +1,5 @@
-// Supplement checklist -- vitamins, medications, supplements with time logging and UL validation
-// Phase 13: Supplements, Personal Care, and Remaining Tags
+// Supplement checklist -- vitamins, medications, supplements with time logging, quantity, and UL validation
+// Phase 13 + Task F: Prompt 07 v2
 
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -10,6 +10,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -20,6 +22,7 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { SupplementEntry } from '../../types';
+import { DateTimePicker } from '../common/DateTimePicker';
 import { DosageWarningBanner, checkDosageWarning } from './DosageValidator';
 
 function todayDateString(): string {
@@ -55,6 +58,7 @@ export function SupplementChecklist() {
   const [customName, setCustomName] = useState('');
   const [dosage, setDosage] = useState('');
   const [unit, setUnit] = useState('mg');
+  const [editingTimeId, setEditingTimeId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -74,15 +78,31 @@ export function SupplementChecklist() {
     setEntries(updated);
   }, []);
 
+  // F2: Tap checked supplement = add another dose. Long-press = remove all.
   const toggleItem = useCallback(
     async (name: string, cat: SupplementCategory) => {
-      const existing = entries.find(
+      const matchingEntries = entries.filter(
         (e) => e.name === name && e.category === cat && e.taken,
       );
-      if (existing) {
-        // Untoggle -- remove
-        await saveEntries(entries.filter((e) => e.id !== existing.id));
+      if (matchingEntries.length > 0) {
+        // Already taken — add another dose (increment)
+        if (matchingEntries.length >= 10) {
+          Alert.alert('Maximum Reached', 'You can log up to 10 doses per supplement per day.');
+          return;
+        }
+        const entry: SupplementEntry = {
+          id: `supp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          timestamp: new Date().toISOString(),
+          name,
+          dosage: 0,
+          unit: 'mg',
+          taken: true,
+          category: cat,
+          notes: null,
+        };
+        await saveEntries([...entries, entry]);
       } else {
+        // Not taken — log first dose
         const entry: SupplementEntry = {
           id: `supp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
           timestamp: new Date().toISOString(),
@@ -95,6 +115,39 @@ export function SupplementChecklist() {
         };
         await saveEntries([...entries, entry]);
       }
+    },
+    [entries, saveEntries],
+  );
+
+  const removeAllForItem = useCallback(
+    (name: string, cat: SupplementCategory) => {
+      Alert.alert(
+        'Remove Supplement',
+        `Remove all ${name} entries for today?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Remove',
+            style: 'destructive',
+            onPress: () => {
+              saveEntries(entries.filter(
+                (e) => !(e.name === name && e.category === cat && e.taken),
+              ));
+            },
+          },
+        ],
+      );
+    },
+    [entries, saveEntries],
+  );
+
+  // F1: Update timestamp for a specific entry
+  const updateTimestamp = useCallback(
+    async (entryId: string, newDate: Date) => {
+      const updated = entries.map((e) =>
+        e.id === entryId ? { ...e, timestamp: newDate.toISOString() } : e,
+      );
+      await saveEntries(updated);
     },
     [entries, saveEntries],
   );
@@ -116,7 +169,6 @@ export function SupplementChecklist() {
       notes: null,
     };
 
-    // Check UL warning before saving
     const dailyTotal = entries
       .filter((e) => e.name.toLowerCase() === name.toLowerCase() && e.taken)
       .reduce((sum, e) => sum + e.dosage, 0) + dosageVal;
@@ -156,20 +208,37 @@ export function SupplementChecklist() {
   const takenCount = entries.filter((e) => e.taken).length;
   const categoryEntries = entries.filter((e) => e.category === category && e.taken);
 
-  // Compute daily totals per supplement for UL warnings
   const dailyTotals = entries
     .filter((e) => e.taken && e.dosage > 0)
     .reduce<Record<string, { total: number; unit: string }>>((acc, e) => {
-      const key = e.name.toLowerCase();
-      if (!acc[key]) acc[key] = { total: 0, unit: e.unit };
-      acc[key].total += e.dosage;
+      const k = e.name.toLowerCase();
+      if (!acc[k]) acc[k] = { total: 0, unit: e.unit };
+      acc[k].total += e.dosage;
       return acc;
     }, {});
 
   const checklist = category === 'vitamin' ? DEFAULT_VITAMINS : COMMON_SUPPLEMENTS;
 
+  // F3: Get count + latest timestamp for each supplement in checklist
+  function getItemInfo(name: string, cat: SupplementCategory) {
+    const matching = entries.filter(
+      (e) => e.name === name && e.category === cat && e.taken,
+    );
+    const count = matching.length;
+    const latest = matching.length > 0
+      ? matching.reduce((a, b) => (a.timestamp > b.timestamp ? a : b))
+      : null;
+    const hasOverriddenTime = matching.some((e) => e.notes === 'time_overridden');
+    return { count, latest, hasOverriddenTime };
+  }
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Summary */}
       <View style={styles.summaryCard}>
         <Text style={styles.summaryValue}>{takenCount}</Text>
@@ -207,15 +276,16 @@ export function SupplementChecklist() {
           <Text style={styles.sectionTitle}>
             {category === 'vitamin' ? 'Vitamins' : 'Common Supplements'}
           </Text>
+          <Text style={styles.sectionHint}>Tap to log. Tap again to add another dose. Long-press to remove.</Text>
           {checklist.map((name) => {
-            const taken = entries.some(
-              (e) => e.name === name && e.category === category && e.taken,
-            );
+            const { count, latest, hasOverriddenTime } = getItemInfo(name, category);
+            const taken = count > 0;
             return (
               <TouchableOpacity
                 key={name}
                 style={styles.checkRow}
                 onPress={() => toggleItem(name, category)}
+                onLongPress={() => taken && removeAllForItem(name, category)}
                 activeOpacity={0.7}
               >
                 <Ionicons
@@ -224,18 +294,55 @@ export function SupplementChecklist() {
                   color={taken ? Colors.accent : Colors.secondaryText}
                 />
                 <Text style={[styles.checkLabel, taken && styles.checkLabelTaken]}>{name}</Text>
-                {taken && (
-                  <Text style={styles.checkTime}>
-                    {new Date(
-                      entries.find((e) => e.name === name && e.category === category && e.taken)!
-                        .timestamp,
-                    ).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
-                  </Text>
+                {count > 1 && (
+                  <View style={styles.countBadge}>
+                    <Text style={styles.countBadgeText}>x{count}</Text>
+                  </View>
+                )}
+                {taken && latest && (
+                  <TouchableOpacity
+                    onPress={() => setEditingTimeId(editingTimeId === latest.id ? null : latest.id)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  >
+                    <Text style={[styles.checkTime, hasOverriddenTime && styles.checkTimeOverridden]}>
+                      {new Date(latest.timestamp).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </TouchableOpacity>
                 )}
               </TouchableOpacity>
             );
           })}
         </>
+      )}
+
+      {/* F1: Time override picker */}
+      {editingTimeId && (
+        <View style={styles.timeOverrideCard}>
+          <DateTimePicker
+            label="Edit Time"
+            mode="datetime"
+            value={new Date(entries.find((e) => e.id === editingTimeId)?.timestamp ?? Date.now())}
+            onChange={(d) => {
+              updateTimestamp(editingTimeId, d);
+              // Mark as overridden by setting notes
+              const updated = entries.map((e) =>
+                e.id === editingTimeId ? { ...e, timestamp: d.toISOString(), notes: 'time_overridden' } : e,
+              );
+              saveEntries(updated);
+            }}
+            minimumDate={new Date(Date.now() - 48 * 60 * 60 * 1000)}
+            maximumDate={new Date()}
+          />
+          <TouchableOpacity
+            style={styles.timeOverrideDone}
+            onPress={() => setEditingTimeId(null)}
+          >
+            <Text style={styles.timeOverrideDoneText}>Done</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Custom entry for all categories */}
@@ -291,7 +398,7 @@ export function SupplementChecklist() {
                       {entry.dosage} {entry.unit}
                     </Text>
                   )}
-                  <Text style={styles.entryTime}>
+                  <Text style={[styles.entryTime, entry.notes === 'time_overridden' && styles.entryTimeOverridden]}>
                     {new Date(entry.timestamp).toLocaleTimeString('en-US', {
                       hour: 'numeric',
                       minute: '2-digit',
@@ -309,6 +416,7 @@ export function SupplementChecklist() {
         </>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -359,6 +467,12 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     marginTop: 8,
   },
+  sectionHint: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    marginBottom: 8,
+    marginTop: -4,
+  },
   checkRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -371,6 +485,35 @@ const styles = StyleSheet.create({
   checkLabel: { flex: 1, color: Colors.text, fontSize: 14 },
   checkLabelTaken: { color: Colors.accent, fontWeight: '600' },
   checkTime: { color: Colors.secondaryText, fontSize: 12 },
+  checkTimeOverridden: { color: Colors.accent },
+  countBadge: {
+    backgroundColor: Colors.accent,
+    borderRadius: 10,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  countBadgeText: {
+    color: Colors.primaryBackground,
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  timeOverrideCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    marginTop: 8,
+  },
+  timeOverrideDone: {
+    alignSelf: 'flex-end',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  timeOverrideDoneText: {
+    color: Colors.accent,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   customRow: {
     flexDirection: 'row',
     gap: 8,
@@ -422,4 +565,5 @@ const styles = StyleSheet.create({
   entryName: { color: Colors.text, fontSize: 14, fontWeight: '600' },
   entryDosage: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
   entryTime: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
+  entryTimeOverridden: { color: Colors.accent },
 });

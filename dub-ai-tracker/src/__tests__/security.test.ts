@@ -99,13 +99,13 @@ describe('API Key Security', () => {
     const SecureStore = require('expo-secure-store');
 
     await setApiKey('test-key-12345');
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('dub_anthropic_api_key', 'test-key-12345');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('dub_ai_anthropic_api_key', 'test-key-12345');
 
     const key = await getApiKey();
-    expect(SecureStore.getItemAsync).toHaveBeenCalledWith('dub_anthropic_api_key');
+    expect(SecureStore.getItemAsync).toHaveBeenCalledWith('dub_ai_anthropic_api_key');
 
     await deleteApiKey();
-    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('dub_anthropic_api_key');
+    expect(SecureStore.deleteItemAsync).toHaveBeenCalledWith('dub_ai_anthropic_api_key');
   });
 
   it('no API key stored in plain AsyncStorage', async () => {

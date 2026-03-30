@@ -8,6 +8,7 @@ import { Colors } from '../../constants/colors';
 import { OnboardingStep } from './OnboardingStep';
 import { Input } from '../common/Input';
 import { Button } from '../common/Button';
+import { DateTimePicker } from '../common/DateTimePicker';
 import type { UnitPreference, ConsentRecord, UserProfile } from '../../types/profile';
 
 const CONSENT_VERSION = '1.0';
@@ -25,15 +26,13 @@ export function ProfileStep({ profile, onComplete }: ProfileStepProps) {
 
   // Profile fields
   const [name, setName] = useState(profile?.name ?? '');
-  const [dobMonth, setDobMonth] = useState(
-    profile?.dob ? String(new Date(profile.dob).getMonth() + 1).padStart(2, '0') : '',
-  );
-  const [dobDay, setDobDay] = useState(
-    profile?.dob ? String(new Date(profile.dob).getDate()).padStart(2, '0') : '',
-  );
-  const [dobYear, setDobYear] = useState(
-    profile?.dob ? String(new Date(profile.dob).getFullYear()) : '',
-  );
+  const [dobDate, setDobDate] = useState<Date>(() => {
+    if (profile?.dob) {
+      const [y, m, d] = profile.dob.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    }
+    return new Date(1990, 0, 1);
+  });
   const [units, setUnits] = useState<UnitPreference>(profile?.units ?? 'imperial');
 
   // Validation
@@ -51,20 +50,6 @@ export function ProfileStep({ profile, onComplete }: ProfileStepProps) {
     return age;
   }
 
-  function parseDob(): Date | null {
-    const m = parseInt(dobMonth, 10);
-    const d = parseInt(dobDay, 10);
-    const y = parseInt(dobYear, 10);
-    if (!m || !d || !y || m < 1 || m > 12 || d < 1 || d > 31 || y < 1920) {
-      return null;
-    }
-    const date = new Date(y, m - 1, d);
-    if (date.getMonth() !== m - 1 || date.getDate() !== d) {
-      return null;
-    }
-    return date;
-  }
-
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
 
@@ -72,10 +57,7 @@ export function ProfileStep({ profile, onComplete }: ProfileStepProps) {
       newErrors.name = 'Name is required';
     }
 
-    const dob = parseDob();
-    if (!dob) {
-      newErrors.dob = 'Please enter a valid date of birth (MM / DD / YYYY)';
-    } else if (getAge(dob) < 18) {
+    if (getAge(dobDate) < 18) {
       newErrors.dob =
         'DUB_AI Tracker is designed for adults 18 and older. Please check back when you turn 18.';
     }
@@ -95,10 +77,11 @@ export function ProfileStep({ profile, onComplete }: ProfileStepProps) {
       age_verification: ageConsent,
     };
 
-    const dobDate = parseDob()!;
+    // Store as plain "YYYY-MM-DD" — no UTC conversion
+    const dobString = `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, '0')}-${String(dobDate.getDate()).padStart(2, '0')}`;
     const profileData: Partial<UserProfile> = {
       name: name.trim(),
-      dob: dobDate.toISOString().split('T')[0],
+      dob: dobString,
       units,
     };
 
@@ -149,38 +132,14 @@ export function ProfileStep({ profile, onComplete }: ProfileStepProps) {
           editable={allConsented}
         />
 
-        <Text style={styles.label}>Date of Birth</Text>
-        <View style={styles.dobRow}>
-          <Input
-            placeholder="MM"
-            value={dobMonth}
-            onChangeText={(t) => setDobMonth(t.replace(/\D/g, '').slice(0, 2))}
-            keyboardType="number-pad"
-            maxLength={2}
-            editable={allConsented}
-            style={styles.dobInput}
-          />
-          <Text style={styles.dobSeparator}>/</Text>
-          <Input
-            placeholder="DD"
-            value={dobDay}
-            onChangeText={(t) => setDobDay(t.replace(/\D/g, '').slice(0, 2))}
-            keyboardType="number-pad"
-            maxLength={2}
-            editable={allConsented}
-            style={styles.dobInput}
-          />
-          <Text style={styles.dobSeparator}>/</Text>
-          <Input
-            placeholder="YYYY"
-            value={dobYear}
-            onChangeText={(t) => setDobYear(t.replace(/\D/g, '').slice(0, 4))}
-            keyboardType="number-pad"
-            maxLength={4}
-            editable={allConsented}
-            style={styles.dobInputYear}
-          />
-        </View>
+        <DateTimePicker
+          label="Date of Birth"
+          mode="date"
+          value={dobDate}
+          onChange={setDobDate}
+          minimumDate={new Date(1920, 0, 1)}
+          maximumDate={new Date(new Date().getFullYear() - 13, new Date().getMonth(), new Date().getDate())}
+        />
         {errors.dob ? <Text style={styles.errorText}>{errors.dob}</Text> : null}
 
         <Text style={styles.label}>Units</Text>
@@ -296,25 +255,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginBottom: 6,
-  },
-  dobRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 0,
-  },
-  dobInput: {
-    textAlign: 'center',
-    width: 56,
-  },
-  dobInputYear: {
-    textAlign: 'center',
-    width: 72,
-  },
-  dobSeparator: {
-    color: Colors.secondaryText,
-    fontSize: 18,
-    marginHorizontal: 4,
-    marginBottom: 16,
   },
   errorText: {
     color: Colors.danger,

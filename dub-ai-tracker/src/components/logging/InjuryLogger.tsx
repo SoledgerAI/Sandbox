@@ -10,6 +10,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -129,7 +131,8 @@ export function InjuryLogger() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Body location */}
       <Text style={styles.sectionTitle}>Body Location</Text>
       <TouchableOpacity
@@ -283,6 +286,7 @@ export function InjuryLogger() {
         </>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

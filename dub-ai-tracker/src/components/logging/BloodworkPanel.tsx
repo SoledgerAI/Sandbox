@@ -10,6 +10,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -199,7 +201,8 @@ export function BloodworkPanel() {
   const flaggedCount = savedEntry?.markers.filter((m) => m.flagged).length ?? 0;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Disclaimer */}
       <View style={styles.disclaimerBanner}>
         <Ionicons name="information-circle-outline" size={18} color={Colors.secondaryText} />
@@ -316,6 +319,7 @@ export function BloodworkPanel() {
         <Text style={styles.saveBtnText}>Save Bloodwork</Text>
       </TouchableOpacity>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

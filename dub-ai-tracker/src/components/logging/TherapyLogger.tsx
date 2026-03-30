@@ -10,6 +10,8 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -131,7 +133,8 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Privacy notice */}
       <View style={styles.privacyCard}>
         <Ionicons name="lock-closed" size={16} color={Colors.accent} />
@@ -185,6 +188,7 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
         <Text style={styles.logBtnText}>Log Session</Text>
       </TouchableOpacity>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -17,10 +17,13 @@ export * from './marketplace';
 
 // -- HYDRATION --
 
+export type BeverageType = 'water' | 'tea' | 'coffee' | 'juice' | 'sparkling' | 'other';
+
 export interface WaterEntry {
   id: string;
   timestamp: string; // ISO datetime
   amount_oz: number;
+  beverage?: BeverageType; // defaults to 'water' for backward compat
   notes: string | null;
 }
 
@@ -161,7 +164,7 @@ export type SubstanceType = 'alcohol' | 'cannabis' | 'tobacco' | 'caffeine';
 
 export type AlcoholType = 'beer' | 'wine' | 'liquor' | 'cocktail';
 
-export type CannabisMethod = 'smoked' | 'vaped' | 'edible' | 'topical';
+export type CannabisMethod = 'smoked' | 'vaped' | 'edible' | 'topical' | 'beverage';
 
 export interface SubstanceEntry {
   id: string;

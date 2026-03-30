@@ -19,7 +19,7 @@ export default function WaterScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Water</Text>
+        <Text style={styles.title}>Hydration</Text>
         <View style={styles.backBtn} />
       </View>
 

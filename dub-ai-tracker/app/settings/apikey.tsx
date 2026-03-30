@@ -5,6 +5,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
+  KeyboardAvoidingView,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
@@ -103,7 +105,11 @@ export default function ApiKeyScreen() {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: Colors.primaryBackground }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+    >
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
@@ -229,6 +235,7 @@ export default function ApiKeyScreen() {
         <Text style={styles.helpStep}>5. Paste it here</Text>
       </View>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

@@ -1,5 +1,5 @@
-// Water logging component -- quick-add buttons, daily total, goal progress
-// Phase 8: Hydration, Caffeine, and Substance Logging
+// Hydration logging component -- beverage types, quick-add, daily total, goal progress
+// Phase 8 + Task E: Prompt 07 v2
 
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -10,6 +10,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -19,7 +21,7 @@ import {
   STORAGE_KEYS,
   dateKey,
 } from '../../utils/storage';
-import type { WaterEntry } from '../../types';
+import type { WaterEntry, BeverageType } from '../../types';
 
 const QUICK_ADD_OPTIONS = [
   { label: '8 oz', amount: 8 },
@@ -27,7 +29,15 @@ const QUICK_ADD_OPTIONS = [
   { label: '24 oz', amount: 24 },
 ];
 
-// Default goal: will be overridden by profile weight / 2 if available
+const BEVERAGE_OPTIONS: { value: BeverageType; label: string }[] = [
+  { value: 'water', label: 'Water' },
+  { value: 'tea', label: 'Tea' },
+  { value: 'coffee', label: 'Coffee' },
+  { value: 'juice', label: 'Juice' },
+  { value: 'sparkling', label: 'Sparkling' },
+  { value: 'other', label: 'Other' },
+];
+
 const DEFAULT_WATER_GOAL_OZ = 64;
 
 function todayDateString(): string {
@@ -43,6 +53,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
   const [entries, setEntries] = useState<WaterEntry[]>([]);
   const [customAmount, setCustomAmount] = useState('');
   const [waterGoal, setWaterGoal] = useState(DEFAULT_WATER_GOAL_OZ);
+  const [selectedBeverage, setSelectedBeverage] = useState<BeverageType>('water');
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -50,7 +61,6 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
     const stored = await storageGet<WaterEntry[]>(key);
     setEntries(stored ?? []);
 
-    // Load profile for water goal (bodyweight / 2)
     const profile = await storageGet<{ weight_lbs?: number }>(STORAGE_KEYS.PROFILE);
     if (profile?.weight_lbs) {
       setWaterGoal(Math.round(profile.weight_lbs / 2));
@@ -64,7 +74,15 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
   const totalOz = entries.reduce((sum, e) => sum + e.amount_oz, 0);
   const progressPct = Math.min(totalOz / waterGoal, 1);
 
-  const logWater = useCallback(
+  // Breakdown by beverage type
+  const beverageBreakdown = entries.reduce<Record<string, number>>((acc, e) => {
+    const bev = e.beverage ?? 'water';
+    acc[bev] = (acc[bev] ?? 0) + e.amount_oz;
+    return acc;
+  }, {});
+  const breakdownEntries = Object.entries(beverageBreakdown).filter(([, oz]) => oz > 0);
+
+  const logHydration = useCallback(
     async (amount: number) => {
       const today = todayDateString();
       const key = dateKey(STORAGE_KEYS.LOG_WATER, today);
@@ -73,6 +91,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
         id: `water_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         timestamp: new Date().toISOString(),
         amount_oz: amount,
+        beverage: selectedBeverage,
         notes: null,
       };
 
@@ -81,7 +100,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
       setEntries(updated);
       onEntryLogged?.();
     },
-    [entries, onEntryLogged],
+    [entries, onEntryLogged, selectedBeverage],
   );
 
   const logCustom = useCallback(() => {
@@ -90,9 +109,9 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
       Alert.alert('Invalid Amount', 'Please enter a valid number of ounces.');
       return;
     }
-    logWater(amount);
+    logHydration(amount);
     setCustomAmount('');
-  }, [customAmount, logWater]);
+  }, [customAmount, logHydration]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -105,8 +124,17 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
     [entries],
   );
 
+  function beverageLabel(bev: string): string {
+    return BEVERAGE_OPTIONS.find((b) => b.value === bev)?.label ?? bev;
+  }
+
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Daily total and goal */}
       <View style={styles.summaryCard}>
         <View style={styles.summaryRow}>
@@ -137,6 +165,38 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
         <Text style={styles.progressLabel}>
           {Math.round(progressPct * 100)}% of daily goal
         </Text>
+
+        {/* Beverage breakdown */}
+        {breakdownEntries.length > 1 && (
+          <Text style={styles.breakdownText}>
+            {breakdownEntries.map(([bev, oz]) => `${beverageLabel(bev)}: ${oz} oz`).join(' | ')}
+          </Text>
+        )}
+      </View>
+
+      {/* Beverage type selector */}
+      <Text style={styles.sectionTitle}>Beverage</Text>
+      <View style={styles.beverageRow}>
+        {BEVERAGE_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[
+              styles.beverageBtn,
+              selectedBeverage === opt.value && styles.beverageBtnSelected,
+            ]}
+            onPress={() => setSelectedBeverage(opt.value)}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.beverageBtnText,
+                selectedBeverage === opt.value && styles.beverageBtnTextSelected,
+              ]}
+            >
+              {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
       </View>
 
       {/* Quick-add buttons */}
@@ -146,9 +206,9 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
           <TouchableOpacity
             key={opt.amount}
             style={styles.quickAddBtn}
-            onPress={() => logWater(opt.amount)}
+            onPress={() => logHydration(opt.amount)}
             activeOpacity={0.7}
-            accessibilityLabel={`Add ${opt.label} of water`}
+            accessibilityLabel={`Add ${opt.label} of ${selectedBeverage}`}
           >
             <Ionicons name="water-outline" size={20} color={Colors.primaryBackground} />
             <Text style={styles.quickAddText}>{opt.label}</Text>
@@ -190,6 +250,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
               <View key={entry.id} style={styles.entryRow}>
                 <View style={styles.entryInfo}>
                   <Text style={styles.entryAmount}>{entry.amount_oz} oz</Text>
+                  <Text style={styles.entryBeverage}>{beverageLabel(entry.beverage ?? 'water')}</Text>
                   <Text style={styles.entryTime}>
                     {new Date(entry.timestamp).toLocaleTimeString('en-US', {
                       hour: 'numeric',
@@ -208,6 +269,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
         </>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -261,11 +323,43 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'right',
   },
+  breakdownText: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
+  },
   sectionTitle: {
     color: Colors.text,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 10,
+  },
+  beverageRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 24,
+  },
+  beverageBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    backgroundColor: Colors.inputBackground,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  beverageBtnSelected: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  beverageBtnText: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  beverageBtnTextSelected: {
+    color: Colors.primaryBackground,
   },
   quickAddRow: {
     flexDirection: 'row',
@@ -338,6 +432,11 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     fontVariant: ['tabular-nums'],
+  },
+  entryBeverage: {
+    color: Colors.accent,
+    fontSize: 13,
+    fontWeight: '500',
   },
   entryTime: {
     color: Colors.secondaryText,

@@ -10,6 +10,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -84,7 +86,8 @@ export function GratitudeLogger({ onEntryLogged }: GratitudeLoggerProps) {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Prompt */}
       <View style={styles.promptCard}>
         <Ionicons name="heart" size={28} color={Colors.accent} />
@@ -171,6 +174,7 @@ export function GratitudeLogger({ onEntryLogged }: GratitudeLoggerProps) {
         </>
       )}
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 

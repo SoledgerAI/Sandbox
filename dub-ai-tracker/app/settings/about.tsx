@@ -14,9 +14,9 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import * as SecureStore from 'expo-secure-store';
 import { Colors } from '../../src/constants/colors';
 import { storageClearAll } from '../../src/utils/storage';
+import { deleteSecure, SECURE_KEYS } from '../../src/services/secureStorageService';
 import { logAuditEvent } from '../../src/utils/audit';
 
 const APP_VERSION = '1.0.0';
@@ -56,11 +56,14 @@ export default function AboutScreen() {
               // Clear all AsyncStorage dub.* keys
               await storageClearAll();
 
-              // Clear secure store (API key)
+              // Clear secure store (API key + other sensitive keys)
               try {
-                await SecureStore.deleteItemAsync('dub_anthropic_api_key');
+                await deleteSecure(SECURE_KEYS.ANTHROPIC_API_KEY);
+                await deleteSecure(SECURE_KEYS.APP_LOCK_ENABLED);
+                await deleteSecure(SECURE_KEYS.USER_SEX);
+                await deleteSecure(SECURE_KEYS.CONSENT_RECORD);
               } catch {
-                // May not exist
+                // Keys may not exist
               }
 
               await logAuditEvent('DATA_DELETION_COMPLETED', {});

@@ -10,6 +10,8 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -126,7 +128,8 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       {/* Type selector */}
       <Text style={styles.sectionTitle}>Type</Text>
       <View style={styles.typeGrid}>
@@ -199,6 +202,7 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
         <Text style={styles.logBtnText}>Log Meditation</Text>
       </TouchableOpacity>
     </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
