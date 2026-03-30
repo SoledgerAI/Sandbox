@@ -53,6 +53,31 @@ jest.mock('expo-secure-store', () => ({
 }));
 
 // ============================================================
+// expo-local-authentication
+// ============================================================
+jest.mock('expo-local-authentication', () => ({
+  hasHardwareAsync: jest.fn(() => Promise.resolve(true)),
+  isEnrolledAsync: jest.fn(() => Promise.resolve(true)),
+  supportedAuthenticationTypesAsync: jest.fn(() => Promise.resolve([1])),
+  authenticateAsync: jest.fn(() => Promise.resolve({ success: true })),
+  AuthenticationType: {
+    FINGERPRINT: 1,
+    FACIAL_RECOGNITION: 2,
+    IRIS: 3,
+  },
+}));
+
+// ============================================================
+// expo-crypto
+// ============================================================
+jest.mock('expo-crypto', () => ({
+  digestStringAsync: jest.fn((algo, data) => Promise.resolve(`hash_${data}`)),
+  CryptoDigestAlgorithm: {
+    SHA256: 'SHA-256',
+  },
+}));
+
+// ============================================================
 // expo-camera
 // ============================================================
 jest.mock('expo-camera', () => ({

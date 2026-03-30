@@ -4,8 +4,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import {
+  Alert,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -16,6 +18,19 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
 import { hasApiKey as checkHasApiKey } from '../../src/services/anthropic';
+import {
+  isLockEnabled,
+  setLockEnabled,
+  getAuthMethod,
+  setAuthMethod,
+  isBiometricAvailable,
+  authenticateBiometric,
+  verifyPIN,
+  hasPIN,
+  clearAuthData,
+} from '../../src/services/authService';
+import type { AuthMethod } from '../../src/services/authService';
+import { PINSetupModal } from '../../src/components/PINSetupModal';
 import type { UserProfile, EngagementTier } from '../../src/types/profile';
 
 interface SettingsItem {
@@ -33,16 +48,35 @@ export default function SettingsScreen() {
   const [tier, setTier] = useState<string>('');
   const [hasKey, setHasKey] = useState(false);
 
+  // Security state
+  const [lockEnabled, setLockEnabledState] = useState(false);
+  const [authMethodVal, setAuthMethodVal] = useState<AuthMethod>('biometric');
+  const [biometryType, setBiometryType] = useState<string | null>(null);
+  const [bioAvailable, setBioAvailable] = useState(false);
+  const [hasPinSet, setHasPinSet] = useState(false);
+  const [pinModalVisible, setPinModalVisible] = useState(false);
+  const [pinModalRequireCurrent, setPinModalRequireCurrent] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [profile, tierVal, keyExists] = await Promise.all([
-      storageGet<UserProfile>(STORAGE_KEYS.PROFILE),
-      storageGet<EngagementTier>(STORAGE_KEYS.TIER),
-      checkHasApiKey(),
-    ]);
+    const [profile, tierVal, keyExists, lockVal, methodVal, bio, pinSet] =
+      await Promise.all([
+        storageGet<UserProfile>(STORAGE_KEYS.PROFILE),
+        storageGet<EngagementTier>(STORAGE_KEYS.TIER),
+        checkHasApiKey(),
+        isLockEnabled(),
+        getAuthMethod(),
+        isBiometricAvailable(),
+        hasPIN(),
+      ]);
     setProfileName(profile?.name || 'Not set');
     setTier(tierVal ? tierVal.charAt(0).toUpperCase() + tierVal.slice(1) : 'Balanced');
     setHasKey(keyExists);
+    setLockEnabledState(lockVal);
+    setAuthMethodVal(methodVal);
+    setBiometryType(bio.biometryType);
+    setBioAvailable(bio.available);
+    setHasPinSet(pinSet);
     setLoading(false);
   }, []);
 
@@ -54,6 +88,84 @@ export default function SettingsScreen() {
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleToggleLock = useCallback(
+    async (value: boolean) => {
+      if (value) {
+        // Enabling lock
+        if (bioAvailable) {
+          await setLockEnabled(true);
+          await setAuthMethod('biometric');
+          setLockEnabledState(true);
+          setAuthMethodVal('biometric');
+        } else {
+          // No biometric — require PIN setup
+          setPinModalRequireCurrent(false);
+          setPinModalVisible(true);
+        }
+      } else {
+        // Disabling lock — require auth first
+        let authenticated = false;
+        if (bioAvailable && (authMethodVal === 'biometric' || authMethodVal === 'both')) {
+          authenticated = await authenticateBiometric();
+        }
+        if (!authenticated && hasPinSet) {
+          // Fallback: prompt PIN via Alert (simple approach)
+          await new Promise<void>((resolve) => {
+            Alert.prompt(
+              'Enter PIN',
+              'Enter your current PIN to disable App Lock',
+              async (input) => {
+                if (input && (await verifyPIN(input))) {
+                  authenticated = true;
+                }
+                resolve();
+              },
+              'secure-text',
+            );
+          });
+        }
+        if (authenticated) {
+          await clearAuthData();
+          setLockEnabledState(false);
+          setHasPinSet(false);
+        }
+      }
+    },
+    [bioAvailable, authMethodVal, hasPinSet],
+  );
+
+  const handleChangeAuthMethod = useCallback(
+    async (method: AuthMethod) => {
+      if ((method === 'pin' || method === 'both') && !hasPinSet) {
+        // Need to set PIN first
+        setPinModalRequireCurrent(false);
+        setPinModalVisible(true);
+        // After PIN is set, we'll update the method in onPINSuccess
+        return;
+      }
+      await setAuthMethod(method);
+      setAuthMethodVal(method);
+    },
+    [hasPinSet],
+  );
+
+  const handleChangePIN = useCallback(() => {
+    setPinModalRequireCurrent(true);
+    setPinModalVisible(true);
+  }, []);
+
+  const handlePINSuccess = useCallback(async () => {
+    setPinModalVisible(false);
+    setHasPinSet(true);
+    // If lock wasn't enabled yet (PIN-only setup flow), enable it now
+    if (!lockEnabled) {
+      await setLockEnabled(true);
+      await setAuthMethod('pin');
+      setLockEnabledState(true);
+      setAuthMethodVal('pin');
+    }
+  }, [lockEnabled]);
 
   const settingsSections: { title: string; items: SettingsItem[] }[] = [
     {
@@ -177,6 +289,102 @@ export default function SettingsScreen() {
             </View>
             <Ionicons name="chevron-forward" size={20} color={Colors.secondaryText} />
           </TouchableOpacity>
+
+          {/* Security Section */}
+          <View style={styles.sectionGroup}>
+            <Text style={styles.sectionHeader}>SECURITY</Text>
+            <View style={styles.section}>
+              {/* App Lock toggle */}
+              <View style={styles.settingRow}>
+                <Ionicons name="lock-closed-outline" size={22} color={Colors.accent} />
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>App Lock</Text>
+                  <Text style={styles.settingSubtitle}>
+                    Require authentication to open app
+                  </Text>
+                </View>
+                <Switch
+                  value={lockEnabled}
+                  onValueChange={handleToggleLock}
+                  trackColor={{ false: Colors.divider, true: Colors.accent }}
+                  thumbColor="#FFFFFF"
+                />
+              </View>
+
+              {/* Auth method selector — only when lock enabled */}
+              {lockEnabled && (
+                <TouchableOpacity
+                  style={styles.settingRow}
+                  onPress={() => {
+                    const methods: AuthMethod[] = bioAvailable
+                      ? ['biometric', 'pin', 'both']
+                      : ['pin'];
+                    const labels = bioAvailable
+                      ? [biometryType || 'Biometric', 'PIN', 'Both']
+                      : ['PIN'];
+                    const currentIdx = methods.indexOf(authMethodVal);
+                    const nextIdx = (currentIdx + 1) % methods.length;
+                    handleChangeAuthMethod(methods[nextIdx]);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="shield-checkmark-outline" size={22} color={Colors.accent} />
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>Authentication Method</Text>
+                    <Text style={styles.settingSubtitle}>
+                      {authMethodVal === 'biometric'
+                        ? biometryType || 'Biometric'
+                        : authMethodVal === 'pin'
+                          ? 'PIN'
+                          : `${biometryType || 'Biometric'} + PIN`}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+                </TouchableOpacity>
+              )}
+
+              {/* Change PIN — only when lock enabled and method includes PIN */}
+              {lockEnabled &&
+                (authMethodVal === 'pin' || authMethodVal === 'both') && (
+                  <TouchableOpacity
+                    style={styles.settingRow}
+                    onPress={handleChangePIN}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="keypad-outline" size={22} color={Colors.accent} />
+                    <View style={styles.settingInfo}>
+                      <Text style={styles.settingLabel}>Change PIN</Text>
+                      <Text style={styles.settingSubtitle}>
+                        Update your 4-digit PIN
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+                  </TouchableOpacity>
+                )}
+
+              {/* Biometric availability info */}
+              <View style={styles.settingRow}>
+                <Ionicons name="finger-print-outline" size={22} color={Colors.secondaryText} />
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: Colors.secondaryText }]}>
+                    Biometric type available
+                  </Text>
+                  <Text style={styles.settingSubtitle}>
+                    {biometryType || 'Not available'}
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* PIN Setup Modal */}
+          <PINSetupModal
+            visible={pinModalVisible}
+            onClose={() => setPinModalVisible(false)}
+            onSuccess={handlePINSuccess}
+            requireCurrent={pinModalRequireCurrent}
+            verifyCurrentPIN={verifyPIN}
+          />
 
           {/* Grouped Settings */}
           {settingsSections.map((section) => (

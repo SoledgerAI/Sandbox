@@ -1,0 +1,113 @@
+// Auth service: app lock state, biometric auth, PIN fallback
+// Prompt 01 v2: App Lock & Biometric Authentication
+
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as Crypto from 'expo-crypto';
+import {
+  SECURE_KEYS,
+  getSecure,
+  setSecure,
+  deleteSecure,
+} from './secureStorageService';
+
+export type AuthMethod = 'biometric' | 'pin' | 'both';
+
+// ============================================================
+// Lock state
+// ============================================================
+
+export async function isLockEnabled(): Promise<boolean> {
+  const val = await getSecure(SECURE_KEYS.APP_LOCK_ENABLED);
+  return val === 'true';
+}
+
+export async function setLockEnabled(enabled: boolean): Promise<void> {
+  await setSecure(SECURE_KEYS.APP_LOCK_ENABLED, enabled ? 'true' : 'false');
+}
+
+// ============================================================
+// Auth method
+// ============================================================
+
+export async function getAuthMethod(): Promise<AuthMethod> {
+  const val = await getSecure(SECURE_KEYS.AUTH_METHOD);
+  if (val === 'pin' || val === 'biometric' || val === 'both') return val;
+  return 'biometric';
+}
+
+export async function setAuthMethod(method: AuthMethod): Promise<void> {
+  await setSecure(SECURE_KEYS.AUTH_METHOD, method);
+}
+
+// ============================================================
+// Biometric
+// ============================================================
+
+export async function isBiometricAvailable(): Promise<{
+  available: boolean;
+  biometryType: string | null;
+}> {
+  const hasHardware = await LocalAuthentication.hasHardwareAsync();
+  const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+
+  if (!hasHardware || !isEnrolled) {
+    return { available: false, biometryType: null };
+  }
+
+  const types = await LocalAuthentication.supportedAuthenticationTypesAsync();
+  let biometryType: string | null = null;
+  if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
+    biometryType = 'Face ID';
+  } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
+    biometryType = 'Touch ID';
+  }
+
+  return { available: true, biometryType };
+}
+
+export async function authenticateBiometric(): Promise<boolean> {
+  const result = await LocalAuthentication.authenticateAsync({
+    promptMessage: 'Unlock DUB_AI Tracker',
+    fallbackLabel: 'Use PIN',
+    disableDeviceFallback: true,
+  });
+  return result.success;
+}
+
+// ============================================================
+// PIN
+// ============================================================
+
+async function hashPIN(pin: string): Promise<string> {
+  return await Crypto.digestStringAsync(
+    Crypto.CryptoDigestAlgorithm.SHA256,
+    `dub_ai_pin_salt_${pin}`,
+  );
+}
+
+export async function setPIN(pin: string): Promise<void> {
+  const hash = await hashPIN(pin);
+  await setSecure(SECURE_KEYS.AUTH_PIN_HASH, hash);
+}
+
+export async function verifyPIN(pin: string): Promise<boolean> {
+  const stored = await getSecure(SECURE_KEYS.AUTH_PIN_HASH);
+  if (!stored) return false;
+  const hash = await hashPIN(pin);
+  return hash === stored;
+}
+
+export async function hasPIN(): Promise<boolean> {
+  const stored = await getSecure(SECURE_KEYS.AUTH_PIN_HASH);
+  return stored !== null;
+}
+
+// ============================================================
+// Clear all auth data (used when disabling lock)
+// ============================================================
+
+export async function clearAuthData(): Promise<void> {
+  await deleteSecure(SECURE_KEYS.APP_LOCK_ENABLED);
+  await deleteSecure(SECURE_KEYS.AUTH_PIN_HASH);
+  await deleteSecure(SECURE_KEYS.AUTH_METHOD);
+}

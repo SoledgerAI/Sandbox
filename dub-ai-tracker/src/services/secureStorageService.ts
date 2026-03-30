@@ -11,6 +11,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const SECURE_KEYS = {
   ANTHROPIC_API_KEY: 'dub_ai_anthropic_api_key',
   APP_LOCK_ENABLED: 'dub_ai_app_lock_enabled',
+  AUTH_PIN_HASH: 'dub_ai_auth_pin_hash',
+  AUTH_METHOD: 'dub_ai_auth_method',
   USER_SEX: 'dub_ai_user_sex',
   CONSENT_RECORD: 'dub_ai_consent_record',
 } as const;
