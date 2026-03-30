@@ -18,7 +18,7 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
-import { hasApiKey as checkHasApiKey } from '../../src/services/anthropic';
+import { isApiKeySet as checkHasApiKey } from '../../src/services/apiKeyService';
 import {
   isLockEnabled,
   setLockEnabled,

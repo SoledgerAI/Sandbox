@@ -2,7 +2,12 @@
 // Phase 14: AI Coach
 
 import { COACH_MODEL_ID, TIER_TEMPERATURES } from '../constants/formulas';
-import { getSecure, setSecure, deleteSecure, SECURE_KEYS } from './secureStorageService';
+import {
+  getApiKey,
+  setApiKey,
+  deleteApiKey,
+  isApiKeySet,
+} from './apiKeyService';
 import type { EngagementTier } from '../types/profile';
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
@@ -32,24 +37,9 @@ export class AnthropicError extends Error {
   }
 }
 
-// API Key management via expo-secure-store
-
-export async function getApiKey(): Promise<string | null> {
-  return getSecure(SECURE_KEYS.ANTHROPIC_API_KEY);
-}
-
-export async function setApiKey(key: string): Promise<void> {
-  await setSecure(SECURE_KEYS.ANTHROPIC_API_KEY, key);
-}
-
-export async function deleteApiKey(): Promise<void> {
-  await deleteSecure(SECURE_KEYS.ANTHROPIC_API_KEY);
-}
-
-export async function hasApiKey(): Promise<boolean> {
-  const key = await getApiKey();
-  return key != null && key.length > 0;
-}
+// Re-export API key functions from apiKeyService for backwards compatibility
+export { getApiKey, setApiKey, deleteApiKey };
+export const hasApiKey = isApiKeySet;
 
 // Send message to Anthropic Messages API
 

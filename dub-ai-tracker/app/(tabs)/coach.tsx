@@ -19,6 +19,7 @@ import { Colors } from '../../src/constants/colors';
 import { ChatBubble } from '../../src/components/coach/ChatBubble';
 import { SuggestedPrompts } from '../../src/components/coach/SuggestedPrompts';
 import { DataContextBanner } from '../../src/components/coach/DataContextBanner';
+import { APIKeySetupWizard } from '../../src/components/APIKeySetupWizard';
 import { useCoach } from '../../src/hooks/useCoach';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import type { ChatMessage } from '../../src/types/coach';
@@ -37,6 +38,7 @@ export default function CoachScreen() {
 
   const [inputText, setInputText] = useState('');
   const [showDisclaimer, setShowDisclaimer] = useState(true);
+  const [showWizard, setShowWizard] = useState(false);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
 
   // Check if coach disclaimer has already been acknowledged
@@ -86,6 +88,28 @@ export default function CoachScreen() {
       return (
         <View style={styles.emptyContainer}>
           <ActivityIndicator color={Colors.accent} size="large" />
+        </View>
+      );
+    }
+
+    if (!apiKeyConfigured) {
+      return (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="key-outline" size={56} color={Colors.accent} />
+          <Text style={styles.emptyTitle}>Set Up Your AI Coach</Text>
+          <Text style={styles.emptySubtitle}>
+            Connect your Anthropic API key to unlock personalized health coaching powered by Claude.
+          </Text>
+          <TouchableOpacity
+            style={styles.setupButton}
+            onPress={() => setShowWizard(true)}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.setupButtonText}>Set Up API Key</Text>
+          </TouchableOpacity>
+          <Text style={styles.setupFooter}>
+            Your key stays on your device. Conversations use your own API balance (typically $0.01-0.05 each).
+          </Text>
         </View>
       );
     }
@@ -164,33 +188,44 @@ export default function CoachScreen() {
         </View>
       )}
 
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          placeholder={apiKeyConfigured ? 'Ask Coach DUB...' : 'Add API key in Settings first'}
-          placeholderTextColor={Colors.secondaryText}
-          value={inputText}
-          onChangeText={setInputText}
-          multiline
-          maxLength={2000}
-          editable={apiKeyConfigured && !sending}
-          returnKeyType="send"
-          onSubmitEditing={handleSend}
-          blurOnSubmit
-        />
-        <TouchableOpacity
-          style={[styles.sendButton, (!inputText.trim() || sending || !apiKeyConfigured) && styles.sendButtonDisabled]}
-          onPress={handleSend}
-          disabled={!inputText.trim() || sending || !apiKeyConfigured}
-          activeOpacity={0.7}
-        >
-          <Ionicons
-            name="send"
-            size={20}
-            color={inputText.trim() && apiKeyConfigured ? Colors.primaryBackground : Colors.secondaryText}
+      {apiKeyConfigured && (
+        <View style={styles.inputRow}>
+          <TextInput
+            style={styles.input}
+            placeholder="Ask Coach DUB..."
+            placeholderTextColor={Colors.secondaryText}
+            value={inputText}
+            onChangeText={setInputText}
+            multiline
+            maxLength={2000}
+            editable={!sending}
+            returnKeyType="send"
+            onSubmitEditing={handleSend}
+            blurOnSubmit
           />
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity
+            style={[styles.sendButton, (!inputText.trim() || sending) && styles.sendButtonDisabled]}
+            onPress={handleSend}
+            disabled={!inputText.trim() || sending}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="send"
+              size={20}
+              color={inputText.trim() ? Colors.primaryBackground : Colors.secondaryText}
+            />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <APIKeySetupWizard
+        visible={showWizard}
+        onClose={() => setShowWizard(false)}
+        onSuccess={() => {
+          setShowWizard(false);
+          refresh();
+        }}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -222,6 +257,26 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  setupButton: {
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    marginTop: 20,
+  },
+  setupButtonText: {
+    color: Colors.primaryBackground,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  setupFooter: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 16,
+    paddingHorizontal: 20,
   },
   typingRow: {
     flexDirection: 'row',

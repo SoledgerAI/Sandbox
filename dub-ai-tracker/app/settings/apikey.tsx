@@ -1,16 +1,12 @@
 // Settings > API Key Management
-// Phase 17: Settings and Profile Management
-// Enter, update, delete API key with expo-secure-store
+// Prompt 04 v2: BYOK UX — integrated with APIKeySetupWizard
 
 import { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
   ActivityIndicator,
@@ -20,29 +16,32 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import {
   getApiKey,
-  setApiKey,
   deleteApiKey,
-  hasApiKey as checkHasApiKey,
-} from '../../src/services/anthropic';
+  isApiKeySet,
+  testApiKey,
+} from '../../src/services/apiKeyService';
+import { APIKeySetupWizard } from '../../src/components/APIKeySetupWizard';
 import { logAuditEvent } from '../../src/utils/audit';
 
 export default function ApiKeyScreen() {
   const [hasKey, setHasKey] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [showInput, setShowInput] = useState(false);
-  const [keyInput, setKeyInput] = useState('');
-  const [saving, setSaving] = useState(false);
   const [maskedKey, setMaskedKey] = useState('');
+  const [showWizard, setShowWizard] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   const loadKeyStatus = useCallback(async () => {
     setLoading(true);
-    const exists = await checkHasApiKey();
+    const exists = await isApiKeySet();
     setHasKey(exists);
     if (exists) {
       const key = await getApiKey();
       if (key) {
-        setMaskedKey(`${key.substring(0, 10)}...${key.substring(key.length - 4)}`);
+        // Show first 7 chars + dots (masked display)
+        setMaskedKey(`${key.substring(0, 7)}${'•'.repeat(8)}`);
       }
+    } else {
+      setMaskedKey('');
     }
     setLoading(false);
   }, []);
@@ -51,35 +50,27 @@ export default function ApiKeyScreen() {
     loadKeyStatus();
   }, [loadKeyStatus]);
 
-  async function handleSave() {
-    const key = keyInput.trim();
-    if (!key) return;
-
-    if (!key.startsWith('sk-ant-')) {
-      Alert.alert('Invalid Key', 'Anthropic API keys start with "sk-ant-". Please check your key.');
+  const handleTest = useCallback(async () => {
+    setTesting(true);
+    const key = await getApiKey();
+    if (!key) {
+      Alert.alert('Error', 'No API key found.');
+      setTesting(false);
       return;
     }
-
-    setSaving(true);
-    try {
-      const isUpdate = hasKey;
-      await setApiKey(key);
-      await logAuditEvent(isUpdate ? 'API_KEY_UPDATED' : 'API_KEY_CREATED', {});
-      setHasKey(true);
-      setShowInput(false);
-      setKeyInput('');
-      setMaskedKey(`${key.substring(0, 10)}...${key.substring(key.length - 4)}`);
-    } catch {
-      Alert.alert('Error', 'Failed to save API key. Please try again.');
-    } finally {
-      setSaving(false);
+    const result = await testApiKey(key);
+    setTesting(false);
+    if (result.valid) {
+      Alert.alert('Success', 'Key is valid and working.');
+    } else {
+      Alert.alert('Test Failed', result.error || 'Key verification failed.');
     }
-  }
+  }, []);
 
-  function handleRemove() {
+  const handleRemove = useCallback(() => {
     Alert.alert(
       'Remove API Key',
-      'Coach DUB will not be able to respond without an API key. Remove it?',
+      'Remove your API key? The AI Coach will be disabled until you add a new key.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -94,7 +85,12 @@ export default function ApiKeyScreen() {
         },
       ],
     );
-  }
+  }, []);
+
+  const handleWizardSuccess = useCallback(() => {
+    setShowWizard(false);
+    loadKeyStatus();
+  }, [loadKeyStatus]);
 
   if (loading) {
     return (
@@ -105,11 +101,7 @@ export default function ApiKeyScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1, backgroundColor: Colors.primaryBackground }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-    >
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
@@ -122,8 +114,8 @@ export default function ApiKeyScreen() {
         <Ionicons name="information-circle-outline" size={18} color={Colors.accent} />
         <Text style={styles.infoText}>
           Coach DUB uses the Anthropic API with your personal API key. Your key is stored
-          securely using hardware-backed encryption (Keychain on iOS, EncryptedSharedPreferences
-          on Android). Estimated cost: $3-8/month (~$0.02 per message).
+          securely using hardware-backed encryption (Keychain on iOS). Estimated cost: $0.01-0.05
+          per conversation.
         </Text>
       </View>
 
@@ -135,35 +127,66 @@ export default function ApiKeyScreen() {
         </Text>
       </View>
 
-      {/* Current Key Status */}
       {hasKey ? (
-        <View style={styles.keyCard}>
-          <View style={styles.keyStatusRow}>
-            <Ionicons name="checkmark-circle" size={22} color={Colors.success} />
-            <View style={styles.keyInfo}>
-              <Text style={styles.keyStatusText}>API key configured</Text>
-              <Text style={styles.keyMasked}>{maskedKey}</Text>
+        <>
+          {/* Key Status Card */}
+          <View style={styles.keyCard}>
+            <View style={styles.keyStatusRow}>
+              <Ionicons name="checkmark-circle" size={22} color={Colors.success} />
+              <View style={styles.keyInfo}>
+                <Text style={styles.keyStatusText}>API key configured</Text>
+                <Text style={styles.keyMasked}>{maskedKey}</Text>
+              </View>
             </View>
           </View>
-          <View style={styles.keyActions}>
+
+          {/* Action Rows */}
+          <View style={styles.actionsSection}>
             <TouchableOpacity
-              style={styles.updateButton}
-              onPress={() => setShowInput(true)}
+              style={styles.actionRow}
+              onPress={() => setShowWizard(true)}
               activeOpacity={0.7}
             >
-              <Ionicons name="pencil-outline" size={16} color={Colors.accent} />
-              <Text style={styles.updateButtonText}>Update</Text>
+              <Ionicons name="swap-horizontal-outline" size={22} color={Colors.accent} />
+              <View style={styles.actionInfo}>
+                <Text style={styles.actionLabel}>Change API Key</Text>
+                <Text style={styles.actionSubtitle}>Replace with a different key</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
             </TouchableOpacity>
+
             <TouchableOpacity
-              style={styles.removeButton}
+              style={styles.actionRow}
+              onPress={handleTest}
+              disabled={testing}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="flash-outline" size={22} color={Colors.accent} />
+              <View style={styles.actionInfo}>
+                <Text style={styles.actionLabel}>Test API Key</Text>
+                <Text style={styles.actionSubtitle}>Verify the key works with Anthropic</Text>
+              </View>
+              {testing ? (
+                <ActivityIndicator size="small" color={Colors.accent} />
+              ) : (
+                <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.actionRow}
               onPress={handleRemove}
               activeOpacity={0.7}
             >
-              <Ionicons name="trash-outline" size={16} color={Colors.danger} />
-              <Text style={styles.removeButtonText}>Remove</Text>
+              <Ionicons name="trash-outline" size={22} color={Colors.danger} />
+              <View style={styles.actionInfo}>
+                <Text style={[styles.actionLabel, { color: Colors.danger }]}>Remove API Key</Text>
+                <Text style={styles.actionSubtitle}>Disable AI Coach</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
             </TouchableOpacity>
           </View>
-        </View>
+        </>
       ) : (
         <View style={styles.noKeyCard}>
           <Ionicons name="key-outline" size={32} color={Colors.secondaryText} />
@@ -172,70 +195,22 @@ export default function ApiKeyScreen() {
             Add your Anthropic API key to enable Coach DUB
           </Text>
           <TouchableOpacity
-            style={styles.addButton}
-            onPress={() => setShowInput(true)}
+            style={styles.setupButton}
+            onPress={() => setShowWizard(true)}
             activeOpacity={0.7}
           >
-            <Text style={styles.addButtonText}>Add API Key</Text>
+            <Text style={styles.setupButtonText}>Set Up API Key</Text>
           </TouchableOpacity>
         </View>
       )}
 
-      {/* Key Input */}
-      {showInput && (
-        <View style={styles.inputCard}>
-          <Text style={styles.inputLabel}>
-            {hasKey ? 'Enter new API key:' : 'Enter your Anthropic API key:'}
-          </Text>
-          <TextInput
-            style={styles.keyInput}
-            placeholder="sk-ant-..."
-            placeholderTextColor={Colors.secondaryText}
-            value={keyInput}
-            onChangeText={setKeyInput}
-            autoCapitalize="none"
-            autoCorrect={false}
-            secureTextEntry
-            editable={!saving}
-          />
-          <View style={styles.inputButtons}>
-            <TouchableOpacity
-              style={styles.cancelButton}
-              onPress={() => {
-                setShowInput(false);
-                setKeyInput('');
-              }}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.cancelButtonText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.saveButton, !keyInput.trim() && styles.saveButtonDisabled]}
-              onPress={handleSave}
-              disabled={!keyInput.trim() || saving}
-              activeOpacity={0.7}
-            >
-              {saving ? (
-                <ActivityIndicator size="small" color={Colors.primaryBackground} />
-              ) : (
-                <Text style={styles.saveButtonText}>Save Key</Text>
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
-
-      {/* How to get a key */}
-      <View style={styles.helpCard}>
-        <Text style={styles.helpTitle}>How to get an API key</Text>
-        <Text style={styles.helpStep}>1. Go to console.anthropic.com</Text>
-        <Text style={styles.helpStep}>2. Sign in or create an account</Text>
-        <Text style={styles.helpStep}>3. Navigate to API Keys</Text>
-        <Text style={styles.helpStep}>4. Create a new key and copy it</Text>
-        <Text style={styles.helpStep}>5. Paste it here</Text>
-      </View>
+      <APIKeySetupWizard
+        visible={showWizard}
+        onClose={() => setShowWizard(false)}
+        onSuccess={handleWizardSuccess}
+        isUpdate={hasKey}
+      />
     </ScrollView>
-    </KeyboardAvoidingView>
   );
 }
 
@@ -281,35 +256,25 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
-  keyStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
+  keyStatusRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   keyInfo: { flex: 1 },
   keyStatusText: { color: Colors.text, fontSize: 16, fontWeight: '600' },
-  keyMasked: { color: Colors.secondaryText, fontSize: 12, marginTop: 2, fontFamily: 'monospace' },
-  keyActions: { flexDirection: 'row', gap: 10 },
-  updateButton: {
-    flex: 1,
+  keyMasked: { color: Colors.secondaryText, fontSize: 13, marginTop: 2, fontFamily: 'monospace' },
+  actionsSection: {
+    gap: 6,
+    marginBottom: 16,
+  },
+  actionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.accent,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    padding: 14,
+    gap: 12,
   },
-  updateButtonText: { color: Colors.accent, fontSize: 14, fontWeight: '600' },
-  removeButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: Colors.danger,
-  },
-  removeButtonText: { color: Colors.danger, fontSize: 14, fontWeight: '600' },
+  actionInfo: { flex: 1 },
+  actionLabel: { color: Colors.text, fontSize: 15, fontWeight: '500' },
+  actionSubtitle: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
   noKeyCard: {
     backgroundColor: Colors.cardBackground,
     borderRadius: 12,
@@ -325,55 +290,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textAlign: 'center',
   },
-  addButton: {
+  setupButton: {
     backgroundColor: Colors.accent,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingHorizontal: 24,
-    paddingVertical: 10,
-  },
-  addButtonText: { color: Colors.primaryBackground, fontSize: 15, fontWeight: '600' },
-  inputCard: {
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  inputLabel: { color: Colors.text, fontSize: 14, fontWeight: '500', marginBottom: 10 },
-  keyInput: {
-    backgroundColor: Colors.inputBackground,
-    color: Colors.text,
-    borderRadius: 10,
-    padding: 14,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: Colors.divider,
-    marginBottom: 12,
-  },
-  inputButtons: { flexDirection: 'row', gap: 10 },
-  cancelButton: {
-    flex: 1,
-    alignItems: 'center',
     paddingVertical: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: Colors.divider,
   },
-  cancelButtonText: { color: Colors.secondaryText, fontSize: 15, fontWeight: '600' },
-  saveButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderRadius: 10,
-    backgroundColor: Colors.accent,
-  },
-  saveButtonDisabled: { opacity: 0.5 },
-  saveButtonText: { color: Colors.primaryBackground, fontSize: 15, fontWeight: '600' },
-  helpCard: {
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-  },
-  helpTitle: { color: Colors.text, fontSize: 15, fontWeight: '600', marginBottom: 10 },
-  helpStep: { color: Colors.secondaryText, fontSize: 13, lineHeight: 22 },
+  setupButtonText: { color: Colors.primaryBackground, fontSize: 15, fontWeight: '700' },
 });

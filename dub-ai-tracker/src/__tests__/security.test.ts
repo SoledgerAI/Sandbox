@@ -98,8 +98,8 @@ describe('API Key Security', () => {
     // These functions should use SecureStore (mocked)
     const SecureStore = require('expo-secure-store');
 
-    await setApiKey('test-key-12345');
-    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('dub_ai_anthropic_api_key', 'test-key-12345');
+    await setApiKey('sk-ant-api03-test-key-12345');
+    expect(SecureStore.setItemAsync).toHaveBeenCalledWith('dub_ai_anthropic_api_key', 'sk-ant-api03-test-key-12345');
 
     const key = await getApiKey();
     expect(SecureStore.getItemAsync).toHaveBeenCalledWith('dub_ai_anthropic_api_key');
@@ -111,7 +111,7 @@ describe('API Key Security', () => {
   it('no API key stored in plain AsyncStorage', async () => {
     // After setting a key via the anthropic service, verify it's NOT in AsyncStorage
     const { setApiKey } = require('../services/anthropic');
-    await setApiKey('secret-api-key');
+    await setApiKey('sk-ant-api03-secret-api-key');
 
     const AsyncStorage = require('@react-native-async-storage/async-storage');
     const allKeys = await AsyncStorage.getAllKeys();

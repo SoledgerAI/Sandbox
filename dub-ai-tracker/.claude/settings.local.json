@@ -53,7 +53,8 @@
       "Bash(fi)",
       "Bash(done)",
       "Bash(grep:*)",
-      "Bash(head:*)"
+      "Bash(head:*)",
+      "Bash(node -e \"const m = require\\(''''react-native/Libraries/Modal/Modal''''\\); console.log\\(''''type:'''', typeof m, ''''keys:'''', Object.keys\\(m\\)\\)\")"
     ]
   }
 }
