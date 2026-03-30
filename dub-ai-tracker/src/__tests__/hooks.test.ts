@@ -3,7 +3,7 @@
 // We test hook logic by testing the functions they call.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { storageGet, storageSet, storageDelete, STORAGE_KEYS, storageList } from '../utils/storage';
+import { storageGet, storageSet, storageDelete, STORAGE_KEYS } from '../utils/storage';
 import type { UserProfile } from '../types/profile';
 
 describe('useStorage hook logic', () => {

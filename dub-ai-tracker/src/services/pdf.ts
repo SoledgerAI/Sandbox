@@ -9,7 +9,6 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import {
   storageGet,
-  storageList,
   dateKey,
   STORAGE_KEYS,
 } from '../utils/storage';

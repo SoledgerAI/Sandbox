@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { getApiKey, AnthropicError } from '../../services/anthropic';
 import { COACH_MODEL_ID } from '../../constants/formulas';
-import type { MealType, NutritionInfo, FoodSource } from '../../types/food';
+import type { MealType } from '../../types/food';
 
 interface NLPFoodItem {
   name: string;
@@ -133,10 +133,12 @@ export function NLPFoodEntry({ mealType, onConfirm, onCancel }: NLPFoodEntryProp
       const copy = [...prev];
       const item = { ...copy[index] };
       if (field === 'name' || field === 'portion') {
-        (item as any)[field] = value;
+        item[field] = value;
       } else {
         const num = parseFloat(value);
-        (item as any)[field] = isNaN(num) ? 0 : num;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // Reason: dynamic field assignment on mixed string/number/null interface
+        (item as Record<string, string | number | null>)[field] = isNaN(num) ? 0 : num;
       }
       copy[index] = item;
       return copy;

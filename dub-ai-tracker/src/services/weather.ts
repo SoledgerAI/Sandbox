@@ -3,7 +3,7 @@
 // Current conditions display on Dashboard (optional, small widget).
 // Free tier: 1,000 calls/day.
 
-import { storageGet, storageSet, STORAGE_KEYS } from '../utils/storage';
+import { storageGet, storageSet } from '../utils/storage';
 
 // ============================================================
 // API constants

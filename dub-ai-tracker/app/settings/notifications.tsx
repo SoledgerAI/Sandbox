@@ -2,9 +2,8 @@
 // Phase 17: Settings and Profile Management
 // All preferences from onboarding Step 6, plus per-type toggles
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  Alert,
   ScrollView,
   StyleSheet,
   Switch,

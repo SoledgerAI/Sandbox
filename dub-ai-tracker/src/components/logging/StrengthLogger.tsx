@@ -1,7 +1,7 @@
 // Strength training logger -- exercise search, set-by-set logging, volume, PRs
 // Phase 11: Fitness and Workout Logging
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   Text,
@@ -10,7 +10,6 @@ import {
   TextInput,
   ScrollView,
   Alert,
-  Modal,
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';

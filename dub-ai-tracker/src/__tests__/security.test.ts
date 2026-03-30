@@ -36,8 +36,8 @@ describe('Encryption', () => {
       const key2 = await deriveKey('password2', salt2);
       const plaintext = 'Same input text';
 
-      const result1 = await encrypt(plaintext, key1);
-      const result2 = await encrypt(plaintext, key2);
+      await encrypt(plaintext, key1);
+      await encrypt(plaintext, key2);
 
       // With our mock, key derivation uses different inputs so keys differ
       expect(key1).not.toBe(key2);
@@ -101,7 +101,7 @@ describe('API Key Security', () => {
     await setApiKey('sk-ant-api03-test-key-12345');
     expect(SecureStore.setItemAsync).toHaveBeenCalledWith('dub_ai_anthropic_api_key', 'sk-ant-api03-test-key-12345');
 
-    const key = await getApiKey();
+    await getApiKey();
     expect(SecureStore.getItemAsync).toHaveBeenCalledWith('dub_ai_anthropic_api_key');
 
     await deleteApiKey();

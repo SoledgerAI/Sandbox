@@ -194,10 +194,12 @@ export function PhotoFoodEntry({ mealType, onConfirm, onCancel }: PhotoFoodEntry
       const copy = [...prev];
       const item = { ...copy[index] };
       if (field === 'name' || field === 'portion' || field === 'note' || field === 'confidence') {
-        (item as any)[field] = value;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        // Reason: dynamic field assignment — confidence is a union type, not plain string
+        (item as Record<string, string | number | null>)[field] = value;
       } else {
         const num = parseFloat(value);
-        (item as any)[field] = isNaN(num) ? 0 : num;
+        (item as Record<string, string | number | null>)[field] = isNaN(num) ? 0 : num;
       }
       copy[index] = item;
       return copy;

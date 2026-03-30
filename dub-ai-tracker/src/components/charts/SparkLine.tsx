@@ -1,7 +1,7 @@
 // Mini 7-day sparkline chart
 // Phase 5: Dashboard Layout
 
-import { View, StyleSheet } from 'react-native';
+import { View } from 'react-native';
 import Svg, { Polyline, Circle as SvgCircle } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
 
@@ -59,4 +59,3 @@ export function SparkLine({
   );
 }
 
-const styles = StyleSheet.create({});

@@ -385,9 +385,6 @@ export default function SettingsScreen() {
                     const methods: AuthMethod[] = bioAvailable
                       ? ['biometric', 'pin', 'both']
                       : ['pin'];
-                    const labels = bioAvailable
-                      ? [biometryType || 'Biometric', 'PIN', 'Both']
-                      : ['PIN'];
                     const currentIdx = methods.indexOf(authMethodVal);
                     const nextIdx = (currentIdx + 1) % methods.length;
                     handleChangeAuthMethod(methods[nextIdx]);

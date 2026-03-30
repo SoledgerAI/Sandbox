@@ -1,7 +1,7 @@
 // Set entry component -- weight, reps, RPE per set
 // Phase 11: Fitness and Workout Logging
 
-import { useState } from 'react';
+import React from 'react';
 import {
   StyleSheet,
   Text,

@@ -2,8 +2,7 @@
 // Prompt 04 v2: BYOK UX
 
 import React from 'react';
-import { View } from 'react-native';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import { render, fireEvent } from '@testing-library/react-native';
 import { APIKeySetupWizard } from '../components/APIKeySetupWizard';
 import * as apiKeyService from '../services/apiKeyService';
 

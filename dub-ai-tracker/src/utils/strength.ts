@@ -11,7 +11,7 @@ import {
   BRZYCKI_MAX_REPS,
 } from '../constants/formulas';
 import type { ExerciseSet, StrengthExercise, PersonalRecord } from '../types/workout';
-import { storageGet, storageList } from '../utils/storage';
+import { storageGet } from '../utils/storage';
 
 /**
  * Estimate 1RM using the Brzycki formula.

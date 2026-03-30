@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FTCDisclosure } from './FTCDisclosure';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../utils/storage';
-import type { Influencer, InfluencerProduct, MarketplacePurchaseEvent } from '../../types/marketplace';
+import type { InfluencerProduct, MarketplacePurchaseEvent } from '../../types/marketplace';
 import { SAMPLE_INFLUENCERS } from './productData';
 
 interface InfluencerStorefrontProps {

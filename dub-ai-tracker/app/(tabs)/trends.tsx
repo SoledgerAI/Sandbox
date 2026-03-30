@@ -21,7 +21,7 @@ import { LineChart } from '../../src/components/charts/LineChart';
 import { BarChart } from '../../src/components/charts/BarChart';
 import { StackedBar } from '../../src/components/charts/StackedBar';
 import { DualAxis } from '../../src/components/charts/DualAxis';
-import type { TimeRange, ChartDataPoint } from '../../src/components/charts/types';
+import type { TimeRange, ChartDataPoint, ChartSeries } from '../../src/components/charts/types';
 
 const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: '7d', label: '7D' },
@@ -211,7 +211,6 @@ export default function TrendsScreen() {
   const { data: enabledTags } = useStorage<string[]>(STORAGE_KEYS.TAGS_ENABLED, []);
   const { data, loading } = useTrendsData(timeRange, enabledTags ?? []);
   const { width: screenWidth } = useWindowDimensions();
-  const chartWidth = screenWidth - 32;
   const sparkWidth = Math.floor(screenWidth * SPARKLINE_WIDTH_RATIO);
 
   // Filter charts to only show categories for enabled tags
@@ -389,7 +388,7 @@ function renderSparkline(
 
   switch (config.type) {
     case 'line': {
-      const series = [
+      const series: ChartSeries[] = [
         { data: chartData, color: Colors.accent, label: config.title },
       ];
       // Add YoY overlay if available
@@ -401,7 +400,7 @@ function renderSparkline(
             color: Colors.secondaryText,
             label: 'Last Year',
             dashed: true,
-          } as any);
+          });
         }
       }
       return <LineChart series={series} width={width} height={height} title={config.title} unit={config.unit} thumbnail />;

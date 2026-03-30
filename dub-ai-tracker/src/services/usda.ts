@@ -10,13 +10,6 @@ const API_KEY = 'DEMO_KEY';
 
 // USDA API response types (subset of full schema)
 
-interface UsdaNutrient {
-  nutrientId: number;
-  nutrientName: string;
-  value: number;
-  unitName: string;
-}
-
 interface UsdaFoodNutrient {
   nutrientId?: number;
   nutrientName?: string;

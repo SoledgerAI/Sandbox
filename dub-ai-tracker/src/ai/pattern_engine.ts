@@ -3,8 +3,8 @@
 // Phase 19: Ingredient frequency detection
 // Runs on app open and end-of-day
 
-import { storageGet, storageSet, STORAGE_KEYS, dateKey, storageList } from '../utils/storage';
-import { thresholdCount, groupComparison, spearmanCorrelation } from './correlation';
+import { storageGet, storageSet, STORAGE_KEYS, dateKey } from '../utils/storage';
+import { groupComparison, spearmanCorrelation } from './correlation';
 import type { PatternInsight } from '../types/coach';
 import type {
   FoodEntry,
@@ -20,11 +20,6 @@ import type { UserProfile } from '../types/profile';
 import { CALORIE_FLOOR_FEMALE, CALORIE_FLOOR_MALE, ED_SUSTAINED_LOW_DAYS } from '../constants/formulas';
 
 const MAX_NEW_PATTERNS_PER_WEEK = 3;
-
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 function pastDateString(daysAgo: number): string {
   const d = new Date();

@@ -5,7 +5,6 @@
 import { useState } from 'react';
 import {
   Alert,
-  Linking,
   ScrollView,
   StyleSheet,
   Text,
@@ -19,7 +18,7 @@ import { storageClearAll } from '../../src/utils/storage';
 import { deleteSecure, SECURE_KEYS } from '../../src/services/secureStorageService';
 import { logAuditEvent } from '../../src/utils/audit';
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 
 export default function AboutScreen() {
   const [deleting, setDeleting] = useState(false);
@@ -56,11 +55,14 @@ export default function AboutScreen() {
               // Clear all AsyncStorage dub.* keys
               await storageClearAll();
 
-              // Clear secure store (API key + other sensitive keys)
+              // Clear all secure store keys
               try {
                 await deleteSecure(SECURE_KEYS.ANTHROPIC_API_KEY);
                 await deleteSecure(SECURE_KEYS.APP_LOCK_ENABLED);
+                await deleteSecure(SECURE_KEYS.AUTH_PIN_HASH);
+                await deleteSecure(SECURE_KEYS.AUTH_METHOD);
                 await deleteSecure(SECURE_KEYS.USER_SEX);
+                await deleteSecure(SECURE_KEYS.ONBOARDING_COMPLETE);
                 await deleteSecure(SECURE_KEYS.CONSENT_RECORD);
               } catch {
                 // Keys may not exist
@@ -105,6 +107,23 @@ export default function AboutScreen() {
         <Text style={styles.appVersion}>Version {APP_VERSION}</Text>
         <Text style={styles.appDesc}>
           Your personal health and wellness tracking companion, powered by AI.
+        </Text>
+      </View>
+
+      {/* Privacy & Data */}
+      <Text style={styles.sectionTitle}>Privacy & Data</Text>
+      <View style={styles.privacyCard}>
+        <Text style={styles.privacyItem}>
+          All health data is stored locally on your device. Nothing is uploaded to SoledgerAI servers.
+        </Text>
+        <Text style={styles.privacyItem}>
+          Your API key is stored in encrypted secure storage (iOS Keychain) and never leaves your device.
+        </Text>
+        <Text style={styles.privacyItem}>
+          When you use Coach DUB, your health context and messages are sent to Anthropic's Claude API for processing. Anthropic's usage policy applies.
+        </Text>
+        <Text style={styles.privacyItem}>
+          DUB_AI does not collect, transmit, or sell your personal data. You can delete all data at any time below.
         </Text>
       </View>
 
@@ -250,6 +269,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 10,
     marginTop: 4,
+  },
+  privacyCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    gap: 10,
+  },
+  privacyItem: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    lineHeight: 18,
   },
   linkRow: {
     flexDirection: 'row',

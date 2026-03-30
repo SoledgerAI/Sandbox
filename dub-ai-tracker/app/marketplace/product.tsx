@@ -1,7 +1,7 @@
 // Product detail screen
 // Phase 22: Marketplace, Influencer System, and Polish
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -17,7 +17,7 @@ import { Colors } from '../../src/constants/colors';
 import { FTCDisclosure } from '../../src/components/marketplace/FTCDisclosure';
 import { MARKETPLACE_PRODUCTS } from '../../src/components/marketplace/productData';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
-import type { Product, MarketplacePurchaseEvent, DismissedProduct } from '../../src/types/marketplace';
+import type { MarketplacePurchaseEvent, DismissedProduct } from '../../src/types/marketplace';
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();

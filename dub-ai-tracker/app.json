@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "dub-ai-tracker",
+    "name": "DUB_AI Tracker",
     "slug": "dub-ai-tracker",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "dark",
@@ -16,8 +16,11 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.soledgerai.dubaitracker",
+      "buildNumber": "2",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
+        "NSFaceIDUsageDescription": "DUB_AI uses Face ID to protect your health data and app access.",
+        "NSCameraUsageDescription": "DUB_AI uses the camera to scan barcodes and photograph meals for food logging.",
         "NSHealthShareUsageDescription": "DUB_AI reads your health data (steps, workouts, sleep, heart rate) to provide personalized wellness coaching and tracking.",
         "NSHealthUpdateUsageDescription": "DUB_AI writes workout and nutrition summaries to Apple Health so your data stays in sync across health apps."
       }

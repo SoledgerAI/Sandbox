@@ -171,13 +171,13 @@ describe('Coach Prompt Safety Preservation', () => {
           { type: 'sustained_low_intake', detail: 'Below 1500 cal on 4 of 7 days' },
         ],
         active_injuries: [
-          { location: 'left knee', severity: 7, type: 'strain', aggravators: ['squats', 'lunges'] },
+          { location: 'left knee', severity: 7, type: 'acute', aggravators: ['squats', 'lunges'] },
         ],
         sobriety_goals: [
           { substance: 'alcohol', goal_type: 'quit', current_streak_days: 14 },
         ],
         active_correlations: [
-          { observation: 'Higher water intake correlates with better mood scores', metric_a: 'water_oz', metric_b: 'mood', rho: 0.72, significant: true },
+          { id: 'corr-1', category: 'hydration', observation: 'Higher water intake correlates with better mood scores', data_range: '30d', sample_size: 28, correlation_note: 'rho=0.72', detected_at: '2026-03-01T00:00:00Z' },
         ],
       });
       const prompt = buildSystemPrompt(ctx, ['[7D] Cal:1800avg P:140g Sleep:7.1h']);

@@ -4,7 +4,7 @@
 // Apple Health / Google Health Connect native permissions,
 // Garmin / Oura "Coming Soon" stubs.
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
 import {
   Alert,
   ScrollView,
@@ -18,10 +18,8 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
-import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
-import { logAuditEvent } from '../../src/utils/audit';
+import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
 import { useHealth, type DeviceType } from '../../src/hooks/useHealth';
-import type { DeviceSyncState } from '../../src/types/profile';
 import type { UserProfile } from '../../src/types/profile';
 
 interface DeviceConfig {
@@ -70,7 +68,6 @@ const DEVICES: DeviceConfig[] = [
 export default function DevicesScreen() {
   const {
     devices,
-    syncing,
     loading,
     connectDevice,
     disconnectDevice,

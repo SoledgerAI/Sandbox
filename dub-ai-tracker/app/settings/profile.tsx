@@ -51,7 +51,7 @@ export default function ProfileScreen() {
   // Form state
   const [name, setName] = useState('');
   const [dobDate, setDobDate] = useState<Date>(new Date(1990, 0, 1));
-  const [dobSet, setDobSet] = useState(false);
+  const [, setDobSet] = useState(false);
   const [units, setUnits] = useState<UnitPreference>('imperial');
   const [sex, setSex] = useState<BiologicalSex | null>(null);
   const [heightFeet, setHeightFeet] = useState('');

@@ -146,6 +146,10 @@ export default function CoachScreen() {
               emergencies, diagnosis, or treatment decisions. Always consult qualified professionals
               for medical advice.
             </Text>
+            <Text style={styles.modalText}>
+              Your messages are sent to Anthropic's Claude API using your API key. Anthropic's
+              usage policy applies. DUB_AI does not store or access your conversations.
+            </Text>
             <TouchableOpacity style={styles.modalButton} onPress={acknowledgeDisclaimer}>
               <Text style={styles.modalButtonText}>I Understand</Text>
             </TouchableOpacity>

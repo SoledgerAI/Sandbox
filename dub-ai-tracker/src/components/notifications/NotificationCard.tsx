@@ -1,7 +1,7 @@
 // Notification card for EOD questionnaire
 // Phase 15: EOD Questionnaire and Notifications
 
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import {
   StyleSheet,
   Text,
@@ -270,8 +270,6 @@ interface QuickInputProps {
 }
 
 function WaterQuickInput({ storageKey, todayStr, saving, setSaving, onComplete }: QuickInputProps) {
-  const [value, setValue] = useState('');
-
   const quickAmounts = [8, 16, 24, 32];
 
   const handleSave = async (oz: number) => {
@@ -314,9 +312,8 @@ function ScaleQuickInput({
   saving,
   setSaving,
   onComplete,
-  ...rest
+  labels,
 }: QuickInputProps & { labels: string[] }) {
-  const labels = (rest as any).labels as string[];
 
   const handleSelect = async (value: number) => {
     setSaving(true);
@@ -355,9 +352,9 @@ function NumericQuickInput({
   saving,
   setSaving,
   onComplete,
-  ...rest
+  placeholder,
+  unit,
 }: QuickInputProps & { placeholder: string; unit: string }) {
-  const { placeholder, unit } = rest as { placeholder: string; unit: string };
   const [value, setValue] = useState('');
 
   const handleSave = async () => {

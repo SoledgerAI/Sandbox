@@ -29,7 +29,6 @@ import type {
   FoodEntry,
   FavoriteFood,
   MealTemplate,
-  FoodItem,
   MealType,
 } from '../../src/types/food';
 import { scaleNutrition } from '../../src/utils/servingmath';

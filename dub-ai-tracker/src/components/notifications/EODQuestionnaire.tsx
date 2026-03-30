@@ -5,7 +5,6 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Animated,
   Dimensions,
-  FlatList,
   PanResponder,
   StyleSheet,
   Text,

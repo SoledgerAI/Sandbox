@@ -22,8 +22,6 @@ import { LineChart } from '../../src/components/charts/LineChart';
 import { BarChart } from '../../src/components/charts/BarChart';
 import { StackedBar } from '../../src/components/charts/StackedBar';
 import { DualAxis } from '../../src/components/charts/DualAxis';
-import { ScatterPlot } from '../../src/components/charts/ScatterPlot';
-import { Heatmap } from '../../src/components/charts/Heatmap';
 import type { TimeRange, ChartDataPoint } from '../../src/components/charts/types';
 
 const TIME_RANGES: { key: TimeRange; label: string }[] = [
@@ -172,7 +170,7 @@ export default function TrendsDetailScreen() {
   const [timeRange, setTimeRange] = useState<TimeRange>(initialRange);
   const [showYoY, setShowYoY] = useState(true);
   const { data: enabledTags } = useStorage<string[]>(STORAGE_KEYS.TAGS_ENABLED, []);
-  const { data, loading } = useTrendsData(timeRange, enabledTags ?? []);
+  const { data } = useTrendsData(timeRange, enabledTags ?? []);
   const { width: screenWidth } = useWindowDimensions();
   const chartWidth = screenWidth - 32;
   const chartHeight = 280;

@@ -35,7 +35,7 @@ function CircularGauge({ score, color }: { score: number; color: string }) {
 }
 
 function ComponentRow({ component }: { component: RecoveryScoreComponent }) {
-  const barWidth = component.has_data ? `${Math.max(component.raw_score, 2)}%` : '0%';
+  const barWidth = component.has_data ? `${Math.max(component.raw_score, 2)}%` as const : '0%' as const;
   const barColor = component.has_data ? scoreColor(component.raw_score) : Colors.divider;
 
   return (
@@ -50,7 +50,7 @@ function ComponentRow({ component }: { component: RecoveryScoreComponent }) {
         <View
           style={[
             styles.componentBarFill,
-            { width: barWidth as any, backgroundColor: barColor },
+            { width: barWidth, backgroundColor: barColor },
           ]}
         />
       </View>

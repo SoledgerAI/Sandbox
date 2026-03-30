@@ -80,12 +80,6 @@ function getDaysAgo(days: number): string {
   return d.toISOString().split('T')[0];
 }
 
-function getYearAgoDate(dateStr: string): string {
-  const d = new Date(dateStr);
-  d.setFullYear(d.getFullYear() - 1);
-  return d.toISOString().split('T')[0];
-}
-
 function dailyToChartPoint(s: DailySummary, field: keyof DailySummary): ChartDataPoint | null {
   const val = s[field];
   if (val == null) return null;

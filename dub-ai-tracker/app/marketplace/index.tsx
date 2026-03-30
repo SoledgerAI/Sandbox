@@ -10,7 +10,6 @@ import {
   View,
   ScrollView,
   ActivityIndicator,
-  FlatList,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +17,7 @@ import { Colors } from '../../src/constants/colors';
 import { ProductCard } from '../../src/components/marketplace/ProductCard';
 import { getTriggeredProducts } from '../../src/components/marketplace/ContextualTrigger';
 import { PRODUCT_CATEGORIES, MARKETPLACE_PRODUCTS, SAMPLE_INFLUENCERS } from '../../src/components/marketplace/productData';
-import type { Product, ProductCategory } from '../../src/types/marketplace';
+import type { Product } from '../../src/types/marketplace';
 
 type Tab = 'for_you' | 'browse' | 'influencers';
 

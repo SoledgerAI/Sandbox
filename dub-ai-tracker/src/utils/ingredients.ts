@@ -1,7 +1,7 @@
 // Ingredient detection in food data
 // Phase 19: Ingredient Flag System and NLP/Photo Food Logging
 
-import { storageGet, STORAGE_KEYS } from './storage';
+import { storageGet } from './storage';
 import type { IngredientFlag } from '../types/food';
 
 // Default ingredient flags (all off by default, user enables what they care about)

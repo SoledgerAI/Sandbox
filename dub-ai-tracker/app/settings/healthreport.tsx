@@ -16,7 +16,6 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
 import {
   generateAndShareHealthReport,
@@ -93,7 +92,6 @@ function getDateRange(preset: DateRangePreset): { start: string; end: string } {
 // ============================================================
 
 export default function HealthReportScreen() {
-  const router = useRouter();
   const [selectedSections, setSelectedSections] = useState<Set<HealthReportSection>>(
     new Set(['weight_body_composition', 'nutrition', 'exercise', 'sleep', 'vital_signs']),
   );

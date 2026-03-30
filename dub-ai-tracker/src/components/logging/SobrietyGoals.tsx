@@ -106,24 +106,6 @@ export function SobrietyGoals() {
     [goals, saveGoals],
   );
 
-  const resetStreak = useCallback(
-    (substance: SubstanceKey) => {
-      const existing = goals[substance];
-      if (!existing) return;
-
-      const updated: Record<string, SobrietyGoal> = {
-        ...goals,
-        [substance]: {
-          ...existing,
-          current_streak_days: 0,
-          sobriety_start_date: todayDateString(),
-        },
-      };
-      saveGoals(updated);
-    },
-    [goals, saveGoals],
-  );
-
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.pageTitle}>Goals</Text>

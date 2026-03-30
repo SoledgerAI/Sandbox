@@ -1,8 +1,8 @@
 // Interactive line chart with optional YoY overlay
 // Phase 16: Trends and Charts
 
-import { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, Pressable, AccessibilityInfo } from 'react-native';
+import { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, Pressable } from 'react-native';
 import Svg, {
   Polyline,
   Circle as SvgCircle,
@@ -11,7 +11,7 @@ import Svg, {
   G,
   Rect,
 } from 'react-native-svg';
-import Animated, { useSharedValue, useAnimatedProps, withTiming } from 'react-native-reanimated';
+import { useSharedValue, withTiming } from 'react-native-reanimated';
 import { Colors } from '../../constants/colors';
 import {
   ChartSeries,
@@ -22,8 +22,6 @@ import {
   scaleX,
   scaleY,
 } from './types';
-
-const AnimatedPolyline = Animated.createAnimatedComponent(Polyline);
 
 interface LineChartProps {
   series: ChartSeries[];

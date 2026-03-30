@@ -12,8 +12,6 @@ import {
   RECOVERY_WEIGHT_ALCOHOL,
   ACTIVITY_MULTIPLIERS,
 } from '../constants/formulas';
-import type { EngagementTier } from '../types/profile';
-
 describe('Colors', () => {
   it('primaryBackground = #1E2761', () => {
     expect(Colors.primaryBackground).toBe('#1E2761');

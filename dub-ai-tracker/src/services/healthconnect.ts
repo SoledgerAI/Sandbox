@@ -69,22 +69,6 @@ export function isHealthConnectAvailable(): boolean {
 // Permission request
 // ============================================================
 
-const HEALTH_CONNECT_READ_TYPES = [
-  'Steps',
-  'HeartRate',
-  'HeartRateVariabilityRmssd',
-  'SleepSession',
-  'Weight',
-  'ExerciseSession',
-  'ActiveCaloriesBurned',
-  'Distance',
-  'RestingHeartRate',
-  'OxygenSaturation',
-  'RespiratoryRate',
-];
-
-const HEALTH_CONNECT_WRITE_TYPES = ['ExerciseSession'];
-
 /**
  * Request Health Connect permissions.
  * In a full native build, this calls the Health Connect permission flow.
@@ -94,12 +78,6 @@ export async function requestHealthConnectPermissions(): Promise<boolean> {
   if (!isHealthConnectAvailable()) return false;
 
   try {
-    // react-native-health-connect requestPermission call would go here:
-    // const granted = await requestPermission([
-    //   ...HEALTH_CONNECT_READ_TYPES.map(t => ({ accessType: 'read', recordType: t })),
-    //   ...HEALTH_CONNECT_WRITE_TYPES.map(t => ({ accessType: 'write', recordType: t })),
-    // ]);
-
     const syncState: DeviceSyncState = {
       connected: true,
       last_sync: null,

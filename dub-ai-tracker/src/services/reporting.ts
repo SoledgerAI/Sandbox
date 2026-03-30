@@ -15,13 +15,8 @@ import type {
   SleepEntry,
   MoodEntry,
   BodyEntry,
-  SupplementEntry,
-  SubstanceEntry,
-  BloodworkEntry,
-  InjuryEntry,
-  CycleEntry,
 } from '../types';
-import type { UserProfile, StreakData } from '../types/profile';
+import type { UserProfile } from '../types/profile';
 import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge, lbsToKg, inchesToCm } from '../utils/calories';
 
 // ============================================================
@@ -580,7 +575,6 @@ export async function generateYoYComparison(
  */
 export async function checkDueReports(): Promise<ReportCadence[]> {
   const now = new Date();
-  const today = formatDate(now);
   const due: ReportCadence[] = [];
 
   // Daily is always due (for yesterday)

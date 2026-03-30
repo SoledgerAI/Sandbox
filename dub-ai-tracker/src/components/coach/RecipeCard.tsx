@@ -4,7 +4,6 @@
 import { useState, useCallback } from 'react';
 import {
   Alert,
-  ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,

@@ -4,7 +4,7 @@
 // Gold shimmer animation on achievement card. Subtle. NOT confetti,
 // NOT fireworks, NOT party emojis. Data-driven only.
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -237,10 +237,8 @@ export async function checkCelebrations(todayStr: string): Promise<CelebrationEv
       const targetWeight = profile.goal.target_weight;
 
       // Calculate progress in 5-lb increments
-      const totalToLose = Math.abs(startWeight - targetWeight);
       const lost = Math.abs(startWeight - currentWeight);
       const milestonesReached = Math.floor(lost / 5);
-      const prevMilestonesReached = Math.floor((lost - Math.abs(currentWeight - startWeight)) / 5);
 
       if (milestonesReached > 0 && !alreadyShown.includes('weight_milestone')) {
         const direction = profile.goal.direction === 'LOSE' ? 'lost' : 'gained';

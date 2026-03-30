@@ -4,9 +4,8 @@
 
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
-import { storageGet, storageSet, STORAGE_KEYS, dateKey } from '../utils/storage';
+import { storageGet, STORAGE_KEYS, dateKey } from '../utils/storage';
 import { getTierDefinition } from '../constants/tiers';
-import { ALL_DEFAULT_TAGS } from '../constants/tags';
 import type { EngagementTier } from '../types/profile';
 import type { AppSettings } from '../types/profile';
 import type { SleepEntry } from '../types';
@@ -88,9 +87,6 @@ export async function getObservedBedtime(): Promise<number> {
   if (bedtimeHours.length === 0) return 21; // fallback 9 PM
 
   const avg = bedtimeHours.reduce((a, b) => a + b, 0) / bedtimeHours.length;
-  // Normalize back from 24+ range
-  const normalized = avg >= 24 ? avg - 24 : avg;
-
   // Clamp: never before 6 PM or after 11 PM for the trigger (which is 1hr before)
   // So bedtime must be between 19 and 24 (trigger between 18 and 23)
   return Math.max(19, Math.min(24, avg >= 24 ? avg : avg));
@@ -367,7 +363,6 @@ async function configureReportChannel(): Promise<void> {
 export async function triggerDueReports(): Promise<void> {
   const dueReports = await checkDueReports();
   const now = new Date();
-  const todayStr = formatDate(now);
 
   for (const cadence of dueReports) {
     switch (cadence) {

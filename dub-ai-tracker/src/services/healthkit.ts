@@ -62,22 +62,6 @@ export function isHealthKitAvailable(): boolean {
 // Permission request
 // ============================================================
 
-const HEALTHKIT_READ_PERMISSIONS = [
-  'StepCount',
-  'HeartRate',
-  'HeartRateVariabilitySDNN',
-  'SleepAnalysis',
-  'BodyMass',
-  'Workout',
-  'ActiveEnergyBurned',
-  'DistanceWalkingRunning',
-  'RestingHeartRate',
-  'OxygenSaturation',
-  'RespiratoryRate',
-];
-
-const HEALTHKIT_WRITE_PERMISSIONS = ['Workout'];
-
 /**
  * Request HealthKit permissions.
  * In a full native build, this calls AppleHealthKit.initHealthKit().
@@ -87,15 +71,6 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
   if (!isHealthKitAvailable()) return false;
 
   try {
-    // react-native-health initHealthKit call would go here:
-    // const options = {
-    //   permissions: {
-    //     read: HEALTHKIT_READ_PERMISSIONS,
-    //     write: HEALTHKIT_WRITE_PERMISSIONS,
-    //   },
-    // };
-    // await AppleHealthKit.initHealthKit(options);
-
     const syncState: DeviceSyncState = {
       connected: true,
       last_sync: null,

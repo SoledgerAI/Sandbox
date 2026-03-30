@@ -40,7 +40,7 @@ function matchesDemographics(filter: DemographicFilter, profile: UserProfile | n
   }
 
   if (filter.sex != null && profile.sex) {
-    if (!filter.sex.includes(profile.sex as any)) return false;
+    if (!filter.sex.includes(profile.sex!)) return false;
   }
 
   if (filter.goals != null && profile.goal?.direction) {

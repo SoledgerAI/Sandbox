@@ -36,7 +36,6 @@ import type {
   WorkoutEntry,
   InjuryEntry,
   BloodworkEntry,
-  SubstanceEntry,
   SupplementEntry,
   CycleEntry,
   RecoveryScore,
@@ -91,13 +90,11 @@ export async function buildCoachContext(userMessage: string): Promise<{
   const today = todayDateString();
 
   // Always-load data
-  const [profile, tier, enabledTags] = await Promise.all([
+  const [profile, tier] = await Promise.all([
     storageGet<UserProfile>(STORAGE_KEYS.PROFILE),
     storageGet<EngagementTier>(STORAGE_KEYS.TIER),
-    storageGet<string[]>(STORAGE_KEYS.TAGS_ENABLED),
   ]);
 
-  const tags = enabledTags ?? [];
   const currentTier = tier ?? 'balanced';
 
   // Load today's data
@@ -194,7 +191,6 @@ export async function buildCoachContext(userMessage: string): Promise<{
   // Injuries (conditional on workout/pain keywords)
   let injuries: InjurySummary[] = [];
   if (messageMatchesKeywords(userMessage, INJURY_KEYWORDS)) {
-    const injuryEntries = await storageGet<InjuryEntry[]>(dateKey(STORAGE_KEYS.LOG_INJURY, today));
     // Also load active (unresolved) injuries
     const allInjuryKeys = await storageList('dub.log.injury.');
     for (const key of allInjuryKeys.slice(-7)) {
