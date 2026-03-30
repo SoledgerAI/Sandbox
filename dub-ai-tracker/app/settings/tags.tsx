@@ -24,19 +24,27 @@ import {
 } from '../../src/constants/tags';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import { IngredientFlags } from '../../src/components/logging/IngredientFlags';
+import { getVisibleTags } from '../../src/services/tagFilterService';
+import { getUserSex } from '../../src/services/onboardingService';
+import type { BiologicalSex } from '../../src/types/profile';
 
 export default function TagsScreen() {
   const [loading, setLoading] = useState(true);
   const [enabledTags, setEnabledTags] = useState<string[]>([]);
   const [tagOrder, setTagOrder] = useState<string[]>([]);
   const [showIngredientFlags, setShowIngredientFlags] = useState(false);
+  const [userSex, setUserSex] = useState<BiologicalSex | null>(null);
 
   const loadTags = useCallback(async () => {
     setLoading(true);
-    const enabled = await storageGet<string[]>(STORAGE_KEYS.TAGS_ENABLED);
-    const order = await storageGet<string[]>(STORAGE_KEYS.TAGS_ORDER);
+    const [enabled, order, sex] = await Promise.all([
+      storageGet<string[]>(STORAGE_KEYS.TAGS_ENABLED),
+      storageGet<string[]>(STORAGE_KEYS.TAGS_ORDER),
+      getUserSex(),
+    ]);
     setEnabledTags(enabled || []);
     setTagOrder(order || []);
+    setUserSex(sex);
     setLoading(false);
   }, []);
 
@@ -172,7 +180,7 @@ export default function TagsScreen() {
       {/* Health & Fitness Tags */}
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Health & Fitness</Text>
-        {HEALTH_FITNESS_TAGS.map((tag) => (
+        {getVisibleTags(userSex, HEALTH_FITNESS_TAGS).map((tag) => (
           <TouchableOpacity
             key={tag.id}
             style={styles.tagRow}
@@ -204,7 +212,7 @@ export default function TagsScreen() {
         <Text style={styles.sensitiveNote}>
           These tags contain sensitive data and are never pre-selected.
         </Text>
-        {PERSONAL_PRIVATE_TAGS.map((tag) => (
+        {getVisibleTags(userSex, PERSONAL_PRIVATE_TAGS).map((tag) => (
           <TouchableOpacity
             key={tag.id}
             style={styles.tagRow}

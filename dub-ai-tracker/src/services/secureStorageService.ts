@@ -14,6 +14,7 @@ export const SECURE_KEYS = {
   AUTH_PIN_HASH: 'dub_ai_auth_pin_hash',
   AUTH_METHOD: 'dub_ai_auth_method',
   USER_SEX: 'dub_ai_user_sex',
+  ONBOARDING_COMPLETE: 'dub_ai_onboarding_complete',
   CONSENT_RECORD: 'dub_ai_consent_record',
 } as const;
 
@@ -26,6 +27,7 @@ export const PREF_KEYS = {
   ONBOARDING_COMPLETE: '@dub_ai_onboarding_complete',
   WEIGHT_PROMPT_DISMISSED: '@dub_ai_weight_prompt_dismissed',
   USER_ZIP: '@dub_ai_user_zip',
+  USER_AGE_RANGE: '@dub_ai_user_age_range',
   USER_HEIGHT_INCHES: '@dub_ai_user_height_inches',
   THEME: '@dub_ai_theme',
 } as const;

@@ -1,6 +1,7 @@
 // Dashboard screen -- daily overview
 // Phase 5: Dashboard Layout
 
+import { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator } from 'react-native';
 import { Colors } from '../../src/constants/colors';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
@@ -12,6 +13,9 @@ import { DashboardCard } from '../../src/components/dashboard/DashboardCard';
 import { ALL_DEFAULT_TAGS } from '../../src/constants/tags';
 import { BodyCard } from '../../src/components/dashboard/BodyCard';
 import { RecoveryCard } from '../../src/components/dashboard/RecoveryCard';
+import { isTagVisibleForUser } from '../../src/services/tagFilterService';
+import { getUserSex } from '../../src/services/onboardingService';
+import type { BiologicalSex } from '../../src/types/profile';
 
 export default function DashboardScreen() {
   const {
@@ -26,6 +30,12 @@ export default function DashboardScreen() {
     enabledTags,
     tagOrder,
   } = useDailySummary();
+
+  const [userSex, setUserSex] = useState<BiologicalSex | null>(null);
+
+  useEffect(() => {
+    getUserSex().then(setUserSex);
+  }, []);
 
   if (loading) {
     return (
@@ -84,7 +94,7 @@ export default function DashboardScreen() {
       <RecoveryCard />
 
       {/* Tag Cards */}
-      {orderedTags.map((tagId) => {
+      {orderedTags.filter((tagId) => isTagVisibleForUser(tagId, userSex)).map((tagId) => {
         const tagDef = ALL_DEFAULT_TAGS.find((t) => t.id === tagId);
         if (tagDef == null) return null;
 

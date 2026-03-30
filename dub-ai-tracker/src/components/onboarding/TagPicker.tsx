@@ -3,11 +3,15 @@
 // Per Section 8 Step 3: Two-section grid (Health/Fitness + Personal/Private)
 // Sensitive tags are NEVER pre-selected regardless of tier.
 
+import { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { HEALTH_FITNESS_TAGS, PERSONAL_PRIVATE_TAGS } from '../../constants/tags';
 import type { TagDefault } from '../../constants/tags';
+import { getVisibleTags } from '../../services/tagFilterService';
+import { getUserSex } from '../../services/onboardingService';
+import type { BiologicalSex } from '../../types/profile';
 
 interface TagPickerProps {
   enabledTags: string[];
@@ -15,12 +19,21 @@ interface TagPickerProps {
 }
 
 export function TagPicker({ enabledTags, onToggle }: TagPickerProps) {
+  const [sex, setSex] = useState<BiologicalSex | null>(null);
+
+  useEffect(() => {
+    getUserSex().then(setSex);
+  }, []);
+
+  const visibleHealthTags = getVisibleTags(sex, HEALTH_FITNESS_TAGS);
+  const visiblePrivateTags = getVisibleTags(sex, PERSONAL_PRIVATE_TAGS);
+
   return (
     <View style={styles.container}>
       {/* Section 1: Health & Fitness */}
       <Text style={styles.sectionTitle}>Health & Fitness</Text>
       <View style={styles.grid}>
-        {HEALTH_FITNESS_TAGS.map((tag) => (
+        {visibleHealthTags.map((tag) => (
           <TagChip
             key={tag.id}
             tag={tag}
@@ -38,7 +51,7 @@ export function TagPicker({ enabledTags, onToggle }: TagPickerProps) {
           only on your device, and optional.
         </Text>
         <View style={styles.grid}>
-          {PERSONAL_PRIVATE_TAGS.map((tag) => (
+          {visiblePrivateTags.map((tag) => (
             <TagChip
               key={tag.id}
               tag={tag}

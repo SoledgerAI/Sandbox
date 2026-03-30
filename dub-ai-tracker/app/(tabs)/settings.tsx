@@ -9,6 +9,7 @@ import {
   StyleSheet,
   Switch,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   ActivityIndicator,
@@ -31,7 +32,17 @@ import {
 } from '../../src/services/authService';
 import type { AuthMethod } from '../../src/services/authService';
 import { PINSetupModal } from '../../src/components/PINSetupModal';
-import type { UserProfile, EngagementTier } from '../../src/types/profile';
+import type { UserProfile, BiologicalSex, EngagementTier } from '../../src/types/profile';
+import {
+  getUserSex,
+  setUserSex as saveUserSex,
+  getUserAgeRange,
+  setUserAgeRange as saveUserAgeRange,
+  getUserZip,
+  setUserZip as saveUserZip,
+  resetOnboarding,
+} from '../../src/services/onboardingService';
+import type { AgeRange } from '../../src/services/onboardingService';
 
 interface SettingsItem {
   id: string;
@@ -57,9 +68,17 @@ export default function SettingsScreen() {
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [pinModalRequireCurrent, setPinModalRequireCurrent] = useState(false);
 
+  // Personalization state
+  const [userSex, setUserSexState] = useState<BiologicalSex | null>(null);
+  const [userAgeRange, setUserAgeRangeState] = useState<AgeRange | null>(null);
+  const [userZip, setUserZipState] = useState<string | null>(null);
+  const [showSexPicker, setShowSexPicker] = useState(false);
+  const [showAgePicker, setShowAgePicker] = useState(false);
+  const [showZipInput, setShowZipInput] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
-    const [profile, tierVal, keyExists, lockVal, methodVal, bio, pinSet] =
+    const [profile, tierVal, keyExists, lockVal, methodVal, bio, pinSet, sex, age, zip] =
       await Promise.all([
         storageGet<UserProfile>(STORAGE_KEYS.PROFILE),
         storageGet<EngagementTier>(STORAGE_KEYS.TIER),
@@ -68,6 +87,9 @@ export default function SettingsScreen() {
         getAuthMethod(),
         isBiometricAvailable(),
         hasPIN(),
+        getUserSex(),
+        getUserAgeRange(),
+        getUserZip(),
       ]);
     setProfileName(profile?.name || 'Not set');
     setTier(tierVal ? tierVal.charAt(0).toUpperCase() + tierVal.slice(1) : 'Balanced');
@@ -77,6 +99,9 @@ export default function SettingsScreen() {
     setBiometryType(bio.biometryType);
     setBioAvailable(bio.available);
     setHasPinSet(pinSet);
+    setUserSexState(sex);
+    setUserAgeRangeState(age);
+    setUserZipState(zip);
     setLoading(false);
   }, []);
 
@@ -166,6 +191,47 @@ export default function SettingsScreen() {
       setAuthMethodVal('pin');
     }
   }, [lockEnabled]);
+
+  // Personalization handlers
+  const handleSexChange = useCallback(async (sex: BiologicalSex) => {
+    await saveUserSex(sex);
+    setUserSexState(sex);
+    setShowSexPicker(false);
+  }, []);
+
+  const handleAgeChange = useCallback(async (range: AgeRange) => {
+    await saveUserAgeRange(range);
+    setUserAgeRangeState(range);
+    setShowAgePicker(false);
+  }, []);
+
+  const handleZipSave = useCallback(async (zip: string) => {
+    if (zip && /^\d{5}$/.test(zip)) {
+      await saveUserZip(zip);
+      setUserZipState(zip);
+    }
+    setShowZipInput(false);
+  }, []);
+
+  const handleResetOnboarding = useCallback(() => {
+    Alert.alert(
+      'Reset Onboarding',
+      'This will show the onboarding questionnaire again on next app launch. Continue?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            await resetOnboarding();
+            Alert.alert('Done', 'Onboarding will appear on next app launch.');
+          },
+        },
+      ],
+    );
+  }, []);
+
+  const sexDisplayLabel = userSex === 'male' ? 'Male' : userSex === 'female' ? 'Female' : userSex === 'prefer_not_to_say' ? 'Prefer not to say' : 'Not set';
 
   const settingsSections: { title: string; items: SettingsItem[] }[] = [
     {
@@ -386,6 +452,122 @@ export default function SettingsScreen() {
             verifyCurrentPIN={verifyPIN}
           />
 
+          {/* Personalization Section */}
+          <View style={styles.sectionGroup}>
+            <Text style={styles.sectionHeader}>PERSONALIZATION</Text>
+            <View style={styles.section}>
+              {/* Sex */}
+              <TouchableOpacity
+                style={styles.settingRow}
+                onPress={() => setShowSexPicker(!showSexPicker)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="person-outline" size={22} color={Colors.accent} />
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Sex</Text>
+                  <Text style={styles.settingSubtitle}>{sexDisplayLabel}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+              </TouchableOpacity>
+
+              {showSexPicker && (
+                <View style={styles.pickerGroup}>
+                  {(['male', 'female', 'prefer_not_to_say'] as BiologicalSex[]).map((opt) => (
+                    <TouchableOpacity
+                      key={opt}
+                      style={[styles.pickerOption, userSex === opt && styles.pickerOptionSelected]}
+                      onPress={() => handleSexChange(opt)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.pickerOptionText, userSex === opt && styles.pickerOptionTextSelected]}>
+                        {opt === 'male' ? 'Male' : opt === 'female' ? 'Female' : 'Prefer not to say'}
+                      </Text>
+                      {userSex === opt && (
+                        <Ionicons name="checkmark" size={18} color={Colors.accent} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* Age Range */}
+              <TouchableOpacity
+                style={styles.settingRow}
+                onPress={() => setShowAgePicker(!showAgePicker)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar-outline" size={22} color={Colors.accent} />
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Age Range</Text>
+                  <Text style={styles.settingSubtitle}>{userAgeRange || 'Not set'}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+              </TouchableOpacity>
+
+              {showAgePicker && (
+                <View style={styles.pickerGroup}>
+                  {(['18-29', '30-44', '45-59', '60+'] as AgeRange[]).map((opt) => (
+                    <TouchableOpacity
+                      key={opt}
+                      style={[styles.pickerOption, userAgeRange === opt && styles.pickerOptionSelected]}
+                      onPress={() => handleAgeChange(opt)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.pickerOptionText, userAgeRange === opt && styles.pickerOptionTextSelected]}>
+                        {opt}
+                      </Text>
+                      {userAgeRange === opt && (
+                        <Ionicons name="checkmark" size={18} color={Colors.accent} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+
+              {/* ZIP Code */}
+              <TouchableOpacity
+                style={styles.settingRow}
+                onPress={() => {
+                  if (showZipInput) {
+                    setShowZipInput(false);
+                  } else {
+                    setShowZipInput(true);
+                  }
+                }}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="location-outline" size={22} color={Colors.accent} />
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>ZIP Code</Text>
+                  <Text style={styles.settingSubtitle}>{userZip || 'Not set'}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+              </TouchableOpacity>
+
+              {showZipInput && (
+                <View style={styles.pickerGroup}>
+                  <ZipInputRow currentZip={userZip} onSave={handleZipSave} />
+                </View>
+              )}
+
+              {/* Reset Onboarding */}
+              <TouchableOpacity
+                style={styles.settingRow}
+                onPress={handleResetOnboarding}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="refresh-outline" size={22} color={Colors.accent} />
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Reset Onboarding</Text>
+                  <Text style={styles.settingSubtitle}>
+                    Show personalization questionnaire again
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* Grouped Settings */}
           {settingsSections.map((section) => (
             <View key={section.title} style={styles.sectionGroup}>
@@ -418,6 +600,32 @@ export default function SettingsScreen() {
         </>
       )}
     </ScrollView>
+  );
+}
+
+function ZipInputRow({ currentZip, onSave }: { currentZip: string | null; onSave: (zip: string) => void }) {
+  const [value, setValue] = useState(currentZip || '');
+  return (
+    <View style={styles.zipRow}>
+      <TextInput
+        style={styles.zipInput}
+        value={value}
+        onChangeText={(text) => setValue(text.replace(/[^0-9]/g, '').slice(0, 5))}
+        placeholder="00000"
+        placeholderTextColor={Colors.divider}
+        keyboardType="number-pad"
+        maxLength={5}
+        returnKeyType="done"
+        onSubmitEditing={() => onSave(value)}
+      />
+      <TouchableOpacity
+        style={styles.zipSaveBtn}
+        onPress={() => onSave(value)}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.zipSaveBtnText}>Save</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -484,4 +692,58 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   badgeText: { color: Colors.primaryBackground, fontSize: 11, fontWeight: '700' },
+  pickerGroup: {
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    padding: 6,
+    gap: 4,
+  },
+  pickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  pickerOptionSelected: {
+    backgroundColor: Colors.cardBackground,
+  },
+  pickerOptionText: {
+    color: Colors.text,
+    fontSize: 15,
+  },
+  pickerOptionTextSelected: {
+    color: Colors.accent,
+    fontWeight: '600',
+  },
+  zipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    padding: 10,
+  },
+  zipInput: {
+    flex: 1,
+    backgroundColor: Colors.cardBackground,
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: '600',
+    textAlign: 'center',
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    letterSpacing: 4,
+  },
+  zipSaveBtn: {
+    backgroundColor: Colors.accent,
+    borderRadius: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+  },
+  zipSaveBtnText: {
+    color: Colors.primaryBackground,
+    fontSize: 15,
+    fontWeight: '600',
+  },
 });

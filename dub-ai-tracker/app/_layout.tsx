@@ -10,6 +10,7 @@ import { Colors } from '../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../src/utils/storage';
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
 import { AuthGate } from '../src/components/AuthGate';
+import { OnboardingGate } from '../src/components/OnboardingGate';
 import type { AppSettings } from '../src/types/profile';
 
 export default function RootLayout() {
@@ -95,49 +96,51 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <AuthGate>
-        <StatusBar style="light" />
-        {checking && (
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: Colors.primaryBackground,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <ActivityIndicator color={Colors.accent} size="large" />
+        <OnboardingGate>
+          <StatusBar style="light" />
+          {checking && (
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: Colors.primaryBackground,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <ActivityIndicator color={Colors.accent} size="large" />
+            </View>
+          )}
+          <View style={{ flex: 1 }} onTouchEnd={handleTouchEnd}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: Colors.primaryBackground },
+              }}
+            >
+              <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
+            </Stack>
           </View>
-        )}
-        <View style={{ flex: 1 }} onTouchEnd={handleTouchEnd}>
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: Colors.primaryBackground },
-            }}
-          >
-            <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
-          </Stack>
-        </View>
-        {showOverlay && (
-          <View
-            onTouchEnd={quickHideActive ? handleOverlayTap : undefined}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              zIndex: 9999,
-              backgroundColor: Colors.primaryBackground,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '600' }}>
-              dub
-            </Text>
-          </View>
-        )}
+          {showOverlay && (
+            <View
+              onTouchEnd={quickHideActive ? handleOverlayTap : undefined}
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 9999,
+                backgroundColor: Colors.primaryBackground,
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '600' }}>
+                dub
+              </Text>
+            </View>
+          )}
+        </OnboardingGate>
       </AuthGate>
     </ErrorBoundary>
   );
