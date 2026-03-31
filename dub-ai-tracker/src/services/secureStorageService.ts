@@ -30,6 +30,7 @@ export const PREF_KEYS = {
   USER_AGE_RANGE: '@dub_ai_user_age_range',
   USER_HEIGHT_INCHES: '@dub_ai_user_height_inches',
   THEME: '@dub_ai_theme',
+  AFFILIATE_BANNER_DISMISSED: '@dub_ai_affiliate_banner_dismissed',
 } as const;
 
 // ============================================================

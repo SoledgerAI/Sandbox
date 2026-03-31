@@ -29,6 +29,7 @@ import {
   verifyPIN,
   hasPIN,
   clearAuthData,
+  lockApp,
 } from '../../src/services/authService';
 import type { AuthMethod } from '../../src/services/authService';
 import { PINSetupModal } from '../../src/components/PINSetupModal';
@@ -437,6 +438,18 @@ export default function SettingsScreen() {
                   </Text>
                 </View>
               </View>
+
+              {/* Lock App Now */}
+              {lockEnabled && (
+                <TouchableOpacity
+                  style={styles.lockNowBtn}
+                  onPress={() => lockApp()}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="lock-closed" size={18} color={Colors.accent} />
+                  <Text style={styles.lockNowText}>Lock App Now</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -562,6 +575,22 @@ export default function SettingsScreen() {
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
               </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Sharing Section — placeholder */}
+          <View style={styles.sectionGroup}>
+            <Text style={styles.sectionHeader}>SHARING</Text>
+            <View style={styles.section}>
+              <View style={[styles.settingRow, { opacity: 0.5 }]}>
+                <Ionicons name="share-outline" size={22} color={Colors.secondaryText} />
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: Colors.secondaryText }]}>
+                    Share with healthcare provider
+                  </Text>
+                  <Text style={styles.settingSubtitle}>Coming soon</Text>
+                </View>
+              </View>
             </View>
           </View>
 
@@ -740,6 +769,22 @@ const styles = StyleSheet.create({
   },
   zipSaveBtnText: {
     color: Colors.primaryBackground,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  lockNowBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    borderWidth: 1.5,
+    borderColor: Colors.accent,
+    borderRadius: 10,
+    paddingVertical: 12,
+    backgroundColor: 'transparent',
+  },
+  lockNowText: {
+    color: Colors.accent,
     fontSize: 15,
     fontWeight: '600',
   },

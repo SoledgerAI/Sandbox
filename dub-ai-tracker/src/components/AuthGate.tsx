@@ -21,6 +21,7 @@ import {
   authenticateBiometric,
   isBiometricAvailable,
   verifyPIN,
+  onLockRequested,
 } from '../services/authService';
 import type { AuthMethod } from '../services/authService';
 
@@ -88,6 +89,17 @@ export function AuthGate({ children }: AuthGateProps) {
 
     const sub = AppState.addEventListener('change', handleAppState);
     return () => sub.remove();
+  }, []);
+
+  // Listen for manual lock requests (e.g., "Lock App Now" button)
+  useEffect(() => {
+    return onLockRequested(() => {
+      if (lockEnabledRef.current) {
+        setState('locked');
+        setPin('');
+        setPinError(false);
+      }
+    });
   }, []);
 
   // Lockout countdown

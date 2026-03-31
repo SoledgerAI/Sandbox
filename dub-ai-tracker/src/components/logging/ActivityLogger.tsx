@@ -1,5 +1,5 @@
-// Activity logger -- cardio activity type, duration, intensity, MET-based calorie burn
-// Phase 11: Fitness and Workout Logging
+// Activity logger -- 25-item curated activity list, category groups, recent section
+// Prompt 08: MET Library Trim
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
@@ -7,11 +7,12 @@ import {
   Text,
   View,
   TouchableOpacity,
-  TextInput,
   ScrollView,
   Alert,
-  FlatList,
+  SectionList,
+  Platform,
 } from 'react-native';
+import RNDateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import {
@@ -20,10 +21,13 @@ import {
   STORAGE_KEYS,
   dateKey,
 } from '../../utils/storage';
-import { calculateCalorieBurnImperial, searchMetActivities } from '../../utils/calories';
-import type { MetActivity } from '../../utils/calories';
+import { calculateCalorieBurnImperial } from '../../utils/calories';
+import { ACTIVITIES, getActivitiesByCategory } from '../../data/activities';
+import type { Activity } from '../../data/activities';
 import type { WorkoutEntry, IntensityLevel } from '../../types/workout';
-import metCompendium from '../../data/met_compendium.json';
+
+const RECENT_ACTIVITIES_KEY = 'dub.recent_activities';
+const MAX_RECENT = 5;
 
 function todayDateString(): string {
   const now = new Date();
@@ -43,13 +47,12 @@ interface ActivityLoggerProps {
 export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
   const [entries, setEntries] = useState<WorkoutEntry[]>([]);
   const [showActivityPicker, setShowActivityPicker] = useState(false);
-  const [activitySearch, setActivitySearch] = useState('');
+  const [recentActivityIds, setRecentActivityIds] = useState<string[]>([]);
 
   // Form state
-  const [selectedActivity, setSelectedActivity] = useState<MetActivity | null>(null);
-  const [duration, setDuration] = useState('');
+  const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
+  const [durationMinutes, setDurationMinutes] = useState(30);
   const [intensity, setIntensity] = useState<IntensityLevel>('moderate');
-  const [distance, setDistance] = useState('');
   const [notes, setNotes] = useState('');
   const [weightLbs, setWeightLbs] = useState<number>(170);
 
@@ -62,52 +65,77 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
     // Load weight from profile for calorie calc
     const profile = await storageGet<{ weight_lbs: number | null }>(STORAGE_KEYS.PROFILE);
     if (profile?.weight_lbs) setWeightLbs(profile.weight_lbs);
+
+    // Load recent activities
+    const recent = await storageGet<string[]>(RECENT_ACTIVITIES_KEY);
+    setRecentActivityIds(recent ?? []);
   }, []);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const allActivities = useMemo(
-    () => metCompendium.activities as MetActivity[],
-    [],
-  );
-
-  const filteredActivities = useMemo(() => {
-    if (!activitySearch.trim()) return allActivities;
-    return searchMetActivities(activitySearch);
-  }, [activitySearch, allActivities]);
-
   const calorieEstimate = useMemo(() => {
-    if (!selectedActivity || !duration) return 0;
-    const mins = parseFloat(duration);
-    if (isNaN(mins) || mins <= 0) return 0;
-    return Math.round(calculateCalorieBurnImperial(selectedActivity.met, weightLbs, mins));
-  }, [selectedActivity, duration, weightLbs]);
+    if (!selectedActivity || durationMinutes <= 0) return 0;
+    return Math.round(calculateCalorieBurnImperial(selectedActivity.met, weightLbs, durationMinutes));
+  }, [selectedActivity, durationMinutes, weightLbs]);
 
-  const logWorkout = useCallback(async () => {
-    if (!selectedActivity || !duration) {
-      Alert.alert('Missing Info', 'Please select an activity and enter duration.');
-      return;
+  // Build section list data for activity picker
+  const sectionData = useMemo(() => {
+    const sections: { title: string; data: Activity[] }[] = [];
+
+    // Recent section (only if there are recent activities)
+    if (recentActivityIds.length > 0) {
+      const recentActivities = recentActivityIds
+        .map((id) => ACTIVITIES.find((a) => a.id === id))
+        .filter((a): a is Activity => a !== undefined);
+      if (recentActivities.length > 0) {
+        sections.push({ title: 'Recent', data: recentActivities });
+      }
     }
 
-    const mins = parseFloat(duration);
-    if (isNaN(mins) || mins <= 0) {
-      Alert.alert('Invalid Duration', 'Please enter a valid duration in minutes.');
+    // Category sections
+    const grouped = getActivitiesByCategory();
+    for (const group of grouped) {
+      if (group.activities.length > 0) {
+        sections.push({ title: group.label, data: group.activities });
+      }
+    }
+
+    return sections;
+  }, [recentActivityIds]);
+
+  const updateRecentActivities = useCallback(
+    async (activityId: string) => {
+      const filtered = recentActivityIds.filter((id) => id !== activityId);
+      const updated = [activityId, ...filtered].slice(0, MAX_RECENT);
+      setRecentActivityIds(updated);
+      await storageSet(RECENT_ACTIVITIES_KEY, updated);
+    },
+    [recentActivityIds],
+  );
+
+  const logWorkout = useCallback(async () => {
+    if (!selectedActivity) {
+      Alert.alert('Missing Info', 'Please select an activity.');
+      return;
+    }
+    if (durationMinutes <= 0) {
+      Alert.alert('Invalid Duration', 'Please set a duration.');
       return;
     }
 
     const entry: WorkoutEntry = {
       id: `workout_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       timestamp: new Date().toISOString(),
-      activity_name: selectedActivity.description,
-      compendium_code: selectedActivity.code,
+      activity_name: selectedActivity.name,
+      compendium_code: selectedActivity.id,
       met_value: selectedActivity.met,
-      duration_minutes: mins,
+      duration_minutes: durationMinutes,
       intensity,
       calories_burned: calorieEstimate,
-      distance: distance ? parseFloat(distance) : null,
-      distance_unit: distance ? 'miles' : null,
+      distance: null,
+      distance_unit: null,
       environmental: {
         elevation_gain_ft: null,
         elevation_loss_ft: null,
@@ -129,14 +157,16 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
     await storageSet(key, updated);
     setEntries(updated);
 
+    // Update recent activities
+    await updateRecentActivities(selectedActivity.id);
+
     // Reset form
     setSelectedActivity(null);
-    setDuration('');
+    setDurationMinutes(30);
     setIntensity('moderate');
-    setDistance('');
     setNotes('');
     onEntryLogged?.();
-  }, [selectedActivity, duration, intensity, distance, notes, calorieEstimate, entries, onEntryLogged]);
+  }, [selectedActivity, durationMinutes, intensity, notes, calorieEstimate, entries, onEntryLogged, updateRecentActivities]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -149,7 +179,24 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
     [entries],
   );
 
-  // Activity picker modal
+  // Duration picker helper: convert minutes to a Date for countdown timer
+  const durationAsDate = useMemo(() => {
+    const d = new Date();
+    d.setHours(0, 0, 0, 0);
+    const hours = Math.floor(durationMinutes / 60);
+    const mins = durationMinutes % 60;
+    d.setHours(hours, mins, 0, 0);
+    return d;
+  }, [durationMinutes]);
+
+  const onDurationChange = useCallback((_event: unknown, date?: Date) => {
+    if (date) {
+      const totalMins = date.getHours() * 60 + date.getMinutes();
+      setDurationMinutes(totalMins > 0 ? totalMins : 1);
+    }
+  }, []);
+
+  // Activity picker view
   if (showActivityPicker) {
     return (
       <View style={styles.container}>
@@ -159,20 +206,14 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
             <Ionicons name="close" size={24} color={Colors.text} />
           </TouchableOpacity>
         </View>
-        <View style={styles.searchRow}>
-          <Ionicons name="search" size={18} color={Colors.secondaryText} />
-          <TextInput
-            style={styles.searchInput}
-            value={activitySearch}
-            onChangeText={setActivitySearch}
-            placeholder="Search activities..."
-            placeholderTextColor={Colors.secondaryText}
-            autoFocus
-          />
-        </View>
-        <FlatList
-          data={filteredActivities}
-          keyExtractor={(item) => item.code}
+        <SectionList
+          sections={sectionData}
+          keyExtractor={(item, index) => `${item.id}_${index}`}
+          renderSectionHeader={({ section: { title } }) => (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionHeaderText}>{title}</Text>
+            </View>
+          )}
           renderItem={({ item }) => (
             <TouchableOpacity
               style={styles.activityRow}
@@ -183,7 +224,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
               activeOpacity={0.7}
             >
               <View style={styles.activityInfo}>
-                <Text style={styles.activityName}>{item.description}</Text>
+                <Text style={styles.activityName}>{item.name}</Text>
                 <Text style={styles.activityMet}>MET: {item.met}</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
@@ -191,7 +232,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
           )}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
-          keyboardShouldPersistTaps="handled"
+          stickySectionHeadersEnabled={false}
         />
       </View>
     );
@@ -257,27 +298,32 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
       >
         <Ionicons name="fitness-outline" size={20} color={Colors.accent} />
         <Text style={styles.activitySelectorText}>
-          {selectedActivity ? selectedActivity.description : 'Select activity...'}
+          {selectedActivity ? selectedActivity.name : 'Select activity...'}
         </Text>
         <Ionicons name="chevron-down" size={18} color={Colors.secondaryText} />
       </TouchableOpacity>
 
       {selectedActivity && (
         <Text style={styles.metInfo}>
-          MET: {selectedActivity.met} {'\u00B7'} Code: {selectedActivity.code}
+          MET: {selectedActivity.met}
         </Text>
       )}
 
-      {/* Duration */}
-      <Text style={styles.fieldLabel}>Duration (minutes)</Text>
-      <TextInput
-        style={styles.input}
-        value={duration}
-        onChangeText={setDuration}
-        placeholder="0"
-        placeholderTextColor={Colors.secondaryText}
-        keyboardType="decimal-pad"
-      />
+      {/* Duration — scroll wheel picker */}
+      <Text style={styles.fieldLabel}>Duration</Text>
+      <View style={styles.durationPickerContainer}>
+        <RNDateTimePicker
+          value={durationAsDate}
+          mode="countdown"
+          onChange={onDurationChange}
+          minuteInterval={5}
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          textColor={Colors.text}
+        />
+      </View>
+      <Text style={styles.durationHint}>
+        {durationMinutes} min
+      </Text>
 
       {/* Intensity */}
       <Text style={styles.fieldLabel}>Intensity</Text>
@@ -303,17 +349,6 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
         ))}
       </View>
 
-      {/* Distance (optional) */}
-      <Text style={styles.fieldLabel}>Distance (optional)</Text>
-      <TextInput
-        style={styles.input}
-        value={distance}
-        onChangeText={setDistance}
-        placeholder="miles"
-        placeholderTextColor={Colors.secondaryText}
-        keyboardType="decimal-pad"
-      />
-
       {/* Calorie estimate */}
       {calorieEstimate > 0 && (
         <View style={styles.calorieCard}>
@@ -324,23 +359,11 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
         </View>
       )}
 
-      {/* Notes */}
-      <Text style={styles.fieldLabel}>Notes (optional)</Text>
-      <TextInput
-        style={styles.notesInput}
-        value={notes}
-        onChangeText={setNotes}
-        placeholder="How was the workout?"
-        placeholderTextColor={Colors.secondaryText}
-        multiline
-        numberOfLines={2}
-      />
-
       {/* Log button */}
       <TouchableOpacity
-        style={[styles.logBtn, (!selectedActivity || !duration) && styles.logBtnDisabled]}
+        style={[styles.logBtn, !selectedActivity && styles.logBtnDisabled]}
         onPress={logWorkout}
-        disabled={!selectedActivity || !duration}
+        disabled={!selectedActivity}
         activeOpacity={0.7}
       >
         <Ionicons name="checkmark-circle" size={20} color={Colors.primaryBackground} />
@@ -454,15 +477,16 @@ const styles = StyleSheet.create({
     marginBottom: 6,
     marginTop: 8,
   },
-  input: {
-    backgroundColor: Colors.inputBackground,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: Colors.text,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: Colors.divider,
+  durationPickerContainer: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  durationHint: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    textAlign: 'center',
     marginBottom: 8,
   },
   intensityRow: {
@@ -505,19 +529,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  notesInput: {
-    backgroundColor: Colors.inputBackground,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    color: Colors.text,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: Colors.divider,
-    minHeight: 60,
-    textAlignVertical: 'top',
-    marginBottom: 16,
-  },
   logBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -526,6 +537,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     gap: 8,
+    marginTop: 8,
   },
   logBtnDisabled: {
     opacity: 0.4,
@@ -549,23 +561,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
   },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.inputBackground,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    marginHorizontal: 16,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.divider,
+  sectionHeader: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    marginTop: 8,
   },
-  searchInput: {
-    flex: 1,
-    color: Colors.text,
-    fontSize: 15,
-    paddingVertical: 10,
-    paddingHorizontal: 8,
+  sectionHeaderText: {
+    color: Colors.accent,
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   activityRow: {
     flexDirection: 'row',

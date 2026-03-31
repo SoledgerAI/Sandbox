@@ -301,15 +301,7 @@ export default function LogScreen() {
           activeOpacity={0.7}
         >
           <Ionicons name="fitness-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Workout</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/strength')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="barbell-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Strength</Text>
+          <Text style={styles.addFoodText}>Exercise</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={styles.quickLogBtn}

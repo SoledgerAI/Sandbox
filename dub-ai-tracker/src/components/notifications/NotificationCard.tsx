@@ -57,14 +57,6 @@ const TAG_CARD_CONFIGS: Record<string, TagCardConfig> = {
     storageKey: STORAGE_KEYS.LOG_WORKOUT,
     placeholder: 'Did you work out today?',
   },
-  'strength.training': {
-    tagId: 'strength.training',
-    name: 'Strength',
-    icon: 'barbell-outline',
-    inputType: 'boolean',
-    storageKey: STORAGE_KEYS.LOG_STRENGTH,
-    placeholder: 'Strength training today?',
-  },
   'body.measurements': {
     tagId: 'body.measurements',
     name: 'Body',

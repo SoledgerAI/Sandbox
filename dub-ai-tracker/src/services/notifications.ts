@@ -121,7 +121,6 @@ const TAG_STORAGE_MAP: Record<string, string> = {
   'hydration.water': STORAGE_KEYS.LOG_WATER,
   'nutrition.food': STORAGE_KEYS.LOG_FOOD,
   'fitness.workout': STORAGE_KEYS.LOG_WORKOUT,
-  'strength.training': STORAGE_KEYS.LOG_STRENGTH,
   'body.measurements': STORAGE_KEYS.LOG_BODY,
   'sleep.tracking': STORAGE_KEYS.LOG_SLEEP,
   'recovery.score': STORAGE_KEYS.RECOVERY,

@@ -5,7 +5,6 @@ import type {
   UserProfile,
   FoodEntry,
   WorkoutEntry,
-  StrengthSession,
   SleepEntry,
   MoodEntry,
   BodyEntry,
@@ -114,7 +113,7 @@ describe('Type System -- Core Interfaces', () => {
       id: 'w_1',
       timestamp: '2026-03-27T08:00:00Z',
       activity_name: 'Running',
-      compendium_code: '12050',
+      compendium_code: 'run_outdoor',
       met_value: 9.8,
       duration_minutes: 30,
       intensity: 'vigorous',
@@ -136,31 +135,6 @@ describe('Type System -- Core Interfaces', () => {
       source: 'manual',
     };
     expect(entry.met_value).toBe(9.8);
-  });
-
-  it('instantiates a valid StrengthSession', () => {
-    const session: StrengthSession = {
-      id: 'ss_1',
-      timestamp: '2026-03-27T09:00:00Z',
-      name: 'Push Day',
-      exercises: [
-        {
-          exercise_id: 'bench_press',
-          exercise_name: 'Bench Press',
-          muscle_groups: ['chest', 'triceps'],
-          equipment: 'barbell',
-          sets: [
-            { set_number: 1, weight: 225, weight_unit: 'lbs', reps: 5, rpe: 8, rest_seconds: 120, notes: null, is_warmup: false, is_pr: false },
-          ],
-          total_volume: 1125,
-        },
-      ],
-      duration_minutes: 60,
-      calories_burned: 300,
-      notes: null,
-      template_id: null,
-    };
-    expect(session.name).toBe('Push Day');
   });
 
   it('instantiates a valid SleepEntry', () => {

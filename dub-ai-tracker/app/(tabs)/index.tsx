@@ -2,7 +2,8 @@
 // Phase 5: Dashboard Layout
 
 import { useState, useEffect } from 'react';
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { ScoreRing } from '../../src/components/charts/ScoreRing';
@@ -26,6 +27,7 @@ export default function DashboardScreen() {
     bmr,
     tdee,
     calorieTarget,
+    profileComplete,
     streak,
     enabledTags,
     tagOrder,
@@ -74,15 +76,30 @@ export default function DashboardScreen() {
       </View>
 
       {/* Calorie Summary */}
-      <CalorieSummary
-        bmr={Math.round(bmr)}
-        tdee={Math.round(tdee)}
-        consumed={summary.calories_consumed}
-        burned={summary.calories_burned}
-        net={summary.calories_net}
-        remaining={summary.calories_remaining}
-        calorieTarget={Math.round(calorieTarget)}
-      />
+      {profileComplete ? (
+        <CalorieSummary
+          bmr={Math.round(bmr)}
+          tdee={Math.round(tdee)}
+          consumed={summary.calories_consumed}
+          burned={summary.calories_burned}
+          net={summary.calories_net}
+          remaining={summary.calories_remaining}
+          calorieTarget={Math.round(calorieTarget)}
+        />
+      ) : (
+        <TouchableOpacity
+          style={{ backgroundColor: Colors.cardBackground, borderRadius: 12, padding: 16, alignItems: 'center' }}
+          onPress={() => router.push('/settings/profile')}
+          activeOpacity={0.7}
+        >
+          <Text style={{ color: Colors.secondaryText, fontSize: 14, textAlign: 'center' }}>
+            Set up your profile for accurate TDEE
+          </Text>
+          <Text style={{ color: Colors.accent, fontSize: 13, fontWeight: '600', marginTop: 6 }}>
+            Go to Profile
+          </Text>
+        </TouchableOpacity>
+      )}
 
       {/* Streak Counter */}
       <StreakCounter streak={streak} />

@@ -58,7 +58,8 @@
       "Bash(find . -path ./node_modules -prune -o -type f \\\\\\(-name *.ts -o -name *.tsx \\\\\\) -path */src/* -o -path */app/*)",
       "Bash(find /c/Users/joshs/Documents/Sandbox/dub-ai-tracker/app/settings -type f -name *.tsx)",
       "Bash(find /c/Users/joshs/Documents/Sandbox/dub-ai-tracker/src -type f -name *useProfile* -o -name *profile*.ts)",
-      "Bash(xxd /c/Users/joshs/Documents/Sandbox/dub-ai-tracker/.npmrc)"
+      "Bash(xxd /c/Users/joshs/Documents/Sandbox/dub-ai-tracker/.npmrc)",
+      "Bash(python3:*)"
     ]
   }
 }

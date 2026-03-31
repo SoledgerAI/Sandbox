@@ -48,7 +48,7 @@ export const ACTIVITY_MULTIPLIERS = {
 // Calorie Burn = MET x weight_kg x duration_hours
 // ============================================================================
 
-// No additional constants needed -- MET values are in data/met_compendium.json
+// No additional constants needed -- MET values are in data/activities.ts
 
 // ============================================================================
 // FORMULA 4: Weight Change Estimation
@@ -65,20 +65,6 @@ export const ACTIVITY_MULTIPLIERS = {
 // ============================================================================
 
 export const CALORIES_PER_POUND = 3500;
-
-// ============================================================================
-// FORMULA 5: 1RM Estimation (Brzycki)
-// Source: Brzycki M. Strength Testing -- Predicting a One-Rep Max from
-//   Reps-to-Fatigue. JOHPERD. 1993;64(1):88-90.
-//   DOI: 10.1080/07303084.1993.10606684
-//
-// 1RM = weight x (36 / (37 - reps))
-// Valid for reps 1-10 only.
-// ============================================================================
-
-export const BRZYCKI_NUMERATOR = 36;
-export const BRZYCKI_DENOMINATOR_BASE = 37;
-export const BRZYCKI_MAX_REPS = 10;
 
 // ============================================================================
 // FORMULA 6: Recovery Score (DUB_AI Proprietary v1.0)

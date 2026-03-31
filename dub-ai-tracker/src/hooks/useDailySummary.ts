@@ -6,6 +6,7 @@ import { storageGet, STORAGE_KEYS, dateKey } from '../utils/storage';
 import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge, lbsToKg, inchesToCm } from '../utils/calories';
 import type { UserProfile, StreakData, EngagementTier } from '../types/profile';
 import type { DailySummary, FoodEntry, WaterEntry, CaffeineEntry } from '../types';
+import type { WorkoutEntry } from '../types/workout';
 
 function todayDateString(): string {
   const now = new Date();
@@ -30,6 +31,7 @@ interface DailySummaryResult {
   bmr: number;
   tdee: number;
   calorieTarget: number;
+  profileComplete: boolean;
   streak: StreakData;
   enabledTags: string[];
   tagOrder: string[];
@@ -78,12 +80,13 @@ export function useDailySummary(): DailySummaryResult {
   const [bmr, setBmr] = useState(0);
   const [tdee, setTdee] = useState(0);
   const [calorieTarget, setCalorieTarget] = useState(0);
+  const [profileComplete, setProfileComplete] = useState(false);
 
   const load = useCallback(async () => {
     try {
       const today = todayDateString();
 
-      const [p, t, tags, order, streakData, foodEntries, waterEntries, caffeineEntries] =
+      const [p, t, tags, order, streakData, foodEntries, waterEntries, caffeineEntries, workoutEntries] =
         await Promise.all([
           storageGet<Partial<UserProfile>>(STORAGE_KEYS.PROFILE),
           storageGet<EngagementTier>(STORAGE_KEYS.TIER),
@@ -93,6 +96,7 @@ export function useDailySummary(): DailySummaryResult {
           storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, today)),
           storageGet<WaterEntry[]>(dateKey(STORAGE_KEYS.LOG_WATER, today)),
           storageGet<CaffeineEntry[]>(dateKey(STORAGE_KEYS.LOG_CAFFEINE, today)),
+          storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, today)),
         ]);
 
       setProfile(p);
@@ -105,29 +109,32 @@ export function useDailySummary(): DailySummaryResult {
       let computedBmr = 0;
       let computedTdee = 0;
       let computedTarget = 0;
-
-      if (
+      const hasRequiredFields =
         p?.weight_lbs != null &&
         p?.height_inches != null &&
         p?.dob != null &&
-        p?.sex != null &&
-        p?.activity_level != null
-      ) {
-        const age = computeAge(p.dob);
-        const weightKg = lbsToKg(p.weight_lbs);
-        const heightCm = inchesToCm(p.height_inches);
+        p?.sex != null;
+
+      setProfileComplete(hasRequiredFields);
+
+      if (hasRequiredFields) {
+        const age = computeAge(p.dob!);
+        const weightKg = lbsToKg(p.weight_lbs!);
+        const heightCm = inchesToCm(p.height_inches!);
 
         computedBmr = calculateBmr({
           weightKg,
           heightCm,
           ageYears: age,
-          sex: p.sex,
+          sex: p.sex!,
         });
-        computedTdee = calculateTdee(computedBmr, p.activity_level);
+        // Default to lightly_active (1.375) when activity level not set
+        const activityLevel = p.activity_level ?? 'lightly_active';
+        computedTdee = calculateTdee(computedBmr, activityLevel);
         computedTarget = calculateCalorieTarget({
           tdee: computedTdee,
           goalDirection: p.goal?.direction ?? 'MAINTAIN',
-          sex: p.sex,
+          sex: p.sex!,
           rateLbsPerWeek: p.goal?.rate_lbs_per_week ?? undefined,
           surplusCalories: p.goal?.surplus_calories ?? undefined,
         });
@@ -169,9 +176,12 @@ export function useDailySummary(): DailySummaryResult {
       const waterOz = waters.reduce((sum, w) => sum + w.amount_oz, 0);
       const caffeineMg = caffeines.reduce((sum, c) => sum + c.amount_mg, 0);
 
-      const caloriesBurned = 0; // Will be computed from workout logs in later phases
+      const caloriesBurned = (workoutEntries ?? []).reduce(
+        (sum, w) => sum + (w.calories_burned ?? 0),
+        0,
+      );
       const caloriesNet = caloriesConsumed - caloriesBurned;
-      const caloriesRemaining = computedTarget - caloriesNet;
+      const caloriesRemaining = computedTarget - caloriesConsumed + caloriesBurned;
 
       setSummary({
         date: today,
@@ -187,7 +197,7 @@ export function useDailySummary(): DailySummaryResult {
         water_oz: waterOz,
         caffeine_mg: caffeineMg,
         steps: 0,
-        active_minutes: 0,
+        active_minutes: (workoutEntries ?? []).reduce((sum, w) => sum + (w.duration_minutes ?? 0), 0),
         sleep_hours: null,
         sleep_quality: null,
         mood_avg: null,
@@ -222,6 +232,7 @@ export function useDailySummary(): DailySummaryResult {
     bmr,
     tdee,
     calorieTarget,
+    profileComplete,
     streak,
     enabledTags,
     tagOrder,

@@ -14,7 +14,6 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../utils/storage';
-import { FTCDisclosure } from './FTCDisclosure';
 import type { Product, MarketplacePurchaseEvent, DismissedProduct } from '../../types/marketplace';
 
 interface ProductCardProps {
@@ -57,9 +56,6 @@ export function ProductCard({ product, onDismiss }: ProductCardProps) {
 
   return (
     <View style={styles.card}>
-      {/* FTC Disclosure appears FIRST -- before any product info */}
-      <FTCDisclosure disclosures={product.disclosures} />
-
       {/* Product header */}
       <View style={styles.header}>
         <View style={styles.categoryBadge}>

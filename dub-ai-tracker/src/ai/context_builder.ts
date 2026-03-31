@@ -480,11 +480,8 @@ async function compute7DayRolling(today: string): Promise<RollingStats | null> {
       stats.weight.push(bodyEntry.weight_lbs);
     }
 
-    const [workoutEntries, strengthEntries] = await Promise.all([
-      storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, date)),
-      storageGet<any[]>(dateKey(STORAGE_KEYS.LOG_STRENGTH, date)),
-    ]);
-    if ((workoutEntries && workoutEntries.length > 0) || (strengthEntries && strengthEntries.length > 0)) {
+    const workoutEntries = await storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, date));
+    if (workoutEntries && workoutEntries.length > 0) {
       workouts++;
     }
   }

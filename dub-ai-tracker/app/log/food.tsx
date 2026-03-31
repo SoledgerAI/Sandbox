@@ -39,6 +39,7 @@ export default function FoodLogScreen() {
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [servingIndex, setServingIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
+  const [customWeightGrams, setCustomWeightGrams] = useState<number | null>(null);
   const [mealType] = useState<MealType>(guessMealType);
   const [ingredientFlags, setIngredientFlags] = useState<IngredientFlag[]>([]);
 
@@ -79,20 +80,27 @@ export default function FoodLogScreen() {
     setSelectedFood(food);
     setServingIndex(food.default_serving_index);
     setQuantity(1);
+    setCustomWeightGrams(null);
     setScreen('configure');
   }, []);
 
   const handleConfirmServing = useCallback(() => {
     if (selectedFood == null) return;
-    const serving = selectedFood.serving_sizes[servingIndex];
-    const computed = scaleNutrition(selectedFood.nutrition_per_100g, serving, quantity);
+
+    // Use custom weight serving if set, otherwise use the selected serving size
+    const serving = customWeightGrams != null && customWeightGrams > 0
+      ? { description: `${Math.round(customWeightGrams)}g (custom)`, unit: 'g' as const, gram_weight: customWeightGrams, quantity: 1 }
+      : selectedFood.serving_sizes[servingIndex];
+    const effectiveQty = customWeightGrams != null && customWeightGrams > 0 ? 1 : quantity;
+
+    const computed = scaleNutrition(selectedFood.nutrition_per_100g, serving, effectiveQty);
     const flagged = detectFlaggedIngredients(selectedFood.ingredients, ingredientFlags);
 
     saveEntry({
       meal_type: mealType,
       food_item: selectedFood,
       serving,
-      quantity,
+      quantity: effectiveQty,
       computed_nutrition: computed,
       source: selectedFood.source,
       photo_uri: null,
@@ -100,7 +108,7 @@ export default function FoodLogScreen() {
       flagged_ingredients: flagged,
       notes: null,
     });
-  }, [selectedFood, servingIndex, quantity, mealType, saveEntry, ingredientFlags]);
+  }, [selectedFood, servingIndex, quantity, customWeightGrams, mealType, saveEntry, ingredientFlags]);
 
   const handleNLPConfirm = useCallback(
     (items: Array<{ name: string; portion: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g?: number | null; sugar_g?: number | null; sodium_mg?: number | null }>) => {
@@ -275,8 +283,9 @@ export default function FoodLogScreen() {
               selectedServingIndex={servingIndex}
               quantity={quantity}
               nutritionPer100g={selectedFood.nutrition_per_100g}
-              onServingChange={setServingIndex}
+              onServingChange={(idx) => { setCustomWeightGrams(null); setServingIndex(idx); }}
               onQuantityChange={setQuantity}
+              onCustomWeight={setCustomWeightGrams}
             />
             <View style={styles.configureActions}>
               <View style={styles.flex1}>

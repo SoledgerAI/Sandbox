@@ -91,7 +91,6 @@ describe('Storage Wrapper', () => {
       expect(STORAGE_KEYS.LOG_MOOD).toBeDefined();
       expect(STORAGE_KEYS.LOG_BODY).toBeDefined();
       expect(STORAGE_KEYS.LOG_WORKOUT).toBeDefined();
-      expect(STORAGE_KEYS.LOG_STRENGTH).toBeDefined();
       expect(STORAGE_KEYS.LOG_SUPPLEMENTS).toBeDefined();
       expect(STORAGE_KEYS.LOG_SUBSTANCES).toBeDefined();
       expect(STORAGE_KEYS.LOG_THERAPY).toBeDefined();

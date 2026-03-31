@@ -103,6 +103,24 @@ export async function hasPIN(): Promise<boolean> {
 }
 
 // ============================================================
+// Manual lock trigger
+// ============================================================
+
+type LockListener = () => void;
+const lockListeners: Set<LockListener> = new Set();
+
+/** Register a listener that fires when lockApp() is called */
+export function onLockRequested(listener: LockListener): () => void {
+  lockListeners.add(listener);
+  return () => { lockListeners.delete(listener); };
+}
+
+/** Trigger app lock from anywhere (e.g., Settings "Lock App Now" button) */
+export function lockApp(): void {
+  lockListeners.forEach((fn) => fn());
+}
+
+// ============================================================
 // Clear all auth data (used when disabling lock)
 // ============================================================
 

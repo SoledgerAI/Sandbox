@@ -19,7 +19,8 @@ import {
   CM_PER_INCH,
 } from '../constants/formulas';
 import type { BiologicalSex, ActivityLevel, GoalDirection } from '../types/profile';
-import metCompendium from '../data/met_compendium.json';
+import { ACTIVITIES, getActivityById } from '../data/activities';
+import type { Activity } from '../data/activities';
 
 // ============================================================================
 // Unit Conversions
@@ -193,26 +194,19 @@ export function getCalorieFloor(sex: BiologicalSex): number {
 // Source: Herrmann et al., JSHS 2024;13(1):6-12. pacompendium.com.
 // ============================================================================
 
-export interface MetActivity {
-  code: string;
-  category: string;
-  description: string;
-  met: number;
-  verify?: boolean;
+// Re-export Activity type for consumers
+export type { Activity } from '../data/activities';
+
+/** Look up an activity by its ID */
+export function getMetActivity(id: string): Activity | undefined {
+  return getActivityById(id);
 }
 
-/** Look up a MET activity by its 5-digit Compendium code */
-export function getMetActivity(code: string): MetActivity | undefined {
-  return metCompendium.activities.find(
-    (a: MetActivity) => a.code === code
-  );
-}
-
-/** Search MET activities by keyword in description */
-export function searchMetActivities(query: string): MetActivity[] {
+/** Search activities by keyword in name */
+export function searchMetActivities(query: string): Activity[] {
   const lowerQuery = query.toLowerCase();
-  return metCompendium.activities.filter((a: MetActivity) =>
-    a.description.toLowerCase().includes(lowerQuery)
+  return ACTIVITIES.filter((a) =>
+    a.name.toLowerCase().includes(lowerQuery)
   );
 }
 

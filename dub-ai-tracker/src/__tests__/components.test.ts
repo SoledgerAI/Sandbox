@@ -90,11 +90,6 @@ describe('Logging Components', () => {
     expect(mod).toBeDefined();
   });
 
-  it('StrengthLogger is importable', async () => {
-    const mod = require('../components/logging/StrengthLogger');
-    expect(mod).toBeDefined();
-  });
-
   it('SleepLogger is importable', async () => {
     const mod = require('../components/logging/SleepLogger');
     expect(mod).toBeDefined();

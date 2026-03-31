@@ -63,33 +63,37 @@ export interface StravaActivity {
 }
 
 // ============================================================
-// Activity type mapping: Strava type -> DUB_AI fitness tag data
+// Activity type mapping: Strava type -> DUB_AI activity ID + MET
+// Activity IDs reference src/data/activities.ts
 // ============================================================
 
 const STRAVA_TYPE_MAP: Record<string, { met: number; intensity: 'light' | 'moderate' | 'vigorous'; compendiumCode: string }> = {
-  Run: { met: 9.8, intensity: 'vigorous', compendiumCode: '12050' },
-  Ride: { met: 7.5, intensity: 'vigorous', compendiumCode: '01040' },
-  Swim: { met: 5.8, intensity: 'moderate', compendiumCode: '18250' },
-  Walk: { met: 3.5, intensity: 'light', compendiumCode: '17190' },
-  Hike: { met: 6.0, intensity: 'moderate', compendiumCode: '17080' },
-  AlpineSki: { met: 5.3, intensity: 'moderate', compendiumCode: '19090' },
-  CrossCountrySki: { met: 8.0, intensity: 'vigorous', compendiumCode: '19100' },
-  Elliptical: { met: 5.0, intensity: 'moderate', compendiumCode: '02048' },
-  IceSkate: { met: 5.5, intensity: 'moderate', compendiumCode: '19130' },
-  Kayaking: { met: 5.0, intensity: 'moderate', compendiumCode: '18090' },
-  RockClimbing: { met: 5.8, intensity: 'moderate', compendiumCode: '17120' },
-  Rowing: { met: 7.0, intensity: 'vigorous', compendiumCode: '18120' },
-  Snowboard: { met: 5.3, intensity: 'moderate', compendiumCode: '19190' },
-  StairStepper: { met: 9.0, intensity: 'vigorous', compendiumCode: '02065' },
-  WeightTraining: { met: 6.0, intensity: 'moderate', compendiumCode: '02054' },
-  Yoga: { met: 2.5, intensity: 'light', compendiumCode: '02101' },
-  Workout: { met: 5.0, intensity: 'moderate', compendiumCode: '02050' },
-  VirtualRide: { met: 7.5, intensity: 'vigorous', compendiumCode: '01040' },
-  VirtualRun: { met: 9.8, intensity: 'vigorous', compendiumCode: '12050' },
+  Run: { met: 9.8, intensity: 'vigorous', compendiumCode: 'run_outdoor' },
+  TrailRun: { met: 10.0, intensity: 'vigorous', compendiumCode: 'trail_run' },
+  Ride: { met: 7.5, intensity: 'vigorous', compendiumCode: 'ride_outdoor' },
+  MountainBikeRide: { met: 8.5, intensity: 'vigorous', compendiumCode: 'mountain_bike' },
+  EBikeRide: { met: 4.0, intensity: 'light', compendiumCode: 'ebike' },
+  Swim: { met: 7.0, intensity: 'moderate', compendiumCode: 'swim_pool' },
+  Walk: { met: 3.5, intensity: 'light', compendiumCode: 'walk' },
+  Hike: { met: 6.0, intensity: 'moderate', compendiumCode: 'hike' },
+  Elliptical: { met: 5.0, intensity: 'moderate', compendiumCode: 'elliptical' },
+  Rowing: { met: 7.0, intensity: 'vigorous', compendiumCode: 'rowing' },
+  StairStepper: { met: 9.0, intensity: 'vigorous', compendiumCode: 'stair_climber' },
+  WeightTraining: { met: 5.0, intensity: 'moderate', compendiumCode: 'weight_training' },
+  CrossFit: { met: 8.0, intensity: 'vigorous', compendiumCode: 'crossfit_hiit' },
+  Yoga: { met: 3.0, intensity: 'light', compendiumCode: 'yoga' },
+  Pilates: { met: 3.5, intensity: 'light', compendiumCode: 'pilates' },
+  Soccer: { met: 7.0, intensity: 'vigorous', compendiumCode: 'soccer' },
+  Tennis: { met: 7.3, intensity: 'vigorous', compendiumCode: 'tennis' },
+  Pickleball: { met: 5.5, intensity: 'moderate', compendiumCode: 'pickleball' },
+  Golf: { met: 4.3, intensity: 'light', compendiumCode: 'golf' },
+  Workout: { met: 4.0, intensity: 'moderate', compendiumCode: 'other' },
+  VirtualRide: { met: 6.8, intensity: 'vigorous', compendiumCode: 'ride_indoor' },
+  VirtualRun: { met: 9.0, intensity: 'vigorous', compendiumCode: 'run_treadmill' },
 };
 
 function getDefaultMapping() {
-  return { met: 5.0, intensity: 'moderate' as const, compendiumCode: '02050' };
+  return { met: 4.0, intensity: 'moderate' as const, compendiumCode: 'other' };
 }
 
 // ============================================================

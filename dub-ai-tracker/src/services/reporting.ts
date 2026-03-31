@@ -128,7 +128,6 @@ export async function generateDailySummary(dateStr: string): Promise<DailySummar
   const moodEntries = await storageGet<MoodEntry[]>(dateKey(STORAGE_KEYS.LOG_MOOD, dateStr));
   const bodyEntry = await storageGet<BodyEntry>(dateKey(STORAGE_KEYS.LOG_BODY, dateStr));
   const workoutEntries = await storageGet<Array<{ calories_burned: number; duration_minutes: number }>>(dateKey(STORAGE_KEYS.LOG_WORKOUT, dateStr));
-  const strengthEntries = await storageGet<Array<{ calories_burned: number }>>(dateKey(STORAGE_KEYS.LOG_STRENGTH, dateStr));
   const recoveryEntry = await storageGet<{ total_score: number }>(dateKey(STORAGE_KEYS.RECOVERY, dateStr));
 
   // Calculate food totals
@@ -142,8 +141,7 @@ export async function generateDailySummary(dateStr: string): Promise<DailySummar
 
   // Calculate workout calories
   const workoutCals = (workoutEntries ?? []).reduce((sum, w) => sum + (w.calories_burned ?? 0), 0);
-  const strengthCals = (strengthEntries ?? []).reduce((sum, s) => sum + (s.calories_burned ?? 0), 0);
-  const totalBurned = workoutCals + strengthCals;
+  const totalBurned = workoutCals;
   const activeMin = (workoutEntries ?? []).reduce((sum, w) => sum + (w.duration_minutes ?? 0), 0);
 
   // Water
@@ -168,7 +166,6 @@ export async function generateDailySummary(dateStr: string): Promise<DailySummar
   if (foods.length > 0) tagsLogged.push('nutrition.food');
   if (waterEntries && waterEntries.length > 0) tagsLogged.push('hydration.water');
   if (workoutEntries && workoutEntries.length > 0) tagsLogged.push('fitness.workout');
-  if (strengthEntries && strengthEntries.length > 0) tagsLogged.push('strength.training');
   if (bodyEntry) tagsLogged.push('body.measurements');
   if (sleepEntry) tagsLogged.push('sleep.tracking');
   if (moodEntries && moodEntries.length > 0) tagsLogged.push('mental.wellness');

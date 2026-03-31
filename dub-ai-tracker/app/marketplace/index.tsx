@@ -11,12 +11,14 @@ import {
   ScrollView,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { ProductCard } from '../../src/components/marketplace/ProductCard';
 import { getTriggeredProducts } from '../../src/components/marketplace/ContextualTrigger';
 import { PRODUCT_CATEGORIES, MARKETPLACE_PRODUCTS, SAMPLE_INFLUENCERS } from '../../src/components/marketplace/productData';
+import { PREF_KEYS } from '../../src/services/secureStorageService';
 import type { Product } from '../../src/types/marketplace';
 
 type Tab = 'for_you' | 'browse' | 'influencers';
@@ -27,17 +29,27 @@ export default function MarketplaceScreen() {
   const [triggeredProducts, setTriggeredProducts] = useState<Product[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
+  const [bannerDismissed, setBannerDismissed] = useState(true); // default hidden until loaded
 
   const loadTriggered = useCallback(async () => {
     setLoading(true);
-    const products = await getTriggeredProducts();
+    const [products, dismissed] = await Promise.all([
+      getTriggeredProducts(),
+      AsyncStorage.getItem(PREF_KEYS.AFFILIATE_BANNER_DISMISSED),
+    ]);
     setTriggeredProducts(products);
+    setBannerDismissed(dismissed === 'true');
     setLoading(false);
   }, []);
 
   useEffect(() => {
     loadTriggered();
   }, [loadTriggered]);
+
+  const handleDismissBanner = useCallback(async () => {
+    setBannerDismissed(true);
+    await AsyncStorage.setItem(PREF_KEYS.AFFILIATE_BANNER_DISMISSED, 'true');
+  }, []);
 
   const handleDismiss = (productId: string) => {
     setDismissedIds((prev) => new Set([...prev, productId]));
@@ -73,6 +85,24 @@ export default function MarketplaceScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Affiliate disclosure banner */}
+      {!bannerDismissed ? (
+        <View style={styles.affiliateBanner}>
+          <Ionicons name="information-circle" size={16} color={Colors.warning} />
+          <Text style={styles.affiliateBannerText}>
+            Some products contain affiliate links. DUB_AI may earn a commission at no extra cost to you.
+          </Text>
+          <TouchableOpacity onPress={handleDismissBanner} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close" size={16} color={Colors.secondaryText} />
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={styles.affiliateMiniBanner}>
+          <Ionicons name="information-circle-outline" size={12} color={Colors.secondaryText} />
+          <Text style={styles.affiliateMiniText}>Affiliate links</Text>
+        </View>
+      )}
 
       {/* Content */}
       {tab === 'for_you' && (
@@ -346,4 +376,33 @@ const styles = StyleSheet.create({
   applyCtaInfo: { flex: 1 },
   applyCtaTitle: { color: Colors.accent, fontSize: 15, fontWeight: '600' },
   applyCtaDesc: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
+  affiliateBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(212, 168, 67, 0.08)',
+    borderLeftWidth: 2,
+    borderLeftColor: Colors.warning,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 6,
+    padding: 10,
+    gap: 8,
+  },
+  affiliateBannerText: {
+    flex: 1,
+    color: Colors.secondaryText,
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  affiliateMiniBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  affiliateMiniText: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+  },
 });
