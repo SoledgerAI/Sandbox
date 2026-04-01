@@ -97,8 +97,8 @@ describe('Coach System Prompt Safety', () => {
       expect(prompt).toContain('RD');  // It's in PROHIBITED list
       expect(prompt).toContain('CPT'); // It's in PROHIBITED list
       expect(prompt).toContain('CSCS'); // It's in PROHIBITED list
-      // These appear only in the PROHIBITED WORDS section
-      expect(prompt).toContain('PROHIBITED WORDS');
+      // These appear only in the PROHIBITED LANGUAGE section
+      expect(prompt).toContain('PROHIBITED LANGUAGE');
     });
 
     it('includes eating disorder guardrail language', () => {

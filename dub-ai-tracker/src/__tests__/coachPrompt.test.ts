@@ -155,9 +155,10 @@ describe('Coach Prompt Safety Preservation', () => {
 
   // 6. TOKEN SIZE CHECK
   describe('Token size', () => {
-    it('base prompt (minimal context) is <= 2,200 estimated tokens', () => {
+    it('base prompt (minimal context) is <= 2,500 estimated tokens', () => {
+      // MASTER-35: Tier examples add ~200 tokens; MASTER-33: expanded prohibited words
       const tokens = estimateTokens(basePrompt);
-      expect(tokens).toBeLessThanOrEqual(2200);
+      expect(tokens).toBeLessThanOrEqual(2500);
     });
 
     it('base prompt is >= 500 estimated tokens (safety floor — catches gutted prompts)', () => {
@@ -165,7 +166,7 @@ describe('Coach Prompt Safety Preservation', () => {
       expect(tokens).toBeGreaterThanOrEqual(500);
     });
 
-    it('full-context prompt (with ED flags, injuries, sobriety) stays <= 2,200 tokens', () => {
+    it('full-context prompt (with ED flags, injuries, sobriety) stays <= 2,500 tokens', () => {
       const ctx = makeContext({
         ed_risk_flags: [
           { type: 'extreme_restriction_today', detail: '800 cal' },
@@ -183,7 +184,7 @@ describe('Coach Prompt Safety Preservation', () => {
       });
       const prompt = buildSystemPrompt(ctx, ['[7D] Cal:1800avg P:140g Sleep:7.1h']);
       const tokens = estimateTokens(prompt);
-      expect(tokens).toBeLessThanOrEqual(2200);
+      expect(tokens).toBeLessThanOrEqual(2500);
     });
   });
 
@@ -206,7 +207,7 @@ describe('Coach Prompt Safety Preservation', () => {
     });
 
     it('includes prohibited words list', () => {
-      expect(basePrompt).toContain('PROHIBITED WORDS');
+      expect(basePrompt).toContain('PROHIBITED LANGUAGE');
       expect(basePrompt).toContain('relapse');
       expect(basePrompt).toContain('cheated');
     });

@@ -145,7 +145,7 @@ interface CalorieTargetParams {
  * MAINTAIN: TDEE
  *
  * Safety floors enforced: never below 1,200 (female) or 1,500 (male).
- * For "prefer_not_to_say", use the higher floor (1,500) to be safe.
+ * For "prefer_not_to_say", use average floor (1,350). MASTER-94.
  */
 export function calculateCalorieTarget({
   tdee,
@@ -179,11 +179,12 @@ export function calculateCalorieTarget({
   return Math.max(target, floor);
 }
 
-/** Get the calorie floor for a given sex */
+/** Get the calorie floor for a given sex — MASTER-94: Safety floor per spec Section 9 */
 export function getCalorieFloor(sex: BiologicalSex): number {
   if (sex === 'female') return CALORIE_FLOOR_FEMALE;
-  // Male and "prefer_not_to_say" use the higher floor to be safe
-  return CALORIE_FLOOR_MALE;
+  if (sex === 'male') return CALORIE_FLOOR_MALE;
+  // "prefer_not_to_say": average of 1200 and 1500
+  return Math.round((CALORIE_FLOOR_FEMALE + CALORIE_FLOOR_MALE) / 2);
 }
 
 // ============================================================================

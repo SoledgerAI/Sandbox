@@ -101,9 +101,26 @@ export default function ProfileScreen() {
     loadProfile();
   }, [loadProfile]);
 
+  // MASTER-38: Age gate re-validation — same check as onboarding ProfileStep
+  function getAge(birthDate: Date): number {
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  }
+
   function validate(): boolean {
     const newErrors: Record<string, string> = {};
     if (!name.trim()) newErrors.name = 'Name is required';
+
+    // MASTER-38: Reject DOB changes that make user under 18
+    if (getAge(dobDate) < 18) {
+      newErrors.dob = 'DUB_AI Tracker is designed for adults 18 and older.';
+    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -233,6 +250,7 @@ export default function ProfileScreen() {
         minimumDate={new Date(1920, 0, 1)}
         maximumDate={new Date(new Date().getFullYear() - 13, new Date().getMonth(), new Date().getDate())}
       />
+      {errors.dob ? <Text style={styles.errorText}>{errors.dob}</Text> : null}
 
       <Text style={styles.label}>Units</Text>
       <View style={styles.optionRow}>
@@ -467,5 +485,6 @@ const styles = StyleSheet.create({
   toggleBtnActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   toggleBtnText: { color: Colors.secondaryText, fontSize: 13, fontWeight: '600' },
   toggleBtnTextActive: { color: Colors.primaryBackground },
+  errorText: { color: '#FF6B6B', fontSize: 13, marginTop: 4, marginBottom: 8 },
   footer: { marginTop: 8, marginBottom: 32 },
 });

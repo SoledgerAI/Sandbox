@@ -124,8 +124,8 @@ describe('Calorie Engine', () => {
       expect(getCalorieFloor('male')).toBe(1500);
     });
 
-    it('prefer_not_to_say floor = 1500', () => {
-      expect(getCalorieFloor('prefer_not_to_say')).toBe(1500);
+    it('prefer_not_to_say floor = 1350 (MASTER-94: average of 1200 and 1500)', () => {
+      expect(getCalorieFloor('prefer_not_to_say')).toBe(1350);
     });
 
     it('clamps female target below 1200 to 1200', () => {

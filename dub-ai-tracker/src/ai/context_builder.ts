@@ -57,7 +57,13 @@ function pastDateString(daysAgo: number): string {
 // Keyword matching for conditional context (simple, not AI)
 const TREND_KEYWORDS = ['trend', 'week', 'average', 'how am i', 'doing', 'progress', 'rolling'];
 const PATTERN_KEYWORDS = ['pattern', 'notice', 'insight', 'correlation', 'trend'];
-const INJURY_KEYWORDS = ['injury', 'pain', 'hurt', 'sore', 'workout', 'exercise', 'lift'];
+const INJURY_KEYWORDS = [
+  'injury', 'pain', 'hurt', 'sore', 'workout', 'workouts',
+  'exercise', 'exercises', 'train', 'training', 'routine',
+  'program', 'movement', 'movements', 'lift', 'lifting',
+  'squat', 'bench', 'deadlift', 'press',
+  'run', 'running', 'stretch', 'stretching',
+];
 const BLOODWORK_KEYWORDS = ['blood', 'lab', 'marker', 'cholesterol', 'glucose', 'iron', 'vitamin d'];
 const CYCLE_KEYWORDS = ['cycle', 'period', 'menstrual', 'phase', 'ovulation'];
 const SUBSTANCE_KEYWORDS = ['drink', 'alcohol', 'sober', 'substance', 'cannabis', 'tobacco'];
@@ -206,17 +212,19 @@ export async function buildCoachContext(userMessage: string): Promise<{
     activePatterns = (await storageGet<PatternInsight[]>(STORAGE_KEYS.COACH_PATTERNS)) ?? [];
   }
 
-  // Injuries (conditional on workout/pain keywords)
+  // MASTER-34: Active injuries are safety-critical (e.g., user asks "design a workout"
+  // with a torn rotator cuff). Always-include for severity >= 5 or acute type.
+  // Minor/resolved injuries remain conditional on keywords.
   let injuries: InjurySummary[] = [];
-  if (messageMatchesKeywords(userMessage, INJURY_KEYWORDS)) {
-    // Also load active (unresolved) injuries
+  {
     const allInjuryKeys = await storageList('dub.log.injury.');
+    const allUnresolved: InjurySummary[] = [];
     for (const key of allInjuryKeys.slice(-7)) {
       const entries = await storageGet<InjuryEntry[]>(key);
       if (entries) {
         for (const e of entries) {
           if (!e.resolved_date) {
-            injuries.push({
+            allUnresolved.push({
               location: e.body_location,
               severity: e.severity,
               type: e.type,
@@ -226,6 +234,19 @@ export async function buildCoachContext(userMessage: string): Promise<{
         }
       }
     }
+
+    // Always include: severity >= 5 or acute type (safety-critical)
+    const safetyInjuries = allUnresolved.filter(
+      (i) => i.severity >= 5 || i.type === 'acute',
+    );
+
+    // Conditionally include minor injuries on keyword match
+    const minorInjuries = messageMatchesKeywords(userMessage, INJURY_KEYWORDS)
+      ? allUnresolved.filter((i) => i.severity < 5 && i.type !== 'acute')
+      : [];
+
+    injuries = [...safetyInjuries, ...minorInjuries];
+
     // Deduplicate by location
     const seen = new Set<string>();
     injuries = injuries.filter((i) => {

@@ -96,10 +96,24 @@ export function useCoach(): UseCoachResult {
       }
 
       // Build conversation history for API (last 10 messages for context window)
+      // MASTER-64: Ensure messages start with user role and alternate properly
       const recentMessages = updatedMessages.slice(-10);
-      const apiMessages: AnthropicMessage[] = recentMessages
+      let filteredMessages = recentMessages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+
+      // Ensure starts with user (Anthropic API requirement)
+      while (filteredMessages.length > 0 && filteredMessages[0].role !== 'user') {
+        filteredMessages.shift();
+      }
+
+      // Ensure alternation (no consecutive same-role messages)
+      const apiMessages: AnthropicMessage[] = [];
+      for (const msg of filteredMessages) {
+        if (apiMessages.length === 0 || apiMessages[apiMessages.length - 1].role !== msg.role) {
+          apiMessages.push(msg);
+        }
+      }
 
       // Send to API
       const responseText = await sendMessage({
