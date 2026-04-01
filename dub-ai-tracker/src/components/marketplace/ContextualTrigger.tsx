@@ -4,10 +4,12 @@
 // Coach data analysis and marketplace product triggers run on SEPARATE code paths
 // Marketplace reads from dub.coach.patterns output, does NOT call pattern engine directly
 
-import { storageGet, STORAGE_KEYS } from '../../utils/storage';
+import { storageGet, storageSet, STORAGE_KEYS } from '../../utils/storage';
 import type { UserProfile } from '../../types/profile';
 import type { Product, ContextualTrigger as TriggerType, DemographicFilter, DismissedProduct } from '../../types/marketplace';
 import { MARKETPLACE_PRODUCTS } from './productData';
+
+const DEFICIT_DELAY_DAYS = 7;
 
 interface PatternEntry {
   observation: string;
@@ -51,11 +53,13 @@ function matchesDemographics(filter: DemographicFilter, profile: UserProfile | n
 }
 
 export async function getTriggeredProducts(): Promise<Product[]> {
-  const [profile, patterns, dismissed, onboardingDate] = await Promise.all([
+  const [profile, patterns, dismissed, onboardingDate, settings, enabledTags] = await Promise.all([
     storageGet<UserProfile>(STORAGE_KEYS.PROFILE),
     storageGet<PatternEntry[]>(STORAGE_KEYS.COACH_PATTERNS),
     storageGet<DismissedProduct[]>(STORAGE_KEYS.MARKETPLACE_DISMISSED),
     storageGet<string>(STORAGE_KEYS.ONBOARDING_DATE),
+    storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS),
+    storageGet<string[]>(STORAGE_KEYS.TAGS_ENABLED),
   ]);
 
   const dismissedIds = new Set((dismissed ?? []).map((d) => d.product_id));
@@ -71,21 +75,41 @@ export async function getTriggeredProducts(): Promise<Product[]> {
     activeTriggers.add('behavior_pattern');
   }
 
-  // Deficit detection -- only if patterns mention deficits AND at least 7 days old
-  // Per marketplace ethics: 7-day delay on deficit-based triggers
+  // Deficit detection — MASTER-08: 7-day delay before surfacing deficit-based products
   if (patterns) {
     const hasDeficit = patterns.some(
       (p) => p.observation.toLowerCase().includes('low') || p.observation.toLowerCase().includes('deficit'),
     );
     if (hasDeficit) {
-      activeTriggers.add('deficit_detection');
+      const deficitDetectedAt = settings?.marketplace_deficit_detected_at as string | undefined;
+      if (!deficitDetectedAt) {
+        // First detection — store timestamp, do NOT activate trigger yet
+        const updatedSettings = { ...(settings ?? {}), marketplace_deficit_detected_at: new Date().toISOString() };
+        await storageSet(STORAGE_KEYS.SETTINGS, updatedSettings);
+      } else {
+        const daysSinceDetection = Math.floor(
+          (Date.now() - new Date(deficitDetectedAt).getTime()) / 86400000,
+        );
+        if (daysSinceDetection >= DEFICIT_DELAY_DAYS) {
+          activeTriggers.add('deficit_detection');
+        }
+      }
+    } else if (settings?.marketplace_deficit_detected_at) {
+      // No deficit detected anymore — clear the stored date
+      const { marketplace_deficit_detected_at: _, ...rest } = settings as Record<string, unknown>;
+      await storageSet(STORAGE_KEYS.SETTINGS, rest);
     }
   }
 
-  // Feature adoption trigger
-  activeTriggers.add('feature_adoption');
+  // Feature adoption trigger — MASTER-45: only fire if user has actually used the feature
+  const tags = enabledTags ?? [];
+  if (tags.length > 0) {
+    // At least one optional tag enabled means feature adoption is real
+    activeTriggers.add('feature_adoption');
+  }
 
-  // Seasonal trigger
+  // Seasonal trigger — MASTER-45: only fire in product's matching months (filtered below)
+  const currentMonth = getMonth(); // 0-11
   activeTriggers.add('seasonal');
 
   // Milestone trigger (completed first month)

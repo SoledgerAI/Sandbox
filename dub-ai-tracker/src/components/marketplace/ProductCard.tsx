@@ -13,7 +13,9 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { FTCDisclosure } from './FTCDisclosure';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../utils/storage';
+import { isTrackingAllowed } from '../../utils/tracking';
 import type { Product, MarketplacePurchaseEvent, DismissedProduct } from '../../types/marketplace';
 
 interface ProductCardProps {
@@ -25,20 +27,24 @@ export function ProductCard({ product, onDismiss }: ProductCardProps) {
   const [showTriggerReason, setShowTriggerReason] = useState(false);
 
   const handlePurchase = async () => {
-    // Log click-through for analytics (not PII)
-    const event: MarketplacePurchaseEvent = {
-      id: `mkt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      product_id: product.id,
-      influencer_id: null,
-      affiliate_partner: product.affiliate_partner,
-      clicked_at: new Date().toISOString(),
-      trigger: product.contextual_trigger,
-    };
+    // MASTER-42: Only log click-through if ATT permission granted
+    const trackingAllowed = await isTrackingAllowed();
 
-    const existing = await storageGet<MarketplacePurchaseEvent[]>(STORAGE_KEYS.MARKETPLACE_PURCHASES);
-    await storageSet(STORAGE_KEYS.MARKETPLACE_PURCHASES, [...(existing ?? []), event]);
+    if (trackingAllowed) {
+      const event: MarketplacePurchaseEvent = {
+        id: `mkt_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        product_id: product.id,
+        influencer_id: null,
+        affiliate_partner: product.affiliate_partner,
+        clicked_at: new Date().toISOString(),
+        trigger: product.contextual_trigger,
+      };
 
-    // Open affiliate link
+      const existing = await storageGet<MarketplacePurchaseEvent[]>(STORAGE_KEYS.MARKETPLACE_PURCHASES);
+      await storageSet(STORAGE_KEYS.MARKETPLACE_PURCHASES, [...(existing ?? []), event]);
+    }
+
+    // Open affiliate link regardless of tracking permission
     Linking.openURL(product.affiliate_url).catch(() => {
       Alert.alert('Error', 'Could not open link.');
     });
@@ -56,6 +62,11 @@ export function ProductCard({ product, onDismiss }: ProductCardProps) {
 
   return (
     <View style={styles.card}>
+      {/* FTC disclosure — MASTER-07: must be visible before product info */}
+      {product.disclosures.length > 0 && (
+        <FTCDisclosure disclosures={product.disclosures} />
+      )}
+
       {/* Product header */}
       <View style={styles.header}>
         <View style={styles.categoryBadge}>

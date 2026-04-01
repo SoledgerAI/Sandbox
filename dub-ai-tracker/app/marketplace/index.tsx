@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { ProductCard } from '../../src/components/marketplace/ProductCard';
 import { getTriggeredProducts } from '../../src/components/marketplace/ContextualTrigger';
+import { requestTrackingPermission } from '../../src/utils/tracking';
 import { PRODUCT_CATEGORIES, MARKETPLACE_PRODUCTS, SAMPLE_INFLUENCERS } from '../../src/components/marketplace/productData';
 import { PREF_KEYS } from '../../src/services/secureStorageService';
 import type { Product } from '../../src/types/marketplace';
@@ -43,6 +44,8 @@ export default function MarketplaceScreen() {
   }, []);
 
   useEffect(() => {
+    // MASTER-42: Request ATT permission before any click tracking can occur
+    requestTrackingPermission();
     loadTriggered();
   }, [loadTriggered]);
 

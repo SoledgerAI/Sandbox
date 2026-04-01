@@ -22,7 +22,12 @@
         "NSFaceIDUsageDescription": "DUB_AI uses Face ID to protect your health data and app access.",
         "NSCameraUsageDescription": "DUB_AI uses the camera to scan barcodes and photograph meals for food logging.",
         "NSHealthShareUsageDescription": "DUB_AI reads your health data (steps, workouts, sleep, heart rate) to provide personalized wellness coaching and tracking.",
-        "NSHealthUpdateUsageDescription": "DUB_AI writes workout and nutrition summaries to Apple Health so your data stays in sync across health apps."
+        "NSHealthUpdateUsageDescription": "DUB_AI writes workout and nutrition summaries to Apple Health so your data stays in sync across health apps.",
+        "NSUserTrackingUsageDescription": "DUB_AI requests permission to track affiliate link interactions to improve product recommendations."
+      },
+      "entitlements": {
+        "com.apple.developer.healthkit": true,
+        "com.apple.developer.healthkit.background-delivery": false
       }
     },
     "android": {
@@ -43,7 +48,27 @@
       "expo-secure-store",
       "expo-sharing",
       "expo-font",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-camera",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/notification-icon.png",
+          "color": "#1E2761"
+        }
+      ],
+      [
+        "react-native-health",
+        {
+          "isClinicalDataEnabled": false
+        }
+      ],
+      [
+        "expo-tracking-transparency",
+        {
+          "userTrackingPermission": "DUB_AI requests permission to track affiliate link interactions to improve product recommendations."
+        }
+      ]
     ],
     "extra": {
       "router": {},

@@ -20,6 +20,7 @@ import { ChatBubble } from '../../src/components/coach/ChatBubble';
 import { SuggestedPrompts } from '../../src/components/coach/SuggestedPrompts';
 import { DataContextBanner } from '../../src/components/coach/DataContextBanner';
 import { APIKeySetupWizard } from '../../src/components/APIKeySetupWizard';
+import { AnthropicConsentModal, CONSENT_VERSION } from '../../src/components/coach/AnthropicConsentModal';
 import { useCoach } from '../../src/hooks/useCoach';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import type { ChatMessage } from '../../src/types/coach';
@@ -38,15 +39,27 @@ export default function CoachScreen() {
 
   const [inputText, setInputText] = useState('');
   const [showDisclaimer, setShowDisclaimer] = useState(true);
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [consentGranted, setConsentGranted] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
 
-  // Check if coach disclaimer has already been acknowledged
+  // Check if coach disclaimer and Anthropic consent have been acknowledged
   useEffect(() => {
     (async () => {
       const settings = await storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS);
       if (settings && settings.coach_disclaimer_acknowledged) {
         setShowDisclaimer(false);
+      }
+      // Check Anthropic data consent (MASTER-05)
+      if (
+        settings &&
+        settings.anthropic_consent_date &&
+        settings.anthropic_consent_version === CONSENT_VERSION
+      ) {
+        setConsentGranted(true);
+      } else {
+        setConsentGranted(false);
       }
     })();
   }, []);
@@ -55,6 +68,21 @@ export default function CoachScreen() {
     const settings = (await storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS)) || {};
     await storageSet(STORAGE_KEYS.SETTINGS, { ...settings, coach_disclaimer_acknowledged: true });
     setShowDisclaimer(false);
+    // After disclaimer, show Anthropic consent if not yet granted
+    if (!consentGranted) {
+      setShowConsentModal(true);
+    }
+  };
+
+  const handleAnthropicConsent = async () => {
+    const settings = (await storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS)) || {};
+    await storageSet(STORAGE_KEYS.SETTINGS, {
+      ...settings,
+      anthropic_consent_date: new Date().toISOString(),
+      anthropic_consent_version: CONSENT_VERSION,
+    });
+    setConsentGranted(true);
+    setShowConsentModal(false);
   };
 
   // Scroll to bottom when new messages arrive
@@ -156,6 +184,11 @@ export default function CoachScreen() {
           </View>
         </View>
       </Modal>
+
+      <AnthropicConsentModal
+        visible={showConsentModal || (!showDisclaimer && apiKeyConfigured && !consentGranted)}
+        onConsent={handleAnthropicConsent}
+      />
 
       <DataContextBanner tagsLogged={tagsLogged} hasApiKey={apiKeyConfigured} />
 

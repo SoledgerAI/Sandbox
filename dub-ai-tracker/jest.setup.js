@@ -312,6 +312,18 @@ jest.mock('@expo/vector-icons', () => {
 });
 
 // ============================================================
+// expo-tracking-transparency
+// ============================================================
+jest.mock('expo-tracking-transparency', () => ({
+  getTrackingPermissionsAsync: jest.fn(() =>
+    Promise.resolve({ status: 'granted', granted: true, canAskAgain: true, expires: 'never' })
+  ),
+  requestTrackingPermissionsAsync: jest.fn(() =>
+    Promise.resolve({ status: 'granted', granted: true, canAskAgain: true, expires: 'never' })
+  ),
+}));
+
+// ============================================================
 // expo-router (prevent route crashes in tests)
 // ============================================================
 jest.mock('expo-router', () => ({

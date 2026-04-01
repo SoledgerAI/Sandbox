@@ -10,7 +10,16 @@
     "preview": {
       "distribution": "internal"
     },
-    "production": {}
+    "production": {
+      "distribution": "store",
+      "autoIncrement": "buildNumber",
+      "env": {
+        "APP_ENV": "production"
+      },
+      "ios": {
+        "buildConfiguration": "Release"
+      }
+    }
   },
   "submit": {
     "production": {}
