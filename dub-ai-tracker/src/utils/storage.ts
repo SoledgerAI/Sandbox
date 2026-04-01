@@ -105,6 +105,51 @@ export class StorageError extends Error {
 }
 
 // ============================================================
+// Size Monitoring (MASTER-06)
+// Android CursorWindow has a 2MB limit per key.
+// ============================================================
+
+const SIZE_WARN_THRESHOLD = 1024 * 1024;       // 1 MB
+const SIZE_BLOCK_THRESHOLD = 1.5 * 1024 * 1024; // 1.5 MB
+
+// Per-key item caps for high-risk keys (MASTER-06)
+const KEY_ITEM_CAPS: Record<string, number> = {
+  [STORAGE_KEYS.COACH_HISTORY]: 200,
+  [STORAGE_KEYS.FOOD_CACHE]: 500,
+  [STORAGE_KEYS.FOOD_RECENT]: 50,
+};
+
+/**
+ * Enforce item cap on array values for high-risk keys.
+ * Coach history: trim oldest. Food cache/recent: evict oldest (LRU).
+ */
+function enforceItemCap<T>(key: string, value: T): T {
+  const cap = KEY_ITEM_CAPS[key];
+  if (cap == null || !Array.isArray(value)) return value;
+  if (value.length <= cap) return value;
+  // Trim from the front (oldest items) to enforce cap
+  return value.slice(-cap) as unknown as T;
+}
+
+// ============================================================
+// Key Cache for storageList (MASTER-60)
+// ============================================================
+
+let cachedKeys: string[] | null = null;
+let cacheTimestamp = 0;
+const CACHE_TTL = 5000; // 5 seconds
+
+function invalidateKeyCache(): void {
+  cachedKeys = null;
+}
+
+// ============================================================
+// Write Lock for Atomicity (MASTER-67)
+// ============================================================
+
+const writeLocks = new Map<string, Promise<void>>();
+
+// ============================================================
 // Typed Storage Operations
 // ============================================================
 
@@ -135,9 +180,31 @@ export async function storageGet<T>(key: string): Promise<T | null> {
  */
 export async function storageSet<T>(key: string, value: T): Promise<void> {
   try {
-    const raw = JSON.stringify(value);
+    // MASTER-06: Enforce item caps for high-risk array keys
+    const capped = enforceItemCap(key, value);
+    const raw = JSON.stringify(capped);
+
+    // MASTER-06: Size monitoring — rough UTF-16 byte estimate
+    const byteSize = raw.length * 2;
+
+    if (byteSize > SIZE_BLOCK_THRESHOLD) {
+      throw new StorageError(
+        `BLOCKED: Key "${key}" exceeds 1.5MB (${(byteSize / 1024 / 1024).toFixed(2)}MB). Write rejected.`,
+        key,
+        'set',
+      );
+    }
+
+    if (byteSize > SIZE_WARN_THRESHOLD) {
+      console.warn(`[Storage] WARNING: Key "${key}" is ${(byteSize / 1024 / 1024).toFixed(2)}MB. Approaching 2MB limit.`);
+    }
+
     await AsyncStorage.setItem(key, raw);
+
+    // MASTER-60: Invalidate key cache on write
+    invalidateKeyCache();
   } catch (error) {
+    if (error instanceof StorageError) throw error;
     throw new StorageError(
       `Failed to set key "${key}"`,
       key,
@@ -154,6 +221,8 @@ export async function storageSet<T>(key: string, value: T): Promise<void> {
 export async function storageDelete(key: string): Promise<void> {
   try {
     await AsyncStorage.removeItem(key);
+    // MASTER-60: Invalidate key cache on delete
+    invalidateKeyCache();
   } catch (error) {
     throw new StorageError(
       `Failed to delete key "${key}"`,
@@ -170,8 +239,13 @@ export async function storageDelete(key: string): Promise<void> {
  */
 export async function storageList(prefix: string): Promise<string[]> {
   try {
-    const allKeys = await AsyncStorage.getAllKeys();
-    return allKeys.filter((k) => k.startsWith(prefix));
+    // MASTER-60: Use cached keys with 5-second TTL
+    const now = Date.now();
+    if (!cachedKeys || now - cacheTimestamp > CACHE_TTL) {
+      cachedKeys = await AsyncStorage.getAllKeys() as string[];
+      cacheTimestamp = now;
+    }
+    return cachedKeys.filter((k) => k.startsWith(prefix));
   } catch (error) {
     throw new StorageError(
       `Failed to list keys with prefix "${prefix}"`,
@@ -214,6 +288,7 @@ export async function storageGetMultiple<T>(keys: string[]): Promise<Map<string,
 export async function storageDeleteMultiple(keys: string[]): Promise<void> {
   try {
     await AsyncStorage.multiRemove(keys);
+    invalidateKeyCache();
   } catch (error) {
     throw new StorageError(
       `Failed to delete multiple keys`,
@@ -234,6 +309,7 @@ export async function storageClearAll(): Promise<void> {
     if (dubKeys.length > 0) {
       await AsyncStorage.multiRemove(dubKeys);
     }
+    invalidateKeyCache();
   } catch (error) {
     throw new StorageError(
       'Failed to clear all DUB_AI data',
@@ -241,5 +317,29 @@ export async function storageClearAll(): Promise<void> {
       'delete',
       error,
     );
+  }
+}
+
+/**
+ * Atomically append an item to an array stored at key (MASTER-67).
+ * Uses a per-key write lock to prevent read-modify-write races
+ * (e.g., two rapid food log entries clobbering each other).
+ */
+export async function storageAppend<T>(key: string, item: T): Promise<void> {
+  // Wait for any pending write to this key
+  const pending = writeLocks.get(key);
+  if (pending) await pending;
+
+  const writePromise = (async () => {
+    const existing = (await storageGet<T[]>(key)) ?? [];
+    existing.push(item);
+    await storageSet(key, existing);
+  })();
+
+  writeLocks.set(key, writePromise);
+  try {
+    await writePromise;
+  } finally {
+    writeLocks.delete(key);
   }
 }

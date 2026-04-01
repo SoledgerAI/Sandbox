@@ -8,6 +8,7 @@ import { Stack, router, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { Colors } from '../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../src/utils/storage';
+import { processQueue } from '../src/utils/offline';
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
 import { AuthGate } from '../src/components/AuthGate';
 import { OnboardingGate } from '../src/components/OnboardingGate';
@@ -38,11 +39,13 @@ export default function RootLayout() {
     loadPrivacySetting();
   }, []);
 
-  // D8-001: Listen for AppState changes
+  // D8-001: Listen for AppState changes + MASTER-62: process offline queue on resume
   useEffect(() => {
     function handleAppStateChange(nextState: AppStateStatus) {
       if (nextState === 'active') {
         setPrivacyOverlay(false);
+        // MASTER-62: Process offline queue when app returns to foreground
+        processQueue().catch(() => {});
       } else if (nextState === 'inactive' || nextState === 'background') {
         if (privacyEnabledRef.current) {
           setPrivacyOverlay(true);
@@ -51,6 +54,10 @@ export default function RootLayout() {
     }
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    // MASTER-62: Also process queue on initial launch
+    processQueue().catch(() => {});
+
     return () => subscription.remove();
   }, []);
 

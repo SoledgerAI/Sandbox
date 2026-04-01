@@ -3,6 +3,7 @@
 // Phase 19: Ingredient flag patterns in Coach context
 // Includes conditional context injection and therapy note firewall
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { storageGet, STORAGE_KEYS, dateKey, storageList } from '../utils/storage';
 import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge, lbsToKg, inchesToCm } from '../utils/calories';
 import type { UserProfile, EngagementTier, SobrietyGoal } from '../types/profile';
@@ -439,38 +440,51 @@ export async function buildCoachContext(userMessage: string): Promise<{
 }
 
 async function compute7DayRolling(today: string): Promise<RollingStats | null> {
-  let workouts = 0;
-  const stats: {
-    calories: number[];
-    protein: number[];
-    carbs: number[];
-    fat: number[];
-    water: number[];
-    sleep: number[];
-    mood: number[];
-    weight: number[];
-  } = {
-    calories: [],
-    protein: [],
-    carbs: [],
-    fat: [],
-    water: [],
-    sleep: [],
-    mood: [],
-    weight: [],
-  };
+  // MASTER-61: Build all 42 keys upfront, fetch in a single multiGet
+  const dates: string[] = [];
+  const allKeys: string[] = [];
+  const TAG_PREFIXES = [
+    STORAGE_KEYS.LOG_FOOD,
+    STORAGE_KEYS.LOG_WATER,
+    STORAGE_KEYS.LOG_SLEEP,
+    STORAGE_KEYS.LOG_MOOD,
+    STORAGE_KEYS.LOG_BODY,
+    STORAGE_KEYS.LOG_WORKOUT,
+  ] as const;
 
   for (let i = 0; i < 7; i++) {
     const date = pastDateString(i);
+    dates.push(date);
+    for (const prefix of TAG_PREFIXES) {
+      allKeys.push(dateKey(prefix, date));
+    }
+  }
 
-    const [foods, waters, sleepEntry, moodEntries, bodyEntry] = await Promise.all([
-      storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, date)),
-      storageGet<WaterEntry[]>(dateKey(STORAGE_KEYS.LOG_WATER, date)),
-      storageGet<SleepEntry>(dateKey(STORAGE_KEYS.LOG_SLEEP, date)),
-      storageGet<MoodEntry[]>(dateKey(STORAGE_KEYS.LOG_MOOD, date)),
-      storageGet<BodyEntry>(dateKey(STORAGE_KEYS.LOG_BODY, date)),
-    ]);
+  const pairs = await AsyncStorage.multiGet(allKeys);
+  const lookup = new Map<string, string>();
+  for (const [key, raw] of pairs) {
+    if (raw != null) lookup.set(key, raw);
+  }
 
+  function parse<T>(prefix: string, date: string): T | null {
+    const raw = lookup.get(dateKey(prefix, date));
+    return raw != null ? (JSON.parse(raw) as T) : null;
+  }
+
+  let workoutCount = 0;
+  const stats = {
+    calories: [] as number[],
+    protein: [] as number[],
+    carbs: [] as number[],
+    fat: [] as number[],
+    water: [] as number[],
+    sleep: [] as number[],
+    mood: [] as number[],
+    weight: [] as number[],
+  };
+
+  for (const date of dates) {
+    const foods = parse<FoodEntry[]>(STORAGE_KEYS.LOG_FOOD, date);
     if (foods && foods.length > 0) {
       stats.calories.push(foods.reduce((s, f) => s + (f.computed_nutrition?.calories ?? 0), 0));
       stats.protein.push(foods.reduce((s, f) => s + (f.computed_nutrition?.protein_g ?? 0), 0));
@@ -478,26 +492,30 @@ async function compute7DayRolling(today: string): Promise<RollingStats | null> {
       stats.fat.push(foods.reduce((s, f) => s + (f.computed_nutrition?.fat_g ?? 0), 0));
     }
 
+    const waters = parse<WaterEntry[]>(STORAGE_KEYS.LOG_WATER, date);
     if (waters && waters.length > 0) {
       stats.water.push(waters.reduce((s, w) => s + w.amount_oz, 0));
     }
 
+    const sleepEntry = parse<SleepEntry>(STORAGE_KEYS.LOG_SLEEP, date);
     if (sleepEntry?.bedtime && sleepEntry?.wake_time) {
       const hours = (new Date(sleepEntry.wake_time).getTime() - new Date(sleepEntry.bedtime).getTime()) / 3600000;
       if (hours > 0 && hours < 24) stats.sleep.push(hours);
     }
 
+    const moodEntries = parse<MoodEntry[]>(STORAGE_KEYS.LOG_MOOD, date);
     if (moodEntries && moodEntries.length > 0) {
       stats.mood.push(moodEntries.reduce((s, m) => s + m.score, 0) / moodEntries.length);
     }
 
+    const bodyEntry = parse<BodyEntry>(STORAGE_KEYS.LOG_BODY, date);
     if (bodyEntry?.weight_lbs != null) {
       stats.weight.push(bodyEntry.weight_lbs);
     }
 
-    const workoutEntries = await storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, date));
+    const workoutEntries = parse<WorkoutEntry[]>(STORAGE_KEYS.LOG_WORKOUT, date);
     if (workoutEntries && workoutEntries.length > 0) {
-      workouts++;
+      workoutCount++;
     }
   }
 
@@ -512,6 +530,6 @@ async function compute7DayRolling(today: string): Promise<RollingStats | null> {
     avg_sleep_hours: avg(stats.sleep),
     avg_mood: avg(stats.mood),
     avg_weight: avg(stats.weight),
-    workout_count: workouts,
+    workout_count: workoutCount,
   };
 }
