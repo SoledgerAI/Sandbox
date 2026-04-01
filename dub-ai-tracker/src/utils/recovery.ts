@@ -1,5 +1,7 @@
 // Recovery score computation
-// Phase 12: Recovery Score v1.0
+// Phase 12: Recovery Score v1.1
+// MASTER-18,19,20,21,23 — alcohol steps, yesterday training load,
+// HRV/RHR personal baselines, sleep duration curve
 
 import {
   RECOVERY_WEIGHT_SLEEP_QUALITY,
@@ -9,12 +11,13 @@ import {
   RECOVERY_WEIGHT_TRAINING_LOAD,
   RECOVERY_WEIGHT_ALCOHOL,
 } from '../constants/formulas';
-import { storageGet, dateKey, STORAGE_KEYS } from './storage';
+import { storageGet, storageGetMultiple, dateKey, STORAGE_KEYS } from './storage';
 import type { SleepEntry, BodyEntry, SubstanceEntry } from '../types';
 import type { WorkoutEntry } from '../types/workout';
 import type { RecoveryScore, RecoveryScoreComponent } from '../types';
 
 const MIN_COMPONENTS = 3;
+const BASELINE_DAYS = 7;
 
 interface ComponentInput {
   name: string;
@@ -30,35 +33,57 @@ function scoreSleepQuality(quality: number): number {
 }
 
 /**
- * Score sleep duration. 7-9 hours is optimal (100).
- * Below 5 or above 11 scores 0. Linear interpolation in between.
+ * Score sleep duration per spec (MASTER-23).
+ * <4h=0, 4-6h=0-30, 6-7h=30-60, 7-9h=60-100, 9-10h=100-90, >10h=80.
  */
 function scoreSleepDuration(hours: number): number {
-  if (hours >= 7 && hours <= 9) return 100;
-  if (hours < 5 || hours > 11) return 0;
-  if (hours < 7) return Math.round(((hours - 5) / 2) * 100);
-  // hours > 9 && hours <= 11
-  return Math.round(((11 - hours) / 2) * 100);
+  if (hours < 4) return 0;
+  if (hours < 6) return Math.round((hours - 4) * 15); // 4h=0, 6h=30
+  if (hours < 7) return Math.round(30 + (hours - 6) * 30); // 6h=30, 7h=60
+  if (hours <= 9) return Math.round(60 + ((hours - 7) / 2) * 40); // 7h=60, 9h=100
+  if (hours <= 10) return Math.round(100 - (hours - 9) * 10); // 9h=100, 10h=90
+  return 80; // >10h diminishing returns
 }
 
 /**
- * Score HRV. Higher is generally better.
- * 0-20ms = 0, 20-100ms linear to 100, 100+ = 100.
+ * Score HRV against 7-day personal baseline (MASTER-20).
+ * Falls back to absolute scoring when no baseline available.
  */
-function scoreHrv(hrv: number): number {
-  if (hrv <= 20) return 0;
-  if (hrv >= 100) return 100;
-  return Math.round(((hrv - 20) / 80) * 100);
+function scoreHrv(todayHRV: number, baseline7Day: number | null): number {
+  if (baseline7Day === null || baseline7Day === 0) {
+    // No baseline yet — use absolute as fallback
+    return Math.min(100, Math.max(0, Math.round((todayHRV / 60) * 100)));
+  }
+  const ratio = todayHRV / baseline7Day;
+  if (ratio >= 1.15) return 100; // 15%+ above baseline
+  if (ratio >= 1.0) return 85; // at or above baseline
+  if (ratio >= 0.9) return 70; // within 10% below
+  if (ratio >= 0.8) return 50; // 10-20% below
+  if (ratio >= 0.7) return 30; // 20-30% below
+  return 15; // 30%+ below baseline
 }
 
 /**
- * Score resting heart rate. Lower is better.
- * 40 bpm = 100, 80+ bpm = 0. Linear between.
+ * Score resting HR against 7-day personal baseline (MASTER-21).
+ * Lower than baseline = better recovery.
+ * Falls back to absolute scoring when no baseline available.
  */
-function scoreRestingHr(hr: number): number {
-  if (hr <= 40) return 100;
-  if (hr >= 80) return 0;
-  return Math.round(((80 - hr) / 40) * 100);
+function scoreRestingHr(todayRHR: number, baseline7Day: number | null): number {
+  if (baseline7Day === null || baseline7Day === 0) {
+    // No baseline — absolute fallback
+    if (todayRHR <= 50) return 100;
+    if (todayRHR <= 60) return 80;
+    if (todayRHR <= 70) return 60;
+    if (todayRHR <= 80) return 40;
+    return 20;
+  }
+  const diff = todayRHR - baseline7Day;
+  if (diff <= -5) return 100; // 5+ bpm below baseline
+  if (diff <= -2) return 85; // 2-5 below
+  if (diff <= 2) return 70; // within +/- 2 of baseline
+  if (diff <= 5) return 50; // 2-5 above
+  if (diff <= 10) return 30; // 5-10 above
+  return 15; // 10+ above baseline
 }
 
 /**
@@ -76,12 +101,63 @@ function scoreTrainingLoad(totalMinutes: number): number {
 }
 
 /**
- * Score alcohol consumption. 0 drinks = 100, 1 = 75, 2 = 50, 3 = 25, 4+ = 0.
+ * Score alcohol consumption via step function (MASTER-18).
+ * 0=100, 1=80, 2=50, 3+=20.
  */
 function scoreAlcohol(drinkCount: number): number {
   if (drinkCount === 0) return 100;
-  if (drinkCount >= 4) return 0;
-  return Math.round(100 - drinkCount * 25);
+  if (drinkCount === 1) return 80;
+  if (drinkCount === 2) return 50;
+  return 20; // 3+ drinks
+}
+
+/**
+ * Build date strings for the N days preceding the given date.
+ */
+function getPrecedingDates(date: string, count: number): string[] {
+  const dates: string[] = [];
+  const d = new Date(date + 'T00:00:00');
+  for (let i = 1; i <= count; i++) {
+    const prev = new Date(d);
+    prev.setDate(d.getDate() - i);
+    dates.push(prev.toISOString().split('T')[0]);
+  }
+  return dates;
+}
+
+/**
+ * Compute 7-day baselines for HRV and RHR from body entries (MASTER-20, 21).
+ * Uses batch read (storageGetMultiple) per MASTER-61 performance guidance.
+ */
+async function compute7DayBaselines(
+  date: string,
+): Promise<{ hrvBaseline: number | null; rhrBaseline: number | null }> {
+  const pastDates = getPrecedingDates(date, BASELINE_DAYS);
+  const keys = pastDates.map((d) => dateKey(STORAGE_KEYS.LOG_BODY, d));
+  const entries = await storageGetMultiple<BodyEntry>(keys);
+
+  let hrvSum = 0;
+  let hrvCount = 0;
+  let rhrSum = 0;
+  let rhrCount = 0;
+
+  for (const entry of entries.values()) {
+    if (entry) {
+      if (entry.hrv_ms != null) {
+        hrvSum += entry.hrv_ms;
+        hrvCount++;
+      }
+      if (entry.resting_hr != null) {
+        rhrSum += entry.resting_hr;
+        rhrCount++;
+      }
+    }
+  }
+
+  return {
+    hrvBaseline: hrvCount > 0 ? hrvSum / hrvCount : null,
+    rhrBaseline: rhrCount > 0 ? rhrSum / rhrCount : null,
+  };
 }
 
 /**
@@ -89,13 +165,20 @@ function scoreAlcohol(drinkCount: number): number {
  * Reads sleep, body metrics, workout, and substance logs.
  */
 export async function computeRecoveryScore(date: string): Promise<RecoveryScore> {
-  // Load data in parallel
-  const [sleepEntry, bodyEntry, workoutEntries, substanceEntries] = await Promise.all([
-    storageGet<SleepEntry>(dateKey(STORAGE_KEYS.LOG_SLEEP, date)),
-    storageGet<BodyEntry>(dateKey(STORAGE_KEYS.LOG_BODY, date)),
-    storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, date)),
-    storageGet<SubstanceEntry[]>(dateKey(STORAGE_KEYS.LOG_SUBSTANCES, date)),
-  ]);
+  // MASTER-19: training load uses YESTERDAY's workout data
+  const yesterday = new Date(date + 'T00:00:00');
+  yesterday.setDate(yesterday.getDate() - 1);
+  const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+  // Load data in parallel — includes 7-day baselines (MASTER-20, 21)
+  const [sleepEntry, bodyEntry, workoutEntries, substanceEntries, baselines] =
+    await Promise.all([
+      storageGet<SleepEntry>(dateKey(STORAGE_KEYS.LOG_SLEEP, date)),
+      storageGet<BodyEntry>(dateKey(STORAGE_KEYS.LOG_BODY, date)),
+      storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, yesterdayStr)),
+      storageGet<SubstanceEntry[]>(dateKey(STORAGE_KEYS.LOG_SUBSTANCES, date)),
+      compute7DayBaselines(date),
+    ]);
 
   // Build component inputs
   const inputs: ComponentInput[] = [];
@@ -108,7 +191,7 @@ export async function computeRecoveryScore(date: string): Promise<RecoveryScore>
     rawScore: sleepQuality != null ? scoreSleepQuality(sleepQuality) : null,
   });
 
-  // Sleep duration
+  // Sleep duration (MASTER-23: new curve)
   let sleepHours: number | null = null;
   if (sleepEntry?.bedtime && sleepEntry?.wake_time) {
     const bed = new Date(sleepEntry.bedtime).getTime();
@@ -123,23 +206,23 @@ export async function computeRecoveryScore(date: string): Promise<RecoveryScore>
     rawScore: sleepHours != null ? scoreSleepDuration(sleepHours) : null,
   });
 
-  // HRV
+  // HRV — scored against 7-day baseline (MASTER-20)
   const hrv = bodyEntry?.hrv_ms ?? null;
   inputs.push({
     name: 'HRV',
     weight: RECOVERY_WEIGHT_HRV,
-    rawScore: hrv != null ? scoreHrv(hrv) : null,
+    rawScore: hrv != null ? scoreHrv(hrv, baselines.hrvBaseline) : null,
   });
 
-  // Resting HR
+  // Resting HR — scored against 7-day baseline (MASTER-21)
   const rhr = bodyEntry?.resting_hr ?? null;
   inputs.push({
     name: 'Resting HR',
     weight: RECOVERY_WEIGHT_RESTING_HR,
-    rawScore: rhr != null ? scoreRestingHr(rhr) : null,
+    rawScore: rhr != null ? scoreRestingHr(rhr, baselines.rhrBaseline) : null,
   });
 
-  // Training load (yesterday's workouts)
+  // Training load — YESTERDAY's workouts (MASTER-19)
   const totalWorkoutMin = workoutEntries
     ? workoutEntries.reduce((sum, w) => sum + (w.duration_minutes ?? 0), 0)
     : null;
@@ -149,7 +232,7 @@ export async function computeRecoveryScore(date: string): Promise<RecoveryScore>
     rawScore: workoutEntries != null ? scoreTrainingLoad(totalWorkoutMin!) : null,
   });
 
-  // Alcohol
+  // Alcohol — step function (MASTER-18)
   const alcoholCount = substanceEntries
     ? substanceEntries.filter((e) => e.substance === 'alcohol').length
     : null;
