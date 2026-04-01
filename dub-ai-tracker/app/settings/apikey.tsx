@@ -180,7 +180,7 @@ export default function ApiKeyScreen() {
             >
               <Ionicons name="trash-outline" size={22} color={Colors.danger} />
               <View style={styles.actionInfo}>
-                <Text style={[styles.actionLabel, { color: Colors.danger }]}>Remove API Key</Text>
+                <Text style={[styles.actionLabel, { color: Colors.dangerText }]}>Remove API Key</Text>
                 <Text style={styles.actionSubtitle}>Disable AI Coach</Text>
               </View>
               <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />

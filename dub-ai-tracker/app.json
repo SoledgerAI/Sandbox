@@ -26,8 +26,7 @@
         "NSUserTrackingUsageDescription": "DUB_AI requests permission to track affiliate link interactions to improve product recommendations."
       },
       "entitlements": {
-        "com.apple.developer.healthkit": true,
-        "com.apple.developer.healthkit.background-delivery": false
+        "com.apple.developer.healthkit": true
       }
     },
     "android": {

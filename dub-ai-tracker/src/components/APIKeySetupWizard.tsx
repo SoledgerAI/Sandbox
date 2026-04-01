@@ -314,7 +314,7 @@ export function APIKeySetupWizard({ visible, onClose, onSuccess, isUpdate }: Pro
                   ) : (
                     <>
                       <Ionicons name="close-circle" size={18} color={Colors.danger} />
-                      <Text style={[styles.validationText, { color: Colors.danger }]}>
+                      <Text style={[styles.validationText, { color: Colors.dangerText }]}>
                         {formatResult.error}
                       </Text>
                     </>
@@ -367,7 +367,7 @@ export function APIKeySetupWizard({ visible, onClose, onSuccess, isUpdate }: Pro
                 <>
                   <Ionicons name="close-circle" size={64} color={Colors.danger} style={styles.screenIcon} />
                   <Text style={styles.screenTitle}>Verification Failed</Text>
-                  <Text style={[styles.screenBody, { color: Colors.danger }]}>
+                  <Text style={[styles.screenBody, { color: Colors.dangerText }]}>
                     {verifyError}
                   </Text>
                   <TouchableOpacity

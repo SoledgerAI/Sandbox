@@ -58,10 +58,11 @@ function parseNutrition(n: OffNutriments): NutritionInfo {
     fiber_g: nullIfUndefined(n.fiber_100g),
     sugar_g: nullIfUndefined(n.sugars_100g),
     added_sugar_g: null,
-    // MASTER-32: Some OFF products already report sodium in mg, not grams.
-    // If raw value > 50, it's likely already in mg; otherwise convert g -> mg.
+    // MASTER-32: OFF reports sodium in grams or milligrams.
+    // Per-100g sodium in grams is almost never > 5g for any food.
+    // If value > 5, assume already in mg. Otherwise convert g -> mg.
     sodium_mg: n.sodium_100g != null
-      ? (n.sodium_100g > 50 ? n.sodium_100g : n.sodium_100g * 1000)
+      ? (n.sodium_100g > 5 ? n.sodium_100g : n.sodium_100g * 1000)
       : null,
     cholesterol_mg: nullIfUndefined(n.cholesterol_100g),
     saturated_fat_g: nullIfUndefined(n['saturated-fat_100g']),

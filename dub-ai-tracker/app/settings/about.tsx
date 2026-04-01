@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.danger,
   },
   deleteInfo: { flex: 1 },
-  deleteLabel: { color: Colors.danger, fontSize: 15, fontWeight: '600' },
+  deleteLabel: { color: Colors.dangerText, fontSize: 15, fontWeight: '600' },
   deleteDesc: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
   auditNote: {
     color: Colors.secondaryText,

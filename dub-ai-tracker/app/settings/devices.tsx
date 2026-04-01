@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   },
   disconnectButton: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.danger },
   connectButtonText: { color: Colors.primaryBackground, fontSize: 13, fontWeight: '600' },
-  disconnectButtonText: { color: Colors.danger },
+  disconnectButtonText: { color: Colors.dangerText },
   infoBox: {
     flexDirection: 'row',
     backgroundColor: Colors.inputBackground,

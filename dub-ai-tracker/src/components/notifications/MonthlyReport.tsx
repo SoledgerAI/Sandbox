@@ -276,7 +276,7 @@ function ComparisonBadge({
   if (diff === 0) return null;
 
   const isPositive = higherIsBetter ? diff > 0 : diff < 0;
-  const color = isPositive ? Colors.successText : Colors.danger;
+  const color = isPositive ? Colors.successText : Colors.dangerText;
 
   return (
     <Text style={[styles.comparisonBadge, { color }]}>

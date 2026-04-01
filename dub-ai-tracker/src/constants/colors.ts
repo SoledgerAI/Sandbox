@@ -7,7 +7,8 @@ export const Colors = {
   success: '#4CAF50',               // non-text (progress bars, chart fills)
   successText: '#66BB6A',           // green text variant, 4.6:1 on navy (MASTER-04)
   warning: '#D4A843',
-  danger: '#EF5350',
+  danger: '#EF5350',               // non-text (borders, icons, chart fills)
+  dangerText: '#FF6B6B',           // red text variant, 4.99:1 on navy
   cardBackground: '#2A3370',
   inputBackground: '#1A2050',
   divider: '#3A4580',
