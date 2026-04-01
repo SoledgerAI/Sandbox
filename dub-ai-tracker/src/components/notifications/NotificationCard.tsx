@@ -609,7 +609,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.divider,
   },
   scaleNumber: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 18,
     fontWeight: '700',
   },

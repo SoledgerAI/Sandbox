@@ -95,7 +95,7 @@ export default function DashboardScreen() {
           <Text style={{ color: Colors.secondaryText, fontSize: 14, textAlign: 'center' }}>
             Set up your profile for accurate TDEE
           </Text>
-          <Text style={{ color: Colors.accent, fontSize: 13, fontWeight: '600', marginTop: 6 }}>
+          <Text style={{ color: Colors.accentText, fontSize: 13, fontWeight: '600', marginTop: 6 }}>
             Go to Profile
           </Text>
         </TouchableOpacity>

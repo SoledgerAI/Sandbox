@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 10,
@@ -138,6 +138,6 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chipTextEnabled: {
-    color: Colors.accent,
+    color: Colors.accentText,
   },
 });

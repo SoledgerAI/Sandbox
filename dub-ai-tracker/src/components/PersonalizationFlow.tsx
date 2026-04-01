@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   appTitle: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 24,
@@ -396,7 +396,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   cardLabelSelected: {
-    color: Colors.accent,
+    color: Colors.accentText,
   },
   checkIcon: {
     marginLeft: 'auto',

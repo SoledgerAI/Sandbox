@@ -740,7 +740,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
   },
   pickerOptionTextSelected: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontWeight: '600',
   },
   zipRow: {
@@ -784,7 +784,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   lockNowText: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 15,
     fontWeight: '600',
   },

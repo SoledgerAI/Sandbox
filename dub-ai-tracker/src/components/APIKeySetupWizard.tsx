@@ -307,7 +307,7 @@ export function APIKeySetupWizard({ visible, onClose, onSuccess, isUpdate }: Pro
                   ) : formatResult.valid ? (
                     <>
                       <Ionicons name="checkmark-circle" size={18} color={Colors.success} />
-                      <Text style={[styles.validationText, { color: Colors.success }]}>
+                      <Text style={[styles.validationText, { color: Colors.successText }]}>
                         Format looks good
                       </Text>
                     </>
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   bullet: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 15,
     lineHeight: 22,
   },
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.accent,
   },
   pasteButtonText: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   linkButtonText: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 15,
     fontWeight: '500',
   },

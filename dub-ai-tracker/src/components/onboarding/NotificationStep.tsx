@@ -101,7 +101,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 6,
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   previewText: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,

@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
   deviceInfo: { flexDirection: 'row', alignItems: 'center', gap: 12, flex: 1 },
   deviceTextContainer: { flex: 1 },
   deviceName: { color: Colors.text, fontSize: 16, fontWeight: '600' },
-  connectedText: { color: Colors.success, fontSize: 12, marginTop: 2 },
+  connectedText: { color: Colors.successText, fontSize: 12, marginTop: 2 },
   notConnected: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
   comingSoon: { color: Colors.warning, fontSize: 12, marginTop: 2, fontStyle: 'italic' },
   buttonRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },

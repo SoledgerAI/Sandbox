@@ -400,7 +400,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.accent,
+    color: Colors.accentText,
     textAlign: 'center',
     marginBottom: 12,
   },
@@ -419,6 +419,6 @@ const styles = StyleSheet.create({
   dismissText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.accent,
+    color: Colors.accentText,
   },
 });

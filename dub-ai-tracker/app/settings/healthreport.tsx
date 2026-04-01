@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.accent,
+    color: Colors.accentText,
   },
   selectActions: {
     flexDirection: 'row',
@@ -307,7 +307,7 @@ const styles = StyleSheet.create({
   },
   selectActionText: {
     fontSize: 13,
-    color: Colors.accent,
+    color: Colors.accentText,
   },
   selectDivider: {
     color: Colors.divider,
@@ -379,7 +379,7 @@ const styles = StyleSheet.create({
   privacyTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.accent,
+    color: Colors.accentText,
     marginBottom: 8,
   },
   privacyText: {

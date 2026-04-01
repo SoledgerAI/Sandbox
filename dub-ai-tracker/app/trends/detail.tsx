@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 16,
     fontWeight: 'bold',
     fontVariant: ['tabular-nums'],

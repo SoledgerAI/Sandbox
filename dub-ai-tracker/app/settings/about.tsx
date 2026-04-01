@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 24,
   },
-  appName: { color: Colors.accent, fontSize: 22, fontWeight: 'bold' },
+  appName: { color: Colors.accentText, fontSize: 22, fontWeight: 'bold' },
   appVersion: { color: Colors.secondaryText, fontSize: 14, marginTop: 4 },
   appDesc: {
     color: Colors.secondaryText,

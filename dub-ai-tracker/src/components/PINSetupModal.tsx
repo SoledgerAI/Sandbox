@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     padding: 8,
   },
   cancelText: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 16,
   },
   stepText: {

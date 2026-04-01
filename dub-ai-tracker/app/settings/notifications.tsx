@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   previewTitle: { color: Colors.text, fontSize: 14, fontWeight: '500', marginBottom: 4 },
-  previewCadence: { color: Colors.accent, fontSize: 16, fontWeight: '600', marginBottom: 12 },
+  previewCadence: { color: Colors.accentText, fontSize: 16, fontWeight: '600', marginBottom: 12 },
   previewItems: { gap: 6 },
   previewItem: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   previewDot: {
@@ -292,5 +292,5 @@ const styles = StyleSheet.create({
     borderColor: Colors.divider,
     borderStyle: 'dashed',
   },
-  eodButtonText: { color: Colors.accent, fontSize: 14, fontWeight: '600', flex: 1 },
+  eodButtonText: { color: Colors.accentText, fontSize: 14, fontWeight: '600', flex: 1 },
 });

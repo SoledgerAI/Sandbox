@@ -48,7 +48,7 @@ export default function WeeklyReport({ weekStr }: WeeklyReportProps) {
   }
 
   const adherenceColor =
-    summary.adherence_pct >= 80 ? Colors.success :
+    summary.adherence_pct >= 80 ? Colors.successText :
     summary.adherence_pct >= 50 ? Colors.warning :
     Colors.danger;
 
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.accent,
+    color: Colors.accentText,
     marginBottom: 12,
   },
   adherenceRow: {

@@ -208,7 +208,7 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   sectionTitle: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 12,
@@ -286,7 +286,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   unitTextSelected: {
-    color: Colors.accent,
+    color: Colors.accentText,
   },
   footer: {
     marginTop: 8,

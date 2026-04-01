@@ -293,10 +293,10 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 8,
   },
-  expandText: { color: Colors.accent, fontSize: 13, fontWeight: '500' },
+  expandText: { color: Colors.accentText, fontSize: 13, fontWeight: '500' },
   section: { marginTop: 12 },
   sectionTitle: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 8,
@@ -328,7 +328,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   stepNumber: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 13,
     fontWeight: '600',
     width: 20,

@@ -37,7 +37,7 @@ export function CalorieSummary({
   calorieTarget,
 }: CalorieSummaryProps) {
   const remainingColor =
-    remaining >= 0 ? Colors.success : Colors.danger;
+    remaining >= 0 ? Colors.successText : Colors.danger;
 
   const progressPct = calorieTarget > 0
     ? Math.min((consumed / calorieTarget) * 100, 100)
@@ -53,7 +53,7 @@ export function CalorieSummary({
         <View style={styles.column}>
           <CalorieRow label="BMR" value={bmr} />
           <CalorieRow label="TDEE" value={tdee} />
-          <CalorieRow label="Target" value={calorieTarget} color={Colors.accent} />
+          <CalorieRow label="Target" value={calorieTarget} color={Colors.accentText} />
         </View>
         <View style={styles.divider} />
         <View style={styles.column}>

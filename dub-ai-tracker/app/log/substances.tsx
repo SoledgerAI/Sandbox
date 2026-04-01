@@ -113,7 +113,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   modeTabTextActive: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontWeight: '700',
   },
 });

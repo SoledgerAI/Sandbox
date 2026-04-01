@@ -299,7 +299,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   tableToggleText: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 11,
   },
   tableRow: {

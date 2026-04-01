@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   avgValue: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 28,
     fontWeight: 'bold',
     marginTop: 4,
@@ -237,11 +237,11 @@ const styles = StyleSheet.create({
   },
   moodLabel: {
     color: Colors.secondaryText,
-    fontSize: 10,
+    fontSize: 12,
     marginTop: 4,
   },
   moodLabelActive: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontWeight: '600',
   },
   noteInput: {

@@ -276,7 +276,7 @@ function ComparisonBadge({
   if (diff === 0) return null;
 
   const isPositive = higherIsBetter ? diff > 0 : diff < 0;
-  const color = isPositive ? Colors.success : Colors.danger;
+  const color = isPositive ? Colors.successText : Colors.danger;
 
   return (
     <Text style={[styles.comparisonBadge, { color }]}>
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.accent,
+    color: Colors.accentText,
     marginBottom: 12,
   },
   row: {
@@ -372,6 +372,6 @@ const styles = StyleSheet.create({
   prValue: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.accent,
+    color: Colors.accentText,
   },
 });

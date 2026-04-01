@@ -44,9 +44,16 @@ export function ScoreRing({
     strokeDashoffset: circumference * (1 - progress.value),
   }));
 
-  const scoreColor =
+  // Ring stroke uses non-text color, text label uses text-safe variant
+  const ringColor =
     clampedScore >= 80
       ? Colors.success
+      : clampedScore >= 50
+        ? Colors.warning
+        : Colors.danger;
+  const scoreTextColor =
+    clampedScore >= 80
+      ? Colors.successText
       : clampedScore >= 50
         ? Colors.warning
         : Colors.danger;
@@ -70,7 +77,7 @@ export function ScoreRing({
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={scoreColor}
+          stroke={ringColor}
           strokeWidth={strokeWidth}
           fill="transparent"
           strokeDasharray={circumference}
@@ -80,7 +87,7 @@ export function ScoreRing({
         />
       </Svg>
       <View style={[styles.labelContainer, { width: size, height: size }]}>
-        <Text style={[styles.scoreText, { color: scoreColor }]}>
+        <Text style={[styles.scoreText, { color: scoreTextColor }]}>
           {Math.round(clampedScore)}
         </Text>
         <Text style={styles.labelText}>{label}</Text>

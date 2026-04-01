@@ -497,7 +497,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   yoyText: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 11,
   },
   yoyTextMuted: {
@@ -517,7 +517,7 @@ const styles = StyleSheet.create({
     paddingBottom: 8,
   },
   sectionTitle: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 16,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -542,7 +542,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   cardValue: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 16,
     fontWeight: 'bold',
     fontVariant: ['tabular-nums'],

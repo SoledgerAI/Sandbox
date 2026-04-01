@@ -104,6 +104,7 @@ export function BristolScale() {
 
       {/* Type selector */}
       <Text style={styles.sectionTitle}>Bristol Stool Scale</Text>
+      <View accessibilityLabel="Bristol Stool Scale selector. Choose type 1 through 7." accessibilityRole="radiogroup">
       {BRISTOL_TYPES.map((bt) => (
         <TouchableOpacity
           key={bt.type}
@@ -113,6 +114,9 @@ export function BristolScale() {
           ]}
           onPress={() => setSelectedType(bt.type)}
           activeOpacity={0.7}
+          accessibilityLabel={`Type ${bt.type}: ${bt.description}. ${bt.indicator} indicator.`}
+          accessibilityRole="radio"
+          accessibilityState={{ selected: selectedType === bt.type }}
         >
           <View style={[styles.typeNum, { backgroundColor: bt.color }]}>
             <Text style={styles.typeNumText}>{bt.type}</Text>
@@ -123,6 +127,7 @@ export function BristolScale() {
           </View>
         </TouchableOpacity>
       ))}
+      </View>
 
       {/* Notes */}
       <Text style={styles.sectionTitle}>Notes (optional)</Text>

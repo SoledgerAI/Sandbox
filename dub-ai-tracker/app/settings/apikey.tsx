@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     alignItems: 'flex-start',
   },
-  securityText: { color: Colors.success, fontSize: 13, lineHeight: 18, flex: 1 },
+  securityText: { color: Colors.successText, fontSize: 13, lineHeight: 18, flex: 1 },
   keyCard: {
     backgroundColor: Colors.cardBackground,
     borderRadius: 12,

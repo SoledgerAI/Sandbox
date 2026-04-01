@@ -311,7 +311,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   appName: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 32,
     fontWeight: 'bold',
     marginBottom: 48,
@@ -382,7 +382,7 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   switchText: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 15,
   },
 });

@@ -82,7 +82,7 @@ const styles = StyleSheet.create({
     color: Colors.primaryBackground,
   },
   secondaryText: {
-    color: Colors.accent,
+    color: Colors.accentText,
   },
   ghostText: {
     color: Colors.secondaryText,

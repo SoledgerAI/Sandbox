@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   calorieValue: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 36,
     fontWeight: 'bold',
     fontVariant: ['tabular-nums'],
@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   intensityRowActive: { borderColor: Colors.accent },
   intensityInfo: { flex: 1 },
   intensityLabel: { color: Colors.text, fontSize: 15, fontWeight: '600' },
-  intensityLabelActive: { color: Colors.accent },
+  intensityLabelActive: { color: Colors.accentText },
   intensityDesc: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
   intensityMet: { color: Colors.secondaryText, fontSize: 13, marginRight: 8 },
   logBtn: {
@@ -281,6 +281,6 @@ const styles = StyleSheet.create({
   },
   entryInfo: { flex: 1 },
   entryDuration: { color: Colors.text, fontSize: 14, fontWeight: '600' },
-  entryCal: { color: Colors.accent, fontSize: 13, marginTop: 2 },
+  entryCal: { color: Colors.accentText, fontSize: 13, marginTop: 2 },
   entryTime: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
 });

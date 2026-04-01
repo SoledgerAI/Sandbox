@@ -52,7 +52,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   title: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 14,
     fontWeight: '600',
     textTransform: 'uppercase',
@@ -68,7 +68,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   deviceText: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 10,
     fontWeight: '500',
   },

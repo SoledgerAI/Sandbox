@@ -75,7 +75,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   sectionTitle: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 18,
     fontWeight: '600',
     marginBottom: 6,
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tierNameSelected: {
-    color: Colors.accent,
+    color: Colors.accentText,
   },
   tierLabel: {
     color: Colors.secondaryText,

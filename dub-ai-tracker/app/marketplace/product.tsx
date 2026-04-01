@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
   productName: { color: Colors.text, fontSize: 22, fontWeight: '700' },
   description: { color: Colors.secondaryText, fontSize: 15, lineHeight: 22 },
-  price: { color: Colors.accent, fontSize: 24, fontWeight: '700' },
+  price: { color: Colors.accentText, fontSize: 24, fontWeight: '700' },
   partnerRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
   partnerText: { color: Colors.secondaryText, fontSize: 13 },
   triggerBtn: {

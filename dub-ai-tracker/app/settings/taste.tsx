@@ -168,7 +168,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   summaryTitle: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 4,

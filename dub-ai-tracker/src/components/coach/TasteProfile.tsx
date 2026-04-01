@@ -178,7 +178,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   chipTextSelected: {
-    color: Colors.accent,
+    color: Colors.accentText,
   },
   inputRow: {
     flexDirection: 'row',

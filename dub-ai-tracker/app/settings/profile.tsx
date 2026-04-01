@@ -430,7 +430,7 @@ const styles = StyleSheet.create({
   },
   optionSelected: { borderColor: Colors.accent, backgroundColor: Colors.cardBackground },
   optionText: { color: Colors.secondaryText, fontSize: 13, fontWeight: '500' },
-  optionTextSelected: { color: Colors.accent },
+  optionTextSelected: { color: Colors.accentText },
   activityOption: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -444,7 +444,7 @@ const styles = StyleSheet.create({
   },
   activitySelected: { borderColor: Colors.accent, backgroundColor: Colors.cardBackground },
   activityText: { color: Colors.secondaryText, fontSize: 14 },
-  activityTextSelected: { color: Colors.accent, fontWeight: '600' },
+  activityTextSelected: { color: Colors.accentText, fontWeight: '600' },
   switchRow: {
     flexDirection: 'row',
     alignItems: 'center',

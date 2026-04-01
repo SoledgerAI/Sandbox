@@ -124,7 +124,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   value: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 15,
     fontWeight: '600',
   },

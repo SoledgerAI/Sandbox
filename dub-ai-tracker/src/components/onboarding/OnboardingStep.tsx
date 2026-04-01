@@ -39,7 +39,7 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   title: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 26,
     fontWeight: '700',
     marginBottom: 8,

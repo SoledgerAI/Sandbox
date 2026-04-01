@@ -604,7 +604,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   totalValue: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 22,
     fontWeight: 'bold',
     fontVariant: ['tabular-nums'],
@@ -637,7 +637,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   templateBtnText: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 13,
     fontWeight: '500',
   },

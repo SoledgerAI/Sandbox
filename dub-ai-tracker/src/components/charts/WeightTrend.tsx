@@ -146,6 +146,11 @@ export function WeightTrend({ width = 340, height = 200 }: WeightTrendProps) {
         </View>
       </View>
 
+      <View
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={`Weight trend chart. Current: ${weights[weights.length - 1].toFixed(1)} ${unitLabel}. ${movingAvg[movingAvg.length - 1] != null ? `7-day average: ${movingAvg[movingAvg.length - 1]!.toFixed(1)} ${unitLabel}.` : ''} ${dataPoints.length} data points.`}
+      >
       <Svg width={width} height={height}>
         {/* Grid lines */}
         {yTicks.map((tick, i) => (
@@ -224,6 +229,7 @@ export function WeightTrend({ width = 340, height = 200 }: WeightTrendProps) {
           />
         )}
       </Svg>
+      </View>
 
       {/* Current stats */}
       <View style={styles.statsRow}>
@@ -249,7 +255,7 @@ export function WeightTrend({ width = 340, height = 200 }: WeightTrendProps) {
                 {
                   color:
                     weights[weights.length - 1] < weights[0]
-                      ? Colors.success
+                      ? Colors.successText
                       : weights[weights.length - 1] > weights[0]
                         ? Colors.danger
                         : Colors.text,
@@ -311,7 +317,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statValue: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 18,
     fontWeight: 'bold',
     fontVariant: ['tabular-nums'],

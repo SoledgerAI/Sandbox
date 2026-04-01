@@ -184,7 +184,7 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   optionLabelSelected: {
-    color: Colors.accent,
+    color: Colors.accentText,
   },
   optionDescription: {
     color: Colors.secondaryText,

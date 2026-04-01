@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   backToCategoriesText: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 14,
     fontWeight: '600',
   },
@@ -374,7 +374,7 @@ const styles = StyleSheet.create({
     borderStyle: 'dashed',
   },
   applyCtaInfo: { flex: 1 },
-  applyCtaTitle: { color: Colors.accent, fontSize: 15, fontWeight: '600' },
+  applyCtaTitle: { color: Colors.accentText, fontSize: 15, fontWeight: '600' },
   applyCtaDesc: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
   affiliateBanner: {
     flexDirection: 'row',

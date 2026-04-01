@@ -44,7 +44,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   streakNumber: {
-    color: Colors.accent,
+    color: Colors.accentText,
     fontSize: 42,
     fontWeight: 'bold',
     fontVariant: ['tabular-nums'],

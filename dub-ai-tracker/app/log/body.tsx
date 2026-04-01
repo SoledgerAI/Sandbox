@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   tabTextActive: {
-    color: Colors.accent,
+    color: Colors.accentText,
   },
   contentScroll: {
     flex: 1,

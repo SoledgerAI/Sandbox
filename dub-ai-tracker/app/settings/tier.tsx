@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   },
   tierNameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   tierName: { color: Colors.text, fontSize: 17, fontWeight: '700' },
-  tierNameSelected: { color: Colors.accent },
+  tierNameSelected: { color: Colors.accentText },
   tierLabel: {
     color: Colors.secondaryText,
     fontSize: 12,
@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   currentBadge: {
-    color: Colors.success,
+    color: Colors.successText,
     fontSize: 12,
     fontWeight: '600',
   },
