@@ -16,6 +16,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { useTrendsData, TrendDataSet } from '../../src/hooks/useTrendsData';
+import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { useStorage } from '../../src/hooks/useStorage';
 import { STORAGE_KEYS } from '../../src/utils/storage';
 import { LineChart } from '../../src/components/charts/LineChart';
@@ -175,7 +176,23 @@ export default function TrendsDetailScreen() {
   const chartWidth = screenWidth - 32;
   const chartHeight = 280;
 
-  const meta = CHART_META[chartId];
+  // MASTER-54: Load user targets for goal reference lines
+  const { calorieTarget } = useDailySummary();
+  const proteinTarget = calorieTarget > 0 ? Math.round(calorieTarget * 0.3 / 4) : 0;
+
+  const rawMeta = CHART_META[chartId];
+  // Inject dynamic goal lines for calorie and protein charts
+  const meta = useMemo(() => {
+    if (!rawMeta) return rawMeta;
+    if (chartId === 'calories' && calorieTarget > 0) {
+      return { ...rawMeta, thresholdValue: calorieTarget, thresholdLabel: `Target: ${calorieTarget} cal` };
+    }
+    if (chartId === 'protein' && proteinTarget > 0) {
+      return { ...rawMeta, thresholdValue: proteinTarget, thresholdLabel: `Target: ${proteinTarget}g` };
+    }
+    return rawMeta;
+  }, [rawMeta, chartId, calorieTarget, proteinTarget]);
+
   if (!meta) {
     return (
       <View style={styles.container}>

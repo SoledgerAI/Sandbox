@@ -7,13 +7,12 @@ import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { ScoreRing } from '../../src/components/charts/ScoreRing';
-import { SparkLine } from '../../src/components/charts/SparkLine';
 import { CalorieSummary } from '../../src/components/dashboard/CalorieSummary';
 import { StreakCounter } from '../../src/components/dashboard/StreakCounter';
-import { DashboardCard } from '../../src/components/dashboard/DashboardCard';
 import { ALL_DEFAULT_TAGS } from '../../src/constants/tags';
 import { BodyCard } from '../../src/components/dashboard/BodyCard';
 import { RecoveryCard } from '../../src/components/dashboard/RecoveryCard';
+import { TagCardWithData } from '../../src/components/dashboard/TagCardWithData';
 import { isTagVisibleForUser } from '../../src/services/tagFilterService';
 import { getUserSex } from '../../src/services/onboardingService';
 import type { BiologicalSex } from '../../src/types/profile';
@@ -31,6 +30,7 @@ export default function DashboardScreen() {
     streak,
     enabledTags,
     tagOrder,
+    dailyScore,
   } = useDailySummary();
 
   const [userSex, setUserSex] = useState<BiologicalSex | null>(null);
@@ -47,11 +47,8 @@ export default function DashboardScreen() {
     );
   }
 
-  // Compute a simple daily score: percentage of calorie target consumed, capped at 100
-  const dailyScore =
-    calorieTarget > 0
-      ? Math.min(Math.round((summary.calories_consumed / calorieTarget) * 100), 100)
-      : 0;
+  // MASTER-48: Multi-factor daily score from tier-weighted computation
+  const scoreValue = dailyScore.total;
 
   // Order tags by configured order, falling back to enabled order
   const orderedTags = tagOrder.length > 0
@@ -72,7 +69,7 @@ export default function DashboardScreen() {
 
       {/* Score Ring */}
       <View style={styles.ringContainer}>
-        <ScoreRing score={dailyScore} />
+        <ScoreRing score={scoreValue} />
       </View>
 
       {/* Calorie Summary */}
@@ -110,18 +107,13 @@ export default function DashboardScreen() {
       {/* Recovery Score */}
       <RecoveryCard />
 
-      {/* Tag Cards */}
+      {/* MASTER-53: Tag Cards with real data, MASTER-56: lazy rendered */}
       {orderedTags.filter((tagId) => isTagVisibleForUser(tagId, userSex)).map((tagId) => {
         const tagDef = ALL_DEFAULT_TAGS.find((t) => t.id === tagId);
         if (tagDef == null) return null;
 
         return (
-          <DashboardCard key={tagId} title={tagDef.name}>
-            <View style={styles.tagCardContent}>
-              <Text style={styles.tagDescription}>{tagDef.description}</Text>
-              <SparkLine data={[]} />
-            </View>
-          </DashboardCard>
+          <TagCardWithData key={tagId} tagId={tagId} tagDef={tagDef} />
         );
       })}
     </ScrollView>
@@ -160,16 +152,5 @@ const styles = StyleSheet.create({
   ringContainer: {
     alignItems: 'center',
     marginBottom: 24,
-  },
-  tagCardContent: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  tagDescription: {
-    color: Colors.secondaryText,
-    fontSize: 13,
-    flex: 1,
-    marginRight: 12,
   },
 });

@@ -17,9 +17,84 @@ import { NotificationCard, SummaryCard } from './NotificationCard';
 import { sendMessage, hasApiKey } from '../../services/anthropic';
 import { buildCoachContext } from '../../ai/context_builder';
 import { buildSystemPrompt } from '../../ai/coach_system_prompt';
+import { storageGet, STORAGE_KEYS, dateKey } from '../../utils/storage';
+import type { FoodEntry, WaterEntry } from '../../types';
+import type { WorkoutEntry } from '../../types/workout';
+import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge, lbsToKg, inchesToCm } from '../../utils/calories';
+import type { UserProfile } from '../../types/profile';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
+
+// MASTER-58: Generate a template-based EOD summary without AI
+async function generateTemplateSummary(): Promise<string> {
+  const today = formatDate(new Date());
+
+  const [foods, waters, workouts, profile] = await Promise.all([
+    storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, today)),
+    storageGet<WaterEntry[]>(dateKey(STORAGE_KEYS.LOG_WATER, today)),
+    storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, today)),
+    storageGet<Partial<UserProfile>>(STORAGE_KEYS.PROFILE),
+  ]);
+
+  const foodArr = foods ?? [];
+  const waterArr = waters ?? [];
+  const workoutArr = workouts ?? [];
+
+  const calories = foodArr.reduce((s, f) => s + (f.computed_nutrition?.calories ?? 0), 0);
+  const protein = foodArr.reduce((s, f) => s + (f.computed_nutrition?.protein_g ?? 0), 0);
+  const waterOz = waterArr.reduce((s, w) => s + w.amount_oz, 0);
+  const activeMins = workoutArr.reduce((s, w) => s + (w.duration_minutes ?? 0), 0);
+
+  // Calculate calorie target if profile complete
+  let calorieTarget = 0;
+  if (profile?.weight_lbs && profile?.height_inches && profile?.dob && profile?.sex) {
+    const age = computeAge(profile.dob);
+    const bmr = calculateBmr({
+      weightKg: lbsToKg(profile.weight_lbs),
+      heightCm: inchesToCm(profile.height_inches),
+      ageYears: age,
+      sex: profile.sex,
+    });
+    const tdee = calculateTdee(bmr, profile.activity_level ?? 'lightly_active');
+    calorieTarget = calculateCalorieTarget({
+      tdee,
+      goalDirection: profile.goal?.direction ?? 'MAINTAIN',
+      sex: profile.sex,
+      rateLbsPerWeek: profile.goal?.rate_lbs_per_week ?? undefined,
+      surplusCalories: profile.goal?.surplus_calories ?? undefined,
+    });
+  }
+
+  const parts: string[] = [];
+
+  if (calories > 0) {
+    const calStr = `You logged ${Math.round(calories).toLocaleString()} cal`;
+    if (calorieTarget > 0) {
+      const pct = Math.round((calories / calorieTarget) * 100);
+      parts.push(`${calStr} (${pct}% of ${Math.round(calorieTarget)} target).`);
+    } else {
+      parts.push(`${calStr} today.`);
+    }
+  } else {
+    parts.push('No food was logged today.');
+  }
+
+  if (protein > 0) parts.push(`Protein: ${Math.round(protein)}g.`);
+  if (waterOz > 0) parts.push(`Water: ${waterOz} oz.`);
+  if (activeMins > 0) parts.push(`Active: ${activeMins} min across ${workoutArr.length} workout${workoutArr.length !== 1 ? 's' : ''}.`);
+
+  // Encouraging closer
+  if (calories > 0 && waterOz > 0 && activeMins > 0) {
+    parts.push('Solid day — you hit nutrition, hydration, and movement. Keep it up!');
+  } else if (calories > 0) {
+    parts.push('Good logging today. Try to track water and activity too for a fuller picture.');
+  } else {
+    parts.push('Tomorrow is a fresh start. Even logging one meal helps build the habit.');
+  }
+
+  return parts.join(' ');
+}
 
 interface EODQuestionnaireProps {
   unloggedTags: string[];
@@ -108,8 +183,18 @@ export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh }: EODQues
 
     async function generateSummary() {
       const apiKeyExists = await hasApiKey();
+
       if (!apiKeyExists) {
-        if (!cancelled) setSummary('Add your API key in Settings to get AI-generated daily summaries.');
+        // MASTER-58: Template-based summary (no API needed)
+        if (!cancelled) setSummaryLoading(true);
+        try {
+          const templateSummary = await generateTemplateSummary();
+          if (!cancelled) setSummary(templateSummary);
+        } catch {
+          if (!cancelled) setSummary('Could not load today\'s data for summary.');
+        } finally {
+          if (!cancelled) setSummaryLoading(false);
+        }
         return;
       }
 

@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { storageGet, STORAGE_KEYS, dateKey } from '../utils/storage';
 import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge, lbsToKg, inchesToCm } from '../utils/calories';
+import { computeDailyScore, DailyScoreBreakdown } from '../utils/dailyScore';
 import type { UserProfile, StreakData, EngagementTier } from '../types/profile';
 import type { DailySummary, FoodEntry, WaterEntry, CaffeineEntry } from '../types';
 import type { WorkoutEntry } from '../types/workout';
@@ -36,6 +37,7 @@ interface DailySummaryResult {
   enabledTags: string[];
   tagOrder: string[];
   tier: EngagementTier | null;
+  dailyScore: DailyScoreBreakdown;
   refresh: () => Promise<void>;
 }
 
@@ -81,6 +83,11 @@ export function useDailySummary(): DailySummaryResult {
   const [tdee, setTdee] = useState(0);
   const [calorieTarget, setCalorieTarget] = useState(0);
   const [profileComplete, setProfileComplete] = useState(false);
+  const [dailyScore, setDailyScore] = useState<DailyScoreBreakdown>({
+    total: 0, calorieAccuracy: 0, macroAccuracy: 0, tagCompletion: 0,
+    consistency: 0, trendAlignment: 0, loggingConsistency: 0,
+    weeklyTrend: 0, weightStability: 0, caloricTdeeAlignment: 0,
+  });
 
   const load = useCallback(async () => {
     try {
@@ -183,7 +190,79 @@ export function useDailySummary(): DailySummaryResult {
       const caloriesNet = caloriesConsumed - caloriesBurned;
       const caloriesRemaining = computedTarget - caloriesConsumed + caloriesBurned;
 
-      setSummary({
+      // Count tags logged today: check which enabled tags have data
+      const tagLogKeys = (tags ?? []).map((tagId: string) => {
+        const logKeyMap: Record<string, string> = {
+          'nutrition.food': STORAGE_KEYS.LOG_FOOD,
+          'hydration.water': STORAGE_KEYS.LOG_WATER,
+          'fitness.workout': STORAGE_KEYS.LOG_WORKOUT,
+          'strength.training': STORAGE_KEYS.LOG_STRENGTH,
+          'body.measurements': STORAGE_KEYS.LOG_BODY,
+          'sleep.tracking': STORAGE_KEYS.LOG_SLEEP,
+          'recovery.score': STORAGE_KEYS.RECOVERY,
+          'supplements.daily': STORAGE_KEYS.LOG_SUPPLEMENTS,
+          'health.markers': STORAGE_KEYS.LOG_BLOODWORK,
+          'mental.wellness': STORAGE_KEYS.LOG_MOOD,
+          'substances.tracking': STORAGE_KEYS.LOG_SUBSTANCES,
+          'sexual.activity': STORAGE_KEYS.LOG_SEXUAL,
+          'digestive.health': STORAGE_KEYS.LOG_DIGESTIVE,
+          'personal.care': STORAGE_KEYS.LOG_PERSONALCARE,
+          'womens.health': STORAGE_KEYS.LOG_CYCLE,
+          'injury.pain': STORAGE_KEYS.LOG_INJURY,
+          'custom.tag': STORAGE_KEYS.LOG_CUSTOM,
+        };
+        return { tagId, storageKey: logKeyMap[tagId] };
+      });
+
+      let tagsLoggedCount = 0;
+      // Food and water already loaded, count them directly
+      if (foods.length > 0) tagsLoggedCount++;
+      if (waters.length > 0) tagsLoggedCount++;
+      if ((workoutEntries ?? []).length > 0) tagsLoggedCount++;
+      // For other tags, quick-check via storage
+      for (const { tagId, storageKey } of tagLogKeys) {
+        if (!storageKey) continue;
+        if (tagId === 'nutrition.food' || tagId === 'hydration.water' || tagId === 'fitness.workout') continue;
+        const val = await storageGet(dateKey(storageKey, today));
+        if (val != null && (Array.isArray(val) ? val.length > 0 : true)) {
+          tagsLoggedCount++;
+        }
+      }
+
+      // Consistency: count days in last 7 that have any food log
+      let daysLoggedLast7 = 0;
+      for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const dayFood = await storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, ds));
+        if (dayFood && dayFood.length > 0) daysLoggedLast7++;
+      }
+
+      // 5-day calorie average for trend alignment
+      let fiveDayCalAvg: number | null = null;
+      {
+        const cals: number[] = [];
+        for (let i = 1; i <= 5; i++) {
+          const d = new Date();
+          d.setDate(d.getDate() - i);
+          const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          const dayFood = await storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, ds));
+          if (dayFood && dayFood.length > 0) {
+            cals.push(dayFood.reduce((s, f) => s + (f.computed_nutrition?.calories ?? 0), 0));
+          }
+        }
+        if (cals.length >= 3) {
+          fiveDayCalAvg = cals.reduce((a, b) => a + b, 0) / cals.length;
+        }
+      }
+
+      // Macro targets (approximate from calorie target using standard splits)
+      const proteinTarget = computedTarget > 0 ? computedTarget * 0.3 / 4 : 0;
+      const carbsTarget = computedTarget > 0 ? computedTarget * 0.4 / 4 : 0;
+      const fatTarget = computedTarget > 0 ? computedTarget * 0.3 / 9 : 0;
+
+      const todaySummary: DailySummary = {
         date: today,
         calories_consumed: caloriesConsumed,
         calories_burned: caloriesBurned,
@@ -204,7 +283,26 @@ export function useDailySummary(): DailySummaryResult {
         weight_lbs: p?.weight_lbs ?? null,
         tags_logged: [],
         recovery_score: null,
+      };
+
+      setSummary(todaySummary);
+
+      // MASTER-48: Compute multi-factor daily score
+      const score = computeDailyScore(t, {
+        summary: todaySummary,
+        calorieTarget: computedTarget,
+        tdee: computedTdee,
+        proteinTarget,
+        carbsTarget,
+        fatTarget,
+        enabledTagCount: (tags ?? []).length,
+        tagsLoggedToday: tagsLoggedCount,
+        daysLoggedLast7,
+        fiveDayCalorieAvg: fiveDayCalAvg,
+        currentWeight: p?.weight_lbs ?? null,
+        goalWeight: p?.goal?.target_weight ?? null,
       });
+      setDailyScore(score);
     } finally {
       setLoading(false);
     }
@@ -237,6 +335,7 @@ export function useDailySummary(): DailySummaryResult {
     enabledTags,
     tagOrder,
     tier,
+    dailyScore,
     refresh: load,
   };
 }

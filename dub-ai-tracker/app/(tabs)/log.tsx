@@ -1,8 +1,7 @@
-// Log tab -- quick logging hub with food list, favorites, templates
+// Log tab -- quick logging hub with 3-zone hierarchy
 // Phase 6: Food Logging -- Core
-// Phase 10: Added sleep, mood, gratitude, meditation, stress, therapy entry points
-// Phase 11: Added workout and strength entry points
-// Phase 13: Added supplements, personal care, sexual, cycle, digestive, injury, bloodwork, custom
+// MASTER-13: Restructured from flat 20-button grid to hero + collapsible categories + recent entries
+// MASTER-49: Shows today's activity across ALL enabled tags, not just food
 
 import { useState, useEffect, useCallback } from 'react';
 import { useFocusEffect } from 'expo-router';
@@ -14,6 +13,7 @@ import {
   TouchableOpacity,
   Alert,
   RefreshControl,
+  FlatList,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,11 +46,69 @@ function guessMealType(): MealType {
   return 'snack';
 }
 
+// Category section definitions for Zone 2
+interface CategorySection {
+  title: string;
+  items: { label: string; icon: string; route: string }[];
+}
+
+const CATEGORY_SECTIONS: CategorySection[] = [
+  {
+    title: 'Health & Fitness',
+    items: [
+      { label: 'Body', icon: 'scale-outline', route: '/log/body' },
+      { label: 'Sleep', icon: 'moon-outline', route: '/log/sleep' },
+      { label: 'Steps', icon: 'walk-outline', route: '/log/steps' },
+      { label: 'Caffeine', icon: 'cafe-outline', route: '/log/caffeine' },
+    ],
+  },
+  {
+    title: 'Mind & Wellness',
+    items: [
+      { label: 'Mood', icon: 'happy-outline', route: '/log/mood' },
+      { label: 'Stress', icon: 'pulse-outline', route: '/log/stress' },
+      { label: 'Gratitude', icon: 'heart-outline', route: '/log/gratitude' },
+      { label: 'Meditation', icon: 'leaf-outline', route: '/log/meditation' },
+    ],
+  },
+  {
+    title: 'Tracking',
+    items: [
+      { label: 'Substances', icon: 'wine-outline', route: '/log/substances' },
+      { label: 'Sexual', icon: 'heart-half-outline', route: '/log/sexual' },
+      { label: 'Digestive', icon: 'nutrition-outline', route: '/log/digestive' },
+      { label: 'Cycle', icon: 'flower-outline', route: '/log/cycle' },
+    ],
+  },
+  {
+    title: 'Other',
+    items: [
+      { label: 'Injury', icon: 'bandage-outline', route: '/log/injury' },
+      { label: 'Bloodwork', icon: 'water-outline', route: '/log/bloodwork' },
+      { label: 'Self Care', icon: 'sparkles-outline', route: '/log/personalcare' },
+      { label: 'Therapy', icon: 'chatbubbles-outline', route: '/log/therapy' },
+      { label: 'Custom', icon: 'pricetag-outline', route: '/log/custom' },
+    ],
+  },
+];
+
+// Recent entry from any tag
+interface RecentEntry {
+  id: string;
+  tag: string;
+  label: string;
+  detail: string;
+  time: string;
+  timestamp: number;
+}
+
 export default function LogScreen() {
   const [foodEntries, setFoodEntries] = useState<FoodEntry[]>([]);
   const [favorites, setFavorites] = useState<FavoriteFood[]>([]);
   const [templates, setTemplates] = useState<MealTemplate[]>([]);
   const [refreshing, setRefreshing] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Health & Fitness']));
+  const [recentEntries, setRecentEntries] = useState<RecentEntry[]>([]);
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -62,13 +120,84 @@ export default function LogScreen() {
     setFoodEntries(foods ?? []);
     setFavorites(favs ?? []);
     setTemplates(tmpls ?? []);
+
+    // MASTER-49: Load recent entries across all tags
+    const recents: RecentEntry[] = [];
+
+    // Food entries
+    for (const f of foods ?? []) {
+      recents.push({
+        id: f.id,
+        tag: 'Food',
+        label: f.food_item.name,
+        detail: `${Math.round(f.computed_nutrition.calories)} cal`,
+        time: new Date(f.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        timestamp: new Date(f.timestamp).getTime(),
+      });
+    }
+
+    // Water
+    const waters = await storageGet<{ id: string; timestamp: string; amount_oz: number }[]>(dateKey(STORAGE_KEYS.LOG_WATER, today));
+    for (const w of waters ?? []) {
+      recents.push({
+        id: w.id,
+        tag: 'Water',
+        label: 'Water',
+        detail: `${w.amount_oz} oz`,
+        time: new Date(w.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        timestamp: new Date(w.timestamp).getTime(),
+      });
+    }
+
+    // Workouts
+    const workouts = await storageGet<{ id: string; timestamp: string; type: string; duration_minutes?: number; calories_burned?: number }[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, today));
+    for (const w of workouts ?? []) {
+      recents.push({
+        id: w.id,
+        tag: 'Exercise',
+        label: w.type ?? 'Workout',
+        detail: `${w.duration_minutes ?? 0} min${w.calories_burned ? ` · ${w.calories_burned} cal` : ''}`,
+        time: new Date(w.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        timestamp: new Date(w.timestamp).getTime(),
+      });
+    }
+
+    // Supplements
+    const supps = await storageGet<{ id: string; timestamp: string; name: string; taken: boolean }[]>(dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, today));
+    for (const s of (supps ?? []).filter(s => s.taken)) {
+      recents.push({
+        id: s.id,
+        tag: 'Supplement',
+        label: s.name,
+        detail: 'taken',
+        time: new Date(s.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        timestamp: new Date(s.timestamp).getTime(),
+      });
+    }
+
+    // Mood
+    const moods = await storageGet<{ id: string; timestamp: string; score: number }[]>(dateKey(STORAGE_KEYS.LOG_MOOD, today));
+    for (const m of moods ?? []) {
+      const labels = ['', 'Bad', 'Poor', 'OK', 'Good', 'Great'];
+      recents.push({
+        id: m.id,
+        tag: 'Mood',
+        label: 'Mood',
+        detail: labels[m.score] ?? `${m.score}/5`,
+        time: new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+        timestamp: new Date(m.timestamp).getTime(),
+      });
+    }
+
+    // Sort by most recent first, limit to 20
+    recents.sort((a, b) => b.timestamp - a.timestamp);
+    setRecentEntries(recents.slice(0, 20));
   }, []);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  // Reload when returning from food logging screen
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -176,7 +305,6 @@ export default function LogScreen() {
       await storageSet(key, updated);
       setFoodEntries(updated);
 
-      // Update last_used on template
       const updatedTemplates = templates.map((t) =>
         t.id === template.id ? { ...t, last_used: now.toISOString() } : t,
       );
@@ -227,7 +355,19 @@ export default function LogScreen() {
         );
   }, [foodEntries, templates]);
 
-  // Group entries by meal type
+  const toggleSection = useCallback((title: string) => {
+    setExpandedSections((prev) => {
+      const next = new Set(prev);
+      if (next.has(title)) {
+        next.delete(title);
+      } else {
+        next.add(title);
+      }
+      return next;
+    });
+  }, []);
+
+  // Group food entries by meal type
   const mealGroups = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
   const grouped = mealGroups
     .map((meal) => ({
@@ -261,168 +401,58 @@ export default function LogScreen() {
         </Text>
       </View>
 
-      {/* Quick log buttons */}
-      <View style={styles.quickLogGrid}>
+      {/* ========== ZONE 1: HERO ACTIONS ========== */}
+      <View style={styles.heroSection}>
+        {/* Food — full width, gold accent, dominant */}
         <TouchableOpacity
-          style={styles.addFoodBtn}
+          style={styles.heroFoodBtn}
           onPress={() => router.push('/log/food')}
           activeOpacity={0.7}
         >
-          <Ionicons name="restaurant-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Food</Text>
+          <Ionicons name="restaurant-outline" size={24} color={Colors.primaryBackground} />
+          <Text style={styles.heroFoodText}>Log Food</Text>
+          {totalCalories > 0 && (
+            <Text style={styles.heroFoodSub}>{totalCalories} cal today</Text>
+          )}
         </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/water')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="water-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Water</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/caffeine')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="cafe-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Caffeine</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/substances')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="wine-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Substances</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/workout')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="fitness-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Exercise</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/body')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="scale-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Body</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/sleep')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="moon-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Sleep</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/mood')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="happy-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Mood</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/gratitude')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="heart-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Gratitude</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/meditation')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="leaf-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Meditation</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/stress')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="pulse-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Stress</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/therapy')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="chatbubbles-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Therapy</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/supplements')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="flask-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Supplements</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/personalcare')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="sparkles-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Self Care</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/sexual')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="heart-half-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Sexual</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/cycle')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="flower-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Cycle</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/digestive')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="nutrition-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Digestive</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/injury')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="bandage-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Injury</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/bloodwork')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="water-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Bloodwork</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={styles.quickLogBtn}
-          onPress={() => router.push('/log/custom')}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="pricetag-outline" size={20} color={Colors.primaryBackground} />
-          <Text style={styles.addFoodText}>Custom</Text>
-        </TouchableOpacity>
+
+        {/* Water, Exercise, Supplements — half width */}
+        <View style={styles.heroRow}>
+          <TouchableOpacity
+            style={styles.heroBtn}
+            onPress={() => router.push('/log/water')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="water-outline" size={20} color={Colors.primaryBackground} />
+            <Text style={styles.heroBtnText}>Water</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.heroBtn}
+            onPress={() => router.push('/log/workout')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="fitness-outline" size={20} color={Colors.primaryBackground} />
+            <Text style={styles.heroBtnText}>Exercise</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.heroRow}>
+          <TouchableOpacity
+            style={styles.heroBtn}
+            onPress={() => router.push('/log/supplements')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="flask-outline" size={20} color={Colors.primaryBackground} />
+            <Text style={styles.heroBtnText}>Supplements</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.heroBtn}
+            onPress={() => router.push('/log/strength')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="barbell-outline" size={20} color={Colors.primaryBackground} />
+            <Text style={styles.heroBtnText}>Strength</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Daily totals */}
@@ -445,28 +475,88 @@ export default function LogScreen() {
         </View>
       )}
 
-      {/* Food entries grouped by meal */}
-      {grouped.map(({ meal, entries }) => (
-        <View key={meal} style={styles.mealGroup}>
-          <Text style={styles.mealGroupTitle}>
-            {meal.charAt(0).toUpperCase() + meal.slice(1)}
-          </Text>
-          {entries.map((entry) => (
-            <FoodEntryCard
-              key={entry.id}
-              entry={entry}
-              onDelete={() => deleteEntry(entry.id)}
-              onFavorite={() => addToFavorites(entry)}
-            />
+      {/* ========== ZONE 2: COLLAPSIBLE CATEGORIES ========== */}
+      <View style={styles.categoriesSection}>
+        <Text style={styles.sectionTitle}>Quick Log</Text>
+        {CATEGORY_SECTIONS.map((section) => {
+          const isExpanded = expandedSections.has(section.title);
+          return (
+            <View key={section.title}>
+              <TouchableOpacity
+                style={styles.sectionHeader}
+                onPress={() => toggleSection(section.title)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.sectionHeaderText}>{section.title}</Text>
+                <Ionicons
+                  name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={18}
+                  color={Colors.secondaryText}
+                />
+              </TouchableOpacity>
+              {isExpanded && (
+                <View style={styles.categoryGrid}>
+                  {section.items.map((item) => (
+                    <TouchableOpacity
+                      key={item.label}
+                      style={styles.categoryBtn}
+                      onPress={() => router.push(item.route as any)}
+                      activeOpacity={0.7}
+                    >
+                      <Ionicons name={item.icon as any} size={18} color={Colors.accent} />
+                      <Text style={styles.categoryBtnText}>{item.label}</Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
+          );
+        })}
+      </View>
+
+      {/* ========== ZONE 3: RECENT ENTRIES (all tags) ========== */}
+      {recentEntries.length > 0 && (
+        <View style={styles.recentSection}>
+          <Text style={styles.sectionTitle}>Today's Activity</Text>
+          {recentEntries.slice(0, 15).map((entry) => (
+            <View key={entry.id} style={styles.recentRow}>
+              <View style={styles.recentTagBadge}>
+                <Text style={styles.recentTagText}>{entry.tag}</Text>
+              </View>
+              <View style={styles.recentInfo}>
+                <Text style={styles.recentLabel} numberOfLines={1}>{entry.label}</Text>
+                <Text style={styles.recentDetail}>{entry.detail}</Text>
+              </View>
+              <Text style={styles.recentTime}>{entry.time}</Text>
+            </View>
           ))}
         </View>
-      ))}
+      )}
 
-      {foodEntries.length > 0 && (
-        <TouchableOpacity style={styles.templateBtn} onPress={saveMealAsTemplate}>
-          <Ionicons name="bookmark-outline" size={16} color={Colors.accent} />
-          <Text style={styles.templateBtnText}>Save as Meal Template</Text>
-        </TouchableOpacity>
+      {/* Food entries grouped by meal */}
+      {grouped.length > 0 && (
+        <View style={styles.foodSection}>
+          <Text style={styles.sectionTitle}>Food Log</Text>
+          {grouped.map(({ meal, entries }) => (
+            <View key={meal} style={styles.mealGroup}>
+              <Text style={styles.mealGroupTitle}>
+                {meal.charAt(0).toUpperCase() + meal.slice(1)}
+              </Text>
+              {entries.map((entry) => (
+                <FoodEntryCard
+                  key={entry.id}
+                  entry={entry}
+                  onDelete={() => deleteEntry(entry.id)}
+                  onFavorite={() => addToFavorites(entry)}
+                />
+              ))}
+            </View>
+          ))}
+          <TouchableOpacity style={styles.templateBtn} onPress={saveMealAsTemplate}>
+            <Ionicons name="bookmark-outline" size={16} color={Colors.accent} />
+            <Text style={styles.templateBtnText}>Save as Meal Template</Text>
+          </TouchableOpacity>
+        </View>
       )}
 
       {/* Favorites section */}
@@ -520,12 +610,12 @@ export default function LogScreen() {
       )}
 
       {/* Empty state */}
-      {foodEntries.length === 0 && favorites.length === 0 && (
+      {recentEntries.length === 0 && foodEntries.length === 0 && favorites.length === 0 && (
         <View style={styles.emptyState}>
           <Ionicons name="restaurant-outline" size={48} color={Colors.divider} />
-          <Text style={styles.emptyTitle}>No food logged today</Text>
+          <Text style={styles.emptyTitle}>Nothing logged today</Text>
           <Text style={styles.emptySubtitle}>
-            Tap "Log Food" to search, manually enter, or quick-log calories
+            Tap one of the buttons above to start logging
           </Text>
         </View>
       )}
@@ -556,13 +646,39 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
-  quickLogGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
+
+  // Zone 1: Hero Actions
+  heroSection: {
     marginBottom: 16,
   },
-  addFoodBtn: {
+  heroFoodBtn: {
+    backgroundColor: Colors.accent,
+    borderRadius: 14,
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  heroFoodText: {
+    color: Colors.primaryBackground,
+    fontSize: 18,
+    fontWeight: '800',
+    marginTop: 4,
+  },
+  heroFoodSub: {
+    color: Colors.primaryBackground,
+    fontSize: 12,
+    fontWeight: '500',
+    opacity: 0.7,
+    marginTop: 2,
+  },
+  heroRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  heroBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -570,27 +686,15 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 12,
     gap: 6,
-    flexBasis: '48%',
-    flexGrow: 1,
     minHeight: 48,
   },
-  quickLogBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.accent,
-    borderRadius: 12,
-    paddingVertical: 12,
-    gap: 6,
-    flexBasis: '48%',
-    flexGrow: 1,
-    minHeight: 48,
-  },
-  addFoodText: {
+  heroBtnText: {
     color: Colors.primaryBackground,
     fontSize: 15,
     fontWeight: '700',
   },
+
+  // Daily totals
   totalsCard: {
     flexDirection: 'row',
     backgroundColor: Colors.cardBackground,
@@ -619,14 +723,115 @@ const styles = StyleSheet.create({
     height: 32,
     backgroundColor: Colors.divider,
   },
-  mealGroup: {
+
+  // Zone 2: Collapsible Categories
+  categoriesSection: {
     marginBottom: 16,
   },
-  mealGroupTitle: {
+  sectionTitle: {
     color: Colors.text,
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    marginBottom: 4,
+  },
+  sectionHeaderText: {
+    color: Colors.accentText,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  categoryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    flexBasis: '47%',
+    flexGrow: 1,
+    minHeight: 44,
+  },
+  categoryBtnText: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  // Zone 3: Recent Entries
+  recentSection: {
+    marginBottom: 16,
+  },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 4,
+    gap: 8,
+  },
+  recentTagBadge: {
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    minWidth: 56,
+    alignItems: 'center',
+  },
+  recentTagText: {
+    color: Colors.accentText,
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  recentInfo: {
+    flex: 1,
+  },
+  recentLabel: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  recentDetail: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    marginTop: 1,
+  },
+  recentTime: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+  },
+
+  // Food log section
+  foodSection: {
+    marginBottom: 16,
+  },
+  mealGroup: {
+    marginBottom: 12,
+  },
+  mealGroupTitle: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 6,
   },
   templateBtn: {
     flexDirection: 'row',
@@ -634,7 +839,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 6,
     paddingVertical: 10,
-    marginBottom: 16,
   },
   templateBtnText: {
     color: Colors.accentText,
@@ -643,12 +847,6 @@ const styles = StyleSheet.create({
   },
   section: {
     marginBottom: 16,
-  },
-  sectionTitle: {
-    color: Colors.text,
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 10,
   },
   favRow: {
     flexDirection: 'row',

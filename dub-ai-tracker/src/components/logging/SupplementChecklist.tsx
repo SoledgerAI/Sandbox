@@ -25,6 +25,14 @@ import type { SupplementEntry } from '../../types';
 import { DateTimePicker } from '../common/DateTimePicker';
 import { DosageWarningBanner, checkDosageWarning } from './DosageValidator';
 
+// MASTER-52: Supplement stack preset type
+interface SupplementStack {
+  id: string;
+  name: string;
+  supplement_ids: string[];  // supplement names to check
+  category: SupplementCategory;
+}
+
 function todayDateString(): string {
   const now = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
@@ -59,12 +67,17 @@ export function SupplementChecklist() {
   const [dosage, setDosage] = useState('');
   const [unit, setUnit] = useState('mg');
   const [editingTimeId, setEditingTimeId] = useState<string | null>(null);
+  const [stacks, setStacks] = useState<SupplementStack[]>([]);
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
     const key = dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, today);
-    const stored = await storageGet<SupplementEntry[]>(key);
+    const [stored, savedStacks] = await Promise.all([
+      storageGet<SupplementEntry[]>(key),
+      storageGet<SupplementStack[]>(STORAGE_KEYS.SUPPLEMENT_STACKS),
+    ]);
     setEntries(stored ?? []);
+    setStacks(savedStacks ?? []);
   }, []);
 
   useEffect(() => {
@@ -205,6 +218,94 @@ export function SupplementChecklist() {
     [entries, saveEntries],
   );
 
+  // MASTER-52: Save current checked supplements as a named stack
+  const saveAsStack = useCallback(() => {
+    const checked = entries.filter((e) => e.taken && e.category === category);
+    if (checked.length === 0) {
+      Alert.alert('No Supplements', 'Check some supplements first, then save as a stack.');
+      return;
+    }
+
+    const supplementNames = [...new Set(checked.map((e) => e.name))];
+
+    const doSave = (name: string) => {
+      const stack: SupplementStack = {
+        id: `stack_${Date.now()}`,
+        name,
+        supplement_ids: supplementNames,
+        category,
+      };
+      const updated = [...stacks, stack];
+      storageSet(STORAGE_KEYS.SUPPLEMENT_STACKS, updated);
+      setStacks(updated);
+    };
+
+    Alert.prompt
+      ? Alert.prompt('Save Stack', 'Name this supplement stack:', (name) => {
+          if (name?.trim()) doSave(name.trim());
+        })
+      : Alert.alert('Save Stack', `Save ${supplementNames.length} supplements as a stack?`, [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Save',
+            onPress: () => doSave(`${category === 'vitamin' ? 'Vitamin' : 'Supplement'} Stack`),
+          },
+        ]);
+  }, [entries, category, stacks]);
+
+  // MASTER-52: Apply a stack — check all supplements in it
+  const applyStack = useCallback(
+    async (stack: SupplementStack) => {
+      const now = new Date();
+      const newEntries: SupplementEntry[] = [];
+
+      for (const name of stack.supplement_ids) {
+        // Skip if already taken today
+        const alreadyTaken = entries.some(
+          (e) => e.name === name && e.category === stack.category && e.taken,
+        );
+        if (alreadyTaken) continue;
+
+        newEntries.push({
+          id: `supp_${now.getTime()}_${Math.random().toString(36).slice(2, 8)}`,
+          timestamp: now.toISOString(),
+          name,
+          dosage: 0,
+          unit: 'mg',
+          taken: true,
+          category: stack.category,
+          notes: null,
+        });
+      }
+
+      if (newEntries.length === 0) {
+        Alert.alert('Already Taken', 'All supplements in this stack are already logged today.');
+        return;
+      }
+
+      await saveEntries([...entries, ...newEntries]);
+    },
+    [entries, saveEntries],
+  );
+
+  const deleteStack = useCallback(
+    (stackId: string) => {
+      Alert.alert('Delete Stack', 'Remove this supplement stack?', [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            const updated = stacks.filter((s) => s.id !== stackId);
+            storageSet(STORAGE_KEYS.SUPPLEMENT_STACKS, updated);
+            setStacks(updated);
+          },
+        },
+      ]);
+    },
+    [stacks],
+  );
+
   const takenCount = entries.filter((e) => e.taken).length;
   const categoryEntries = entries.filter((e) => e.category === category && e.taken);
 
@@ -244,6 +345,31 @@ export function SupplementChecklist() {
         <Text style={styles.summaryValue}>{takenCount}</Text>
         <Text style={styles.summaryLabel}>supplements taken today</Text>
       </View>
+
+      {/* MASTER-52: Quick Stacks */}
+      {stacks.length > 0 && (
+        <>
+          <Text style={styles.sectionTitle}>Quick Stacks</Text>
+          {stacks.map((stack) => (
+            <TouchableOpacity
+              key={stack.id}
+              style={styles.stackRow}
+              onPress={() => applyStack(stack)}
+              onLongPress={() => deleteStack(stack.id)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="layers-outline" size={20} color={Colors.accent} />
+              <View style={styles.stackInfo}>
+                <Text style={styles.stackName}>{stack.name}</Text>
+                <Text style={styles.stackDetail}>
+                  {stack.supplement_ids.length} item{stack.supplement_ids.length !== 1 ? 's' : ''} — tap to apply, hold to delete
+                </Text>
+              </View>
+              <Ionicons name="add-circle" size={22} color={Colors.accent} />
+            </TouchableOpacity>
+          ))}
+        </>
+      )}
 
       {/* UL warnings */}
       {Object.entries(dailyTotals).map(([name, { total, unit: u }]) => (
@@ -343,6 +469,14 @@ export function SupplementChecklist() {
             <Text style={styles.timeOverrideDoneText}>Done</Text>
           </TouchableOpacity>
         </View>
+      )}
+
+      {/* MASTER-52: Save as Stack button */}
+      {entries.filter((e) => e.taken && e.category === category).length >= 2 && (
+        <TouchableOpacity style={styles.saveStackBtn} onPress={saveAsStack} activeOpacity={0.7}>
+          <Ionicons name="layers-outline" size={16} color={Colors.accent} />
+          <Text style={styles.saveStackText}>Save as Stack</Text>
+        </TouchableOpacity>
       )}
 
       {/* Custom entry for all categories */}
@@ -566,4 +700,32 @@ const styles = StyleSheet.create({
   entryDosage: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
   entryTime: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
   entryTimeOverridden: { color: Colors.accent },
+  stackRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 6,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    borderStyle: 'dashed',
+  },
+  stackInfo: { flex: 1 },
+  stackName: { color: Colors.text, fontSize: 14, fontWeight: '600' },
+  stackDetail: { color: Colors.secondaryText, fontSize: 11, marginTop: 2 },
+  saveStackBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  saveStackText: {
+    color: Colors.accentText,
+    fontSize: 13,
+    fontWeight: '500',
+  },
 });

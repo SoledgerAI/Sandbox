@@ -15,6 +15,7 @@ import {
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
 import { useTrendsData, TrendDataSet } from '../../src/hooks/useTrendsData';
+import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { useStorage } from '../../src/hooks/useStorage';
 import { STORAGE_KEYS } from '../../src/utils/storage';
 import { LineChart } from '../../src/components/charts/LineChart';
@@ -52,6 +53,8 @@ interface ChartConfig {
   yoyDataKey?: keyof TrendDataSet;
   goalValue?: number;
   goalLabel?: string;
+  /** For line charts, rendered as dashed threshold line */
+  thresholdKey?: 'calorieTarget' | 'proteinTarget' | 'waterGoal';
   segments?: { label: string; color: string; dataKey: keyof TrendDataSet }[];
   secondaryUnit?: string;
 }
@@ -66,6 +69,7 @@ const CHART_CONFIGS: ChartConfig[] = [
     dataKey: 'calories',
     unit: 'cal',
     yoyDataKey: 'yoyCalories',
+    thresholdKey: 'calorieTarget',
   },
   {
     id: 'macros',
@@ -87,6 +91,7 @@ const CHART_CONFIGS: ChartConfig[] = [
     type: 'line',
     dataKey: 'protein',
     unit: 'g',
+    thresholdKey: 'proteinTarget',
   },
 
   // Hydration
@@ -193,7 +198,12 @@ const CHART_CONFIGS: ChartConfig[] = [
   },
 ];
 
-// Map tag IDs to chart categories
+
+// MASTER-51: Category filter pills
+const CATEGORY_FILTERS = ['All', 'Nutrition', 'Hydration', 'Fitness', 'Body', 'Sleep', 'Recovery', 'Mood', 'Substances'] as const;
+type CategoryFilter = typeof CATEGORY_FILTERS[number];
+
+// MASTER-104: Extended tag-to-category mapping for all tag types
 const TAG_TO_CATEGORY: Record<string, string> = {
   'nutrition.food': 'Nutrition',
   'hydration.water': 'Hydration',
@@ -204,14 +214,29 @@ const TAG_TO_CATEGORY: Record<string, string> = {
   'recovery.score': 'Recovery',
   'mental.wellness': 'Mood',
   'substances.tracking': 'Substances',
+  'supplements.daily': 'Nutrition',
+  'health.markers': 'Body',
+  'digestive.health': 'Body',
+  'womens.health': 'Body',
+  'injury.pain': 'Body',
+  'personal.care': 'Mood',
 };
 
 export default function TrendsScreen() {
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
+  const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('All');
   const { data: enabledTags } = useStorage<string[]>(STORAGE_KEYS.TAGS_ENABLED, []);
   const { data, loading } = useTrendsData(timeRange, enabledTags ?? []);
+  const { calorieTarget, summary: dailySummary } = useDailySummary();
   const { width: screenWidth } = useWindowDimensions();
   const sparkWidth = Math.floor(screenWidth * SPARKLINE_WIDTH_RATIO);
+
+  // MASTER-54: Goal reference values for charts
+  const goalTargets = useMemo(() => ({
+    calorieTarget: calorieTarget > 0 ? calorieTarget : undefined,
+    proteinTarget: calorieTarget > 0 ? Math.round(calorieTarget * 0.3 / 4) : undefined,
+    waterGoal: 128,
+  }), [calorieTarget]);
 
   // Filter charts to only show categories for enabled tags
   const enabledCategories = useMemo(() => {
@@ -229,8 +254,11 @@ export default function TrendsScreen() {
   }, [enabledTags]);
 
   const visibleCharts = useMemo(() => {
-    return CHART_CONFIGS.filter((c) => enabledCategories.has(c.category));
-  }, [enabledCategories]);
+    const byEnabled = CHART_CONFIGS.filter((c) => enabledCategories.has(c.category));
+    // MASTER-51: Apply category filter
+    if (categoryFilter === 'All') return byEnabled;
+    return byEnabled.filter((c) => c.category === categoryFilter);
+  }, [enabledCategories, categoryFilter]);
 
   // Group by category for section headers
   const chartItems = useMemo(() => {
@@ -299,13 +327,13 @@ export default function TrendsScreen() {
             </View>
           ) : (
             <View style={styles.sparklineContainer}>
-              {renderSparkline(config, data, sparkWidth, SPARKLINE_HEIGHT)}
+              {renderSparkline(config, data, sparkWidth, SPARKLINE_HEIGHT, goalTargets)}
             </View>
           )}
         </Pressable>
       );
     },
-    [data, timeRange, sparkWidth],
+    [data, timeRange, sparkWidth, goalTargets],
   );
 
   return (
@@ -339,6 +367,37 @@ export default function TrendsScreen() {
             </Text>
           </Pressable>
         ))}
+      </View>
+
+      {/* MASTER-51: Category filter pills */}
+      <View style={styles.categoryFilterRow}>
+        <FlatList
+          horizontal
+          data={CATEGORY_FILTERS as unknown as CategoryFilter[]}
+          keyExtractor={(item) => item}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryFilterContent}
+          renderItem={({ item }) => (
+            <Pressable
+              style={[
+                styles.categoryPill,
+                categoryFilter === item && styles.categoryPillActive,
+              ]}
+              onPress={() => setCategoryFilter(item)}
+              accessibilityRole="button"
+              accessibilityState={{ selected: categoryFilter === item }}
+            >
+              <Text
+                style={[
+                  styles.categoryPillText,
+                  categoryFilter === item && styles.categoryPillTextActive,
+                ]}
+              >
+                {item}
+              </Text>
+            </Pressable>
+          )}
+        />
       </View>
 
       {/* Year-over-Year indicator */}
@@ -383,6 +442,7 @@ function renderSparkline(
   data: TrendDataSet,
   width: number,
   height: number,
+  goalTargets?: Record<string, number | undefined>,
 ) {
   const chartData = data[config.dataKey] as ChartDataPoint[];
 
@@ -491,6 +551,34 @@ const styles = StyleSheet.create({
   },
   rangeTextActive: {
     color: Colors.primaryBackground,
+  },
+  categoryFilterRow: {
+    paddingVertical: 4,
+  },
+  categoryFilterContent: {
+    paddingHorizontal: 16,
+    gap: 6,
+  },
+  categoryPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: Colors.cardBackground,
+    minHeight: 34,
+    justifyContent: 'center',
+  },
+  categoryPillActive: {
+    backgroundColor: Colors.primaryBackground,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+  },
+  categoryPillText: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  categoryPillTextActive: {
+    color: Colors.accentText,
   },
   yoyBadge: {
     paddingHorizontal: 16,

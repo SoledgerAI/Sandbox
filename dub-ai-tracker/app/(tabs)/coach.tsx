@@ -6,6 +6,7 @@ import {
   FlatList,
   KeyboardAvoidingView,
   Modal,
+  ScrollView,
   Platform,
   StyleSheet,
   Text,
@@ -23,7 +24,9 @@ import { APIKeySetupWizard } from '../../src/components/APIKeySetupWizard';
 import { AnthropicConsentModal, CONSENT_VERSION } from '../../src/components/coach/AnthropicConsentModal';
 import { useCoach } from '../../src/hooks/useCoach';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
-import type { ChatMessage } from '../../src/types/coach';
+import { useDailySummary } from '../../src/hooks/useDailySummary';
+import { runPatternEngine } from '../../src/ai/pattern_engine';
+import type { ChatMessage, PatternInsight } from '../../src/types/coach';
 
 export default function CoachScreen() {
   const {
@@ -42,7 +45,9 @@ export default function CoachScreen() {
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [consentGranted, setConsentGranted] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
+  const [patterns, setPatterns] = useState<PatternInsight[]>([]);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
+  const { summary, calorieTarget } = useDailySummary();
 
   // Check if coach disclaimer and Anthropic consent have been acknowledged
   useEffect(() => {
@@ -99,6 +104,15 @@ export default function CoachScreen() {
     refresh();
   }, [refresh]);
 
+  // MASTER-57: Load patterns for Coach Lite
+  useEffect(() => {
+    if (!apiKeyConfigured) {
+      storageGet<PatternInsight[]>(STORAGE_KEYS.COACH_PATTERNS).then((p) => {
+        setPatterns(p ?? []);
+      });
+    }
+  }, [apiKeyConfigured]);
+
   const handleSend = async () => {
     const text = inputText.trim();
     if (!text || sending) return;
@@ -121,24 +135,68 @@ export default function CoachScreen() {
     }
 
     if (!apiKeyConfigured) {
+      // MASTER-57: Coach Lite — useful view without API key
       return (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="key-outline" size={56} color={Colors.accent} />
-          <Text style={styles.emptyTitle}>Set Up Your AI Coach</Text>
-          <Text style={styles.emptySubtitle}>
-            Connect your Anthropic API key to unlock personalized health coaching powered by Claude.
-          </Text>
-          <TouchableOpacity
-            style={styles.setupButton}
-            onPress={() => setShowWizard(true)}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.setupButtonText}>Set Up API Key</Text>
-          </TouchableOpacity>
-          <Text style={styles.setupFooter}>
-            Your key stays on your device. Conversations use your own API balance (typically $0.01-0.05 each).
-          </Text>
-        </View>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.coachLiteContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Today's data summary */}
+          <View style={styles.liteSummaryCard}>
+            <Text style={styles.liteSectionTitle}>Today's Summary</Text>
+            <Text style={styles.liteSummaryText}>
+              {summary.calories_consumed > 0
+                ? `${Math.round(summary.calories_consumed).toLocaleString()} cal`
+                : 'No food logged'}
+              {summary.protein_g > 0 ? ` | ${Math.round(summary.protein_g)}g protein` : ''}
+              {summary.water_oz > 0 ? ` | ${summary.water_oz} oz water` : ''}
+              {summary.active_minutes > 0 ? ` | ${summary.active_minutes} min active` : ''}
+            </Text>
+            {calorieTarget > 0 && summary.calories_consumed > 0 && (
+              <Text style={styles.liteTargetText}>
+                {Math.round(summary.calories_remaining)} cal remaining of {Math.round(calorieTarget)} target
+              </Text>
+            )}
+          </View>
+
+          {/* Pattern insights */}
+          {patterns.length > 0 && (
+            <View style={styles.liteSectionCard}>
+              <Text style={styles.liteSectionTitle}>Pattern Insights</Text>
+              {patterns.slice(0, 3).map((p) => (
+                <View key={p.id} style={styles.litePatternRow}>
+                  <Ionicons name="analytics-outline" size={16} color={Colors.accent} />
+                  <Text style={styles.litePatternText}>{p.observation}</Text>
+                </View>
+              ))}
+              {patterns.length === 0 && (
+                <Text style={styles.liteNoDataText}>
+                  Keep logging for 7+ days to see pattern insights
+                </Text>
+              )}
+            </View>
+          )}
+
+          {/* Unlock AI Coach — at bottom, not blocking */}
+          <View style={styles.liteUpgradeCard}>
+            <Ionicons name="sparkles-outline" size={24} color={Colors.accent} />
+            <Text style={styles.liteUpgradeTitle}>Unlock AI Coach</Text>
+            <Text style={styles.liteUpgradeText}>
+              Get personalized advice, meal suggestions, and daily coaching powered by Claude AI.
+            </Text>
+            <TouchableOpacity
+              style={styles.setupButton}
+              onPress={() => setShowWizard(true)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.setupButtonText}>Set Up API Key</Text>
+            </TouchableOpacity>
+            <Text style={styles.setupFooter}>
+              Your key stays on your device. Typically $0.01-0.05 per message.
+            </Text>
+          </View>
+        </ScrollView>
       );
     }
 
@@ -409,5 +467,80 @@ const styles = StyleSheet.create({
     color: Colors.primaryBackground,
     fontSize: 16,
     fontWeight: '600',
+  },
+  // MASTER-57: Coach Lite styles
+  coachLiteContainer: {
+    padding: 16,
+    paddingTop: 60,
+    paddingBottom: 32,
+  },
+  liteSummaryCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  liteSectionTitle: {
+    color: Colors.accentText,
+    fontSize: 14,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 8,
+  },
+  liteSummaryText: {
+    color: Colors.text,
+    fontSize: 16,
+    fontWeight: '500',
+    lineHeight: 22,
+  },
+  liteTargetText: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    marginTop: 6,
+  },
+  liteSectionCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+  },
+  litePatternRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+    alignItems: 'flex-start',
+  },
+  litePatternText: {
+    color: Colors.text,
+    fontSize: 13,
+    flex: 1,
+    lineHeight: 18,
+  },
+  liteNoDataText: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    fontStyle: 'italic',
+  },
+  liteUpgradeCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  liteUpgradeTitle: {
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginTop: 8,
+  },
+  liteUpgradeText: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginTop: 8,
+    marginBottom: 16,
   },
 });
