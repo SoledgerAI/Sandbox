@@ -58,11 +58,31 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
     setSearched(true);
 
     try {
-      // Check cache first
-      const cache = await storageGet<FoodItem[]>(STORAGE_KEYS.FOOD_CACHE);
-      const cachedMatches = (cache ?? []).filter((f) =>
-        f.name.toLowerCase().includes(text.toLowerCase()),
+      // Check cache first, applying 30-day TTL eviction (MASTER-31)
+      const rawCache = await storageGet<FoodItem[]>(STORAGE_KEYS.FOOD_CACHE);
+      const thirtyDaysAgo = Date.now() - 30 * 24 * 3600 * 1000;
+      const cache = (rawCache ?? []).filter(
+        (f) => new Date(f.last_accessed).getTime() > thirtyDaysAgo,
       );
+      // Write back if TTL eviction removed entries
+      if (rawCache && cache.length < rawCache.length) {
+        await storageSet(STORAGE_KEYS.FOOD_CACHE, cache);
+      }
+
+      const now = new Date().toISOString();
+      // Update lastAccessed on cache hits (MASTER-31)
+      const cachedMatches = cache
+        .filter((f) => f.name.toLowerCase().includes(text.toLowerCase()))
+        .map((f) => ({ ...f, last_accessed: now }));
+
+      // Write back updated lastAccessed for hits
+      if (cachedMatches.length > 0) {
+        const hitIds = new Set(cachedMatches.map((f) => f.source_id));
+        const updatedCache = cache.map((f) =>
+          hitIds.has(f.source_id) ? { ...f, last_accessed: now } : f,
+        );
+        await storageSet(STORAGE_KEYS.FOOD_CACHE, updatedCache);
+      }
 
       // Search via waterfall (FatSecret -> USDA -> Open Food Facts)
       const waterfallResult = await textSearchWaterfall(text);
@@ -80,12 +100,21 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
 
       setResults(merged);
 
-      // Update cache with new API results (LRU, max 500)
+      // Update cache with new API results (LRU, max 500) (MASTER-31)
       if (apiResults.length > 0) {
-        const existing = cache ?? [];
-        const existingIds = new Set(existing.map((f) => f.source_id));
-        const newItems = apiResults.filter((f) => !existingIds.has(f.source_id));
-        const updated = [...newItems, ...existing].slice(0, MAX_CACHE_SIZE);
+        const currentCache = await storageGet<FoodItem[]>(STORAGE_KEYS.FOOD_CACHE) ?? [];
+        const existingIds = new Set(currentCache.map((f) => f.source_id));
+        const newItems = apiResults
+          .filter((f) => !existingIds.has(f.source_id))
+          .map((f) => ({ ...f, last_accessed: now }));
+        let updated = [...newItems, ...currentCache];
+        // LRU eviction: sort by lastAccessed descending, keep max 500
+        if (updated.length > MAX_CACHE_SIZE) {
+          updated.sort((a, b) =>
+            new Date(b.last_accessed).getTime() - new Date(a.last_accessed).getTime(),
+          );
+          updated = updated.slice(0, MAX_CACHE_SIZE);
+        }
         await storageSet(STORAGE_KEYS.FOOD_CACHE, updated);
       }
     } catch (err) {

@@ -235,6 +235,24 @@ export async function usdaSearch(
 }
 
 /**
+ * Search USDA branded foods by barcode UPC.
+ * MASTER-29: More targeted than generic text search for barcode lookups.
+ */
+export async function usdaBrandedBarcodeLookup(
+  barcode: string,
+): Promise<FoodItem[]> {
+  const url = `${BASE_URL}/foods/search?query=${encodeURIComponent(barcode)}&dataType=Branded&pageSize=5&api_key=${API_KEY}`;
+
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`USDA branded barcode search failed: ${response.status}`);
+  }
+
+  const data: UsdaSearchResponse = await response.json();
+  return data.foods.map(mapSearchFoodToItem);
+}
+
+/**
  * Get detailed food info from USDA by FDC ID.
  */
 export async function usdaGetFood(fdcId: number): Promise<FoodItem> {

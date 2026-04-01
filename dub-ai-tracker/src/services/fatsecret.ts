@@ -241,7 +241,12 @@ export async function fatsecretBarcodeLookup(barcode: string): Promise<FoodItem 
     const foodId = data?.food_id?.value;
     if (!foodId) return null;
 
-    return fatsecretGetFood(foodId);
+    const item = await fatsecretGetFood(foodId);
+    // MASTER-30: Pass the scanned barcode through to the returned FoodItem
+    if (item) {
+      item.barcode = barcode;
+    }
+    return item;
   } catch {
     return null;
   }

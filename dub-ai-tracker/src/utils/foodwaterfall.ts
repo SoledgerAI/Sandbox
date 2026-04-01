@@ -4,19 +4,21 @@
 // Barcode waterfall:
 //   1. FatSecret barcode lookup
 //   2. Open Food Facts barcode lookup
-//   3. USDA branded search by name (fallback)
+//   3. USDA branded food search by barcode UPC
+//   4. USDA generic search by barcode string (fallback)
 //
 // Text search waterfall:
 //   1. FatSecret text search
 //   2. USDA text search
 //   3. Open Food Facts text search
-//   4. NLP/AI estimation (stub -- Phase 14)
+//   4. NLP/AI estimation (if API key configured)
 //   5. Manual entry (caller handles)
 
 import type { FoodItem } from '../types/food';
 import { fatsecretBarcodeLookup, fatsecretSearch } from '../services/fatsecret';
 import { offBarcodeLookup, offSearch } from '../services/openfoodfacts';
-import { usdaSearch } from '../services/usda';
+import { usdaSearch, usdaBrandedBarcodeLookup } from '../services/usda';
+import { isApiKeySet } from '../services/apiKeyService';
 
 export interface WaterfallResult {
   items: FoodItem[];
@@ -49,7 +51,17 @@ export async function barcodeLookup(barcode: string): Promise<WaterfallResult> {
     // Fall through to next source
   }
 
-  // Step 3: USDA branded search by barcode string
+  // Step 3: USDA branded food search by barcode UPC (MASTER-29)
+  try {
+    const results = await usdaBrandedBarcodeLookup(barcode);
+    if (results.length > 0) {
+      return { items: results, source: 'usda_branded', fromCache: false };
+    }
+  } catch {
+    // Fall through
+  }
+
+  // Step 4: USDA generic search by barcode string (fallback)
   try {
     const results = await usdaSearch(barcode, 5);
     if (results.length > 0) {
@@ -97,8 +109,19 @@ export async function textSearchWaterfall(query: string): Promise<WaterfallResul
     // Fall through
   }
 
-  // Step 4: NLP/AI estimation -- stub for Phase 14
-  // Will be implemented with Coach AI integration
+  // Step 4: NLP/AI estimation (MASTER-29)
+  // If API key is configured, Coach can estimate nutrition from a text description.
+  // Otherwise skip to manual entry.
+  try {
+    const hasKey = await isApiKeySet();
+    if (hasKey) {
+      // NLP estimation available — return empty with source marker so caller
+      // can offer "Describe your food and let Coach estimate nutrition."
+      return { items: [], source: 'nlp_available', fromCache: false };
+    }
+  } catch {
+    // Fall through to manual
+  }
 
   // Step 5: Manual entry -- handled by caller
   return { items: [], source: 'none', fromCache: false };
