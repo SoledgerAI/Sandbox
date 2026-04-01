@@ -4,7 +4,7 @@
 // Includes conditional context injection and therapy note firewall
 
 import { storageGet, STORAGE_KEYS, dateKey, storageList } from '../utils/storage';
-import { calculateBmr, calculateTdee, computeAge, lbsToKg, inchesToCm } from '../utils/calories';
+import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge, lbsToKg, inchesToCm } from '../utils/calories';
 import type { UserProfile, EngagementTier, SobrietyGoal } from '../types/profile';
 import type {
   CoachContext,
@@ -34,6 +34,7 @@ import type {
   MoodEntry,
   BodyEntry,
   WorkoutEntry,
+  StepsEntry,
   InjuryEntry,
   BloodworkEntry,
   SupplementEntry,
@@ -89,10 +90,11 @@ export async function buildCoachContext(userMessage: string): Promise<{
 }> {
   const today = todayDateString();
 
-  // Always-load data
-  const [profile, tier] = await Promise.all([
+  // Always-load data (sobriety goals are safety-critical — MASTER-03)
+  const [profile, tier, sobrietyGoalEntries] = await Promise.all([
     storageGet<UserProfile>(STORAGE_KEYS.PROFILE),
     storageGet<EngagementTier>(STORAGE_KEYS.TIER),
+    storageGet<SobrietyGoal[]>(STORAGE_KEYS.SOBRIETY),
   ]);
 
   const currentTier = tier ?? 'balanced';
@@ -106,6 +108,8 @@ export async function buildCoachContext(userMessage: string): Promise<{
     moodEntries,
     bodyEntry,
     recoveryScore,
+    workoutEntries,
+    stepsEntry,
   ] = await Promise.all([
     storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, today)),
     storageGet<WaterEntry[]>(dateKey(STORAGE_KEYS.LOG_WATER, today)),
@@ -114,6 +118,8 @@ export async function buildCoachContext(userMessage: string): Promise<{
     storageGet<MoodEntry[]>(dateKey(STORAGE_KEYS.LOG_MOOD, today)),
     storageGet<BodyEntry>(dateKey(STORAGE_KEYS.LOG_BODY, today)),
     storageGet<RecoveryScore>(dateKey(STORAGE_KEYS.RECOVERY, today)),
+    storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, today)),
+    storageGet<StepsEntry>(dateKey(STORAGE_KEYS.LOG_STEPS, today)),
   ]);
 
   const foods = foodEntries ?? [];
@@ -128,16 +134,19 @@ export async function buildCoachContext(userMessage: string): Promise<{
   if (moods.length > 0) tagsLogged.push('mental.wellness');
   if (bodyEntry) tagsLogged.push('body.measurements');
 
+  const workouts = workoutEntries ?? [];
+  const caloriesBurned = workouts.reduce((s, w) => s + (w.calories_burned ?? 0), 0);
+
   const todayData: TodayDataSummary = {
     calories_consumed: foods.reduce((s, f) => s + (f.computed_nutrition?.calories ?? 0), 0),
-    calories_burned: 0,
+    calories_burned: caloriesBurned,
     protein_g: foods.reduce((s, f) => s + (f.computed_nutrition?.protein_g ?? 0), 0),
     carbs_g: foods.reduce((s, f) => s + (f.computed_nutrition?.carbs_g ?? 0), 0),
     fat_g: foods.reduce((s, f) => s + (f.computed_nutrition?.fat_g ?? 0), 0),
     water_oz: waters.reduce((s, w) => s + w.amount_oz, 0),
     caffeine_mg: caffeines.reduce((s, c) => s + c.amount_mg, 0),
-    steps: 0,
-    workouts: [],
+    steps: stepsEntry?.total_steps ?? 0,
+    workouts: workouts.map((w) => w.activity_name),
     mood: moods.length > 0 ? moods.reduce((s, m) => s + m.score, 0) / moods.length : null,
     sleep_hours: sleepEntry?.bedtime && sleepEntry?.wake_time
       ? (new Date(sleepEntry.wake_time).getTime() - new Date(sleepEntry.bedtime).getTime()) / 3600000
@@ -146,9 +155,10 @@ export async function buildCoachContext(userMessage: string): Promise<{
     tags_logged: tagsLogged,
   };
 
-  // Compute BMR/TDEE
+  // Compute BMR/TDEE/Calorie Target (MASTER-22: Coach must use target, not TDEE)
   let bmr: number | null = null;
   let tdee: number | null = null;
+  let calorieTarget: number | null = null;
   if (
     profile?.weight_lbs != null &&
     profile?.height_inches != null &&
@@ -161,6 +171,13 @@ export async function buildCoachContext(userMessage: string): Promise<{
     const heightCm = inchesToCm(profile.height_inches);
     bmr = calculateBmr({ weightKg, heightCm, ageYears: age, sex: profile.sex });
     tdee = calculateTdee(bmr, profile.activity_level);
+    calorieTarget = calculateCalorieTarget({
+      tdee,
+      goalDirection: profile.goal?.direction ?? 'MAINTAIN',
+      sex: profile.sex,
+      rateLbsPerWeek: profile.goal?.rate_lbs_per_week ?? undefined,
+      surplusCalories: profile.goal?.surplus_calories ?? undefined,
+    });
   }
 
   // Conditional sections
@@ -257,18 +274,15 @@ export async function buildCoachContext(userMessage: string): Promise<{
     }
   }
 
-  // Sobriety goals (conditional)
-  let sobrietyGoals: SobrietyGoalSummary[] = [];
-  if (messageMatchesKeywords(userMessage, SUBSTANCE_KEYWORDS)) {
-    const goals = await storageGet<SobrietyGoal[]>(STORAGE_KEYS.SOBRIETY);
-    if (goals) {
-      sobrietyGoals = goals.map((g) => ({
-        substance: g.substance,
-        goal_type: g.goal_type,
-        current_streak_days: g.current_streak_days,
-      }));
-    }
-  }
+  // Sobriety goals — ALWAYS included (safety-critical, MASTER-03)
+  // QUIT/REDUCE goals must be present in every Coach interaction to prevent
+  // Coach from suggesting substance use (e.g., alcohol-paired meals).
+  // Daily substance LOG DATA stays conditional on SUBSTANCE_KEYWORDS.
+  const sobrietyGoals: SobrietyGoalSummary[] = (sobrietyGoalEntries ?? []).map((g) => ({
+    substance: g.substance,
+    goal_type: g.goal_type,
+    current_streak_days: g.current_streak_days,
+  }));
 
   // Supplement UL flags (conditional)
   let supplementFlags: string[] = [];
@@ -405,6 +419,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
     },
     bmr,
     tdee,
+    calorie_target: calorieTarget,
     recovery_score: recoveryScore?.total_score ?? null,
     active_correlations: activePatterns,
     active_injuries: injuries,

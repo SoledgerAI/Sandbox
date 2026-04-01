@@ -54,6 +54,7 @@ function makeMinimalContext(overrides?: Partial<CoachContext>): CoachContext {
     rolling_7d: rolling,
     bmr: 1769,
     tdee: 2742,
+    calorie_target: 2242,
     recovery_score: 78,
     active_correlations: [],
     active_injuries: [],

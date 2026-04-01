@@ -32,6 +32,7 @@ export interface CoachContext {
   rolling_7d: RollingStats;
   bmr: number | null;
   tdee: number | null;
+  calorie_target: number | null;
   recovery_score: number | null;
   active_correlations: PatternInsight[];
   active_injuries: InjurySummary[];

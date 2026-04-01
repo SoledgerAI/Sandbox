@@ -52,6 +52,7 @@ function makeContext(overrides?: Partial<CoachContext>): CoachContext {
     rolling_7d: rolling,
     bmr: 1769,
     tdee: 2742,
+    calorie_target: 2242,
     recovery_score: 78,
     active_correlations: [],
     active_injuries: [],
@@ -148,7 +149,7 @@ describe('Coach Prompt Safety Preservation', () => {
     });
 
     it('stops coaching until user indicates safety', () => {
-      expect(basePrompt).toContain('Do not continue coaching until user indicates safety');
+      expect(basePrompt).toContain('Do not continue wellness coaching until the user indicates they are safe');
     });
   });
 
