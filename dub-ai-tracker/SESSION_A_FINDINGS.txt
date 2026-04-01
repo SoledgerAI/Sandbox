@@ -1,0 +1,547 @@
+================================================================
+SESSION: A
+DATE: 2026-04-01
+EXPERTS COMPLETED: 1-6
+TOTAL FINDINGS: 78
+P0 COUNT: 8
+P1 COUNT: 24
+P2 COUNT: 31
+P3 COUNT: 15
+================================================================
+
+
+================================================================
+EXPERT 1: REGISTERED DIETITIAN (RD)
+================================================================
+
+[A-01] EXPERT 1: RD | SEVERITY: P2
+FILE: src/data/activities.ts
+FINDING: No activity entries use Compendium 5-digit codes -- IDs are friendly strings (e.g., "run_outdoor") instead of spec-required codes (e.g., 12050).
+RECOMMENDATION: Add a compendium_code field to the Activity interface and populate with verified 5-digit codes from pacompendium.com.
+RATIONALE: Without Compendium codes, MET values cannot be cross-referenced or audited against the authoritative source.
+
+[A-02] EXPERT 1: RD | SEVERITY: P2
+FILE: src/data/activities.ts
+FINDING: Only 25 activities are defined; spec requires an expanded list of 50+ activities including martial arts, rowing, rock climbing, pickleball, and dozens more.
+RECOMMENDATION: Expand to at least 50 common activities with verified MET values per spec Section 10 expanded activity list.
+RATIONALE: Users performing unlisted activities must use the generic "Other" (MET 4.0), which produces inaccurate calorie burn estimates.
+
+[A-03] EXPERT 1: RD | SEVERITY: P2
+FILE: src/data/activities.ts
+FINDING: Activities have a single MET value per entry. Spec requires multiple intensity levels (light/moderate/vigorous) with different MET values for the same activity.
+RECOMMENDATION: Change Activity interface to support an array of intensity-MET pairs, or provide separate entries per intensity level.
+RATIONALE: A user walking leisurely (MET 2.0) vs briskly (MET 4.3) gets identical calorie burn, reducing tracking accuracy.
+
+[A-04] EXPERT 1: RD | SEVERITY: P1
+FILE: src/data/activities.ts
+FINDING: Sexual activity MET entries (Codes 14010, 14020, 14030) are missing from activities.ts. The spec explicitly requires these entries.
+RECOMMENDATION: Add sexual activity entries: light MET 1.8 (Code 14030), moderate MET 3.0 (Code 14020), vigorous MET 5.8 (Code 14010).
+RATIONALE: Sexual activity logging screen references these entries for calorie burn calculation; missing data means zero or incorrect calorie estimates.
+
+[A-05] EXPERT 1: RD | SEVERITY: P2
+FILE: src/types/food.ts
+FINDING: NutritionInfo includes calories, protein, carbs, fat, fiber, sugar, sodium (spec minimum met), but fiber_g, sugar_g, and sodium_mg are nullable. No enforcement that these are populated from API sources.
+RECOMMENDATION: Ensure food API parsers populate fiber, sugar, and sodium whenever available from the source. Log data completeness metrics.
+RATIONALE: Nullable nutrition fields mean the Coach cannot accurately assess fiber, sugar, or sodium intake patterns, reducing the value of cross-tag correlations.
+
+[A-06] EXPERT 1: RD | SEVERITY: P1
+FILE: src/utils/servingmath.ts
+FINDING: QUANTITY_STEPS caps at 10 (matching spec's 0.25x-10x range), but there is no custom decimal input option beyond the predefined steps.
+RECOMMENDATION: Add a custom quantity input that accepts any decimal value within the 0.25-10.0 range, as spec states "0.25x through 10x in 0.25 increments, plus custom decimal."
+RATIONALE: Users eating 1.3 servings or 4.7 cups cannot accurately log portions, leading to systematic calorie tracking errors.
+
+[A-07] EXPERT 1: RD | SEVERITY: P2
+FILE: src/components/logging/WaterLogger.tsx (inferred from grep)
+FINDING: No evidence of body-weight-based hydration goal (bodyweight_lbs / 2 = oz). Spec Section 10 requires this personalized calculation.
+RECOMMENDATION: Compute default hydration goal from profile weight and display it in the water logger and Dashboard card.
+RATIONALE: A flat 64oz goal is inappropriate for a 130-lb woman and a 250-lb man. Personalized targets improve hydration accuracy.
+
+[A-08] EXPERT 1: RD | SEVERITY: P2
+FILE: src/constants/formulas.ts
+FINDING: Protein target constants (PROTEIN_TARGETS) exist but no function computes a personalized protein target from the user's weight, tier, and goal. The target is not surfaced on Dashboard or Coach context.
+RECOMMENDATION: Add a calculateProteinTarget() function that maps tier + activity_level + goal to a specific g/day recommendation and inject it into Coach context.
+RATIONALE: Without a computed protein target, the Coach cannot assess protein adequacy, which is the most common nutritional gap in self-directed dieting.
+
+[A-09] EXPERT 1: RD | SEVERITY: P1
+FILE: src/ai/context_builder.ts:133
+FINDING: calories_burned in TodayDataSummary is hardcoded to 0 (line 133). Exercise calories from logged workouts are never summed into today's data context.
+RECOMMENDATION: Load today's workout entries and sum their calories_burned into todayData.calories_burned.
+RATIONALE: The "Remaining" calorie calculation (Budget - Consumed + Burned) shows 0 exercise calories, making the Coach blind to exercise-adjusted calorie balance. This is a core TDEE accuracy issue.
+
+[A-10] EXPERT 1: RD | SEVERITY: P3
+FILE: src/data/supplement_uls.json
+FINDING: All 10 UL entries match spec values exactly. Verified: Vitamin D 4000 IU, Calcium 2500 mg, Iron 45 mg, Zinc 40 mg, Vitamin C 2000 mg, Vitamin A 10000 IU, Folate 1000 mcg, Magnesium 350 mg, Niacin 35 mg, B6 100 mg.
+RECOMMENDATION: No action needed on UL values. Consider adding age-based calcium UL (2000 mg for 51+) as a future enhancement.
+RATIONALE: Accurate UL data is essential for supplement safety flagging.
+
+
+================================================================
+EXPERT 2: CERTIFIED PERSONAL TRAINER (CPT)
+================================================================
+
+[A-11] EXPERT 2: CPT | SEVERITY: P2
+FILE: src/data/activities.ts
+FINDING: Weight training MET is listed as 5.0. The 2024 Compendium Code 02054 for "resistance training, moderate effort" lists MET 3.5. 5.0 matches vigorous resistance training.
+RECOMMENDATION: Verify against pacompendium.com and either split into moderate (3.5) and vigorous (5.0) or use 3.5 as default with intensity selection.
+RATIONALE: Overestimating MET by 43% inflates calorie burn calculations, creating a false calorie deficit that undermines weight management.
+
+[A-12] EXPERT 2: CPT | SEVERITY: P1
+FILE: src/types/workout.ts
+FINDING: WorkoutEntry has no strength training fields (sets, reps, weight, volume, PR detection). The type comment says "Simplified for v1.1: no separate strength logger."
+RECOMMENDATION: Add StrengthSession type with sets array (weight, reps, RPE, warmup flag), volume calculation, and 1RM estimation fields per spec Section 10.
+RATIONALE: Strength training logging is a core feature per spec. Without set-by-set logging, the app cannot track volume progression or detect PRs -- fundamental for strength athletes.
+
+[A-13] EXPERT 2: CPT | SEVERITY: P1
+FILE: src/ (missing file)
+FINDING: src/utils/strength.ts does not exist. No Brzycki 1RM calculation implemented. No volume computation. Spec Formula 5 is unimplemented.
+RECOMMENDATION: Create src/utils/strength.ts with Brzycki formula: 1RM = weight x (36 / (37 - reps)), valid for reps 1-10 only. Add volume calculation: sum(weight x reps) for working sets.
+RATIONALE: 1RM estimation and volume tracking are spec-required features that drive PR detection and Coach workout recommendations.
+
+[A-14] EXPERT 2: CPT | SEVERITY: P2
+FILE: src/data/ (missing files)
+FINDING: exercises.json (800+ exercises from free-exercise-db), muscle_groups.json (24 groups), and equipment.json (18 types) do not exist in src/data/.
+RECOMMENDATION: Create these data files per spec Section 10. Source exercises from https://github.com/yuhonas/free-exercise-db (public domain).
+RATIONALE: Without an exercise database, users cannot search for specific exercises by name, muscle group, or equipment, forcing manual entry for every exercise.
+
+[A-15] EXPERT 2: CPT | SEVERITY: P2
+FILE: src/utils/recovery.ts:77-85
+FINDING: Alcohol scoring uses a different scale than spec. Code: 0=100, 1=75, 2=50, 3=25, 4+=0. Spec: 0=100, 1=80, 2=50, 3+=20. Discrepancy at 1 drink (75 vs 80) and 3+ drinks (25/0 vs 20).
+RECOMMENDATION: Align scoreAlcohol() with spec values: 0=100, 1=80, 2=50, 3+=20 using a step function.
+RATIONALE: Recovery score is displayed prominently on Dashboard; inconsistency with documented formula reduces trust and auditability.
+
+[A-16] EXPERT 2: CPT | SEVERITY: P1
+FILE: src/utils/recovery.ts:91-196
+FINDING: Recovery score reads today's workout data for training load, but spec says "Training Load: inversely scored. Higher training load YESTERDAY = lower recovery today." Should read previous day's workout data.
+RECOMMENDATION: Change computeRecoveryScore to load yesterday's workout entries (date - 1 day) for the training load component.
+RATIONALE: Recovery measures recovery FROM yesterday's training. Using today's data is logically wrong -- a morning recovery score should reflect yesterday's workout, not today's (which hasn't happened yet).
+
+[A-17] EXPERT 2: CPT | SEVERITY: P2
+FILE: src/utils/recovery.ts:48-52
+FINDING: HRV scoring uses absolute thresholds (20-100ms range). Spec says "scored against PERSONAL BASELINE. Above 7-day average = higher score, below = lower." The implementation ignores individual variation.
+RECOMMENDATION: Compute 7-day HRV average as baseline. Score today's HRV relative to that baseline, not against absolute thresholds.
+RATIONALE: An athlete with baseline HRV of 80ms scoring 70ms is underrecovering; current code would still score this as 62/100 ("good"), missing the decline signal.
+
+[A-18] EXPERT 2: CPT | SEVERITY: P2
+FILE: src/utils/recovery.ts:56-60
+FINDING: Same absolute threshold issue for Resting HR scoring (40-80 range). Spec requires "scored against personal baseline. Lower than 7-day average = higher score."
+RECOMMENDATION: Compute 7-day RHR baseline and score today's RHR relative to it.
+RATIONALE: Absolute thresholds disadvantage users with naturally higher or lower resting heart rates.
+
+[A-19] EXPERT 2: CPT | SEVERITY: P3
+FILE: src/types/workout.ts
+FINDING: WorkoutEntry includes environmental fields (elevation, altitude, temperature) and biometric fields (HR, zones) per spec. These are properly nullable.
+RECOMMENDATION: No action required. Confirm that elevation/altitude calorie adjustment constants exist in formulas.ts.
+RATIONALE: Environmental fields are correctly structured for future calorie adjustment features.
+
+[A-20] EXPERT 2: CPT | SEVERITY: P3
+FILE: src/data/activities.ts:64
+FINDING: Yoga MET listed as 3.0 but spec says "Yoga, Hatha: Code 02172, MET 2.5." Overestimation of 0.5 MET.
+RECOMMENDATION: Correct Yoga MET to 2.5 per Compendium Code 02172, or split into Hatha (2.5) and Vinyasa/Power (4.0+).
+RATIONALE: Minor but systematic overestimation for a frequently logged activity type.
+
+
+================================================================
+EXPERT 3: CLINICAL PSYCHOLOGIST / EATING DISORDER SPECIALIST
+================================================================
+
+[A-21] EXPERT 3: PSYCHOLOGIST | SEVERITY: P1
+FILE: src/ai/coach_system_prompt.ts:40-61
+FINDING: Prohibited words list includes "relapse" and "failed" but the list is checked case-insensitively only in post-generation filtering (filterCoachResponse). The system prompt includes the list as text but Claude could still generate these words -- the post-filter catches and removes them, but the resulting "[removed]" text creates an awkward user experience.
+RECOMMENDATION: Consider replacing "[removed]" with contextually appropriate alternatives (e.g., replace "relapse" with "reset" or just strip the sentence). Alternatively, strengthen the system prompt instruction to avoid these words entirely.
+RATIONALE: "[removed]" markers in Coach responses break trust and confuse users. The safety intent is correct but the UX execution needs refinement.
+
+[A-22] EXPERT 3: PSYCHOLOGIST | SEVERITY: P0
+FILE: src/ai/context_builder.ts:260-270
+FINDING: Sobriety goals are only loaded into Coach context when the user message matches SUBSTANCE_KEYWORDS. If a user with a QUIT goal for alcohol asks "what should I eat for dinner?", the Coach has NO awareness of the quit goal and may suggest recipes with alcohol or alcohol-paired meals.
+RECOMMENDATION: Load sobriety goals with QUIT or REDUCE type as always-include context, not conditional. The Coach MUST always know about active quit goals to enforce the "never provide data interpretable as permission to use" guardrail.
+RATIONALE: This is a safety gap. A recovering alcoholic asking an innocent question could receive a response that undermines their sobriety because the Coach doesn't know they're in recovery.
+
+[A-23] EXPERT 3: PSYCHOLOGIST | SEVERITY: P1
+FILE: src/ai/context_builder.ts:192-218
+FINDING: Active injuries are only loaded when message matches INJURY_KEYWORDS. If a user with an active shoulder injury asks "design a workout," the injury context may not load because "design" and "workout" are in the keywords but the matching is based on the user message containing at least one keyword. However, "workout" IS in INJURY_KEYWORDS, so this specific case works. The concern is for messages like "what exercises should I do" -- "exercises" is NOT in INJURY_KEYWORDS.
+RECOMMENDATION: Add "exercise," "train," "training," "routine," "program," "movement" to INJURY_KEYWORDS. Or make active injuries always-include context.
+RATIONALE: Missing injury context in workout recommendations could lead to re-injury or pain aggravation.
+
+[A-24] EXPERT 3: PSYCHOLOGIST | SEVERITY: P1
+FILE: src/ai/coach_system_prompt.ts (entire file)
+FINDING: The system prompt includes 5 hard medical advice rules, sobriety guardrail, and 8 ED risk rules. However, there are no per-tier example responses anchored in the prompt text. Spec Section 12 requires "2 examples per tier to anchor tone" at ~200 tokens cost.
+RECOMMENDATION: Add the 5 tier example responses from spec Section 12 into the system prompt builder (precision, structured, balanced, flexible, mindful examples).
+RATIONALE: Without anchoring examples, middle tiers (Structured, Balanced) tend to blur together, reducing the value of the tier system for user experience.
+
+[A-25] EXPERT 3: PSYCHOLOGIST | SEVERITY: P2
+FILE: src/ai/context_builder.ts:71-84
+FINDING: Therapy note firewall checks for string patterns ("dub.log.therapy.", "therapist_name", "therapy_notes") in the serialized context. This is a runtime assertion, not a compile-time guarantee. If the TherapyEntry type is ever refactored to use different field names, the firewall silently fails.
+RECOMMENDATION: Use TypeScript branded types or a type-level exclusion pattern (e.g., Omit<TherapyEntry, 'notes'>) in the context builder function signature to make therapy note leakage a compile-time error.
+RATIONALE: Runtime string matching is fragile for a safety-critical firewall. Type-level enforcement is more robust and survives refactoring.
+
+[A-26] EXPERT 3: PSYCHOLOGIST | SEVERITY: P2
+FILE: src/ai/pattern_engine.ts (entire file)
+FINDING: Pattern engine minimum data requirement is 14 days for most patterns (per code), but spec says 7 data points minimum. The code is stricter, which is generally safer, but the consistency-weight pattern requires 28 days. These thresholds should be documented and aligned with spec.
+RECOMMENDATION: Align minimum data points with spec (7 data points per tag) or document why the code uses higher thresholds. Ensure the pattern engine doesn't surface unreliable patterns from small samples.
+RATIONALE: Overly strict thresholds mean new users wait weeks for insights; overly loose means unreliable correlations. Both affect trust.
+
+[A-27] EXPERT 3: PSYCHOLOGIST | SEVERITY: P2
+FILE: SPEC: Section 8 + src/components/ (search for shoulder-surfing)
+FINDING: Spec requires shoulder-surfing protection (triple-tap quick-hide gesture and privacy screen toggle for sensitive tags). The type system has privacy_screen_enabled in AppSettings, but no component implements the gesture or blur behavior.
+RECOMMENDATION: Implement triple-tap quick-hide on sensitive tag screens (substances, sexual activity, therapy) and app-switcher blur when privacy_screen_enabled is true.
+RATIONALE: Users logging substance use or sexual activity in public spaces need a way to quickly blank the screen. This is a privacy safety feature.
+
+[A-28] EXPERT 3: PSYCHOLOGIST | SEVERITY: P3
+FILE: SPEC: Section 10 -- Sobriety Goals
+FINDING: Spec says sobriety Day 1 language should be "Day 1" not "Day 1 of your next streak." Need to verify the SobrietyGoals component uses neutral language.
+RECOMMENDATION: Audit SobrietyGoals.tsx to confirm it uses "Day 1" and does not include "next streak" or similar failure-implying language.
+RATIONALE: "Day 1 of your next streak" implies a series of failures. "Day 1" is neutral and present-focused per spec.
+
+[A-29] EXPERT 3: PSYCHOLOGIST | SEVERITY: P3
+FILE: src/ai/coach_system_prompt.ts:104
+FINDING: Hard Rule 0 (Coach/Marketplace separation) correctly instructs Coach to never include affiliate links or product CTAs. The rule text says 'Check the Marketplace tab' as the redirect language, which is appropriate.
+RECOMMENDATION: No action required. This is implemented correctly.
+RATIONALE: Confirming that Coach/Marketplace separation is enforced at the prompt level.
+
+[A-30] EXPERT 3: PSYCHOLOGIST | SEVERITY: P1
+FILE: src/ai/coach_system_prompt.ts:128-129
+FINDING: The Coach context line "[TARGETS] BMR:{bmr} TDEE:{tdee} Budget:{tdee}" shows Budget equal to TDEE. For users with a LOSE goal, the budget should be TDEE minus deficit, not raw TDEE. This causes the Coach to reference wrong calorie budget.
+RECOMMENDATION: Pass the actual calorie target (from calculateCalorieTarget) into the context, not raw TDEE as the budget value.
+RATIONALE: If the Coach thinks the budget is 2,500 (TDEE) but the user's target is 2,000 (TDEE - 500 deficit), the Coach provides inaccurate feedback on calorie adherence.
+
+
+*** CHECKPOINT: EXPERTS 1-3 COMPLETE (30 findings) ***
+*** Continuing with Experts 4-6 ***
+
+
+================================================================
+EXPERT 4: PRIVACY AND COMPLIANCE ATTORNEY
+================================================================
+
+[A-31] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P0
+FILE: app.json + SPEC: Section 14
+FINDING: No Privacy Policy or Terms of Service documents exist in the codebase. Spec Section 14 says "[LEGAL COUNSEL REQUIRED to draft these documents]." Onboarding Step 1 links to these documents, but they do not exist.
+RECOMMENDATION: Engage legal counsel to draft Privacy Policy and Terms of Service before any TestFlight distribution. These are required by App Store guidelines, WA MHMDA, CCPA/CPRA, and FTC rules.
+RATIONALE: Distributing a health data app without a privacy policy violates multiple state laws (WA MHMDA has a private right of action) and guarantees App Store rejection.
+
+[A-32] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P0
+FILE: app.json:19
+FINDING: No age rating specified in app.json. Spec requires 17+ (Apple) due to substance use and sexual activity tracking. The ios.infoPlist lacks UIAppRatingContext or age rating declaration.
+RECOMMENDATION: Set age rating to 17+ in App Store Connect configuration and add content advisory declarations for alcohol/tobacco/drug references and sexual content.
+RATIONALE: Incorrect age rating is an App Store rejection risk and COPPA compliance issue (though app is 18+, incorrect metadata could expose to minors).
+
+[A-33] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P1
+FILE: app.json:41-47
+FINDING: Plugins list does not include react-native-health config plugin. HealthKit permissions (NSHealthShareUsageDescription, NSHealthUpdateUsageDescription) are in infoPlist but the native HealthKit entitlement may not be configured without the proper plugin.
+RECOMMENDATION: Add react-native-health to the plugins array or verify that HealthKit entitlements are properly configured via the expo-dev-client build process.
+RATIONALE: Missing HealthKit entitlements cause crash on HealthKit API calls and App Store rejection.
+
+[A-34] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P1
+FILE: src/components/marketplace/FTCDisclosure.tsx
+FINDING: FTC disclosure text font size is 10pt (line 50: fontSize: 10). FTC Endorsement Guides require disclosures to be "clear and conspicuous." 10pt on a mobile screen may be too small to meet this standard, particularly for users with visual impairments.
+RECOMMENDATION: Increase disclosure font size to minimum 12pt. Ensure disclosure text meets WCAG 2.1 AA contrast ratio (4.5:1 minimum for normal text).
+RATIONALE: The FTC has specifically enforced against disclosures that are technically present but too small or poorly contrasted to be noticed by consumers.
+
+[A-35] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P1
+FILE: src/components/marketplace/ProductCard.tsx
+FINDING: FTC disclosure component renders BEFORE the product description (correct per spec), but the disclosure uses gold/amber styling that blends with the app's brand accent color. Disclosures should be visually distinct.
+RECOMMENDATION: Use a more prominent disclosure style -- consider a distinct background color, border, or "Ad" / "Affiliate" label in a contrasting color to differentiate from brand styling.
+RATIONALE: FTC guidance says disclosures must not blend into the surrounding design. Using the app's accent color as disclosure color undermines conspicuousness.
+
+[A-36] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P0
+FILE: SPEC: Section 17B + src/services/anthropic.ts
+FINDING: No separate Anthropic data flow consent exists. Spec Section 17B requires consent BEFORE first Coach interaction. Onboarding has a general "third-party AI service" checkbox, but there is no consent gate when the user first opens Coach tab or enters their API key.
+RECOMMENDATION: Add a one-time consent modal on first Coach tab open that specifically discloses what health data is transmitted to Anthropic. Store consent timestamp in dub.settings.coach_consent_date.
+RATIONALE: WA MHMDA requires "clear affirmative act" consent before each specific data processing purpose. General onboarding consent may not satisfy this requirement.
+
+[A-37] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P2
+FILE: src/utils/audit.ts
+FINDING: Audit logging exists and covers the required events. However, audit logs are stored in AsyncStorage, which is unencrypted. If the device is compromised, audit logs reveal patterns of health data access.
+RECOMMENDATION: Audit logs contain only metadata (no health data), so the risk is moderate. Consider encrypting audit logs or clearly documenting that audit log metadata is stored in plaintext.
+RATIONALE: Audit log entries like "COACH_MESSAGE_SENT with categories: [substances, therapy]" reveal sensitive information about what types of health data the user tracks.
+
+[A-38] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P1
+FILE: SPEC: Section 14 + app.json
+FINDING: No App Tracking Transparency (ATT) implementation. Spec Section 14 requires ATT prompt before affiliate click tracking (dub.marketplace.purchases). The app tracks click-throughs without requesting ATT permission.
+RECOMMENDATION: Implement ATT permission request (via expo-tracking-transparency or equivalent) before logging any marketplace click-through events. If user declines, disable click attribution tracking.
+RATIONALE: Apple requires ATT prompt under iOS 14.5+ for any form of tracking. Missing ATT = App Store rejection.
+
+[A-39] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P2
+FILE: src/utils/storage.ts:231-245
+FINDING: storageClearAll() deletes all dub.* keys but does not clear expo-secure-store keys (API key) or audit logs. Spec says "Delete My Data" should remove ALL keys including secure store.
+RECOMMENDATION: Add expo-secure-store key deletion and document that audit logs are retained (per spec Section 17A audit log retention policy).
+RATIONALE: Incomplete data deletion violates CCPA right-to-delete and could create WA MHMDA liability.
+
+[A-40] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P2
+FILE: app.json
+FINDING: App Store privacy nutrition label is not configured in app.json. Apple requires accurate declaration of all data types collected, how they're used, and whether they're linked to identity.
+RECOMMENDATION: Configure the privacy nutrition label in App Store Connect to declare: health/fitness data, body measurements, health records, sexual activity, substance use -- all linked to identity, used for app functionality. Mark "Data Not Collected" for any categories not applicable.
+RATIONALE: Inaccurate or missing privacy nutrition labels are an App Store rejection risk and user trust issue.
+
+[A-41] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P0
+FILE: src/services/anthropic.ts + SPEC: Section 17B
+FINDING: The Anthropic API sends the user's raw API key in every request header. The Coach disclaimer (Section 17B) warns users not to share sensitive information in messages, but the system prompt itself contains profile summary including name, age, sex, height, weight -- all PII transmitted to Anthropic on every Coach interaction.
+RECOMMENDATION: Disclose SPECIFICALLY in the Coach consent flow that profile data (name, age, sex, height, weight) plus today's health data is transmitted. Users must understand this is not just their typed messages.
+RATIONALE: Premom FTC enforcement targeted exactly this scenario -- undisclosed sharing of health data with third parties. Insufficient disclosure = breach under FTC HBN Rule.
+
+[A-42] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P2
+FILE: src/components/marketplace/InfluencerStorefront.tsx (245 lines)
+FINDING: Need to verify that BOTH FTC dual disclosures are present on influencer product cards: (1) influencer-brand relationship and (2) DUB_AI commission disclosure. Both must be visible without scrolling.
+RECOMMENDATION: Audit InfluencerStorefront.tsx to confirm both disclosures render above the fold on standard device sizes.
+RATIONALE: FTC Endorsement Guides require dual disclosure for influencer content. Missing either disclosure creates shared liability between the platform and influencer.
+
+[A-43] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P3
+FILE: src/components/onboarding/ProfileStep.tsx (295 lines)
+FINDING: Onboarding Step 1 includes three consent checkboxes per spec. Need to verify all three are non-skippable and that consent timestamp + version are stored.
+RECOMMENDATION: Verify that the Continue button is disabled until all three checkboxes are checked, and that consent_date and consent_version are persisted to dub.settings.
+RATIONALE: WA MHMDA requires "clear affirmative act" -- pre-checked boxes or skippable consent would not qualify.
+
+[A-44] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P1
+FILE: eas.json
+FINDING: Production build configuration is empty (line 15: "production": {}). No environment variable management, no build-time security configuration, no signing configuration.
+RECOMMENDATION: Configure production build with appropriate signing credentials, environment variable handling, and disabled debug logging.
+RATIONALE: Empty production config risks shipping debug-enabled builds to App Store, which could expose console logs containing system prompt tokens.
+
+[A-45] EXPERT 4: PRIVACY ATTORNEY | SEVERITY: P3
+FILE: src/ai/context_builder.ts:283-288
+FINDING: Therapy entry loading correctly extracts only session_logged boolean, never notes or therapist_name. The therapy note firewall (assertNoTherapyContent) adds runtime protection.
+RECOMMENDATION: No action required. The dual-layer protection (selective field loading + runtime assertion) is correctly implemented.
+RATIONALE: Confirming that therapy note isolation is properly enforced.
+
+
+================================================================
+EXPERT 5: CTO / TECHNICAL ARCHITECT
+================================================================
+
+[A-46] EXPERT 5: CTO | SEVERITY: P0
+FILE: src/utils/storage.ts
+FINDING: No AsyncStorage key size monitoring implemented. Spec Section 17 item 9 requires warning at 1MB and blocking writes at 1.5MB to prevent Android CursorWindow 2MB crash. The storage wrapper has no size checking.
+RECOMMENDATION: Add byte-size monitoring to storageSet(). Measure JSON.stringify(value).length. Warn at 1MB, block at 1.5MB with a StorageError. Add data compaction or key-splitting logic for large values.
+RATIONALE: The CursorWindow crash is silent and unrecoverable on Android. Without monitoring, the food cache or coach history could silently grow past the limit and crash the app with no error message.
+
+[A-47] EXPERT 5: CTO | SEVERITY: P1
+FILE: src/utils/storage.ts:171-183
+FINDING: storageList() calls AsyncStorage.getAllKeys() on every invocation. As the key count grows (365 days x 20+ tags = 7,000+ keys), this becomes a performance bottleneck, especially on Android where getAllKeys scans the entire SQLite database.
+RECOMMENDATION: Cache the key list with a short TTL (5 seconds) or maintain a key index in a single AsyncStorage entry. Alternatively, use multiGet with known key patterns instead of listing all keys.
+RATIONALE: At scale (1+ year of daily logging), getAllKeys will cause noticeable UI lag when the Coach loads context or the pattern engine runs.
+
+[A-48] EXPERT 5: CTO | SEVERITY: P1
+FILE: src/ai/context_builder.ts:448-487
+FINDING: compute7DayRolling() makes 7 iterations, each with 5 parallel storageGet calls = 35 individual AsyncStorage reads. This runs on every Coach message when trend keywords are detected. On top of the base context loads, a single Coach message can trigger 50+ AsyncStorage reads.
+RECOMMENDATION: Use storageGetMultiple() to batch reads. Load all 7 days of food, water, sleep, mood, body data in a single multiGet call.
+RATIONALE: Serial AsyncStorage reads on Android are slow (~5-10ms each). 50+ reads = 250-500ms blocking the UI thread on each Coach message.
+
+[A-49] EXPERT 5: CTO | SEVERITY: P2
+FILE: src/types/profile.ts:26-36
+FINDING: UserProfile stores weight_lbs and height_inches as the canonical internal representation. Profile is well-typed with BiologicalSex, ActivityLevel, GoalDirection unions. No 'any' types found.
+RECOMMENDATION: No action on type quality. Consider adding a profile_version field to support future schema migrations.
+RATIONALE: Clean type definitions support reliable v2 migration.
+
+[A-50] EXPERT 5: CTO | SEVERITY: P0
+FILE: src/services/ (all service files)
+FINDING: Service layer (anthropic.ts, fatsecret.ts, usda.ts, openfoodfacts.ts) calls AsyncStorage/SecureStore directly. There is no abstraction layer between services and storage. For v2 migration to SQLite + cloud sync, every service file will need rewriting.
+RECOMMENDATION: Introduce a DataRepository interface that services call instead of raw storage functions. The repository implementation can swap from AsyncStorage to SQLite/WatermelonDB without changing service code.
+RATIONALE: The #1 architectural risk for v2 is tight coupling between business logic and AsyncStorage. A repository pattern costs ~1 day to implement now and saves weeks during migration.
+
+[A-51] EXPERT 5: CTO | SEVERITY: P1
+FILE: src/services/apiKeyService.ts
+FINDING: API key is correctly stored in expo-secure-store (hardware-backed), not AsyncStorage. The key format validation correctly rejects OAuth tokens (oat- prefix). The live test function makes a minimal API call to verify.
+RECOMMENDATION: No security action needed. This is correctly implemented.
+RATIONALE: Confirming that the most sensitive credential in the app is properly protected.
+
+[A-52] EXPERT 5: CTO | SEVERITY: P2
+FILE: package.json
+FINDING: react-native-health is version ^1.18.0 and react-native-aes-crypto is ^3.3.0. Both are excluded from Expo's directory check (line 73-77). These are community packages that may have compatibility issues with Expo SDK 55 managed workflow.
+RECOMMENDATION: Verify both packages work with EAS production builds. Run a test build on both platforms. Pin to exact versions that are known-good rather than using caret ranges.
+RATIONALE: Community native packages are the #1 source of EAS build failures. Caret ranges risk pulling in breaking changes.
+
+[A-53] EXPERT 5: CTO | SEVERITY: P1
+FILE: SPEC: Section 16 (Offline) + src/utils/storage.ts
+FINDING: No offline queue implementation found. STORAGE_KEYS.OFFLINE_QUEUE is defined but no code reads from or writes to it. The OfflineQueueItem type exists but no queue manager, FIFO processing, or conflict resolution logic exists.
+RECOMMENDATION: Implement a basic offline queue manager that buffers writes when network is unavailable and replays them when connectivity returns. This is needed for food API lookups and Coach messages.
+RATIONALE: Users logging food in areas without connectivity (gyms, planes) get API failures with no retry mechanism. This degrades the core logging experience.
+
+[A-54] EXPERT 5: CTO | SEVERITY: P2
+FILE: src/hooks/useCoach.ts:94
+FINDING: console.log in Coach hook is gated behind __DEV__ (line 94: if (__DEV__) console.log). This is correct -- no PII leak in production. However, the logged data includes estimated token count of the system prompt, which is benign.
+RECOMMENDATION: No action required. Debug logging is properly gated.
+RATIONALE: Confirming no PII leak in production logs per spec Section 17 item 4.
+
+[A-55] EXPERT 5: CTO | SEVERITY: P2
+FILE: tsconfig.json
+FINDING: TypeScript config extends "expo/tsconfig.base" with strict: true. This is correct but minimal. Consider adding strictNullChecks, noImplicitAny, noUnusedLocals, noUnusedParameters explicitly to catch more issues.
+RECOMMENDATION: Verify that expo/tsconfig.base enables strict null checks. Add noUnusedLocals and noUnusedParameters for code hygiene.
+RATIONALE: Expo's base tsconfig may not enable all strict sub-flags. Explicit configuration prevents surprises.
+
+[A-56] EXPERT 5: CTO | SEVERITY: P0
+FILE: src/ai/context_builder.ts:133 + src/hooks/useDailySummary.ts
+FINDING: The calories_burned field is hardcoded to 0 in context_builder (also flagged by Expert 1 as A-09). The Dashboard's "Remaining" calculation depends on this value. This means the Remaining calculation is wrong: it should be Target - Consumed + Burned, but Burned is always 0.
+RECOMMENDATION: Load today's workout entries in both context_builder.ts and useDailySummary.ts, sum calories_burned from all WorkoutEntry records.
+RATIONALE: This is a fundamental TDEE/calorie balance error that affects Dashboard display, Coach guidance, and user trust in the app's core value proposition.
+
+[A-57] EXPERT 5: CTO | SEVERITY: P2
+FILE: src/ai/context_builder.ts + src/ai/coach_system_prompt.ts
+FINDING: Coach/Marketplace separation is enforced architecturally: the system prompt includes Hard Rule 0 prohibiting affiliate links, and the context builder does not import any marketplace code. Marketplace reads from coach patterns output but never calls Coach code paths.
+RECOMMENDATION: No action required. Separation is correctly implemented.
+RATIONALE: Confirming that the FTC-critical Coach/Marketplace firewall is architecturally sound.
+
+[A-58] EXPERT 5: CTO | SEVERITY: P1
+FILE: app/(tabs)/coach.tsx (inferred)
+FINDING: When no API key is configured, the Coach tab should show a setup tutorial, not crash or show blank. The useCoach hook returns apiKeyConfigured boolean. Need to verify the Coach screen renders a helpful empty state.
+RECOMMENDATION: Verify that coach.tsx renders an API key setup tutorial/CTA when apiKeyConfigured is false. This affects the 50-70% of users in the "Tracker-Only" segment.
+RATIONALE: A broken or blank Coach tab for users without API keys creates the impression of a broken app, driving uninstalls.
+
+
+================================================================
+EXPERT 6: SENIOR SOFTWARE ENGINEER (REACT NATIVE)
+================================================================
+
+[A-59] EXPERT 6: SENIOR SWE | SEVERITY: P2
+FILE: src/components/ (multiple files)
+FINDING: 12 instances of "as any" type assertions across components (PersonalizationFlow, BodyCard, NotificationCard, CustomTagLogger, CycleLogger, MeditationLogger, PersonalCareChecklist, StressLogger, SupplementChecklist). All are for Ionicons name prop (e.g., "name={icon as any}").
+RECOMMENDATION: Create a typed IconName type that matches @expo/vector-icons Ionicons glyph map, or use a type assertion helper: (icon as ComponentProps<typeof Ionicons>['name']).
+RATIONALE: "as any" defeats TypeScript's type safety. While these are all icon name assertions (low risk), they set a bad precedent and could mask real type errors.
+
+[A-60] EXPERT 6: SENIOR SWE | SEVERITY: P1
+FILE: src/components/logging/ActivityLogger.tsx (597 lines)
+FINDING: ActivityLogger.tsx is 597 lines -- exceeds the 500-line threshold for splitting. Likely handles activity selection, duration input, intensity selection, environmental fields, calorie calculation, and save logic in a single component.
+RECOMMENDATION: Split into: ActivitySelector (activity picker), DurationInput, EnvironmentalFields, and ActivityLogger (orchestrator). Each under 200 lines.
+RATIONALE: 597-line components are hard to test, review, and maintain. State management becomes tangled and re-renders become expensive.
+
+[A-61] EXPERT 6: SENIOR SWE | SEVERITY: P2
+FILE: src/components/logging/FoodSearch.tsx (405 lines)
+FINDING: FoodSearch is 405 lines. Below the 500-line hard limit but approaching it. Likely handles search input, API integration, results display, and food selection.
+RECOMMENDATION: Consider extracting the search results list and food selection logic into sub-components if the file grows further.
+RATIONALE: Proactive decomposition prevents the file from crossing the complexity threshold.
+
+[A-62] EXPERT 6: SENIOR SWE | SEVERITY: P2
+FILE: src/hooks/useCoach.ts:98-102
+FINDING: Conversation history sent to Anthropic is limited to last 10 messages (line 99: .slice(-10)). This is a reasonable token budget decision, but the filtering on line 101-102 could produce an invalid conversation (e.g., if the first message after slicing is an assistant message, violating the API's requirement that messages alternate and start with user).
+RECOMMENDATION: After slicing, ensure the first message is a user message. If it's an assistant message, drop it.
+RATIONALE: Anthropic API returns an error if messages don't start with a user role. This edge case would cause Coach failures for users with long conversation histories.
+
+[A-63] EXPERT 6: SENIOR SWE | SEVERITY: P2
+FILE: src/hooks/useCoach.ts:82-85
+FINDING: Optimistic UI update adds user message to state before API call completes. If the API call fails, the user message remains in the list but no assistant response follows. There's no visual indicator that the message failed to send.
+RECOMMENDATION: Add a "failed" status to ChatMessage type. On API error, mark the user message as failed with a retry option.
+RATIONALE: Users may think their message was received and processed when it actually failed, leading to confusion about Coach silence.
+
+[A-64] EXPERT 6: SENIOR SWE | SEVERITY: P2
+FILE: src/ai/context_builder.ts:86-424
+FINDING: buildCoachContext is 338 lines. It loads data, computes ED risk flags, builds conditional sections, and returns context. This is a god function that does too much.
+RECOMMENDATION: Extract ED risk detection into a separate function (detectEdRiskFlags). Extract conditional section building into separate functions per section type.
+RATIONALE: The function is hard to test in isolation. Each responsibility should be independently testable.
+
+[A-65] EXPERT 6: SENIOR SWE | SEVERITY: P1
+FILE: src/__tests__/ (21 test files) vs src/ (~79 source files)
+FINDING: Test-to-source ratio is 21/79 (~27%). Critical paths lacking tests: recovery.ts scoring curves, foodwaterfall.ts waterfall logic, servingmath.ts edge cases, context_builder.ts ED risk detection, pattern_engine.ts correlation logic.
+RECOMMENDATION: Prioritize tests for: (1) recovery.ts scoring functions, (2) context_builder.ts ED risk flags, (3) servingmath.ts quantity edge cases. These are safety-critical calculations.
+RATIONALE: Untested calorie/recovery/safety calculations risk shipping incorrect health data to users. The ED risk detection is especially critical -- a bug could suppress safety alerts.
+
+[A-66] EXPERT 6: SENIOR SWE | SEVERITY: P3
+FILE: src/constants/colors.ts (inferred)
+FINDING: Brand colors are defined in constants/colors.ts and imported by all components reviewed. No hardcoded hex values found in component files. Colors usage is consistent.
+RECOMMENDATION: No action required. Color management is correctly centralized.
+RATIONALE: Centralized color constants support brand consistency and theme changes.
+
+[A-67] EXPERT 6: SENIOR SWE | SEVERITY: P2
+FILE: src/utils/foodwaterfall.ts:31-63
+FINDING: barcodeLookup catches errors with empty catch blocks (lines 38, 48, 56: catch {}). Errors from API failures are silently swallowed, falling through to the next source without any logging or diagnostic information.
+RECOMMENDATION: Add minimal error logging in catch blocks (at minimum, log the source that failed and the error type). In production, this helps diagnose why certain barcodes consistently fail.
+RATIONALE: Silent error swallowing makes debugging impossible. If FatSecret is consistently failing (expired OAuth token), the app silently falls through to less accurate sources with no visibility.
+
+[A-68] EXPERT 6: SENIOR SWE | SEVERITY: P2
+FILE: src/utils/foodwaterfall.ts:69-105
+FINDING: Same silent catch pattern in textSearchWaterfall. Three consecutive empty catch blocks.
+RECOMMENDATION: Same as A-67. Log error source and type for diagnostics.
+RATIONALE: Same as A-67. Users may get inferior search results from fallback sources without any indication of the primary source failure.
+
+[A-69] EXPERT 6: SENIOR SWE | SEVERITY: P3
+FILE: src/hooks/useCoach.ts:59
+FINDING: runPatternEngine().catch(() => {}) on Coach load silently swallows pattern engine errors. If the pattern engine crashes, no patterns are surfaced and no error is shown.
+RECOMMENDATION: Log pattern engine failures in development. In production, the fire-and-forget pattern is acceptable since pattern detection is non-critical.
+RATIONALE: Pattern engine failures during development should be visible for debugging; in production, silent failure is the correct behavior.
+
+[A-70] EXPERT 6: SENIOR SWE | SEVERITY: P1
+FILE: src/ai/pattern_engine.ts:110-358
+FINDING: runPatternEngine makes individual storageGet calls in a loop for up to 60 days of data (line 113). This is 60 iterations x 7 parallel reads = 420 AsyncStorage reads per pattern engine run.
+RECOMMENDATION: Use storageGetMultiple with pre-computed keys for all 60 days x 7 data types. This reduces to 1-2 batch reads instead of 420 individual reads.
+RATIONALE: 420 serial reads at ~5ms each = ~2 seconds blocking time. This runs on every app open, causing visible UI lag on Android.
+
+[A-71] EXPERT 6: SENIOR SWE | SEVERITY: P3
+FILE: src/utils/calories.ts
+FINDING: All exported functions are pure (no side effects, no async), well-typed with specific parameter interfaces, and include JSDoc comments with formula references. BMR coefficients use constants (9.99, 4.92) per spec.
+RECOMMENDATION: No action required. This is a well-structured utility module.
+RATIONALE: Confirming code quality of the core calorie engine.
+
+[A-72] EXPERT 6: SENIOR SWE | SEVERITY: P2
+FILE: src/components/onboarding/ProfileStep.tsx (295 lines)
+FINDING: ProfileStep handles consent checkboxes, DOB validation, name input, and unit selection in a single component. At 295 lines it's within limits but combines consent (safety-critical) with profile data entry (non-critical).
+RECOMMENDATION: Extract consent section into a ConsentCheckboxes sub-component for isolated testing and clearer responsibility boundaries.
+RATIONALE: Consent logic is regulatory-critical. Mixing it with general profile UI increases the risk of consent bugs during profile refactoring.
+
+[A-73] EXPERT 6: SENIOR SWE | SEVERITY: P3
+FILE: src/utils/servingmath.ts
+FINDING: Serving math correctly stores full precision and rounds only at display. QUANTITY_STEPS array provides the spec-required 0.25-10x range. formatQuantity uses unicode fractions for common values.
+RECOMMENDATION: No action required. Well-implemented serving math.
+RATIONALE: Confirming precision handling matches spec requirements.
+
+[A-74] EXPERT 6: SENIOR SWE | SEVERITY: P2
+FILE: src/hooks/useCoach.ts:68-136
+FINDING: sendUserMessage callback has no dependency array values (line 137: }, []). It captures messagesRef via ref (correct) but also calls buildCoachContext and buildSystemPrompt which are module-level imports (correct). However, the empty dependency array means the callback never recreates, which is intentional for ref-based patterns but should be documented.
+RECOMMENDATION: Add a comment explaining the deliberate empty dependency array pattern with useRef for message tracking.
+RATIONALE: Empty dependency arrays on complex callbacks are a common source of stale closure bugs. Documentation prevents future maintainers from "fixing" what isn't broken.
+
+[A-75] EXPERT 6: SENIOR SWE | SEVERITY: P0
+FILE: src/ai/context_builder.ts:132-139
+FINDING: todayData.calories_burned is hardcoded to 0. todayData.steps is hardcoded to 0. These zero values propagate to Dashboard (via CalorieSummary) and Coach context. The Dashboard shows "Burned: 0" even when the user has logged workouts today.
+RECOMMENDATION: Load dub.log.workout.{today} and sum calories_burned for all entries. Load dub.log.steps.{today} for step count. This is the same issue as A-09 and A-56, confirmed from code.
+RATIONALE: This is the single most impactful data accuracy bug in the app. Every calorie balance display and Coach recommendation is wrong by the amount of exercise calories the user burned.
+
+[A-76] EXPERT 6: SENIOR SWE | SEVERITY: P2
+FILE: app/ folder structure
+FINDING: The actual app/ folder structure matches spec Section 6 well: (tabs)/ for main navigation, log/ for logging screens, marketplace/ for marketplace, settings/ for settings screens. Onboarding is at app root level.
+RECOMMENDATION: No structural action needed. Folder organization is clean and matches Expo Router conventions.
+RATIONALE: Confirming folder structure alignment with spec.
+
+[A-77] EXPERT 6: SENIOR SWE | SEVERITY: P1
+FILE: src/ai/pattern_engine.ts:273-303
+FINDING: Pattern 6 (ingredient flag frequency) re-loads food entries that were already loaded in the DayData loop (lines 112-115). This duplicates 7 days of food entry reads unnecessarily.
+RECOMMENDATION: Include flagged_ingredients data in the DayData interface and populate it during the initial data load loop, eliminating the duplicate reads.
+RATIONALE: Redundant AsyncStorage reads compound the performance issue identified in A-70.
+
+[A-78] EXPERT 6: SENIOR SWE | SEVERITY: P3
+FILE: src/types/ (all type files)
+FINDING: Type system is comprehensive and well-organized across 6 files: profile.ts, food.ts, workout.ts, coach.ts, marketplace.ts, index.ts (barrel + remaining types). No 'any' types in type definitions. All entry types have ISO timestamp fields.
+RECOMMENDATION: No action required. Type system is well-architected.
+RATIONALE: Confirming that the foundational type system supports strict TypeScript and future migrations.
+
+
+================================================================
+END OF SESSION A FINDINGS
+================================================================
+
+SUMMARY:
+  Total Findings: 78
+  P0 Ship-Blockers: 8
+    A-22 (Sobriety goals not in always-include Coach context)
+    A-31 (No Privacy Policy / Terms of Service)
+    A-32 (No age rating configuration)
+    A-36 (No separate Anthropic data flow consent)
+    A-41 (PII transmitted to Anthropic without specific disclosure)
+    A-46 (No AsyncStorage key size monitoring)
+    A-50 (Services tightly coupled to AsyncStorage)
+    A-75 (calories_burned hardcoded to 0)
+  P1 Fix Before v1.2: 24
+  P2 Improvements: 31
+  P3 Nice-to-Have: 15
+
+TOP CROSS-CUTTING ISSUES:
+  1. calories_burned = 0: Affects Dashboard, Coach, and all calorie balance
+     calculations. Flagged by Experts 1, 5, and 6 (A-09, A-56, A-75).
+  2. AsyncStorage performance: Pattern engine (420 reads), Coach context
+     (50+ reads), storageList (full key scan). Flagged by Experts 5 and 6.
+  3. Privacy/legal gaps: No Privacy Policy, no ToS, no ATT, no separate
+     Anthropic consent. Flagged by Expert 4 across multiple findings.
+  4. Strength training incomplete: No exercises.json, no strength.ts, no
+     1RM calculation, no set logging types. Flagged by Expert 2.
+  5. Recovery score uses absolute thresholds instead of personal baselines
+     for HRV and RHR. Flagged by Expert 2.
+
+Session A complete. 78 findings across 6 experts.
+8 ship-blockers identified. File saved.
