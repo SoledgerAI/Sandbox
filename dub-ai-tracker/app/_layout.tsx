@@ -13,12 +13,16 @@ import { processQueue } from '../src/utils/offline';
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
 import { AuthGate } from '../src/components/AuthGate';
 import { OnboardingGate } from '../src/components/OnboardingGate';
+import { DebugOverlay, debugStep } from '../src/components/DebugOverlay'; // DEBUG: REMOVE BEFORE PRODUCTION
 import type { AppSettings } from '../src/types/profile';
 
-// Keep the splash screen visible until we explicitly hide it
-SplashScreen.preventAutoHideAsync().catch(() => {});
+// DEBUG: REMOVE BEFORE PRODUCTION — hide splash IMMEDIATELY so debug overlay is visible
+// We no longer keep the splash screen up; we want to see the debug text instead.
+debugStep('STEP 0: Module loaded — hiding splash immediately');
+SplashScreen.hideAsync().catch(() => {});
 
 export default function RootLayout() {
+  debugStep('STEP 1: RootLayout function body executing'); // DEBUG: REMOVE BEFORE PRODUCTION
   const [checking, setChecking] = useState(true);
   const navigationState = useRootNavigationState();
 
@@ -86,37 +90,54 @@ export default function RootLayout() {
     setQuickHideActive(false);
   }, []);
 
+  // DEBUG: REMOVE BEFORE PRODUCTION — log navigation state on every render
   useEffect(() => {
-    if (!navigationState?.key) return;
+    debugStep(`STEP 2: navigationState.key = ${navigationState?.key ?? 'UNDEFINED'}`);
+  }, [navigationState?.key]);
 
+  useEffect(() => {
+    if (!navigationState?.key) {
+      debugStep('STEP 2a: navigationState.key is falsy — waiting...'); // DEBUG: REMOVE BEFORE PRODUCTION
+      return;
+    }
+
+    debugStep('STEP 2b: navigationState ready — checking onboarding...'); // DEBUG: REMOVE BEFORE PRODUCTION
     async function checkOnboarding() {
       try {
+        debugStep('STEP 2c: reading ONBOARDING_COMPLETE from storage...'); // DEBUG: REMOVE BEFORE PRODUCTION
         const complete = await storageGet<boolean>(STORAGE_KEYS.ONBOARDING_COMPLETE);
+        debugStep(`STEP 2d: ONBOARDING_COMPLETE = ${complete}`); // DEBUG: REMOVE BEFORE PRODUCTION
         if (!complete) {
+          debugStep('STEP 2e: routing to /onboarding'); // DEBUG: REMOVE BEFORE PRODUCTION
           router.replace('/onboarding');
         }
+      } catch (err) {
+        debugStep(`STEP 2x: checkOnboarding ERROR: ${err}`); // DEBUG: REMOVE BEFORE PRODUCTION
       } finally {
         setChecking(false);
-        // Always dismiss the native splash screen, even if checks fail
-        SplashScreen.hideAsync().catch(() => {});
+        debugStep('STEP 2 DONE: checking=false'); // DEBUG: REMOVE BEFORE PRODUCTION
       }
     }
     checkOnboarding();
   }, [navigationState?.key]);
 
-  // Safety net: if navigation state never resolves, hide splash after 5 seconds
+  // Safety net: if navigation state never resolves, force past checking after 5 seconds
   useEffect(() => {
     const timeout = setTimeout(() => {
+      debugStep('STEP TIMEOUT: 5s safety net fired — forcing checking=false'); // DEBUG: REMOVE BEFORE PRODUCTION
       setChecking(false);
-      SplashScreen.hideAsync().catch(() => {});
     }, 5000);
     return () => clearTimeout(timeout);
   }, []);
 
   const showOverlay = privacyOverlay || quickHideActive;
 
+  debugStep(`STEP 5: RootLayout render — checking=${checking}`); // DEBUG: REMOVE BEFORE PRODUCTION
+
   return (
     <ErrorBoundary>
+      {/* DEBUG: REMOVE BEFORE PRODUCTION — debug overlay renders on top of everything */}
+      <DebugOverlay />
       <AuthGate>
         <OnboardingGate>
           <StatusBar style="light" />
@@ -132,6 +153,8 @@ export default function RootLayout() {
               <ActivityIndicator color={Colors.accent} size="large" />
             </View>
           )}
+          {/* DEBUG: REMOVE BEFORE PRODUCTION */}
+          {(() => { debugStep('STEP 6: Main app content rendering (Stack navigator)'); return null; })()}
           <View style={{ flex: 1 }} onTouchEnd={handleTouchEnd}>
             <Stack
               screenOptions={{
