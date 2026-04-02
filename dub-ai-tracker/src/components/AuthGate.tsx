@@ -51,28 +51,33 @@ export function AuthGate({ children }: AuthGateProps) {
   // Check lock state on mount
   useEffect(() => {
     async function check() {
-      const enabled = await isLockEnabled();
-      lockEnabledRef.current = enabled;
+      try {
+        const enabled = await isLockEnabled();
+        lockEnabledRef.current = enabled;
 
-      if (!enabled) {
+        if (!enabled) {
+          setState('unlocked');
+          return;
+        }
+
+        const method = await getAuthMethod();
+        setAuthMethod(method);
+
+        const bio = await isBiometricAvailable();
+        setBiometryType(bio.biometryType);
+
+        // Decide initial view
+        if (method === 'pin' || !bio.available) {
+          setLockView('pin');
+        } else {
+          setLockView('biometric');
+        }
+
+        setState('locked');
+      } catch {
+        // If auth check fails, let the user through rather than locking them out forever
         setState('unlocked');
-        return;
       }
-
-      const method = await getAuthMethod();
-      setAuthMethod(method);
-
-      const bio = await isBiometricAvailable();
-      setBiometryType(bio.biometryType);
-
-      // Decide initial view
-      if (method === 'pin' || !bio.available) {
-        setLockView('pin');
-      } else {
-        setLockView('biometric');
-      }
-
-      setState('locked');
     }
     check();
   }, []);

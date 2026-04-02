@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { ActivityIndicator, AppState, AppStateStatus, Text, View } from 'react-native';
 import { Stack, router, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import * as SplashScreen from 'expo-splash-screen';
 import { Colors } from '../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../src/utils/storage';
 import { processQueue } from '../src/utils/offline';
@@ -13,6 +14,9 @@ import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
 import { AuthGate } from '../src/components/AuthGate';
 import { OnboardingGate } from '../src/components/OnboardingGate';
 import type { AppSettings } from '../src/types/profile';
+
+// Keep the splash screen visible until we explicitly hide it
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
   const [checking, setChecking] = useState(true);
@@ -93,10 +97,21 @@ export default function RootLayout() {
         }
       } finally {
         setChecking(false);
+        // Always dismiss the native splash screen, even if checks fail
+        SplashScreen.hideAsync().catch(() => {});
       }
     }
     checkOnboarding();
   }, [navigationState?.key]);
+
+  // Safety net: if navigation state never resolves, hide splash after 5 seconds
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setChecking(false);
+      SplashScreen.hideAsync().catch(() => {});
+    }, 5000);
+    return () => clearTimeout(timeout);
+  }, []);
 
   const showOverlay = privacyOverlay || quickHideActive;
 

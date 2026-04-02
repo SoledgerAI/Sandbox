@@ -42,6 +42,7 @@
     "expo-router": "~55.0.8",
     "expo-secure-store": "~55.0.9",
     "expo-sharing": "~55.0.14",
+    "expo-splash-screen": "^55.0.13",
     "expo-status-bar": "~55.0.4",
     "expo-tracking-transparency": "~55.0.9",
     "react": "19.2.0",
@@ -81,5 +82,8 @@
   "engines": {
     "node": ">=20.0.0",
     "npm": ">=10.0.0"
+  },
+  "overrides": {
+    "@expo/fingerprint": "0.16.6"
   }
 }
