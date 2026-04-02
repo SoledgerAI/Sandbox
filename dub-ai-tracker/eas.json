@@ -12,7 +12,7 @@
     },
     "production": {
       "distribution": "store",
-      "autoIncrement": "buildNumber",
+      "autoIncrement": true,
       "env": {
         "APP_ENV": "production"
       },
