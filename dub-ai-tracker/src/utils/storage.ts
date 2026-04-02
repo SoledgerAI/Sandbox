@@ -151,6 +151,40 @@ function invalidateKeyCache(): void {
 const writeLocks = new Map<string, Promise<void>>();
 
 // ============================================================
+// Timeout Wrapper (release-build storage hang fix)
+// ============================================================
+
+/**
+ * Race a promise against a timeout. If the timeout wins, return the fallback
+ * value and log a warning. Used to prevent storage reads from hanging
+ * indefinitely in release builds.
+ */
+export async function asyncWithTimeout<T>(
+  promise: Promise<T>,
+  ms: number,
+  fallback: T,
+  label?: string,
+): Promise<T> {
+  let timer: ReturnType<typeof setTimeout>;
+  const timeout = new Promise<T>((resolve) => {
+    timer = setTimeout(() => {
+      console.warn(`[Storage] TIMEOUT after ${ms}ms${label ? ` (${label})` : ''} — using fallback`);
+      resolve(fallback);
+    }, ms);
+  });
+
+  try {
+    const result = await Promise.race([promise, timeout]);
+    return result;
+  } finally {
+    clearTimeout(timer!);
+  }
+}
+
+/** Default timeout for storage reads in milliseconds */
+export const STORAGE_READ_TIMEOUT = 3000;
+
+// ============================================================
 // Typed Storage Operations
 // ============================================================
 
@@ -160,7 +194,12 @@ const writeLocks = new Map<string, Promise<void>>();
  */
 export async function storageGet<T>(key: string): Promise<T | null> {
   try {
-    const raw = await AsyncStorage.getItem(key);
+    const raw = await asyncWithTimeout(
+      AsyncStorage.getItem(key),
+      STORAGE_READ_TIMEOUT,
+      null,
+      `storageGet(${key})`,
+    );
     if (raw === null) {
       return null;
     }

@@ -53,9 +53,11 @@ export function AuthGate({ children }: AuthGateProps) {
   useEffect(() => {
     async function check() {
       try {
-        debugStep('STEP 3a: AuthGate — checking isLockEnabled...'); // DEBUG: REMOVE BEFORE PRODUCTION
+        debugStep('STEP 3a: AuthGate — checking isLockEnabled (3s timeout)...'); // DEBUG: REMOVE BEFORE PRODUCTION
+        const t0 = Date.now(); // DEBUG: REMOVE BEFORE PRODUCTION
         const enabled = await isLockEnabled();
-        debugStep(`STEP 3b: AuthGate — lock enabled = ${enabled}`); // DEBUG: REMOVE BEFORE PRODUCTION
+        const elapsed = Date.now() - t0; // DEBUG: REMOVE BEFORE PRODUCTION
+        debugStep(`STEP 3b: AuthGate — lock enabled = ${enabled} (${elapsed}ms${elapsed >= 3000 ? ' TIMEOUT-FALLBACK' : ''})`); // DEBUG: REMOVE BEFORE PRODUCTION
         lockEnabledRef.current = enabled;
 
         if (!enabled) {
@@ -64,7 +66,7 @@ export function AuthGate({ children }: AuthGateProps) {
           return;
         }
 
-        debugStep('STEP 3c: AuthGate — lock IS enabled, getting auth method...'); // DEBUG: REMOVE BEFORE PRODUCTION
+        debugStep('STEP 3c: AuthGate — lock IS enabled, getting auth method (3s timeout)...'); // DEBUG: REMOVE BEFORE PRODUCTION
         const method = await getAuthMethod();
         setAuthMethod(method);
 

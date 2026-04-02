@@ -3,6 +3,7 @@
 
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { asyncWithTimeout, STORAGE_READ_TIMEOUT } from '../utils/storage';
 
 // ============================================================
 // SENSITIVE — stored in SecureStore (encrypted, hardware-backed)
@@ -39,7 +40,12 @@ export const PREF_KEYS = {
 
 export async function getSecure(key: string): Promise<string | null> {
   try {
-    return await SecureStore.getItemAsync(key);
+    return await asyncWithTimeout(
+      SecureStore.getItemAsync(key),
+      STORAGE_READ_TIMEOUT,
+      null,
+      `getSecure(${key})`,
+    );
   } catch {
     return null;
   }
@@ -59,7 +65,12 @@ export async function deleteSecure(key: string): Promise<void> {
 
 export async function getPreference(key: string): Promise<string | null> {
   try {
-    return await AsyncStorage.getItem(key);
+    return await asyncWithTimeout(
+      AsyncStorage.getItem(key),
+      STORAGE_READ_TIMEOUT,
+      null,
+      `getPreference(${key})`,
+    );
   } catch {
     return null;
   }

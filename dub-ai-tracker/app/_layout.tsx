@@ -104,9 +104,11 @@ export default function RootLayout() {
     debugStep('STEP 2b: navigationState ready — checking onboarding...'); // DEBUG: REMOVE BEFORE PRODUCTION
     async function checkOnboarding() {
       try {
-        debugStep('STEP 2c: reading ONBOARDING_COMPLETE from storage...'); // DEBUG: REMOVE BEFORE PRODUCTION
+        debugStep('STEP 2c: reading ONBOARDING_COMPLETE from storage (3s timeout)...'); // DEBUG: REMOVE BEFORE PRODUCTION
+        const t0 = Date.now(); // DEBUG: REMOVE BEFORE PRODUCTION
         const complete = await storageGet<boolean>(STORAGE_KEYS.ONBOARDING_COMPLETE);
-        debugStep(`STEP 2d: ONBOARDING_COMPLETE = ${complete}`); // DEBUG: REMOVE BEFORE PRODUCTION
+        const elapsed = Date.now() - t0; // DEBUG: REMOVE BEFORE PRODUCTION
+        debugStep(`STEP 2d: ONBOARDING_COMPLETE = ${complete} (${elapsed}ms${elapsed >= 3000 ? ' TIMEOUT-FALLBACK' : ''})`); // DEBUG: REMOVE BEFORE PRODUCTION
         if (!complete) {
           debugStep('STEP 2e: routing to /onboarding'); // DEBUG: REMOVE BEFORE PRODUCTION
           router.replace('/onboarding');

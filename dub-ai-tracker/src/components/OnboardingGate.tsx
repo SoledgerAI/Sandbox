@@ -20,9 +20,11 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
   useEffect(() => {
     async function check() {
       try {
-        debugStep('STEP 4a: OnboardingGate — checking isOnboardingComplete...'); // DEBUG: REMOVE BEFORE PRODUCTION
+        debugStep('STEP 4a: OnboardingGate — checking isOnboardingComplete (3s timeout)...'); // DEBUG: REMOVE BEFORE PRODUCTION
+        const t0 = Date.now(); // DEBUG: REMOVE BEFORE PRODUCTION
         const done = await isOnboardingComplete();
-        debugStep(`STEP 4b: OnboardingGate — complete = ${done}`); // DEBUG: REMOVE BEFORE PRODUCTION
+        const elapsed = Date.now() - t0; // DEBUG: REMOVE BEFORE PRODUCTION
+        debugStep(`STEP 4b: OnboardingGate — complete = ${done} (${elapsed}ms${elapsed >= 3000 ? ' TIMEOUT-FALLBACK' : ''})`); // DEBUG: REMOVE BEFORE PRODUCTION
         setComplete(done);
       } finally {
         setChecking(false);
