@@ -60,7 +60,8 @@
       "Bash(find /c/Users/joshs/Documents/Sandbox/dub-ai-tracker/src -type f -name *useProfile* -o -name *profile*.ts)",
       "Bash(xxd /c/Users/joshs/Documents/Sandbox/dub-ai-tracker/.npmrc)",
       "Bash(python3:*)",
-      "Bash(npx eas:*)"
+      "Bash(npx eas:*)",
+      "Bash(npx expo-doctor:*)"
     ]
   }
 }

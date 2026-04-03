@@ -7,6 +7,8 @@ import { ActivityIndicator, AppState, AppStateStatus, Text, View } from 'react-n
 import { Stack, router, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // DEBUG: REMOVE BEFORE PRODUCTION — diagnostic
+import * as SecureStore from 'expo-secure-store'; // DEBUG: REMOVE BEFORE PRODUCTION — diagnostic
 import { Colors } from '../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../src/utils/storage';
 import { processQueue } from '../src/utils/offline';
@@ -20,6 +22,63 @@ import type { AppSettings } from '../src/types/profile';
 // We no longer keep the splash screen up; we want to see the debug text instead.
 debugStep('STEP 0: Module loaded — hiding splash immediately');
 SplashScreen.hideAsync().catch(() => {});
+
+// DEBUG: REMOVE BEFORE PRODUCTION — Raw storage diagnostic
+// Runs at module scope BEFORE any component renders.
+// Tests whether native modules respond at all in release builds.
+const DIAG_TIMEOUT = 3000;
+(async () => {
+  // Test 1: AsyncStorage — read a non-existent key (should return null fast)
+  debugStep('DIAG-1: AsyncStorage.getItem (non-existent key)...');
+  try {
+    const t0 = Date.now();
+    const val = await Promise.race([
+      AsyncStorage.getItem('__DIAG_NOKEY__'),
+      new Promise<string | null>((_, rej) => setTimeout(() => rej(new Error(`TIMEOUT ${DIAG_TIMEOUT}ms`)), DIAG_TIMEOUT)),
+    ]);
+    debugStep(`DIAG-1: result = ${JSON.stringify(val)} (${Date.now() - t0}ms)`);
+  } catch (e: unknown) {
+    debugStep(`DIAG-1: FAIL — ${e instanceof Error ? e.message : e}`);
+  }
+
+  // Test 2: AsyncStorage — full set/get/remove cycle
+  debugStep('DIAG-2: AsyncStorage set+get+remove...');
+  try {
+    const t0 = Date.now();
+    await Promise.race([
+      AsyncStorage.setItem('__DIAG__', 'ok'),
+      new Promise<void>((_, rej) => setTimeout(() => rej(new Error(`setItem TIMEOUT ${DIAG_TIMEOUT}ms`)), DIAG_TIMEOUT)),
+    ]);
+    const val = await Promise.race([
+      AsyncStorage.getItem('__DIAG__'),
+      new Promise<string | null>((_, rej) => setTimeout(() => rej(new Error(`getItem TIMEOUT ${DIAG_TIMEOUT}ms`)), DIAG_TIMEOUT)),
+    ]);
+    debugStep(`DIAG-2: result = ${JSON.stringify(val)} (${Date.now() - t0}ms)`);
+    AsyncStorage.removeItem('__DIAG__').catch(() => {});
+  } catch (e: unknown) {
+    debugStep(`DIAG-2: FAIL — ${e instanceof Error ? e.message : e}`);
+  }
+
+  // Test 3: SecureStore — full set/get/remove cycle
+  debugStep('DIAG-3: SecureStore set+get+remove...');
+  try {
+    const t0 = Date.now();
+    await Promise.race([
+      SecureStore.setItemAsync('__DIAG__', 'ok'),
+      new Promise<void>((_, rej) => setTimeout(() => rej(new Error(`setItemAsync TIMEOUT ${DIAG_TIMEOUT}ms`)), DIAG_TIMEOUT)),
+    ]);
+    const val = await Promise.race([
+      SecureStore.getItemAsync('__DIAG__'),
+      new Promise<string | null>((_, rej) => setTimeout(() => rej(new Error(`getItemAsync TIMEOUT ${DIAG_TIMEOUT}ms`)), DIAG_TIMEOUT)),
+    ]);
+    debugStep(`DIAG-3: result = ${JSON.stringify(val)} (${Date.now() - t0}ms)`);
+    SecureStore.deleteItemAsync('__DIAG__').catch(() => {});
+  } catch (e: unknown) {
+    debugStep(`DIAG-3: FAIL — ${e instanceof Error ? e.message : e}`);
+  }
+
+  debugStep('DIAG: All storage tests complete');
+})();
 
 export default function RootLayout() {
   debugStep('STEP 1: RootLayout function body executing'); // DEBUG: REMOVE BEFORE PRODUCTION
