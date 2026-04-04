@@ -1,6 +1,9 @@
-// Root layout: checks onboarding state on launch
-// Phase 3: Onboarding Flow
-// Per Section 8: If dub.onboarding.complete is true, skip to Dashboard
+// Root layout — FORENSIC FIX: Flat init architecture
+// - AuthGate renders children ALWAYS (lock UI is an overlay, not a blocker)
+// - OnboardingGate REMOVED — onboarding handled via router navigation
+// - Stack ALWAYS renders — Expo Router initializes immediately
+// - isOnboardingComplete() now reads AsyncStorage first (fast, no Keychain)
+// - Single init effect: check onboarding, navigate if needed
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { ActivityIndicator, AppState, AppStateStatus, Text, View } from 'react-native';
@@ -12,15 +15,14 @@ import { storageGet, STORAGE_KEYS } from '../src/utils/storage';
 import { processQueue } from '../src/utils/offline';
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
 import { AuthGate } from '../src/components/AuthGate';
-import { OnboardingGate } from '../src/components/OnboardingGate';
 import { isOnboardingComplete } from '../src/services/onboardingService';
 import type { AppSettings } from '../src/types/profile';
 
 // Keep splash screen visible until initialization completes
-SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export default function RootLayout() {
-  const [checking, setChecking] = useState(true);
+  const [initDone, setInitDone] = useState(false);
   const navigationState = useRootNavigationState();
 
   // D8-001: Privacy screen overlay driven by AppState + setting
@@ -33,15 +35,13 @@ export default function RootLayout() {
 
   // Load privacy_screen_enabled setting
   useEffect(() => {
-    async function loadPrivacySetting() {
-      try {
-        const settings = await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS);
+    storageGet<AppSettings>(STORAGE_KEYS.SETTINGS)
+      .then((settings) => {
         privacyEnabledRef.current = settings?.privacy_screen_enabled ?? false;
-      } catch {
+      })
+      .catch(() => {
         privacyEnabledRef.current = false;
-      }
-    }
-    loadPrivacySetting();
+      });
   }, []);
 
   // D8-001: Listen for AppState changes + MASTER-62: process offline queue on resume
@@ -87,49 +87,68 @@ export default function RootLayout() {
     setQuickHideActive(false);
   }, []);
 
+  // Single init: once Expo Router is ready, check onboarding and navigate
   useEffect(() => {
     if (!navigationState?.key) return;
+    let cancelled = false;
 
-    async function checkOnboarding() {
+    async function init() {
       try {
         const complete = await isOnboardingComplete();
-        if (!complete) {
+        if (!cancelled && !complete) {
           router.replace('/onboarding');
         }
       } catch {
-        // Storage error — treat as not complete, route to onboarding
+        // Storage error — route to onboarding to be safe
+        if (!cancelled) router.replace('/onboarding');
       } finally {
-        setChecking(false);
+        if (!cancelled) {
+          setInitDone(true);
+          SplashScreen.hideAsync().catch(() => {});
+        }
       }
     }
-    checkOnboarding();
+    init();
+    return () => { cancelled = true; };
   }, [navigationState?.key]);
 
-  // Hide splash screen immediately on mount. Do NOT gate on `checking` —
-  // RAF/setTimeout safety nets may never fire while the native splash
-  // covers the RN view (Hermes release-build timer deadlock).
-  // AuthGate and OnboardingGate render their own full-screen loading UI,
-  // so the visual transition from native splash to React spinner is seamless.
+  // Hide splash screen immediately on mount — prevents Hermes timer deadlock
+  // where native splash covering the RN view stops RAF/setTimeout from firing.
   useEffect(() => {
-    SplashScreen.hideAsync();
+    SplashScreen.hideAsync().catch(() => {});
   }, []);
 
-  // Safety net: if navigation state never resolves, force past checking after 5 seconds.
-  // Uses requestAnimationFrame polling because setTimeout may not fire
-  // in Hermes release builds.
+  // Hard deadline: force past init after 5 seconds, no matter what.
+  // Uses BOTH setTimeout AND RAF for redundancy.
   useEffect(() => {
     let cancelled = false;
+
+    function forceReady() {
+      if (cancelled) return;
+      cancelled = true;
+      setInitDone(true);
+      SplashScreen.hideAsync().catch(() => {});
+    }
+
+    // Primary: setTimeout
+    const timer = setTimeout(forceReady, 5000);
+
+    // Backup: RAF polling
     const start = Date.now();
     function rafCheck() {
       if (cancelled) return;
       if (Date.now() - start >= 5000) {
-        setChecking(false);
+        forceReady();
         return;
       }
       requestAnimationFrame(rafCheck);
     }
     requestAnimationFrame(rafCheck);
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, []);
 
   const showOverlay = privacyOverlay || quickHideActive;
@@ -137,12 +156,31 @@ export default function RootLayout() {
   return (
     <ErrorBoundary>
       <AuthGate>
-        <OnboardingGate>
-          <StatusBar style="light" />
-          {checking && (
+        <StatusBar style="light" />
+        <View style={{ flex: 1, backgroundColor: Colors.primaryBackground }}>
+          {/* Stack ALWAYS renders — no gate blocks Expo Router initialization */}
+          <View style={{ flex: 1 }} onTouchEnd={handleTouchEnd}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                contentStyle: { backgroundColor: Colors.primaryBackground },
+              }}
+            >
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
+            </Stack>
+          </View>
+
+          {/* Loading overlay — covers Stack until init completes */}
+          {!initDone && (
             <View
               style={{
-                flex: 1,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 100,
                 backgroundColor: Colors.primaryBackground,
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -151,16 +189,8 @@ export default function RootLayout() {
               <ActivityIndicator color={Colors.accent} size="large" />
             </View>
           )}
-          <View style={{ flex: 1 }} onTouchEnd={handleTouchEnd}>
-            <Stack
-              screenOptions={{
-                headerShown: false,
-                contentStyle: { backgroundColor: Colors.primaryBackground },
-              }}
-            >
-              <Stack.Screen name="onboarding" options={{ gestureEnabled: false }} />
-            </Stack>
-          </View>
+
+          {/* D8-001 / D8-002: Privacy + quick-hide overlay */}
           {showOverlay && (
             <View
               onTouchEnd={quickHideActive ? handleOverlayTap : undefined}
@@ -181,7 +211,7 @@ export default function RootLayout() {
               </Text>
             </View>
           )}
-        </OnboardingGate>
+        </View>
       </AuthGate>
     </ErrorBoundary>
   );

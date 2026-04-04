@@ -1,6 +1,9 @@
 // Personalization onboarding service
 // Prompt 03 v2: Smart Onboarding (Sex-Based Tag Filtering + Demographic Vitamins)
+// FORENSIC FIX: Reads AsyncStorage first (fast, no Keychain), writes to BOTH stores.
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEYS } from '../utils/storage';
 import {
   SECURE_KEYS,
   PREF_KEYS,
@@ -15,16 +18,43 @@ import type { BiologicalSex } from '../types/profile';
 export type AgeRange = '18-29' | '30-44' | '45-59' | '60+';
 
 export async function isOnboardingComplete(): Promise<boolean> {
-  const value = await getSecure(SECURE_KEYS.ONBOARDING_COMPLETE);
-  return value === 'true';
+  // PRIMARY: AsyncStorage — fast, SQLite-backed, no Keychain dependency
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETE);
+    if (raw !== null) {
+      try { return JSON.parse(raw) === true; } catch { return false; }
+    }
+  } catch {}
+
+  // FALLBACK: SecureStore — for data written before this fix (migration path)
+  try {
+    const value = await getSecure(SECURE_KEYS.ONBOARDING_COMPLETE);
+    if (value === 'true') {
+      // Migrate to AsyncStorage for faster reads on next launch
+      AsyncStorage.setItem(
+        STORAGE_KEYS.ONBOARDING_COMPLETE,
+        JSON.stringify(true),
+      ).catch(() => {});
+      return true;
+    }
+  } catch {}
+
+  return false;
 }
 
 export async function completeOnboarding(): Promise<void> {
-  await setSecure(SECURE_KEYS.ONBOARDING_COMPLETE, 'true');
+  // Write to BOTH stores — eliminates split-brain between code paths
+  await Promise.all([
+    setSecure(SECURE_KEYS.ONBOARDING_COMPLETE, 'true'),
+    AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, JSON.stringify(true)),
+  ]);
 }
 
 export async function resetOnboarding(): Promise<void> {
-  await deleteSecure(SECURE_KEYS.ONBOARDING_COMPLETE);
+  await Promise.all([
+    deleteSecure(SECURE_KEYS.ONBOARDING_COMPLETE),
+    AsyncStorage.removeItem(STORAGE_KEYS.ONBOARDING_COMPLETE).catch(() => {}),
+  ]);
 }
 
 export async function getUserSex(): Promise<BiologicalSex | null> {

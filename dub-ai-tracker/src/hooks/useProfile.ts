@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { storageGet, storageSet, STORAGE_KEYS } from '../utils/storage';
+import { setSecure, SECURE_KEYS } from '../services/secureStorageService';
 import type { UserProfile, ConsentRecord, AppSettings, EngagementTier } from '../types/profile';
 
 interface UseProfileResult {
@@ -88,6 +89,8 @@ export function useProfile(): UseProfileResult {
     await Promise.all([
       storageSet(STORAGE_KEYS.ONBOARDING_COMPLETE, true),
       storageSet(STORAGE_KEYS.ONBOARDING_DATE, new Date().toISOString()),
+      // Write to SecureStore too — prevents split-brain with onboardingService reads
+      setSecure(SECURE_KEYS.ONBOARDING_COMPLETE, 'true'),
     ]);
   }, []);
 

@@ -50,7 +50,8 @@ describe('AuthGate', () => {
     await waitFor(() => {
       expect(getByText('DUB_AI')).toBeTruthy();
     });
-    expect(queryByText('App Content')).toBeNull();
+    // Children always render (lock UI is an overlay), so App Content is in the tree
+    expect(queryByText('App Content')).toBeTruthy();
   });
 
   it('shows PIN view when auth method is pin', async () => {

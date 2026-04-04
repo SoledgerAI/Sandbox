@@ -89,26 +89,33 @@ export function AuthGate({ children }: AuthGateProps) {
   }, []);
 
   // Safety net: if auth check hangs, force unlocked after 5 seconds.
-  // Uses requestAnimationFrame polling because setTimeout may not fire
-  // in Hermes release builds.
+  // Uses BOTH setTimeout AND requestAnimationFrame for redundancy.
   useEffect(() => {
     let cancelled = false;
+
+    // Primary: setTimeout
+    const timer = setTimeout(() => {
+      if (!cancelled) {
+        setState((prev) => (prev === 'loading' ? 'unlocked' : prev));
+      }
+    }, 5000);
+
+    // Backup: requestAnimationFrame polling
     const start = Date.now();
     function rafCheck() {
       if (cancelled) return;
       if (Date.now() - start >= 5000) {
-        setState((prev) => {
-          if (prev === 'loading') {
-            return 'unlocked';
-          }
-          return prev;
-        });
+        setState((prev) => (prev === 'loading' ? 'unlocked' : prev));
         return;
       }
       requestAnimationFrame(rafCheck);
     }
     requestAnimationFrame(rafCheck);
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, []);
 
   // Re-lock when app goes to background
@@ -211,134 +218,139 @@ export function AuthGate({ children }: AuthGateProps) {
   }, [pinError, lockoutRemaining]);
 
   // ---- RENDER ----
+  // FORENSIC FIX: Children ALWAYS render so the Stack/Expo Router can
+  // initialize immediately. Lock/loading UI is an absolute overlay on top.
 
-  if (state === 'loading') {
-    return (
-      <View style={styles.fullScreen}>
-        <ActivityIndicator color={Colors.accent} size="large" />
-      </View>
-    );
-  }
-
-  if (state === 'unlocked') {
-    return <>{children}</>;
-  }
-
-  // LOCKED state
-  if (lockView === 'pin') {
-    return (
-      <View style={styles.fullScreen}>
-        <Text style={styles.appName}>DUB_AI</Text>
-
-        {lockoutRemaining > 0 ? (
-          <Text style={styles.lockoutText}>
-            Too many attempts. Try again in {lockoutRemaining}s
-          </Text>
-        ) : (
-          <Text style={styles.subtitle}>Enter your PIN</Text>
-        )}
-
-        {/* PIN dots */}
-        <Animated.View
-          style={[styles.dotsRow, { transform: [{ translateX: shakeAnim }] }]}
-        >
-          {[0, 1, 2, 3].map((i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                pin.length > i && styles.dotFilled,
-                pinError && styles.dotError,
-              ]}
-            />
-          ))}
-        </Animated.View>
-
-        {/* Numeric keypad */}
-        <View style={styles.keypad}>
-          {[
-            ['1', '2', '3'],
-            ['4', '5', '6'],
-            ['7', '8', '9'],
-            ['', '0', 'back'],
-          ].map((row, ri) => (
-            <View key={ri} style={styles.keyRow}>
-              {row.map((key) => {
-                if (key === '') return <View key="empty" style={styles.key} />;
-                if (key === 'back') {
-                  return (
-                    <TouchableOpacity
-                      key="back"
-                      style={styles.key}
-                      onPress={handleBackspace}
-                    >
-                      <Ionicons
-                        name="backspace-outline"
-                        size={24}
-                        color={Colors.text}
-                      />
-                    </TouchableOpacity>
-                  );
-                }
-                return (
-                  <TouchableOpacity
-                    key={key}
-                    style={styles.key}
-                    onPress={() => handlePinDigit(key)}
-                  >
-                    <Text style={styles.keyText}>{key}</Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
-          ))}
-        </View>
-
-        {/* Switch to biometric if available */}
-        {authMethod !== 'pin' && biometryType && (
-          <TouchableOpacity
-            style={styles.switchLink}
-            onPress={() => setLockView('biometric')}
-          >
-            <Text style={styles.switchText}>Use {biometryType} instead</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    );
-  }
-
-  // Biometric view
   return (
-    <View style={styles.fullScreen}>
-      <Text style={styles.appName}>DUB_AI</Text>
+    <>
+      {children}
 
-      <TouchableOpacity style={styles.bioButton} onPress={handleBiometric}>
-        <Ionicons
-          name={biometryType === 'Face ID' ? 'scan-outline' : 'finger-print-outline'}
-          size={48}
-          color={Colors.accent}
-        />
-      </TouchableOpacity>
-      <Text style={styles.subtitle}>
-        Tap to unlock with {biometryType || 'Biometrics'}
-      </Text>
+      {state !== 'unlocked' && (
+        <View style={styles.overlay}>
+          {state === 'loading' && (
+            <ActivityIndicator color={Colors.accent} size="large" />
+          )}
 
-      {/* Switch to PIN if method includes PIN */}
-      {authMethod !== 'biometric' && (
-        <TouchableOpacity
-          style={styles.switchLink}
-          onPress={() => setLockView('pin')}
-        >
-          <Text style={styles.switchText}>Use PIN instead</Text>
-        </TouchableOpacity>
+          {state === 'locked' && lockView === 'pin' && (
+            <>
+              <Text style={styles.appName}>DUB_AI</Text>
+
+              {lockoutRemaining > 0 ? (
+                <Text style={styles.lockoutText}>
+                  Too many attempts. Try again in {lockoutRemaining}s
+                </Text>
+              ) : (
+                <Text style={styles.subtitle}>Enter your PIN</Text>
+              )}
+
+              {/* PIN dots */}
+              <Animated.View
+                style={[styles.dotsRow, { transform: [{ translateX: shakeAnim }] }]}
+              >
+                {[0, 1, 2, 3].map((i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.dot,
+                      pin.length > i && styles.dotFilled,
+                      pinError && styles.dotError,
+                    ]}
+                  />
+                ))}
+              </Animated.View>
+
+              {/* Numeric keypad */}
+              <View style={styles.keypad}>
+                {[
+                  ['1', '2', '3'],
+                  ['4', '5', '6'],
+                  ['7', '8', '9'],
+                  ['', '0', 'back'],
+                ].map((row, ri) => (
+                  <View key={ri} style={styles.keyRow}>
+                    {row.map((key) => {
+                      if (key === '') return <View key="empty" style={styles.key} />;
+                      if (key === 'back') {
+                        return (
+                          <TouchableOpacity
+                            key="back"
+                            style={styles.key}
+                            onPress={handleBackspace}
+                          >
+                            <Ionicons
+                              name="backspace-outline"
+                              size={24}
+                              color={Colors.text}
+                            />
+                          </TouchableOpacity>
+                        );
+                      }
+                      return (
+                        <TouchableOpacity
+                          key={key}
+                          style={styles.key}
+                          onPress={() => handlePinDigit(key)}
+                        >
+                          <Text style={styles.keyText}>{key}</Text>
+                        </TouchableOpacity>
+                      );
+                    })}
+                  </View>
+                ))}
+              </View>
+
+              {/* Switch to biometric if available */}
+              {authMethod !== 'pin' && biometryType && (
+                <TouchableOpacity
+                  style={styles.switchLink}
+                  onPress={() => setLockView('biometric')}
+                >
+                  <Text style={styles.switchText}>Use {biometryType} instead</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+
+          {state === 'locked' && lockView === 'biometric' && (
+            <>
+              <Text style={styles.appName}>DUB_AI</Text>
+
+              <TouchableOpacity style={styles.bioButton} onPress={handleBiometric}>
+                <Ionicons
+                  name={biometryType === 'Face ID' ? 'scan-outline' : 'finger-print-outline'}
+                  size={48}
+                  color={Colors.accent}
+                />
+              </TouchableOpacity>
+              <Text style={styles.subtitle}>
+                Tap to unlock with {biometryType || 'Biometrics'}
+              </Text>
+
+              {/* Switch to PIN if method includes PIN */}
+              {authMethod !== 'biometric' && (
+                <TouchableOpacity
+                  style={styles.switchLink}
+                  onPress={() => setLockView('pin')}
+                >
+                  <Text style={styles.switchText}>Use PIN instead</Text>
+                </TouchableOpacity>
+              )}
+            </>
+          )}
+        </View>
       )}
-    </View>
+    </>
   );
 }
 
 const styles = StyleSheet.create({
-  fullScreen: {
-    flex: 1,
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 8000,
     backgroundColor: Colors.primaryBackground,
     alignItems: 'center',
     justifyContent: 'center',
