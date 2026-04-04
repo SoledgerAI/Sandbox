@@ -59,7 +59,7 @@ export async function resetOnboarding(): Promise<void> {
 
 export async function getUserSex(): Promise<BiologicalSex | null> {
   const value = await getSecure(SECURE_KEYS.USER_SEX);
-  if (value === 'male' || value === 'female' || value === 'prefer_not_to_say') {
+  if (value === 'male' || value === 'female' || value === 'intersex' || value === 'prefer_not_to_say') {
     return value;
   }
   return null;

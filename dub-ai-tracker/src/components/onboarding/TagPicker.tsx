@@ -1,17 +1,12 @@
-// Step 3 (Part B): Tag Selection Grid
-// Phase 3: Onboarding Flow
-// Per Section 8 Step 3: Two-section grid (Health/Fitness + Personal/Private)
-// Sensitive tags are NEVER pre-selected regardless of tier.
+// Tag Selection Grid — used in Settings and deferred setup
+// P0-08: Tag visibility DECOUPLED from sex. All tags visible to all users.
+// P1-14: No developer jargon — "tags" replaced with user-facing language
 
-import { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { HEALTH_FITNESS_TAGS, PERSONAL_PRIVATE_TAGS } from '../../constants/tags';
 import type { TagDefault } from '../../constants/tags';
-import { getVisibleTags } from '../../services/tagFilterService';
-import { getUserSex } from '../../services/onboardingService';
-import type { BiologicalSex } from '../../types/profile';
 
 interface TagPickerProps {
   enabledTags: string[];
@@ -19,21 +14,12 @@ interface TagPickerProps {
 }
 
 export function TagPicker({ enabledTags, onToggle }: TagPickerProps) {
-  const [sex, setSex] = useState<BiologicalSex | null>(null);
-
-  useEffect(() => {
-    getUserSex().then(setSex);
-  }, []);
-
-  const visibleHealthTags = getVisibleTags(sex, HEALTH_FITNESS_TAGS);
-  const visiblePrivateTags = getVisibleTags(sex, PERSONAL_PRIVATE_TAGS);
-
   return (
     <View style={styles.container}>
       {/* Section 1: Health & Fitness */}
       <Text style={styles.sectionTitle}>Health & Fitness</Text>
       <View style={styles.grid}>
-        {visibleHealthTags.map((tag) => (
+        {HEALTH_FITNESS_TAGS.map((tag) => (
           <TagChip
             key={tag.id}
             tag={tag}
@@ -47,11 +33,11 @@ export function TagPicker({ enabledTags, onToggle }: TagPickerProps) {
       <View style={styles.sensitiveSection}>
         <Text style={styles.sectionTitle}>Personal & Private</Text>
         <Text style={styles.sensitiveNote}>
-          These tags track sensitive health data. They are completely private, stored
-          only on your device, and optional.
+          These categories track sensitive health data. They are completely private,
+          stored only on your device, and optional.
         </Text>
         <View style={styles.grid}>
-          {visiblePrivateTags.map((tag) => (
+          {PERSONAL_PRIVATE_TAGS.map((tag) => (
             <TagChip
               key={tag.id}
               tag={tag}

@@ -5,7 +5,15 @@ export type EngagementTier = 'precision' | 'structured' | 'balanced' | 'flexible
 
 export type GoalDirection = 'LOSE' | 'GAIN' | 'MAINTAIN';
 
-export type BiologicalSex = 'male' | 'female' | 'prefer_not_to_say';
+// 'prefer_not_to_say' retained for backward compat with existing stored profiles
+export type BiologicalSex = 'male' | 'female' | 'intersex' | 'prefer_not_to_say';
+
+export type Pronouns = 'she_her' | 'he_him' | 'they_them' | 'prefer_not_to_say';
+
+// For intersex users: which Mifflin-St Jeor constants to use for BMR
+export type MetabolicProfile = 'male' | 'female';
+
+export type MainGoal = 'lose_weight' | 'gain_muscle' | 'get_healthier' | 'track_condition' | 'support_recovery';
 
 export type ActivityLevel = 'sedentary' | 'lightly_active' | 'moderately_active' | 'very_active' | 'extremely_active';
 
@@ -28,6 +36,9 @@ export interface UserProfile {
   dob: string; // ISO date string
   units: UnitPreference;
   sex: BiologicalSex | null;
+  pronouns: Pronouns | null;
+  metabolic_profile: MetabolicProfile | null; // set when sex is 'intersex'
+  main_goal: MainGoal | null;
   height_inches: number | null; // stored in inches regardless of unit pref
   weight_lbs: number | null; // stored in lbs regardless of unit pref
   activity_level: ActivityLevel | null;

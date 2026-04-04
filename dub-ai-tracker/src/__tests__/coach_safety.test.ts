@@ -47,6 +47,9 @@ function makeMinimalContext(overrides?: Partial<CoachContext>): CoachContext {
       weight_lbs: 180,
       activity_level: 'moderately_active',
       goal: { direction: 'LOSE', target_weight: 170, rate_lbs_per_week: 1.0, gain_type: null, surplus_calories: null },
+      pronouns: null,
+      metabolic_profile: null,
+      main_goal: null,
       altitude_acclimated: false,
     },
     tier: 'balanced' as EngagementTier,
@@ -151,7 +154,10 @@ describe('Context Builder -- Therapy Note Firewall', () => {
         weight_lbs: 180,
         activity_level: 'moderately_active',
         goal: { direction: 'MAINTAIN', target_weight: null, rate_lbs_per_week: null, gain_type: null, surplus_calories: null },
-        altitude_acclimated: false,
+        pronouns: null,
+      metabolic_profile: null,
+      main_goal: null,
+      altitude_acclimated: false,
       })
     );
 
@@ -181,7 +187,10 @@ describe('Context Builder -- Therapy Note Firewall', () => {
         weight_lbs: 140,
         activity_level: 'lightly_active',
         goal: { direction: 'MAINTAIN', target_weight: null, rate_lbs_per_week: null, gain_type: null, surplus_calories: null },
-        altitude_acclimated: false,
+        pronouns: null,
+      metabolic_profile: null,
+      main_goal: null,
+      altitude_acclimated: false,
       })
     );
 

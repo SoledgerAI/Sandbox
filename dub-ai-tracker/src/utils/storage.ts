@@ -19,6 +19,7 @@ export const STORAGE_KEYS = {
   TAGS_ORDER: 'dub.tags.order',
   ONBOARDING_COMPLETE: 'dub.onboarding.complete',
   ONBOARDING_DATE: 'dub.onboarding.date',
+  DEFERRED_SETUP: 'dub.deferred.setup',
 
   // Daily Logs (functions that take a date parameter)
   LOG_FOOD: 'dub.log.food',

@@ -176,7 +176,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
     const age = computeAge(profile.dob);
     const weightKg = lbsToKg(profile.weight_lbs);
     const heightCm = inchesToCm(profile.height_inches);
-    bmr = calculateBmr({ weightKg, heightCm, ageYears: age, sex: profile.sex });
+    bmr = calculateBmr({ weightKg, heightCm, ageYears: age, sex: profile.sex, metabolicProfile: profile.metabolic_profile });
     tdee = calculateTdee(bmr, profile.activity_level);
     calorieTarget = calculateCalorieTarget({
       tdee,
@@ -352,8 +352,15 @@ export async function buildCoachContext(userMessage: string): Promise<{
   // ---- Eating Disorder Risk Detection (always computed, safety-critical) ----
   const edRiskFlags: EdRiskFlag[] = [];
 
-  // Determine sex-aware calorie floor
-  const calorieFloor = profile?.sex === 'female' ? CALORIE_FLOOR_FEMALE : CALORIE_FLOOR_MALE;
+  // Determine sex-aware calorie floor (uses metabolic_profile for intersex)
+  const effectiveSexForFloor =
+    profile?.sex === 'intersex' && profile?.metabolic_profile
+      ? profile.metabolic_profile
+      : profile?.sex;
+  const calorieFloor =
+    effectiveSexForFloor === 'female' ? CALORIE_FLOOR_FEMALE :
+    effectiveSexForFloor === 'male' ? CALORIE_FLOOR_MALE :
+    Math.round((CALORIE_FLOOR_FEMALE + CALORIE_FLOOR_MALE) / 2);
 
   // Flag 1: Extreme restriction today (below 1,000 cal with food logged)
   if (foods.length > 0 && todayData.calories_consumed < ED_EXTREME_RESTRICTION_THRESHOLD) {
@@ -420,6 +427,9 @@ export async function buildCoachContext(userMessage: string): Promise<{
       dob: '',
       units: 'imperial',
       sex: null,
+      pronouns: null,
+      metabolic_profile: null,
+      main_goal: null,
       height_inches: null,
       weight_lbs: null,
       activity_level: null,

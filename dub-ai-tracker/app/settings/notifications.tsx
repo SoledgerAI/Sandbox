@@ -176,8 +176,8 @@ export default function NotificationsScreen() {
           <TouchableOpacity style={styles.eodButton} onPress={openEOD} activeOpacity={0.7}>
             <Ionicons name="moon-outline" size={18} color={Colors.accent} />
             <Text style={styles.eodButtonText}>
-              Preview Evening Check-in ({unloggedTags.length} unlogged tag
-              {unloggedTags.length !== 1 ? 's' : ''})
+              Preview Evening Check-in ({unloggedTags.length} unlogged categor
+              {unloggedTags.length !== 1 ? 'ies' : 'y'})
             </Text>
             <Ionicons name="chevron-forward" size={16} color={Colors.secondaryText} />
           </TouchableOpacity>

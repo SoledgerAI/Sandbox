@@ -1,21 +1,22 @@
 // Dashboard screen -- daily overview
 // Phase 5: Dashboard Layout
+// P1-08: Deferred setup cards (Days 1-4 after onboarding)
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
+import { useDeferredSetup } from '../../src/hooks/useDeferredSetup';
 import { ScoreRing } from '../../src/components/charts/ScoreRing';
 import { CalorieSummary } from '../../src/components/dashboard/CalorieSummary';
 import { StreakCounter } from '../../src/components/dashboard/StreakCounter';
+import { DeferredSetupCard } from '../../src/components/dashboard/DeferredSetupCard';
 import { ALL_DEFAULT_TAGS } from '../../src/constants/tags';
 import { BodyCard } from '../../src/components/dashboard/BodyCard';
 import { RecoveryCard } from '../../src/components/dashboard/RecoveryCard';
 import { TagCardWithData } from '../../src/components/dashboard/TagCardWithData';
-import { isTagVisibleForUser } from '../../src/services/tagFilterService';
-import { getUserSex } from '../../src/services/onboardingService';
-import type { BiologicalSex } from '../../src/types/profile';
+import type { DeferredSetupKey } from '../../src/hooks/useDeferredSetup';
 
 export default function DashboardScreen() {
   const {
@@ -33,11 +34,19 @@ export default function DashboardScreen() {
     dailyScore,
   } = useDailySummary();
 
-  const [userSex, setUserSex] = useState<BiologicalSex | null>(null);
+  const {
+    activeCard,
+    dismissItem,
+    completeItem,
+  } = useDeferredSetup();
 
-  useEffect(() => {
-    getUserSex().then(setUserSex);
-  }, []);
+  const handleSetUp = useCallback((key: DeferredSetupKey) => {
+    completeItem(key);
+  }, [completeItem]);
+
+  const handleDismiss = useCallback((key: DeferredSetupKey) => {
+    dismissItem(key);
+  }, [dismissItem]);
 
   if (loading) {
     return (
@@ -71,6 +80,19 @@ export default function DashboardScreen() {
       <View style={styles.ringContainer}>
         <ScoreRing score={scoreValue} />
       </View>
+
+      {/* Deferred Setup Card (one at a time, Days 1-4) */}
+      {activeCard && (
+        <DeferredSetupCard
+          title={activeCard.title}
+          description={activeCard.description}
+          icon={activeCard.icon}
+          route={activeCard.route}
+          itemKey={activeCard.key}
+          onSetUp={handleSetUp}
+          onDismiss={handleDismiss}
+        />
+      )}
 
       {/* Calorie Summary */}
       {profileComplete ? (
@@ -107,8 +129,8 @@ export default function DashboardScreen() {
       {/* Recovery Score */}
       <RecoveryCard />
 
-      {/* MASTER-53: Tag Cards with real data, MASTER-56: lazy rendered */}
-      {orderedTags.filter((tagId) => isTagVisibleForUser(tagId, userSex)).map((tagId) => {
+      {/* MASTER-53: Tag Cards — no sex-based filtering (P0-08) */}
+      {orderedTags.map((tagId) => {
         const tagDef = ALL_DEFAULT_TAGS.find((t) => t.id === tagId);
         if (tagDef == null) return null;
 

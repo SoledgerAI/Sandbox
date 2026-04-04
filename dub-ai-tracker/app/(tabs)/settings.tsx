@@ -232,7 +232,7 @@ export default function SettingsScreen() {
     );
   }, []);
 
-  const sexDisplayLabel = userSex === 'male' ? 'Male' : userSex === 'female' ? 'Female' : userSex === 'prefer_not_to_say' ? 'Prefer not to say' : 'Not set';
+  const sexDisplayLabel = userSex === 'male' ? 'Male' : userSex === 'female' ? 'Female' : userSex === 'intersex' ? 'Intersex' : userSex === 'prefer_not_to_say' ? 'Prefer not to say' : 'Not set';
 
   const settingsSections: { title: string; items: SettingsItem[] }[] = [
     {
@@ -241,7 +241,7 @@ export default function SettingsScreen() {
         {
           id: 'tags',
           icon: 'pricetags-outline',
-          label: 'Tags',
+          label: 'What You Track',
           subtitle: 'Manage tracking categories',
           route: '/settings/tags',
         },

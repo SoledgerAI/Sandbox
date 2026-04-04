@@ -18,7 +18,7 @@ import {
   LBS_PER_KG,
   CM_PER_INCH,
 } from '../constants/formulas';
-import type { BiologicalSex, ActivityLevel, GoalDirection } from '../types/profile';
+import type { BiologicalSex, MetabolicProfile, ActivityLevel, GoalDirection } from '../types/profile';
 import { ACTIVITIES, getActivityById } from '../data/activities';
 import type { Activity } from '../data/activities';
 
@@ -66,10 +66,12 @@ interface BmrParams {
   heightCm: number;
   ageYears: number;
   sex: BiologicalSex;
+  /** For intersex users: which metabolic constants to apply */
+  metabolicProfile?: MetabolicProfile | null;
 }
 
 /** Calculate BMR using Mifflin-St Jeor with PRECISE coefficients (9.99, 4.92) */
-export function calculateBmr({ weightKg, heightCm, ageYears, sex }: BmrParams): number {
+export function calculateBmr({ weightKg, heightCm, ageYears, sex, metabolicProfile }: BmrParams): number {
   if (ageYears < 18) {
     throw new Error('BMR calculation requires age >= 18');
   }
@@ -87,7 +89,13 @@ export function calculateBmr({ weightKg, heightCm, ageYears, sex }: BmrParams): 
     return base + BMR_FEMALE_CONSTANT;
   }
 
-  // "Prefer Not to Say": average of male and female formulas
+  // Intersex: use user-selected metabolic profile for formula constants
+  if (sex === 'intersex' && metabolicProfile) {
+    return base + (metabolicProfile === 'male' ? BMR_MALE_CONSTANT : BMR_FEMALE_CONSTANT);
+  }
+
+  // Fallback (intersex without profile, or legacy "prefer_not_to_say"):
+  // average of male and female formulas
   const maleBmr = base + BMR_MALE_CONSTANT;
   const femaleBmr = base + BMR_FEMALE_CONSTANT;
   return (maleBmr + femaleBmr) / 2;
@@ -98,13 +106,15 @@ export function calculateBmrImperial(
   weightLbs: number,
   heightInches: number,
   ageYears: number,
-  sex: BiologicalSex
+  sex: BiologicalSex,
+  metabolicProfile?: MetabolicProfile | null,
 ): number {
   return calculateBmr({
     weightKg: lbsToKg(weightLbs),
     heightCm: inchesToCm(heightInches),
     ageYears,
     sex,
+    metabolicProfile,
   });
 }
 
@@ -180,10 +190,14 @@ export function calculateCalorieTarget({
 }
 
 /** Get the calorie floor for a given sex — MASTER-94: Safety floor per spec Section 9 */
-export function getCalorieFloor(sex: BiologicalSex): number {
+export function getCalorieFloor(sex: BiologicalSex, metabolicProfile?: MetabolicProfile | null): number {
   if (sex === 'female') return CALORIE_FLOOR_FEMALE;
   if (sex === 'male') return CALORIE_FLOOR_MALE;
-  // "prefer_not_to_say": average of 1200 and 1500
+  // Intersex with metabolic profile: use the corresponding floor
+  if (sex === 'intersex' && metabolicProfile) {
+    return metabolicProfile === 'male' ? CALORIE_FLOOR_MALE : CALORIE_FLOOR_FEMALE;
+  }
+  // Intersex without profile or legacy "prefer_not_to_say": average
   return Math.round((CALORIE_FLOOR_FEMALE + CALORIE_FLOOR_MALE) / 2);
 }
 

@@ -29,6 +29,9 @@ describe('useProfile hook logic', () => {
       weight_lbs: 180,
       activity_level: 'moderately_active',
       goal: null,
+      pronouns: null,
+      metabolic_profile: null,
+      main_goal: null,
       altitude_acclimated: false,
     };
     await storageSet(STORAGE_KEYS.PROFILE, profile);

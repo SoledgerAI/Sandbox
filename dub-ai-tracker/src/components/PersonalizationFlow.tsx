@@ -1,6 +1,7 @@
-// PersonalizationFlow: 5-step smart onboarding questionnaire
-// Prompt 03 v2: Smart Onboarding (Sex-Based Tag Filtering + Demographic Vitamins)
-// Screens: Welcome → Sex → Age Range → ZIP (optional) → Summary
+// Express Onboarding: 2-screen flow (P0-08, P1-08, P1-14)
+// Screen 1: Name, DOB, Biological Sex, Pronouns, Consent (~30 seconds)
+// Screen 2: Main Goal → Dashboard immediately
+// All deferred setup (tags, calorie target, devices, reminders) handled by dashboard cards
 
 import { useState, useCallback } from 'react';
 import {
@@ -9,7 +10,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -17,16 +17,26 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
 import { ProgressBar } from './common/ProgressBar';
 import { Button } from './common/Button';
+import { Input } from './common/Input';
+import { DateTimePicker } from './common/DateTimePicker';
 import {
   completeOnboarding,
   setUserSex,
-  setUserAgeRange,
-  setUserZip,
 } from '../services/onboardingService';
-import type { BiologicalSex } from '../types/profile';
-import type { AgeRange } from '../services/onboardingService';
+import { storageSet, STORAGE_KEYS } from '../utils/storage';
+import { getDefaultTagsForTier } from '../constants/tags';
+import { DEFAULT_TIER } from '../constants/tiers';
+import type {
+  BiologicalSex,
+  Pronouns,
+  MetabolicProfile,
+  MainGoal,
+  ConsentRecord,
+  UserProfile,
+} from '../types/profile';
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 2;
+const CONSENT_VERSION = '1.0';
 
 interface PersonalizationFlowProps {
   onComplete: () => void;
@@ -34,290 +44,492 @@ interface PersonalizationFlowProps {
 
 export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
   const [step, setStep] = useState(1);
-  const [sex, setSex] = useState<BiologicalSex | null>(null);
-  const [ageRange, setAgeRange] = useState<AgeRange | null>(null);
-  const [zip, setZip] = useState('');
   const [saving, setSaving] = useState(false);
 
+  // Screen 1 fields
+  const [name, setName] = useState('');
+  const [dobDate, setDobDate] = useState<Date>(new Date(1990, 0, 1));
+  const [sex, setSex] = useState<BiologicalSex | null>(null);
+  const [metabolicProfile, setMetabolicProfile] = useState<MetabolicProfile | null>(null);
+  const [pronouns, setPronouns] = useState<Pronouns | null>(null);
+
+  // Consent
+  const [healthConsent, setHealthConsent] = useState(false);
+  const [aiConsent, setAiConsent] = useState(false);
+  const [ageConsent, setAgeConsent] = useState(false);
+
+  // Screen 2
+  const [mainGoal, setMainGoal] = useState<MainGoal | null>(null);
+
+  // Validation
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const allConsented = healthConsent && aiConsent && ageConsent;
+
+  function getAge(birthDate: Date): number {
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+    return age;
+  }
+
+  function validateScreen1(): boolean {
+    const newErrors: Record<string, string> = {};
+    if (!name.trim()) newErrors.name = 'Name is required';
+    if (getAge(dobDate) < 18) {
+      newErrors.dob = 'DUB_AI Tracker is designed for adults 18 and older.';
+    }
+    if (!sex) newErrors.sex = 'Please select your biological sex';
+    if (sex === 'intersex' && !metabolicProfile) {
+      newErrors.metabolic = 'Please select a metabolic profile for calorie calculations';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
+  function handleScreen1Continue() {
+    if (!validateScreen1()) return;
+    setStep(2);
+  }
+
   const handleFinish = useCallback(async () => {
+    if (!mainGoal) return;
     setSaving(true);
     try {
-      if (sex) await setUserSex(sex);
-      if (ageRange) await setUserAgeRange(ageRange);
-      if (/^\d{5}$/.test(zip)) await setUserZip(zip);
+      const dobString = `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, '0')}-${String(dobDate.getDate()).padStart(2, '0')}`;
+
+      // Map main goal to weight goal direction default
+      const goalDirection =
+        mainGoal === 'lose_weight' ? 'LOSE' as const :
+        mainGoal === 'gain_muscle' ? 'GAIN' as const :
+        'MAINTAIN' as const;
+
+      const profile: Partial<UserProfile> = {
+        name: name.trim(),
+        dob: dobString,
+        units: 'imperial',
+        sex: sex!,
+        pronouns: pronouns,
+        metabolic_profile: sex === 'intersex' ? metabolicProfile : null,
+        main_goal: mainGoal,
+        activity_level: 'moderately_active', // Default per spec
+        goal: {
+          direction: goalDirection,
+          target_weight: null,
+          rate_lbs_per_week: goalDirection === 'LOSE' ? 1.0 : null,
+          gain_type: goalDirection === 'GAIN' ? 'standard' : null,
+          surplus_calories: goalDirection === 'GAIN' ? 500 : null,
+        },
+      };
+
+      const consent: ConsentRecord = {
+        consent_date: new Date().toISOString(),
+        consent_version: CONSENT_VERSION,
+        health_data_consent: healthConsent,
+        third_party_ai_consent: aiConsent,
+        age_verification: ageConsent,
+      };
+
+      // Initialize deferred setup state
+      const today = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
+      const defaultItem = { shown_count: 0, completed: false, dismissed_date: null };
+      const deferredSetup = {
+        onboarding_date: today,
+        tag_selection: { ...defaultItem },
+        calorie_target: { ...defaultItem },
+        device_connect: { ...defaultItem },
+        reminders: { ...defaultItem },
+      };
+
+      await Promise.all([
+        storageSet(STORAGE_KEYS.PROFILE, profile),
+        storageSet(STORAGE_KEYS.SETTINGS, {
+          units: 'imperial',
+          notification_enabled: false,
+          notification_cadence: null,
+          eod_questionnaire_time: null,
+          privacy_screen_enabled: false,
+          consent_date: consent.consent_date,
+          consent_version: consent.consent_version,
+        }),
+        storageSet(STORAGE_KEYS.TIER, DEFAULT_TIER),
+        storageSet(STORAGE_KEYS.TAGS_ENABLED, getDefaultTagsForTier(DEFAULT_TIER)),
+        storageSet(STORAGE_KEYS.DEFERRED_SETUP, deferredSetup),
+        setUserSex(sex!),
+      ]);
+
       await completeOnboarding();
       onComplete();
     } finally {
       setSaving(false);
     }
-  }, [sex, ageRange, zip, onComplete]);
+  }, [name, dobDate, sex, metabolicProfile, pronouns, mainGoal, healthConsent, aiConsent, ageConsent, onComplete]);
 
   return (
     <View style={styles.container}>
       <ProgressBar currentStep={step} totalSteps={TOTAL_STEPS} />
 
-      {/* Back arrow (except Screen 1) */}
       {step > 1 && (
         <TouchableOpacity
           style={styles.backArrow}
-          onPress={() => setStep((s) => s - 1)}
+          onPress={() => setStep(1)}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
       )}
 
-      {step === 1 && <WelcomeScreen onNext={() => setStep(2)} />}
-      {step === 2 && (
-        <SexScreen selected={sex} onSelect={setSex} onNext={() => setStep(3)} />
-      )}
-      {step === 3 && (
-        <AgeRangeScreen selected={ageRange} onSelect={setAgeRange} onNext={() => setStep(4)} />
-      )}
-      {step === 4 && (
-        <ZipScreen value={zip} onChange={setZip} onNext={() => setStep(5)} />
-      )}
-      {step === 5 && (
-        <SummaryScreen
+      {step === 1 && (
+        <Screen1
+          name={name}
+          onNameChange={setName}
+          dobDate={dobDate}
+          onDobChange={setDobDate}
           sex={sex}
-          ageRange={ageRange}
-          zip={zip}
-          saving={saving}
+          onSexSelect={setSex}
+          metabolicProfile={metabolicProfile}
+          onMetabolicProfileSelect={setMetabolicProfile}
+          pronouns={pronouns}
+          onPronounsSelect={setPronouns}
+          healthConsent={healthConsent}
+          onHealthConsent={setHealthConsent}
+          aiConsent={aiConsent}
+          onAiConsent={setAiConsent}
+          ageConsent={ageConsent}
+          onAgeConsent={setAgeConsent}
+          allConsented={allConsented}
+          errors={errors}
+          onContinue={handleScreen1Continue}
+        />
+      )}
+
+      {step === 2 && (
+        <Screen2
+          selected={mainGoal}
+          onSelect={setMainGoal}
           onFinish={handleFinish}
+          saving={saving}
         />
       )}
     </View>
   );
 }
 
-// ── Screen 1: Welcome ──
-
-function WelcomeScreen({ onNext }: { onNext: () => void }) {
-  return (
-    <View style={styles.screen}>
-      <View style={styles.centerContent}>
-        <Text style={styles.appTitle}>Welcome to DUB_AI</Text>
-        <Text style={styles.bodyText}>
-          Let's personalize your experience. This takes about 30 seconds.
-        </Text>
-        <Text style={styles.privacyNote}>Your data stays on your device.</Text>
-      </View>
-      <View style={styles.footer}>
-        <Button title="Get Started" onPress={onNext} />
-      </View>
-    </View>
-  );
-}
-
-// ── Screen 2: Sex ──
+// ── Screen 1: Profile + Consent ──
 
 const SEX_OPTIONS: { value: BiologicalSex; label: string; icon: string }[] = [
-  { value: 'male', label: 'Male', icon: 'male-outline' },
   { value: 'female', label: 'Female', icon: 'female-outline' },
-  { value: 'prefer_not_to_say', label: 'Prefer not to say', icon: 'person-outline' },
+  { value: 'male', label: 'Male', icon: 'male-outline' },
+  { value: 'intersex', label: 'Intersex', icon: 'person-outline' },
 ];
 
-function SexScreen({
-  selected,
-  onSelect,
-  onNext,
-}: {
-  selected: BiologicalSex | null;
-  onSelect: (s: BiologicalSex) => void;
-  onNext: () => void;
-}) {
-  return (
-    <View style={styles.screen}>
-      <Text style={styles.screenTitle}>Which best describes you?</Text>
-
-      <View style={styles.cardGroup}>
-        {SEX_OPTIONS.map((opt) => (
-          <TouchableOpacity
-            key={opt.value}
-            style={[styles.card, selected === opt.value && styles.cardSelected]}
-            onPress={() => onSelect(opt.value)}
-            activeOpacity={0.7}
-          >
-            <Ionicons
-              name={opt.icon as any}
-              size={32}
-              color={selected === opt.value ? Colors.accent : Colors.secondaryText}
-            />
-            <Text
-              style={[styles.cardLabel, selected === opt.value && styles.cardLabelSelected]}
-            >
-              {opt.label}
-            </Text>
-            {selected === opt.value && (
-              <Ionicons
-                name="checkmark-circle"
-                size={22}
-                color={Colors.accent}
-                style={styles.checkIcon}
-              />
-            )}
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Text style={styles.hint}>
-        This helps us show relevant health categories. You can change this anytime in Settings.
-      </Text>
-
-      <View style={styles.footer}>
-        <Button title="Continue" onPress={onNext} disabled={!selected} />
-      </View>
-    </View>
-  );
-}
-
-// ── Screen 3: Age Range ──
-
-const AGE_OPTIONS: { value: AgeRange; label: string }[] = [
-  { value: '18-29', label: '18 – 29' },
-  { value: '30-44', label: '30 – 44' },
-  { value: '45-59', label: '45 – 59' },
-  { value: '60+', label: '60+' },
+const PRONOUN_OPTIONS: { value: Pronouns; label: string }[] = [
+  { value: 'she_her', label: 'She/her' },
+  { value: 'he_him', label: 'He/him' },
+  { value: 'they_them', label: 'They/them' },
+  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
 ];
 
-function AgeRangeScreen({
-  selected,
-  onSelect,
-  onNext,
-}: {
-  selected: AgeRange | null;
-  onSelect: (r: AgeRange) => void;
-  onNext: () => void;
-}) {
-  return (
-    <View style={styles.screen}>
-      <Text style={styles.screenTitle}>What's your age range?</Text>
+const METABOLIC_OPTIONS: { value: MetabolicProfile; label: string }[] = [
+  { value: 'female', label: 'Female metabolic profile' },
+  { value: 'male', label: 'Male metabolic profile' },
+];
 
-      <View style={styles.cardGroup}>
-        {AGE_OPTIONS.map((opt) => (
-          <TouchableOpacity
-            key={opt.value}
-            style={[styles.card, selected === opt.value && styles.cardSelected]}
-            onPress={() => onSelect(opt.value)}
-            activeOpacity={0.7}
-          >
-            <Text
-              style={[styles.cardLabel, selected === opt.value && styles.cardLabelSelected]}
-            >
-              {opt.label}
-            </Text>
-            {selected === opt.value && (
-              <Ionicons
-                name="checkmark-circle"
-                size={22}
-                color={Colors.accent}
-                style={styles.checkIcon}
-              />
-            )}
-          </TouchableOpacity>
-        ))}
-      </View>
-
-      <Text style={styles.hint}>This helps us suggest relevant supplements.</Text>
-
-      <View style={styles.footer}>
-        <Button title="Continue" onPress={onNext} disabled={!selected} />
-      </View>
-    </View>
-  );
+interface Screen1Props {
+  name: string;
+  onNameChange: (v: string) => void;
+  dobDate: Date;
+  onDobChange: (d: Date) => void;
+  sex: BiologicalSex | null;
+  onSexSelect: (s: BiologicalSex) => void;
+  metabolicProfile: MetabolicProfile | null;
+  onMetabolicProfileSelect: (p: MetabolicProfile) => void;
+  pronouns: Pronouns | null;
+  onPronounsSelect: (p: Pronouns) => void;
+  healthConsent: boolean;
+  onHealthConsent: (v: boolean) => void;
+  aiConsent: boolean;
+  onAiConsent: (v: boolean) => void;
+  ageConsent: boolean;
+  onAgeConsent: (v: boolean) => void;
+  allConsented: boolean;
+  errors: Record<string, string>;
+  onContinue: () => void;
 }
 
-// ── Screen 4: ZIP Code ──
+function Screen1({
+  name, onNameChange,
+  dobDate, onDobChange,
+  sex, onSexSelect,
+  metabolicProfile, onMetabolicProfileSelect,
+  pronouns, onPronounsSelect,
+  healthConsent, onHealthConsent,
+  aiConsent, onAiConsent,
+  ageConsent, onAgeConsent,
+  allConsented,
+  errors,
+  onContinue,
+}: Screen1Props) {
+  const canContinue = allConsented && name.trim() && sex && (sex !== 'intersex' || metabolicProfile);
 
-function ZipScreen({
-  value,
-  onChange,
-  onNext,
-}: {
-  value: string;
-  onChange: (z: string) => void;
-  onNext: () => void;
-}) {
   return (
     <KeyboardAvoidingView
       style={styles.screen}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Text style={styles.screenTitle}>What's your ZIP code? (optional)</Text>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.screenTitle}>Welcome to DUB_AI</Text>
+        <Text style={styles.screenSubtitle}>
+          Let's get you started. This takes about 30 seconds.
+        </Text>
 
-      <View style={styles.zipInputContainer}>
-        <TextInput
-          style={styles.zipInput}
-          value={value}
-          onChangeText={(text) => onChange(text.replace(/[^0-9]/g, '').slice(0, 5))}
-          placeholder="00000"
-          placeholderTextColor={Colors.divider}
-          keyboardType="number-pad"
-          maxLength={5}
-          returnKeyType="done"
-        />
-      </View>
+        {/* Consent */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Privacy & Consent</Text>
+          <Text style={styles.consentText}>
+            DUB_AI collects health data that you choose to log. This data is stored on your device.
+            When you use the AI Coach, your data is transmitted to a third-party AI service (Anthropic).
+          </Text>
+          <Checkbox
+            checked={healthConsent}
+            onToggle={() => onHealthConsent(!healthConsent)}
+            label="I consent to the collection and processing of my health data as described in the Privacy Policy."
+          />
+          <Checkbox
+            checked={aiConsent}
+            onToggle={() => onAiConsent(!aiConsent)}
+            label="I understand that Coach messages are processed by a third-party AI service."
+          />
+          <Checkbox
+            checked={ageConsent}
+            onToggle={() => onAgeConsent(!ageConsent)}
+            label="I am 18 years of age or older."
+          />
+        </View>
 
-      <Text style={styles.hint}>
-        Used for local health insights in future updates. Stored on your device only.
-      </Text>
+        {/* Profile fields — disabled until consent given */}
+        <View style={[styles.section, !allConsented && styles.sectionDisabled]}>
+          <Input
+            label="Name"
+            value={name}
+            onChangeText={onNameChange}
+            placeholder="Your name"
+            error={errors.name}
+            editable={allConsented}
+          />
 
-      <View style={styles.footer}>
-        <Button title="Continue" onPress={onNext} />
-        <TouchableOpacity style={styles.skipLink} onPress={onNext} activeOpacity={0.7}>
-          <Text style={styles.skipText}>Skip</Text>
-        </TouchableOpacity>
-      </View>
+          <DateTimePicker
+            label="Date of Birth"
+            mode="date"
+            value={dobDate}
+            onChange={onDobChange}
+            minimumDate={new Date(1920, 0, 1)}
+            maximumDate={new Date(new Date().getFullYear() - 13, new Date().getMonth(), new Date().getDate())}
+          />
+          {errors.dob ? <Text style={styles.errorText}>{errors.dob}</Text> : null}
+
+          {/* Biological Sex */}
+          <Text style={styles.label}>Biological Sex</Text>
+          <View style={styles.cardGroup}>
+            {SEX_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[styles.sexCard, sex === opt.value && styles.sexCardSelected]}
+                onPress={() => allConsented && onSexSelect(opt.value)}
+                disabled={!allConsented}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={opt.icon as any}
+                  size={24}
+                  color={sex === opt.value ? Colors.accent : Colors.secondaryText}
+                />
+                <Text style={[styles.sexLabel, sex === opt.value && styles.sexLabelSelected]}>
+                  {opt.label}
+                </Text>
+                {sex === opt.value && (
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.accent} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.helperText}>
+            Used for calorie calculations only. Never shown on your profile or shared.
+          </Text>
+          {errors.sex ? <Text style={styles.errorText}>{errors.sex}</Text> : null}
+
+          {/* Metabolic profile (intersex only) */}
+          {sex === 'intersex' && (
+            <View style={styles.metabolicSection}>
+              <Text style={styles.label}>Metabolic Profile</Text>
+              <Text style={styles.helperText}>
+                Choose which formula to use for calorie calculations.
+              </Text>
+              <View style={styles.metabolicRow}>
+                {METABOLIC_OPTIONS.map((opt) => (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[
+                      styles.metabolicCard,
+                      metabolicProfile === opt.value && styles.metabolicCardSelected,
+                    ]}
+                    onPress={() => onMetabolicProfileSelect(opt.value)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.metabolicLabel,
+                        metabolicProfile === opt.value && styles.metabolicLabelSelected,
+                      ]}
+                    >
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              {errors.metabolic ? <Text style={styles.errorText}>{errors.metabolic}</Text> : null}
+            </View>
+          )}
+
+          {/* Pronouns */}
+          <Text style={styles.label}>Pronouns</Text>
+          <View style={styles.pronounRow}>
+            {PRONOUN_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[
+                  styles.pronounChip,
+                  pronouns === opt.value && styles.pronounChipSelected,
+                ]}
+                onPress={() => allConsented && onPronounsSelect(opt.value)}
+                disabled={!allConsented}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.pronounText,
+                    pronouns === opt.value && styles.pronounTextSelected,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.footer}>
+          <Button
+            title="Continue"
+            onPress={onContinue}
+            disabled={!canContinue}
+          />
+        </View>
+      </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// ── Screen 5: Summary ──
+// ── Screen 2: Main Goal ──
 
-function SummaryScreen({
-  sex,
-  ageRange,
-  zip,
-  saving,
+const GOAL_OPTIONS: { value: MainGoal; label: string; icon: string }[] = [
+  { value: 'lose_weight', label: 'Lose weight', icon: 'trending-down-outline' },
+  { value: 'gain_muscle', label: 'Gain muscle', icon: 'barbell-outline' },
+  { value: 'get_healthier', label: 'Get healthier', icon: 'heart-outline' },
+  { value: 'track_condition', label: 'Track a condition', icon: 'clipboard-outline' },
+  { value: 'support_recovery', label: 'Support recovery', icon: 'medkit-outline' },
+];
+
+function Screen2({
+  selected,
+  onSelect,
   onFinish,
+  saving,
 }: {
-  sex: BiologicalSex | null;
-  ageRange: AgeRange | null;
-  zip: string;
-  saving: boolean;
+  selected: MainGoal | null;
+  onSelect: (g: MainGoal) => void;
   onFinish: () => void;
+  saving: boolean;
 }) {
-  const sexLabel =
-    sex === 'male' ? 'Male' : sex === 'female' ? 'Female' : sex === 'prefer_not_to_say' ? 'Prefer not to say' : 'Not provided';
-  const ageLabel = ageRange ?? 'Not provided';
-  const zipLabel = /^\d{5}$/.test(zip) ? zip : 'Not provided';
-
   return (
-    <ScrollView style={styles.screen} contentContainerStyle={styles.summaryContent}>
-      <Text style={styles.screenTitle}>Here's your profile:</Text>
+    <View style={styles.screen}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.screenTitle}>What's your main goal?</Text>
+        <Text style={styles.screenSubtitle}>
+          You can change this anytime in Settings.
+        </Text>
 
-      <View style={styles.summaryCard}>
-        <SummaryRow label="Sex" value={sexLabel} icon="person-outline" />
-        <SummaryRow label="Age Range" value={ageLabel} icon="calendar-outline" />
-        <SummaryRow label="ZIP Code" value={zipLabel} icon="location-outline" />
-      </View>
-
-      <Text style={styles.hint}>You can change these anytime in Settings.</Text>
+        <View style={styles.goalGroup}>
+          {GOAL_OPTIONS.map((opt) => (
+            <TouchableOpacity
+              key={opt.value}
+              style={[styles.goalCard, selected === opt.value && styles.goalCardSelected]}
+              onPress={() => onSelect(opt.value)}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name={opt.icon as any}
+                size={28}
+                color={selected === opt.value ? Colors.accent : Colors.secondaryText}
+              />
+              <Text
+                style={[styles.goalLabel, selected === opt.value && styles.goalLabelSelected]}
+              >
+                {opt.label}
+              </Text>
+              {selected === opt.value && (
+                <Ionicons
+                  name="checkmark-circle"
+                  size={22}
+                  color={Colors.accent}
+                  style={{ marginLeft: 'auto' }}
+                />
+              )}
+            </TouchableOpacity>
+          ))}
+        </View>
+      </ScrollView>
 
       <View style={styles.footer}>
-        <Button title="Start Tracking" onPress={onFinish} loading={saving} />
+        <Button
+          title="Start Tracking"
+          onPress={onFinish}
+          disabled={!selected}
+          loading={saving}
+        />
       </View>
-    </ScrollView>
+    </View>
   );
 }
 
-function SummaryRow({ label, value, icon }: { label: string; value: string; icon: string }) {
+// ── Inline Checkbox ──
+
+function Checkbox({
+  checked,
+  onToggle,
+  label,
+}: {
+  checked: boolean;
+  onToggle: () => void;
+  label: string;
+}) {
   return (
-    <View style={styles.summaryRow}>
-      <Ionicons name={icon as any} size={20} color={Colors.accent} />
-      <Text style={styles.summaryLabel}>{label}</Text>
-      <Text style={styles.summaryValue}>{value}</Text>
-    </View>
+    <TouchableOpacity style={styles.checkboxRow} onPress={onToggle} activeOpacity={0.7}>
+      <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+        {checked && <Text style={styles.checkmark}>✓</Text>}
+      </View>
+      <Text style={styles.checkboxLabel}>{label}</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -338,45 +550,153 @@ const styles = StyleSheet.create({
   },
   screen: {
     flex: 1,
+  },
+  scrollContent: {
     paddingHorizontal: 24,
-    paddingTop: 32,
-  },
-  centerContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  appTitle: {
-    color: Colors.accentText,
-    fontSize: 32,
-    fontWeight: 'bold',
-    marginBottom: 24,
-    textAlign: 'center',
-  },
-  bodyText: {
-    color: Colors.text,
-    fontSize: 17,
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 16,
-  },
-  privacyNote: {
-    color: Colors.secondaryText,
-    fontSize: 14,
-    textAlign: 'center',
+    paddingTop: 16,
+    paddingBottom: 40,
   },
   screenTitle: {
-    color: Colors.text,
-    fontSize: 24,
+    color: Colors.accentText,
+    fontSize: 26,
     fontWeight: '700',
-    marginBottom: 24,
-    textAlign: 'center',
+    marginBottom: 8,
   },
-  cardGroup: {
-    gap: 12,
+  screenSubtitle: {
+    color: Colors.secondaryText,
+    fontSize: 15,
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  section: {
+    marginBottom: 24,
+  },
+  sectionDisabled: {
+    opacity: 0.4,
+  },
+  sectionTitle: {
+    color: Colors.accentText,
+    fontSize: 18,
+    fontWeight: '600',
+    marginBottom: 12,
+  },
+  consentText: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+    lineHeight: 20,
     marginBottom: 16,
   },
-  card: {
+  label: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+    marginTop: 16,
+  },
+  helperText: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    lineHeight: 16,
+    marginTop: 6,
+    fontStyle: 'italic',
+  },
+  errorText: {
+    color: Colors.danger,
+    fontSize: 12,
+    marginTop: 4,
+  },
+
+  // Sex cards
+  cardGroup: {
+    gap: 8,
+  },
+  sexCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    padding: 14,
+    borderWidth: 2,
+    borderColor: 'transparent',
+    gap: 12,
+  },
+  sexCardSelected: {
+    borderColor: Colors.accent,
+  },
+  sexLabel: {
+    color: Colors.text,
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  sexLabelSelected: {
+    color: Colors.accentText,
+  },
+
+  // Metabolic profile
+  metabolicSection: {
+    marginTop: 4,
+  },
+  metabolicRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
+  },
+  metabolicCard: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    alignItems: 'center',
+    backgroundColor: Colors.inputBackground,
+  },
+  metabolicCardSelected: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.cardBackground,
+  },
+  metabolicLabel: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  metabolicLabelSelected: {
+    color: Colors.accentText,
+  },
+
+  // Pronoun chips
+  pronounRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  pronounChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    backgroundColor: Colors.inputBackground,
+  },
+  pronounChipSelected: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.cardBackground,
+  },
+  pronounText: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  pronounTextSelected: {
+    color: Colors.accentText,
+  },
+
+  // Goal cards
+  goalGroup: {
+    gap: 10,
+    marginTop: 8,
+  },
+  goalCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.cardBackground,
@@ -386,83 +706,55 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
     gap: 14,
   },
-  cardSelected: {
+  goalCardSelected: {
     borderColor: Colors.accent,
   },
-  cardLabel: {
+  goalLabel: {
     color: Colors.text,
     fontSize: 17,
     fontWeight: '500',
     flex: 1,
   },
-  cardLabelSelected: {
+  goalLabelSelected: {
     color: Colors.accentText,
   },
-  checkIcon: {
-    marginLeft: 'auto',
+
+  // Consent checkboxes
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 14,
   },
-  hint: {
-    color: Colors.secondaryText,
-    fontSize: 13,
-    textAlign: 'center',
-    marginTop: 8,
-    lineHeight: 18,
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 4,
+    borderWidth: 2,
+    borderColor: Colors.divider,
+    marginRight: 12,
+    marginTop: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  checkboxChecked: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  checkmark: {
+    color: Colors.primaryBackground,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  checkboxLabel: {
+    color: Colors.text,
+    fontSize: 14,
+    lineHeight: 20,
+    flex: 1,
+  },
+
   footer: {
-    marginTop: 'auto',
+    paddingHorizontal: 24,
     paddingBottom: 40,
     paddingTop: 16,
-  },
-  skipLink: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 8,
-  },
-  skipText: {
-    color: Colors.secondaryText,
-    fontSize: 15,
-  },
-  zipInputContainer: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  zipInput: {
-    backgroundColor: Colors.inputBackground,
-    color: Colors.text,
-    fontSize: 28,
-    fontWeight: '600',
-    textAlign: 'center',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 24,
-    width: 180,
-    letterSpacing: 8,
-  },
-  summaryContent: {
-    paddingBottom: 40,
-    flexGrow: 1,
-  },
-  summaryCard: {
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
-    padding: 16,
-    gap: 16,
-    marginBottom: 16,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  summaryLabel: {
-    color: Colors.secondaryText,
-    fontSize: 14,
-    width: 80,
-  },
-  summaryValue: {
-    color: Colors.text,
-    fontSize: 16,
-    fontWeight: '600',
-    flex: 1,
   },
 });

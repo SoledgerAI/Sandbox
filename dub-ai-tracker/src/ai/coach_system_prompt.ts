@@ -153,11 +153,14 @@ export function buildSystemPrompt(context: CoachContext, conditionalSections: st
   if (context.profile) {
     const p = context.profile;
     const age = p.dob ? Math.floor((Date.now() - new Date(p.dob).getTime()) / 31557600000) : '?';
-    const sex = p.sex === 'prefer_not_to_say' ? '' : p.sex ?? '';
+    const sexLabel = p.sex === 'prefer_not_to_say' ? '' : p.sex === 'intersex' ? 'I' : p.sex ? p.sex[0].toUpperCase() : '';
+    const pronounLabel = p.pronouns && p.pronouns !== 'prefer_not_to_say'
+      ? ` (${p.pronouns.replace('_', '/')})`
+      : '';
     const height = p.height_inches ? `${Math.floor(p.height_inches / 12)}'${p.height_inches % 12}"` : '?';
     const weight = p.weight_lbs ? `${p.weight_lbs}lbs` : '?';
     const goal = p.goal?.direction ?? 'MAINTAIN';
-    parts.push(`[PROFILE] ${p.name ?? 'User'} ${age}${sex ? '/' + sex[0].toUpperCase() : ''} ${height}/${weight} Goal:${goal}`);
+    parts.push(`[PROFILE] ${p.name ?? 'User'} ${age}${sexLabel ? '/' + sexLabel : ''}${pronounLabel} ${height}/${weight} Goal:${goal}`);
   }
 
   if (context.bmr != null && context.tdee != null) {

@@ -39,6 +39,9 @@ describe('Type System -- Core Interfaces', () => {
         gain_type: null,
         surplus_calories: null,
       },
+      pronouns: null,
+      metabolic_profile: null,
+      main_goal: null,
       altitude_acclimated: false,
     };
     expect(profile.name).toBe('Test User');

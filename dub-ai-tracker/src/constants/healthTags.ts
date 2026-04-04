@@ -1,19 +1,13 @@
-// Sex-based tag visibility rules
-// Prompt 03 v2: Smart Onboarding — Tag Filtering
+// Tag visibility rules — DECOUPLED from biological sex (P0-08)
+// All tags are visible to all users. Tag selection is user's choice.
 
 import { TagCategory } from '../types/tags';
 
-// Tags hidden for male users
-export const MALE_HIDDEN_CATEGORIES: TagCategory[] = [
-  TagCategory.WOMENS_HEALTH,
-];
+// No tags hidden by sex — anyone can select any category
+export const MALE_HIDDEN_CATEGORIES: TagCategory[] = [];
 
-export const MALE_HIDDEN_TAG_IDS: string[] = [
-  'womens.health',
-];
+export const MALE_HIDDEN_TAG_IDS: string[] = [];
 
-// Tags hidden for female users (none currently defined in the tag system,
-// but the structure is here for future use like prostate health)
 export const FEMALE_HIDDEN_CATEGORIES: TagCategory[] = [];
 
 export const FEMALE_HIDDEN_TAG_IDS: string[] = [];

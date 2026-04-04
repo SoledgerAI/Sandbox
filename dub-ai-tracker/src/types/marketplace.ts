@@ -54,7 +54,7 @@ export interface Product {
 export interface DemographicFilter {
   min_age: number | null;
   max_age: number | null;
-  sex: Array<'male' | 'female' | 'prefer_not_to_say'> | null;
+  sex: Array<'male' | 'female' | 'intersex' | 'prefer_not_to_say'> | null;
   tiers: string[] | null;
   goals: string[] | null;
 }

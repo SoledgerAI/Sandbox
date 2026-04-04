@@ -46,7 +46,7 @@ export default function TierScreen() {
 
     Alert.alert(
       'Change Tier',
-      `Switch from ${currentTier.charAt(0).toUpperCase() + currentTier.slice(1)} to ${selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)}? Default health tags will update for the new tier. Your manually-selected sensitive tags will be preserved.`,
+      `Switch from ${currentTier.charAt(0).toUpperCase() + currentTier.slice(1)} to ${selectedTier.charAt(0).toUpperCase() + selectedTier.slice(1)}? Default tracking categories will update for the new tier. Your manually-selected categories will be preserved.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {

@@ -1,21 +1,28 @@
 // Tests for tagFilterService
-// Prompt 03 v2: Smart Onboarding — Sex-Based Tag Filtering
+// P0-08: Tag visibility DECOUPLED from biological sex — all tags visible to everyone
 
 import { getVisibleTags, isTagVisibleForUser, getSuggestedSupplements } from '../services/tagFilterService';
 import { ALL_DEFAULT_TAGS, HEALTH_FITNESS_TAGS, PERSONAL_PRIVATE_TAGS } from '../constants/tags';
 
 describe('tagFilterService', () => {
   describe('getVisibleTags', () => {
-    it('male user does not see womens health tag', () => {
+    it('male user sees all tags including womens health', () => {
       const visible = getVisibleTags('male', ALL_DEFAULT_TAGS);
       const ids = visible.map((t) => t.id);
-      expect(ids).not.toContain('womens.health');
+      expect(ids).toContain('womens.health');
+      expect(visible.length).toBe(ALL_DEFAULT_TAGS.length);
     });
 
-    it('female user sees womens health tag', () => {
+    it('female user sees all tags', () => {
       const visible = getVisibleTags('female', ALL_DEFAULT_TAGS);
       const ids = visible.map((t) => t.id);
       expect(ids).toContain('womens.health');
+      expect(visible.length).toBe(ALL_DEFAULT_TAGS.length);
+    });
+
+    it('intersex user sees all tags', () => {
+      const visible = getVisibleTags('intersex', ALL_DEFAULT_TAGS);
+      expect(visible.length).toBe(ALL_DEFAULT_TAGS.length);
     });
 
     it('prefer_not_to_say sees all tags', () => {
@@ -28,37 +35,19 @@ describe('tagFilterService', () => {
       expect(visible.length).toBe(ALL_DEFAULT_TAGS.length);
     });
 
-    it('male user sees all health/fitness tags (no filtering there)', () => {
-      const visible = getVisibleTags('male', HEALTH_FITNESS_TAGS);
-      expect(visible.length).toBe(HEALTH_FITNESS_TAGS.length);
-    });
-
-    it('female user sees all health/fitness tags', () => {
-      const visible = getVisibleTags('female', HEALTH_FITNESS_TAGS);
-      expect(visible.length).toBe(HEALTH_FITNESS_TAGS.length);
-    });
-
-    it('male user sees fewer personal/private tags than female', () => {
+    it('all users see same number of personal/private tags', () => {
       const maleVisible = getVisibleTags('male', PERSONAL_PRIVATE_TAGS);
       const femaleVisible = getVisibleTags('female', PERSONAL_PRIVATE_TAGS);
-      expect(maleVisible.length).toBeLessThan(femaleVisible.length);
+      expect(maleVisible.length).toBe(femaleVisible.length);
     });
   });
 
   describe('isTagVisibleForUser', () => {
-    it('returns false for womens.health when male', () => {
-      expect(isTagVisibleForUser('womens.health', 'male')).toBe(false);
-    });
-
-    it('returns true for womens.health when female', () => {
+    it('returns true for womens.health for all sexes', () => {
+      expect(isTagVisibleForUser('womens.health', 'male')).toBe(true);
       expect(isTagVisibleForUser('womens.health', 'female')).toBe(true);
-    });
-
-    it('returns true for womens.health when prefer_not_to_say', () => {
+      expect(isTagVisibleForUser('womens.health', 'intersex')).toBe(true);
       expect(isTagVisibleForUser('womens.health', 'prefer_not_to_say')).toBe(true);
-    });
-
-    it('returns true for womens.health when null', () => {
       expect(isTagVisibleForUser('womens.health', null)).toBe(true);
     });
 
