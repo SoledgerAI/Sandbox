@@ -23,13 +23,6 @@ import {
 } from '../services/healthconnect';
 
 import {
-  syncFromStrava,
-  initiateStravaAuth,
-  handleStravaCallback,
-  disconnectStrava,
-} from '../services/strava';
-
-import {
   fetchCurrentWeather,
   type WeatherData,
 } from '../services/weather';
@@ -64,7 +57,6 @@ export interface UseHealthResult {
   syncAll: (userWeightLbs: number) => Promise<SyncResult[]>;
   syncDevice: (device: DeviceType, userWeightLbs: number) => Promise<SyncResult>;
   refreshWeather: (lat: number, lon: number) => Promise<void>;
-  handleStravaOAuthCallback: (code: string) => Promise<boolean>;
   refreshDeviceStates: () => Promise<void>;
 }
 
@@ -79,13 +71,12 @@ export function useHealth(): UseHealthResult {
   const [loading, setLoading] = useState(true);
 
   // Load device states from storage
+  // Only functional integrations (Apple Health, Google Health Connect) read connected state.
+  // Strava, Garmin, Oura: Coming Soon — never report connected.
   const refreshDeviceStates = useCallback(async () => {
-    const [appleState, googleState, stravaState, garminState, ouraState] = await Promise.all([
+    const [appleState, googleState] = await Promise.all([
       storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_APPLE),
       storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_GOOGLE),
-      storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_STRAVA),
-      storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_GARMIN),
-      storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_OURA),
     ]);
 
     const statuses: DeviceStatus[] = [
@@ -105,22 +96,22 @@ export function useHealth(): UseHealthResult {
       },
       {
         id: 'strava',
-        connected: stravaState?.connected === true,
-        lastSync: stravaState?.last_sync ?? null,
-        available: true,
-        comingSoon: false,
+        connected: false,
+        lastSync: null,
+        available: false,
+        comingSoon: true,
       },
       {
         id: 'garmin',
-        connected: garminState?.connected === true,
-        lastSync: garminState?.last_sync ?? null,
+        connected: false,
+        lastSync: null,
         available: false,
         comingSoon: true,
       },
       {
         id: 'oura',
-        connected: ouraState?.connected === true,
-        lastSync: ouraState?.last_sync ?? null,
+        connected: false,
+        lastSync: null,
         available: false,
         comingSoon: true,
       },
@@ -136,7 +127,7 @@ export function useHealth(): UseHealthResult {
     })();
   }, [refreshDeviceStates]);
 
-  // Connect a device
+  // Connect a device — only functional integrations
   const connectDevice = useCallback(async (device: DeviceType): Promise<boolean> => {
     switch (device) {
       case 'apple': {
@@ -148,11 +139,6 @@ export function useHealth(): UseHealthResult {
         const ok = await requestHealthConnectPermissions();
         if (ok) await refreshDeviceStates();
         return ok;
-      }
-      case 'strava': {
-        await initiateStravaAuth();
-        // Auth completes via deep link callback
-        return true;
       }
       default:
         return false;
@@ -167,9 +153,6 @@ export function useHealth(): UseHealthResult {
         break;
       case 'google':
         await disconnectHealthConnect();
-        break;
-      case 'strava':
-        await disconnectStrava();
         break;
     }
     await refreshDeviceStates();
@@ -198,18 +181,8 @@ export function useHealth(): UseHealthResult {
             : 'Health Connect sync failed',
         };
       }
-      case 'strava': {
-        const result = await syncFromStrava(userWeightLbs);
-        return {
-          device: 'strava',
-          success: result.success,
-          message: result.success
-            ? `Imported ${result.activitiesImported} activities from Strava`
-            : 'Strava sync failed',
-        };
-      }
       default:
-        return { device, success: false, message: `${device} integration not available` };
+        return { device, success: false, message: `${device} integration not available yet` };
     }
   }, []);
 
@@ -230,15 +203,6 @@ export function useHealth(): UseHealthResult {
     return results;
   }, [devices, syncDevice, refreshDeviceStates]);
 
-  // Handle Strava OAuth callback
-  const handleStravaOAuthCallback = useCallback(async (code: string): Promise<boolean> => {
-    const success = await handleStravaCallback(code);
-    if (success) {
-      await refreshDeviceStates();
-    }
-    return success;
-  }, [refreshDeviceStates]);
-
   // Refresh weather data
   const refreshWeather = useCallback(async (lat: number, lon: number): Promise<void> => {
     const data = await fetchCurrentWeather(lat, lon);
@@ -255,7 +219,6 @@ export function useHealth(): UseHealthResult {
     syncAll,
     syncDevice,
     refreshWeather,
-    handleStravaOAuthCallback,
     refreshDeviceStates,
   };
 }

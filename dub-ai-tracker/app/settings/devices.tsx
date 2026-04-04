@@ -1,10 +1,9 @@
 // Settings > Device Connections
 // Phase 18: Device Integrations
-// Connection status display, OAuth initiation for Strava,
-// Apple Health / Google Health Connect native permissions,
-// Garmin / Oura "Coming Soon" stubs.
+// Apple Health (iOS) and Google Health Connect (Android) are functional.
+// Strava, Garmin, Oura: Coming Soon — no active data flow.
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Alert,
   ScrollView,
@@ -18,7 +17,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
-import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
+import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import { useHealth, type DeviceType } from '../../src/hooks/useHealth';
 import type { UserProfile } from '../../src/types/profile';
 
@@ -27,7 +26,7 @@ interface DeviceConfig {
   name: string;
   icon: string;
   platform: 'ios' | 'android' | 'all';
-  comingSoon?: boolean;
+  comingSoon: boolean;
 }
 
 const DEVICES: DeviceConfig[] = [
@@ -36,18 +35,21 @@ const DEVICES: DeviceConfig[] = [
     name: 'Apple Health',
     icon: 'heart-outline',
     platform: 'ios',
+    comingSoon: false,
   },
   {
     id: 'google',
     name: 'Google Health Connect',
     icon: 'fitness-outline',
     platform: 'android',
+    comingSoon: false,
   },
   {
     id: 'strava',
     name: 'Strava',
     icon: 'bicycle-outline',
     platform: 'all',
+    comingSoon: true,
   },
   {
     id: 'garmin',
@@ -65,6 +67,12 @@ const DEVICES: DeviceConfig[] = [
   },
 ];
 
+const INTEREST_STORAGE_KEY = '@dubaitracker/device_interest';
+
+interface DeviceInterest {
+  [deviceId: string]: boolean;
+}
+
 export default function DevicesScreen() {
   const {
     devices,
@@ -76,33 +84,23 @@ export default function DevicesScreen() {
   } = useHealth();
 
   const [syncingDeviceId, setSyncingDeviceId] = useState<string | null>(null);
+  const [interests, setInterests] = useState<DeviceInterest>({});
+
+  useEffect(() => {
+    storageGet<DeviceInterest>(INTEREST_STORAGE_KEY).then((saved) => {
+      if (saved) setInterests(saved);
+    });
+  }, []);
+
+  async function handleInterest(deviceId: string) {
+    const updated = { ...interests, [deviceId]: true };
+    setInterests(updated);
+    await storageSet(INTEREST_STORAGE_KEY, updated);
+    Alert.alert('Noted!', "We'll prioritize this integration. Thanks for your feedback.");
+  }
 
   async function handleConnect(config: DeviceConfig) {
     if (config.comingSoon) return;
-
-    if (config.id === 'strava') {
-      Alert.alert(
-        'Connect Strava',
-        'You will be redirected to Strava to authorize DUB_AI to read your activity data.',
-        [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Connect',
-            onPress: async () => {
-              try {
-                await connectDevice('strava');
-              } catch {
-                Alert.alert(
-                  'Strava',
-                  'Could not open Strava authorization. Please ensure you have Strava credentials configured.',
-                );
-              }
-            },
-          },
-        ],
-      );
-      return;
-    }
 
     if (config.id === 'apple') {
       Alert.alert(
@@ -115,7 +113,7 @@ export default function DevicesScreen() {
             onPress: async () => {
               const ok = await connectDevice('apple');
               if (ok) {
-                Alert.alert('Connected', 'Apple Health connected successfully.');
+                Alert.alert('Apple Health', 'Permissions granted. Your data will sync automatically.');
               } else {
                 Alert.alert('Error', 'Could not connect to Apple Health. Please check permissions in iOS Settings.');
               }
@@ -137,7 +135,7 @@ export default function DevicesScreen() {
             onPress: async () => {
               const ok = await connectDevice('google');
               if (ok) {
-                Alert.alert('Connected', 'Health Connect connected successfully.');
+                Alert.alert('Health Connect', 'Permissions granted. Your data will sync automatically.');
               } else {
                 Alert.alert('Error', 'Could not connect to Health Connect. Please check that Health Connect is installed and permissions are granted.');
               }
@@ -207,13 +205,45 @@ export default function DevicesScreen() {
       </View>
 
       <Text style={styles.subtitle}>
-        Connect your fitness devices and health platforms to automatically sync data.
+        Connect your devices to automatically import workouts, sleep, and health data.
       </Text>
 
       {platformDevices.map((config) => {
         const deviceStatus = devices.find((d) => d.id === config.id);
-        const connected = deviceStatus?.connected === true;
+        const connected = !config.comingSoon && deviceStatus?.connected === true;
         const isSyncing = syncingDeviceId === config.id;
+
+        if (config.comingSoon) {
+          return (
+            <View key={config.id} style={styles.deviceCard}>
+              <View style={styles.deviceInfo}>
+                <Ionicons name={config.icon as any} size={24} color={Colors.secondaryText} />
+                <View style={styles.deviceTextContainer}>
+                  <Text style={styles.deviceName}>{config.name}</Text>
+                  <Text style={styles.comingSoonText}>
+                    {config.name} integration is in development
+                  </Text>
+                </View>
+              </View>
+              <View style={styles.buttonRow}>
+                {interests[config.id] ? (
+                  <View style={styles.interestedBadge}>
+                    <Ionicons name="checkmark" size={14} color={Colors.accent} />
+                    <Text style={styles.interestedText}>Noted</Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.interestButton}
+                    onPress={() => handleInterest(config.id)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.interestButtonText}>Interested?</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+          );
+        }
 
         return (
           <View key={config.id} style={styles.deviceCard}>
@@ -221,11 +251,9 @@ export default function DevicesScreen() {
               <Ionicons name={config.icon as any} size={24} color={Colors.accent} />
               <View style={styles.deviceTextContainer}>
                 <Text style={styles.deviceName}>{config.name}</Text>
-                {config.comingSoon ? (
-                  <Text style={styles.comingSoon}>Coming Soon</Text>
-                ) : connected ? (
+                {connected ? (
                   <Text style={styles.connectedText}>
-                    Connected{deviceStatus?.lastSync ? ` — Last sync: ${formatDate(deviceStatus.lastSync)}` : ''}
+                    Connected{deviceStatus?.lastSync ? ` \u2014 Last sync: ${formatDate(deviceStatus.lastSync)}` : ''}
                   </Text>
                 ) : (
                   <Text style={styles.notConnected}>Not connected</Text>
@@ -234,7 +262,7 @@ export default function DevicesScreen() {
             </View>
 
             <View style={styles.buttonRow}>
-              {connected && !config.comingSoon && (
+              {connected && (
                 <TouchableOpacity
                   style={styles.syncButton}
                   onPress={() => handleSync(config)}
@@ -249,25 +277,23 @@ export default function DevicesScreen() {
                 </TouchableOpacity>
               )}
 
-              {!config.comingSoon && (
-                <TouchableOpacity
+              <TouchableOpacity
+                style={[
+                  styles.connectButton,
+                  connected && styles.disconnectButton,
+                ]}
+                onPress={() => (connected ? handleDisconnect(config) : handleConnect(config))}
+                activeOpacity={0.7}
+              >
+                <Text
                   style={[
-                    styles.connectButton,
-                    connected && styles.disconnectButton,
+                    styles.connectButtonText,
+                    connected && styles.disconnectButtonText,
                   ]}
-                  onPress={() => (connected ? handleDisconnect(config) : handleConnect(config))}
-                  activeOpacity={0.7}
                 >
-                  <Text
-                    style={[
-                      styles.connectButtonText,
-                      connected && styles.disconnectButtonText,
-                    ]}
-                  >
-                    {connected ? 'Disconnect' : 'Connect'}
-                  </Text>
-                </TouchableOpacity>
-              )}
+                  {connected ? 'Disconnect' : 'Connect'}
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         );
@@ -329,7 +355,12 @@ const styles = StyleSheet.create({
   deviceName: { color: Colors.text, fontSize: 16, fontWeight: '600' },
   connectedText: { color: Colors.successText, fontSize: 12, marginTop: 2 },
   notConnected: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
-  comingSoon: { color: Colors.warning, fontSize: 12, marginTop: 2, fontStyle: 'italic' },
+  comingSoonText: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
   buttonRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   syncButton: {
     width: 36,
@@ -349,6 +380,30 @@ const styles = StyleSheet.create({
   disconnectButton: { backgroundColor: 'transparent', borderWidth: 1, borderColor: Colors.danger },
   connectButtonText: { color: Colors.primaryBackground, fontSize: 13, fontWeight: '600' },
   disconnectButtonText: { color: Colors.dangerText },
+  interestButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+  },
+  interestButtonText: {
+    color: Colors.accentText,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  interestedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  interestedText: {
+    color: Colors.accent,
+    fontSize: 13,
+    fontWeight: '500',
+  },
   infoBox: {
     flexDirection: 'row',
     backgroundColor: Colors.inputBackground,

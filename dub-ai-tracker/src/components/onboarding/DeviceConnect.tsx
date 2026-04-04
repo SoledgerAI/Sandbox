@@ -1,8 +1,10 @@
-// Step 4 (Part A): Device Connection Stubs
+// Step 4 (Part A): Device Connection — Onboarding
 // Phase 3: Onboarding Flow
-// Per Section 8 Step 4: Stubs for device connections (no actual OAuth yet)
+// Shows functional integrations (Apple Health, Google Health Connect)
+// and Coming Soon stubs for Strava, Garmin, Oura.
+// No device connections happen here — users set them up in Settings.
 
-import { StyleSheet, Text, View, TouchableOpacity, Platform } from 'react-native';
+import { StyleSheet, Text, View, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 
@@ -36,8 +38,8 @@ const DEVICES: DeviceOption[] = [
     id: 'strava',
     name: 'Strava',
     icon: 'bicycle-outline',
-    available: true,
-    comingSoon: false,
+    available: false,
+    comingSoon: true,
     platformNote: null,
   },
   {
@@ -63,20 +65,15 @@ export function DeviceConnect() {
     <View style={styles.container}>
       <Text style={styles.sectionTitle}>Connect Devices</Text>
       <Text style={styles.sectionSubtitle}>
-        Sync data from your wearables and health apps. You can connect these later in
-        Settings.
+        Connect your devices to automatically import workouts, sleep, and health data.
+        You can set these up later in Settings.
       </Text>
 
       <View style={styles.devices}>
         {DEVICES.map((device) => (
-          <TouchableOpacity
+          <View
             key={device.id}
             style={[styles.deviceCard, !device.available && styles.deviceDisabled]}
-            disabled={!device.available}
-            activeOpacity={0.7}
-            onPress={() => {
-              // Stub: device connection will be implemented in a later phase
-            }}
           >
             <Ionicons
               name={device.icon}
@@ -98,15 +95,11 @@ export function DeviceConnect() {
               {device.platformNote && (
                 <Text style={styles.comingSoon}>{device.platformNote}</Text>
               )}
+              {device.available && (
+                <Text style={styles.setupHint}>Set up in Settings after onboarding</Text>
+              )}
             </View>
-            {device.available && (
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={Colors.secondaryText}
-              />
-            )}
-          </TouchableOpacity>
+          </View>
         ))}
       </View>
     </View>
@@ -155,6 +148,12 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
   },
   comingSoon: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  setupHint: {
     color: Colors.secondaryText,
     fontSize: 12,
     marginTop: 2,
