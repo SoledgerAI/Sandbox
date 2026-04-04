@@ -68,6 +68,8 @@ const DEFAULT_SUMMARY: DailySummary = {
   mood_avg: null,
   weight_lbs: null,
   glucose_avg_mg_dl: null,
+  bp_systolic_avg: null,
+  bp_diastolic_avg: null,
   tags_logged: [],
   recovery_score: null,
 };
@@ -283,6 +285,8 @@ export function useDailySummary(): DailySummaryResult {
         mood_avg: null,
         weight_lbs: p?.weight_lbs ?? null,
         glucose_avg_mg_dl: null,
+        bp_systolic_avg: null,
+        bp_diastolic_avg: null,
         tags_logged: [],
         recovery_score: null,
       };

@@ -162,6 +162,14 @@ const CHART_CONFIGS: ChartConfig[] = [
     dataKey: 'glucose',
     unit: 'mg/dL',
   },
+  {
+    id: 'bp-systolic',
+    title: 'Blood Pressure (Systolic)',
+    category: 'Body',
+    type: 'line',
+    dataKey: 'bpSystolic',
+    unit: 'mmHg',
+  },
 
   // Sleep
   {
@@ -229,6 +237,7 @@ const TAG_TO_CATEGORY: Record<string, string> = {
   'injury.pain': 'Body',
   'personal.care': 'Mood',
   'blood.glucose': 'Body',
+  'blood.pressure': 'Body',
 };
 
 export default function TrendsScreen() {

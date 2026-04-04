@@ -44,6 +44,7 @@ export const STORAGE_KEYS = {
   LOG_INJURY: 'dub.log.injury',
   LOG_BLOODWORK: 'dub.log.bloodwork',
   LOG_GLUCOSE: 'dub.log.glucose',
+  LOG_BP: 'dub.log.bp',
   LOG_CUSTOM: 'dub.log.custom',
 
   // Aggregates and Caches

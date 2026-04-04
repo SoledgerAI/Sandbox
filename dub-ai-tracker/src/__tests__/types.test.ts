@@ -348,6 +348,8 @@ describe('Type System -- Core Interfaces', () => {
       mood_avg: 4.0,
       weight_lbs: 180,
       glucose_avg_mg_dl: null,
+      bp_systolic_avg: null,
+      bp_diastolic_avg: null,
       tags_logged: ['nutrition.food', 'hydration.water', 'sleep.tracking'],
       recovery_score: 78,
     };

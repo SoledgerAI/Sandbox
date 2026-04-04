@@ -86,6 +86,7 @@ const CATEGORY_SECTIONS: CategorySection[] = [
       { label: 'Injury', icon: 'bandage-outline', route: '/log/injury' },
       { label: 'Bloodwork', icon: 'water-outline', route: '/log/bloodwork' },
       { label: 'Glucose', icon: 'fitness-outline', route: '/log/glucose' },
+      { label: 'BP', icon: 'heart-circle-outline', route: '/log/bloodpressure' },
       { label: 'Self Care', icon: 'sparkles-outline', route: '/log/personalcare' },
       { label: 'Therapy', icon: 'chatbubbles-outline', route: '/log/therapy' },
       { label: 'Custom', icon: 'pricetag-outline', route: '/log/custom' },

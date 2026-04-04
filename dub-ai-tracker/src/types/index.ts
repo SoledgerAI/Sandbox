@@ -298,6 +298,32 @@ export interface GlucoseEntry {
   notes: string | null;
 }
 
+// -- BLOOD PRESSURE --
+
+export type BPPosition = 'sitting' | 'standing' | 'lying_down';
+
+export type BPArm = 'left' | 'right';
+
+export type BPTiming =
+  | 'morning_before_meds'
+  | 'morning_after_meds'
+  | 'afternoon'
+  | 'evening'
+  | 'before_exercise'
+  | 'after_exercise';
+
+export interface BloodPressureEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  systolic: number;
+  diastolic: number;
+  pulse_bpm: number | null;
+  position: BPPosition | null;
+  arm: BPArm | null;
+  timing: BPTiming | null;
+  notes: string | null;
+}
+
 // -- CUSTOM TAG --
 
 export interface CustomEntry {
@@ -330,6 +356,8 @@ export interface DailySummary {
   mood_avg: number | null;
   weight_lbs: number | null;
   glucose_avg_mg_dl: number | null;
+  bp_systolic_avg: number | null;
+  bp_diastolic_avg: number | null;
   tags_logged: string[];
   recovery_score: number | null;
 }

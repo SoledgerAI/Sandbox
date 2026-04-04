@@ -42,6 +42,7 @@ import type {
   CycleEntry,
   RecoveryScore,
   GlucoseEntry,
+  BloodPressureEntry,
 } from '../types';
 
 function todayDateString(): string {
@@ -67,6 +68,7 @@ const INJURY_KEYWORDS = [
 ];
 const BLOODWORK_KEYWORDS = ['blood', 'lab', 'marker', 'cholesterol', 'iron', 'vitamin d'];
 const GLUCOSE_KEYWORDS = ['glucose', 'blood sugar', 'sugar level', 'fasting', 'a1c', 'diabetic', 'pre-diabetic', 'mg/dl'];
+const BP_KEYWORDS = ['blood pressure', 'bp', 'systolic', 'diastolic', 'hypertension', 'mmhg', 'pulse'];
 const CYCLE_KEYWORDS = ['cycle', 'period', 'menstrual', 'phase', 'ovulation'];
 const SUBSTANCE_KEYWORDS = ['drink', 'alcohol', 'sober', 'substance', 'cannabis', 'tobacco'];
 const SUPPLEMENT_KEYWORDS = ['supplement', 'vitamin', 'medication', 'dosage'];
@@ -120,6 +122,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
     workoutEntries,
     stepsEntry,
     glucoseEntries,
+    bpEntries,
   ] = await Promise.all([
     storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, today)),
     storageGet<WaterEntry[]>(dateKey(STORAGE_KEYS.LOG_WATER, today)),
@@ -131,6 +134,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
     storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, today)),
     storageGet<StepsEntry>(dateKey(STORAGE_KEYS.LOG_STEPS, today)),
     storageGet<GlucoseEntry[]>(dateKey(STORAGE_KEYS.LOG_GLUCOSE, today)),
+    storageGet<BloodPressureEntry[]>(dateKey(STORAGE_KEYS.LOG_BP, today)),
   ]);
 
   const foods = foodEntries ?? [];
@@ -146,6 +150,8 @@ export async function buildCoachContext(userMessage: string): Promise<{
   if (bodyEntry) tagsLogged.push('body.measurements');
   const glucoseReadings = glucoseEntries ?? [];
   if (glucoseReadings.length > 0) tagsLogged.push('blood.glucose');
+  const bpReadings = bpEntries ?? [];
+  if (bpReadings.length > 0) tagsLogged.push('blood.pressure');
 
   const workouts = workoutEntries ?? [];
   const caloriesBurned = workouts.reduce((s, w) => s + (w.calories_burned ?? 0), 0);
@@ -327,6 +333,16 @@ export async function buildCoachContext(userMessage: string): Promise<{
     if (glucoseReadings.length > 0) {
       const parts = glucoseReadings.map((g) => `${g.reading_mg_dl}mg/dL(${g.timing})`);
       conditionalSections.push(`[GLUCOSE TODAY] ${parts.join(' ')}`);
+    }
+  }
+
+  // Blood pressure (conditional)
+  if (messageMatchesKeywords(userMessage, BP_KEYWORDS)) {
+    if (bpReadings.length > 0) {
+      const parts = bpReadings.map((b) =>
+        `${b.systolic}/${b.diastolic}${b.pulse_bpm != null ? ` (${b.pulse_bpm} bpm)` : ''}`
+      );
+      conditionalSections.push(`[BP TODAY] ${parts.join(' ')}`);
     }
   }
 

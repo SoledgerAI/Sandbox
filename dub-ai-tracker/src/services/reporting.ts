@@ -130,6 +130,7 @@ export async function generateDailySummary(dateStr: string): Promise<DailySummar
   const workoutEntries = await storageGet<Array<{ calories_burned: number; duration_minutes: number }>>(dateKey(STORAGE_KEYS.LOG_WORKOUT, dateStr));
   const recoveryEntry = await storageGet<{ total_score: number }>(dateKey(STORAGE_KEYS.RECOVERY, dateStr));
   const glucoseEntries = await storageGet<Array<{ reading_mg_dl: number }>>(dateKey(STORAGE_KEYS.LOG_GLUCOSE, dateStr));
+  const bpEntries = await storageGet<Array<{ systolic: number; diastolic: number }>>(dateKey(STORAGE_KEYS.LOG_BP, dateStr));
 
   // Calculate food totals
   const foods = foodEntries ?? [];
@@ -219,6 +220,12 @@ export async function generateDailySummary(dateStr: string): Promise<DailySummar
     weight_lbs: bodyEntry?.weight_lbs ?? null,
     glucose_avg_mg_dl: glucoseEntries && glucoseEntries.length > 0
       ? Math.round(glucoseEntries.reduce((s, g) => s + g.reading_mg_dl, 0) / glucoseEntries.length)
+      : null,
+    bp_systolic_avg: bpEntries && bpEntries.length > 0
+      ? Math.round(bpEntries.reduce((s, b) => s + b.systolic, 0) / bpEntries.length)
+      : null,
+    bp_diastolic_avg: bpEntries && bpEntries.length > 0
+      ? Math.round(bpEntries.reduce((s, b) => s + b.diastolic, 0) / bpEntries.length)
       : null,
     tags_logged: tagsLogged,
     recovery_score: recoveryEntry?.total_score ?? null,

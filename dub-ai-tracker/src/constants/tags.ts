@@ -120,6 +120,15 @@ export const HEALTH_FITNESS_TAGS: TagDefault[] = [
     sensitive: false,
     defaultEnabledForTiers: ['precision', 'structured'],
   },
+  {
+    id: 'blood.pressure',
+    category: TagCategory.BLOOD_PRESSURE,
+    name: 'Blood Pressure',
+    icon: 'heart-circle-outline',
+    description: 'Track blood pressure readings with context',
+    sensitive: false,
+    defaultEnabledForTiers: ['precision', 'structured'],
+  },
 ];
 
 // Section 2: Personal and Private (sensitive) — NEVER pre-selected
