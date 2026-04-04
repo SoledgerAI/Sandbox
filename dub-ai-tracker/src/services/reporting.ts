@@ -129,6 +129,7 @@ export async function generateDailySummary(dateStr: string): Promise<DailySummar
   const bodyEntry = await storageGet<BodyEntry>(dateKey(STORAGE_KEYS.LOG_BODY, dateStr));
   const workoutEntries = await storageGet<Array<{ calories_burned: number; duration_minutes: number }>>(dateKey(STORAGE_KEYS.LOG_WORKOUT, dateStr));
   const recoveryEntry = await storageGet<{ total_score: number }>(dateKey(STORAGE_KEYS.RECOVERY, dateStr));
+  const glucoseEntries = await storageGet<Array<{ reading_mg_dl: number }>>(dateKey(STORAGE_KEYS.LOG_GLUCOSE, dateStr));
 
   // Calculate food totals
   const foods = foodEntries ?? [];
@@ -216,6 +217,9 @@ export async function generateDailySummary(dateStr: string): Promise<DailySummar
     sleep_quality: sleepEntry?.quality ?? null,
     mood_avg: moodAvg,
     weight_lbs: bodyEntry?.weight_lbs ?? null,
+    glucose_avg_mg_dl: glucoseEntries && glucoseEntries.length > 0
+      ? Math.round(glucoseEntries.reduce((s, g) => s + g.reading_mg_dl, 0) / glucoseEntries.length)
+      : null,
     tags_logged: tagsLogged,
     recovery_score: recoveryEntry?.total_score ?? null,
   };

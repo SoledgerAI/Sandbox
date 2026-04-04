@@ -40,6 +40,7 @@ export interface TrendDataSet {
   weight: ChartDataPoint[];
   recovery: ChartDataPoint[];
   workoutCount: ChartDataPoint[];
+  glucose: ChartDataPoint[];
   // Year-over-year data (same fields, last year's period)
   yoyCalories: ChartDataPoint[];
   yoyWeight: ChartDataPoint[];
@@ -52,7 +53,7 @@ const EMPTY_DATASET: TrendDataSet = {
   calories: [], protein: [], carbs: [], fat: [],
   caloriesBurned: [], water: [], caffeine: [], steps: [],
   activeMinutes: [], sleepHours: [], sleepQuality: [],
-  mood: [], weight: [], recovery: [], workoutCount: [],
+  mood: [], weight: [], recovery: [], workoutCount: [], glucose: [],
   yoyCalories: [], yoyWeight: [], yoySleep: [], yoyMood: [],
   hasYoYData: false,
 };
@@ -161,6 +162,7 @@ async function loadDailyData(
       pushIfNotNull(result.mood, dailyToChartPoint(summary, 'mood_avg'));
       pushIfNotNull(result.weight, dailyToChartPoint(summary, 'weight_lbs'));
       pushIfNotNull(result.recovery, dailyToChartPoint(summary, 'recovery_score'));
+      pushIfNotNull(result.glucose, dailyToChartPoint(summary, 'glucose_avg_mg_dl'));
     }
 
     // Collect YoY data

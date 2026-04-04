@@ -154,6 +154,14 @@ const CHART_CONFIGS: ChartConfig[] = [
     unit: 'lbs',
     yoyDataKey: 'yoyWeight',
   },
+  {
+    id: 'glucose',
+    title: 'Blood Glucose',
+    category: 'Body',
+    type: 'line',
+    dataKey: 'glucose',
+    unit: 'mg/dL',
+  },
 
   // Sleep
   {
@@ -220,6 +228,7 @@ const TAG_TO_CATEGORY: Record<string, string> = {
   'womens.health': 'Body',
   'injury.pain': 'Body',
   'personal.care': 'Mood',
+  'blood.glucose': 'Body',
 };
 
 export default function TrendsScreen() {

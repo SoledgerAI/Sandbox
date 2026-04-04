@@ -277,6 +277,27 @@ export interface DexaEntry {
   facility: string | null;
 }
 
+// -- BLOOD GLUCOSE --
+
+export type GlucoseTiming =
+  | 'fasting'
+  | 'before_meal'
+  | '1hr_after_meal'
+  | '2hr_after_meal'
+  | 'before_exercise'
+  | 'after_exercise'
+  | 'bedtime'
+  | 'other';
+
+export interface GlucoseEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  reading_mg_dl: number;
+  timing: GlucoseTiming;
+  linked_food_entry_id: string | null;
+  notes: string | null;
+}
+
 // -- CUSTOM TAG --
 
 export interface CustomEntry {
@@ -308,6 +329,7 @@ export interface DailySummary {
   sleep_quality: number | null;
   mood_avg: number | null;
   weight_lbs: number | null;
+  glucose_avg_mg_dl: number | null;
   tags_logged: string[];
   recovery_score: number | null;
 }

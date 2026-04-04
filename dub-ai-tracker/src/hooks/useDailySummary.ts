@@ -67,6 +67,7 @@ const DEFAULT_SUMMARY: DailySummary = {
   sleep_quality: null,
   mood_avg: null,
   weight_lbs: null,
+  glucose_avg_mg_dl: null,
   tags_logged: [],
   recovery_score: null,
 };
@@ -281,6 +282,7 @@ export function useDailySummary(): DailySummaryResult {
         sleep_quality: null,
         mood_avg: null,
         weight_lbs: p?.weight_lbs ?? null,
+        glucose_avg_mg_dl: null,
         tags_logged: [],
         recovery_score: null,
       };

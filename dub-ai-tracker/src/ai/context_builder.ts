@@ -41,6 +41,7 @@ import type {
   SupplementEntry,
   CycleEntry,
   RecoveryScore,
+  GlucoseEntry,
 } from '../types';
 
 function todayDateString(): string {
@@ -64,7 +65,8 @@ const INJURY_KEYWORDS = [
   'squat', 'bench', 'deadlift', 'press',
   'run', 'running', 'stretch', 'stretching',
 ];
-const BLOODWORK_KEYWORDS = ['blood', 'lab', 'marker', 'cholesterol', 'glucose', 'iron', 'vitamin d'];
+const BLOODWORK_KEYWORDS = ['blood', 'lab', 'marker', 'cholesterol', 'iron', 'vitamin d'];
+const GLUCOSE_KEYWORDS = ['glucose', 'blood sugar', 'sugar level', 'fasting', 'a1c', 'diabetic', 'pre-diabetic', 'mg/dl'];
 const CYCLE_KEYWORDS = ['cycle', 'period', 'menstrual', 'phase', 'ovulation'];
 const SUBSTANCE_KEYWORDS = ['drink', 'alcohol', 'sober', 'substance', 'cannabis', 'tobacco'];
 const SUPPLEMENT_KEYWORDS = ['supplement', 'vitamin', 'medication', 'dosage'];
@@ -117,6 +119,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
     recoveryScore,
     workoutEntries,
     stepsEntry,
+    glucoseEntries,
   ] = await Promise.all([
     storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, today)),
     storageGet<WaterEntry[]>(dateKey(STORAGE_KEYS.LOG_WATER, today)),
@@ -127,6 +130,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
     storageGet<RecoveryScore>(dateKey(STORAGE_KEYS.RECOVERY, today)),
     storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, today)),
     storageGet<StepsEntry>(dateKey(STORAGE_KEYS.LOG_STEPS, today)),
+    storageGet<GlucoseEntry[]>(dateKey(STORAGE_KEYS.LOG_GLUCOSE, today)),
   ]);
 
   const foods = foodEntries ?? [];
@@ -140,6 +144,8 @@ export async function buildCoachContext(userMessage: string): Promise<{
   if (sleepEntry) tagsLogged.push('sleep.tracking');
   if (moods.length > 0) tagsLogged.push('mental.wellness');
   if (bodyEntry) tagsLogged.push('body.measurements');
+  const glucoseReadings = glucoseEntries ?? [];
+  if (glucoseReadings.length > 0) tagsLogged.push('blood.glucose');
 
   const workouts = workoutEntries ?? [];
   const caloriesBurned = workouts.reduce((s, w) => s + (w.calories_burned ?? 0), 0);
@@ -313,6 +319,14 @@ export async function buildCoachContext(userMessage: string): Promise<{
     if (supps && supps.length > 0) {
       supplementFlags = supps.map((s) => `${s.name} ${s.dosage}${s.unit}`);
       conditionalSections.push(`[SUPPLEMENTS] ${supplementFlags.join(' | ')}`);
+    }
+  }
+
+  // Blood glucose (conditional)
+  if (messageMatchesKeywords(userMessage, GLUCOSE_KEYWORDS)) {
+    if (glucoseReadings.length > 0) {
+      const parts = glucoseReadings.map((g) => `${g.reading_mg_dl}mg/dL(${g.timing})`);
+      conditionalSections.push(`[GLUCOSE TODAY] ${parts.join(' ')}`);
     }
   }
 

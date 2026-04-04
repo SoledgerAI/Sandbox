@@ -111,6 +111,15 @@ export const HEALTH_FITNESS_TAGS: TagDefault[] = [
     sensitive: false,
     defaultEnabledForTiers: ['precision', 'structured'],
   },
+  {
+    id: 'blood.glucose',
+    category: TagCategory.BLOOD_GLUCOSE,
+    name: 'Blood Glucose',
+    icon: 'water-outline',
+    description: 'Track blood sugar readings with timing context',
+    sensitive: false,
+    defaultEnabledForTiers: ['precision', 'structured'],
+  },
 ];
 
 // Section 2: Personal and Private (sensitive) — NEVER pre-selected
