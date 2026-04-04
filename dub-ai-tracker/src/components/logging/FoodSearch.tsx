@@ -1,23 +1,27 @@
-// Food search with USDA API integration + cached/recent/favorites
-// Phase 6: Food Logging -- Core
+// Food search with parallel USDA + OpenFoodFacts, source badges, favorites, completeness
+// Phase 6/7: Food Logging -- Core + Additional APIs
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   Text,
   View,
   TextInput,
-  FlatList,
+  SectionList,
   TouchableOpacity,
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
-import { textSearchWaterfall } from '../../utils/foodwaterfall';
+import { parallelFoodSearch } from '../../utils/foodwaterfall';
+import type { GroupedSearchResult } from '../../utils/foodwaterfall';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../utils/storage';
-import type { FoodItem } from '../../types/food';
+import type { FoodItem, FavoriteFood, NutritionInfo } from '../../types/food';
 
 const MAX_CACHE_SIZE = 500;
+const MACRO_FIELDS: (keyof NutritionInfo)[] = [
+  'calories', 'protein_g', 'carbs_g', 'fat_g', 'fiber_g', 'sugar_g',
+];
 
 interface FoodSearchProps {
   onSelect: (food: FoodItem) => void;
@@ -28,27 +32,68 @@ interface FoodSearchProps {
   onPhotoEntry?: () => void;
 }
 
+type SectionData = {
+  title: string;
+  badge: string;
+  badgeColor: string;
+  data: FoodItem[];
+};
+
+function countAvailableMacros(nutrition: NutritionInfo): number {
+  return MACRO_FIELDS.filter((k) => nutrition[k] != null && nutrition[k] !== 0).length;
+}
+
 export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan, onNLPEntry, onPhotoEntry }: FoodSearchProps) {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<FoodItem[]>([]);
+  const [sections, setSections] = useState<SectionData[]>([]);
   const [recentFoods, setRecentFoods] = useState<FoodItem[]>([]);
+  const [favorites, setFavorites] = useState<FavoriteFood[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searched, setSearched] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load recent foods on first render
-  const recentLoadedRef = useRef(false);
-  if (!recentLoadedRef.current) {
-    recentLoadedRef.current = true;
+  // Load recent foods and favorites on mount
+  useEffect(() => {
     storageGet<FoodItem[]>(STORAGE_KEYS.FOOD_RECENT).then((foods) => {
       if (foods) setRecentFoods(foods.slice(0, 10));
     });
-  }
+    storageGet<FavoriteFood[]>(STORAGE_KEYS.FOOD_FAVORITES).then((favs) => {
+      if (favs) {
+        setFavorites(favs);
+        setFavoriteIds(new Set(favs.map((f) => f.food_item.source_id)));
+      }
+    });
+  }, []);
+
+  const toggleFavorite = useCallback(async (food: FoodItem) => {
+    const existing = await storageGet<FavoriteFood[]>(STORAGE_KEYS.FOOD_FAVORITES) ?? [];
+    const isFav = existing.some((f) => f.food_item.source_id === food.source_id);
+
+    let updated: FavoriteFood[];
+    if (isFav) {
+      updated = existing.filter((f) => f.food_item.source_id !== food.source_id);
+    } else {
+      const newFav: FavoriteFood = {
+        id: `fav_${Date.now()}`,
+        food_item: food,
+        serving: food.serving_sizes[food.default_serving_index],
+        quantity: 1,
+        meal_type: null,
+        added_at: new Date().toISOString(),
+      };
+      updated = [newFav, ...existing];
+    }
+
+    await storageSet(STORAGE_KEYS.FOOD_FAVORITES, updated);
+    setFavorites(updated);
+    setFavoriteIds(new Set(updated.map((f) => f.food_item.source_id)));
+  }, []);
 
   const search = useCallback(async (text: string) => {
     if (text.trim().length < 2) {
-      setResults([]);
+      setSections([]);
       setSearched(false);
       return;
     }
@@ -58,24 +103,21 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
     setSearched(true);
 
     try {
-      // Check cache first, applying 30-day TTL eviction (MASTER-31)
+      // Check cache first, applying 30-day TTL eviction
       const rawCache = await storageGet<FoodItem[]>(STORAGE_KEYS.FOOD_CACHE);
       const thirtyDaysAgo = Date.now() - 30 * 24 * 3600 * 1000;
       const cache = (rawCache ?? []).filter(
         (f) => new Date(f.last_accessed).getTime() > thirtyDaysAgo,
       );
-      // Write back if TTL eviction removed entries
       if (rawCache && cache.length < rawCache.length) {
         await storageSet(STORAGE_KEYS.FOOD_CACHE, cache);
       }
 
       const now = new Date().toISOString();
-      // Update lastAccessed on cache hits (MASTER-31)
       const cachedMatches = cache
         .filter((f) => f.name.toLowerCase().includes(text.toLowerCase()))
         .map((f) => ({ ...f, last_accessed: now }));
 
-      // Write back updated lastAccessed for hits
       if (cachedMatches.length > 0) {
         const hitIds = new Set(cachedMatches.map((f) => f.source_id));
         const updatedCache = cache.map((f) =>
@@ -84,31 +126,78 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
         await storageSet(STORAGE_KEYS.FOOD_CACHE, updatedCache);
       }
 
-      // Search via waterfall (FatSecret -> USDA -> Open Food Facts)
-      const waterfallResult = await textSearchWaterfall(text);
-      const apiResults = waterfallResult.items;
+      // Parallel search: USDA + OFF + FatSecret simultaneously
+      const grouped: GroupedSearchResult = await parallelFoodSearch(text);
 
-      // Merge: cached first (exact matches), then API results
+      // Merge all API results for dedup
+      const allApiResults = [...grouped.fatsecret, ...grouped.usda, ...grouped.openFoodFacts];
+
+      // Dedup: cached first, then API
       const seen = new Set<string>();
-      const merged: FoodItem[] = [];
-      for (const item of [...cachedMatches, ...apiResults]) {
+      const deduped: FoodItem[] = [];
+      for (const item of [...cachedMatches, ...allApiResults]) {
         if (!seen.has(item.source_id)) {
           seen.add(item.source_id);
-          merged.push(item);
+          deduped.push(item);
         }
       }
 
-      setResults(merged);
+      // Build sections grouped by source
+      const newSections: SectionData[] = [];
 
-      // Update cache with new API results (LRU, max 500) (MASTER-31)
-      if (apiResults.length > 0) {
+      const usdaItems = deduped.filter((f) => f.source === 'usda');
+      if (usdaItems.length > 0) {
+        newSections.push({
+          title: 'USDA Database',
+          badge: 'USDA Verified',
+          badgeColor: '#4CAF50',
+          data: usdaItems,
+        });
+      }
+
+      const fsItems = deduped.filter((f) => f.source === 'fatsecret');
+      if (fsItems.length > 0) {
+        newSections.push({
+          title: 'FatSecret',
+          badge: 'FatSecret',
+          badgeColor: Colors.accent,
+          data: fsItems,
+        });
+      }
+
+      const offItems = deduped.filter((f) => f.source === 'open_food_facts');
+      if (offItems.length > 0) {
+        newSections.push({
+          title: 'Community Database',
+          badge: 'Community',
+          badgeColor: '#FF9800',
+          data: offItems,
+        });
+      }
+
+      // Any other cached sources (manual, nlp, etc.)
+      const otherItems = deduped.filter(
+        (f) => f.source !== 'usda' && f.source !== 'open_food_facts' && f.source !== 'fatsecret',
+      );
+      if (otherItems.length > 0) {
+        newSections.push({
+          title: 'Cached Results',
+          badge: 'Cached',
+          badgeColor: Colors.secondaryText,
+          data: otherItems,
+        });
+      }
+
+      setSections(newSections);
+
+      // Update cache with new API results (LRU, max 500)
+      if (allApiResults.length > 0) {
         const currentCache = await storageGet<FoodItem[]>(STORAGE_KEYS.FOOD_CACHE) ?? [];
         const existingIds = new Set(currentCache.map((f) => f.source_id));
-        const newItems = apiResults
+        const newItems = allApiResults
           .filter((f) => !existingIds.has(f.source_id))
           .map((f) => ({ ...f, last_accessed: now }));
         let updated = [...newItems, ...currentCache];
-        // LRU eviction: sort by lastAccessed descending, keep max 500
         if (updated.length > MAX_CACHE_SIZE) {
           updated.sort((a, b) =>
             new Date(b.last_accessed).getTime() - new Date(a.last_accessed).getTime(),
@@ -117,18 +206,23 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
         }
         await storageSet(STORAGE_KEYS.FOOD_CACHE, updated);
       }
-    } catch (err) {
+    } catch {
       // If all APIs fail, show cached results only
       const cache = await storageGet<FoodItem[]>(STORAGE_KEYS.FOOD_CACHE);
       const cached = (cache ?? []).filter((f) =>
         f.name.toLowerCase().includes(text.toLowerCase()),
       );
       if (cached.length > 0) {
-        setResults(cached);
+        setSections([{
+          title: 'Cached Results',
+          badge: 'Offline',
+          badgeColor: Colors.secondaryText,
+          data: cached,
+        }]);
         setError('Offline -- showing cached results');
       } else {
         setError('Search failed. Check your connection and try again.');
-        setResults([]);
+        setSections([]);
       }
     } finally {
       setLoading(false);
@@ -139,7 +233,7 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
     (text: string) => {
       setQuery(text);
       if (debounceRef.current) clearTimeout(debounceRef.current);
-      debounceRef.current = setTimeout(() => search(text), 400);
+      debounceRef.current = setTimeout(() => search(text), 300);
     },
     [search],
   );
@@ -157,7 +251,31 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
     [onSelect],
   );
 
+  // Show recents/favorites when no search has been performed
   const showRecent = !searched && recentFoods.length > 0;
+  const showFavorites = !searched && favorites.length > 0;
+  const totalResults = sections.reduce((sum, s) => sum + s.data.length, 0);
+
+  // Build sections for recents/favorites view
+  const idleSections: SectionData[] = [];
+  if (showFavorites) {
+    idleSections.push({
+      title: 'Favorites',
+      badge: '',
+      badgeColor: '',
+      data: favorites.map((f) => f.food_item),
+    });
+  }
+  if (showRecent) {
+    idleSections.push({
+      title: 'Recent',
+      badge: '',
+      badgeColor: '',
+      data: recentFoods,
+    });
+  }
+
+  const displaySections = searched ? sections : idleSections;
 
   return (
     <View style={styles.container}>
@@ -180,7 +298,7 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
             <TouchableOpacity
               onPress={() => {
                 setQuery('');
-                setResults([]);
+                setSections([]);
                 setSearched(false);
               }}
             >
@@ -236,34 +354,59 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
         </View>
       )}
 
-      {/* Recent foods */}
-      {showRecent && (
-        <View style={styles.sectionHeader}>
-          <Ionicons name="time-outline" size={16} color={Colors.secondaryText} />
-          <Text style={styles.sectionTitle}>Recent</Text>
-        </View>
-      )}
-
-      {/* Search results or recents */}
-      <FlatList
-        data={showRecent ? recentFoods : results}
+      {/* Grouped search results or recents/favorites */}
+      <SectionList
+        sections={displaySections}
         keyExtractor={(item) => item.source_id}
-        renderItem={({ item }) => (
-          <FoodResultRow food={item} onPress={() => handleSelect(item)} />
+        renderSectionHeader={({ section }) => (
+          <View style={styles.sectionHeader}>
+            {section.title === 'Favorites' ? (
+              <Ionicons name="star" size={14} color={Colors.accent} />
+            ) : section.title === 'Recent' ? (
+              <Ionicons name="time-outline" size={14} color={Colors.secondaryText} />
+            ) : (
+              <Ionicons name="restaurant-outline" size={14} color={Colors.secondaryText} />
+            )}
+            <Text style={styles.sectionTitle}>{section.title}</Text>
+            {section.badge.length > 0 && (
+              <View style={[styles.sectionBadge, { backgroundColor: section.badgeColor }]}>
+                <Text style={styles.sectionBadgeText}>{section.badge}</Text>
+              </View>
+            )}
+          </View>
+        )}
+        renderItem={({ item, section }) => (
+          <FoodResultRow
+            food={item}
+            onPress={() => handleSelect(item)}
+            onToggleFavorite={() => toggleFavorite(item)}
+            isFavorite={favoriteIds.has(item.source_id)}
+            badge={section.badge}
+            badgeColor={section.badgeColor}
+          />
         )}
         ListEmptyComponent={
           searched && !loading ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>No results found</Text>
               <TouchableOpacity onPress={onManualEntry}>
-                <Text style={styles.emptyLink}>Add manually</Text>
+                <Text style={styles.emptyLink}>Can't find it? Enter manually</Text>
               </TouchableOpacity>
             </View>
+          ) : null
+        }
+        ListFooterComponent={
+          searched && totalResults > 0 ? (
+            <TouchableOpacity style={styles.manualFallback} onPress={onManualEntry}>
+              <Ionicons name="create-outline" size={16} color={Colors.accent} />
+              <Text style={styles.manualFallbackText}>Can't find it? Enter manually</Text>
+            </TouchableOpacity>
           ) : null
         }
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         style={styles.list}
+        stickySectionHeadersEnabled={false}
       />
     </View>
   );
@@ -272,24 +415,63 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
 function FoodResultRow({
   food,
   onPress,
+  onToggleFavorite,
+  isFavorite,
+  badge,
+  badgeColor,
 }: {
   food: FoodItem;
   onPress: () => void;
+  onToggleFavorite: () => void;
+  isFavorite: boolean;
+  badge: string;
+  badgeColor: string;
 }) {
   const cal = Math.round(food.nutrition_per_100g.calories);
   const defaultServing = food.serving_sizes[food.default_serving_index];
+  const macroCount = countAvailableMacros(food.nutrition_per_100g);
+  const showCompleteness = macroCount < MACRO_FIELDS.length;
 
   return (
     <TouchableOpacity style={styles.resultRow} onPress={onPress} activeOpacity={0.7}>
+      {/* Favorite star */}
+      <TouchableOpacity
+        onPress={onToggleFavorite}
+        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        style={styles.starBtn}
+      >
+        <Ionicons
+          name={isFavorite ? 'star' : 'star-outline'}
+          size={18}
+          color={isFavorite ? Colors.accent : Colors.divider}
+        />
+      </TouchableOpacity>
+
       <View style={styles.resultInfo}>
         <Text style={styles.resultName} numberOfLines={1}>
           {food.name}
         </Text>
-        <Text style={styles.resultDetails} numberOfLines={1}>
-          {defaultServing?.description ?? '100g'}
-          {food.brand ? ` \u2022 ${food.brand}` : ''}
-        </Text>
+        <View style={styles.resultMetaRow}>
+          <Text style={styles.resultDetails} numberOfLines={1}>
+            {defaultServing?.description ?? '100g'}
+            {food.brand ? ` \u2022 ${food.brand}` : ''}
+          </Text>
+        </View>
+        {/* Source badge + completeness indicator */}
+        <View style={styles.resultBadgeRow}>
+          {badge.length > 0 && (
+            <View style={[styles.resultBadge, { backgroundColor: badgeColor + '22', borderColor: badgeColor + '55' }]}>
+              <Text style={[styles.resultBadgeText, { color: badgeColor }]}>{badge}</Text>
+            </View>
+          )}
+          {showCompleteness && (
+            <Text style={styles.completenessText}>
+              {macroCount} of {MACRO_FIELDS.length} macros
+            </Text>
+          )}
+        </View>
       </View>
+
       <View style={styles.resultCal}>
         <Text style={styles.resultCalText}>{cal}</Text>
         <Text style={styles.resultCalUnit}>kcal/100g</Text>
@@ -325,6 +507,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginBottom: 12,
+    flexWrap: 'wrap',
   },
   quickBtn: {
     flexDirection: 'row',
@@ -370,6 +553,7 @@ const styles = StyleSheet.create({
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    marginTop: 12,
     marginBottom: 8,
     gap: 6,
   },
@@ -378,6 +562,17 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
     textTransform: 'uppercase',
+  },
+  sectionBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+    borderWidth: 1,
+    marginLeft: 4,
+  },
+  sectionBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
   },
   list: {
     flex: 1,
@@ -390,6 +585,10 @@ const styles = StyleSheet.create({
     padding: 12,
     marginBottom: 6,
   },
+  starBtn: {
+    marginRight: 8,
+    padding: 2,
+  },
   resultInfo: {
     flex: 1,
     marginRight: 12,
@@ -399,10 +598,36 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
+  resultMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+  },
   resultDetails: {
     color: Colors.secondaryText,
     fontSize: 12,
-    marginTop: 2,
+    flex: 1,
+  },
+  resultBadgeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    gap: 8,
+  },
+  resultBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 6,
+    borderWidth: 1,
+  },
+  resultBadgeText: {
+    fontSize: 10,
+    fontWeight: '600',
+  },
+  completenessText: {
+    color: Colors.secondaryText,
+    fontSize: 10,
+    fontStyle: 'italic',
   },
   resultCal: {
     alignItems: 'flex-end',
@@ -430,5 +655,17 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
     marginTop: 8,
+  },
+  manualFallback: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 6,
+  },
+  manualFallbackText: {
+    color: Colors.accent,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

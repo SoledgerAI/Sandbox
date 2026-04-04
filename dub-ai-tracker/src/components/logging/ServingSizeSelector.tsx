@@ -17,6 +17,14 @@ import { scaleNutrition, displayNutrition, formatQuantity, QUANTITY_STEPS } from
 
 const OZ_TO_GRAMS = 28.3495;
 
+const SERVING_SHORTCUTS = [
+  { label: '100g', grams: 100 },
+  { label: '1 cup', grams: 240 },
+  { label: '1 tbsp', grams: 15 },
+  { label: '1 oz', grams: 28.35 },
+  { label: '1 piece', grams: 50 },
+] as const;
+
 interface ServingSizeSelectorProps {
   servingSizes: ServingSize[];
   selectedServingIndex: number;
@@ -135,6 +143,28 @@ export function ServingSizeSelector({
               Custom weight
             </Text>
           </TouchableOpacity>
+        </ScrollView>
+      </View>
+
+      {/* Quick serving shortcuts */}
+      <View style={styles.section}>
+        <Text style={styles.sectionLabel}>Quick Amount</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          {SERVING_SHORTCUTS.map((shortcut) => (
+            <TouchableOpacity
+              key={shortcut.label}
+              style={styles.chip}
+              onPress={() => {
+                setCustomMode(true);
+                const val = String(shortcut.grams);
+                setCustomValue(val);
+                setCustomUnit('g');
+                onCustomWeight?.(shortcut.grams);
+              }}
+            >
+              <Text style={styles.chipText}>{shortcut.label}</Text>
+            </TouchableOpacity>
+          ))}
         </ScrollView>
       </View>
 

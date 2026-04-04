@@ -26,6 +26,13 @@ export interface WaterfallResult {
   fromCache: boolean;
 }
 
+export interface GroupedSearchResult {
+  usda: FoodItem[];
+  openFoodFacts: FoodItem[];
+  fatsecret: FoodItem[];
+  nlpAvailable: boolean;
+}
+
 /**
  * Look up a food by barcode using the fallback waterfall.
  * Stops at the first successful result.
@@ -125,4 +132,40 @@ export async function textSearchWaterfall(query: string): Promise<WaterfallResul
 
   // Step 5: Manual entry -- handled by caller
   return { items: [], source: 'none', fromCache: false };
+}
+
+/**
+ * Search multiple food sources in parallel and return grouped results.
+ * Unlike the waterfall, this queries USDA and Open Food Facts simultaneously
+ * so the UI can show source-grouped results with badges.
+ */
+export async function parallelFoodSearch(query: string): Promise<GroupedSearchResult> {
+  const result: GroupedSearchResult = {
+    usda: [],
+    openFoodFacts: [],
+    fatsecret: [],
+    nlpAvailable: false,
+  };
+
+  const [fatsecretResult, usdaResult, offResult, nlpCheck] = await Promise.allSettled([
+    fatsecretSearch(query),
+    usdaSearch(query, 15),
+    offSearch(query, 10),
+    isApiKeySet(),
+  ]);
+
+  if (fatsecretResult.status === 'fulfilled') {
+    result.fatsecret = fatsecretResult.value;
+  }
+  if (usdaResult.status === 'fulfilled') {
+    result.usda = usdaResult.value;
+  }
+  if (offResult.status === 'fulfilled') {
+    result.openFoodFacts = offResult.value;
+  }
+  if (nlpCheck.status === 'fulfilled') {
+    result.nlpAvailable = nlpCheck.value;
+  }
+
+  return result;
 }
