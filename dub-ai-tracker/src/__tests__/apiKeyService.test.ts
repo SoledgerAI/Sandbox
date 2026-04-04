@@ -17,7 +17,7 @@ beforeEach(() => {
   (global.fetch as jest.Mock).mockResolvedValue({
     ok: true,
     status: 200,
-    json: () => Promise.resolve({ model: 'claude-sonnet-4-20250514' }),
+    json: () => Promise.resolve({ model: 'claude-haiku-4-5-20251001' }),
   });
 });
 
@@ -127,10 +127,10 @@ describe('apiKeyService', () => {
     it('returns valid on 200 response', async () => {
       const result = await testApiKey('sk-ant-api03-testkey123');
       expect(result.valid).toBe(true);
-      expect(result.model).toBe('claude-sonnet-4-20250514');
+      expect(result.model).toBe('claude-haiku-4-5-20251001');
     });
 
-    it('returns invalid on 401 response', async () => {
+    it('returns invalid_key on 401 response', async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
         status: 401,
@@ -138,10 +138,23 @@ describe('apiKeyService', () => {
       });
       const result = await testApiKey('sk-ant-api03-badkey');
       expect(result.valid).toBe(false);
-      expect(result.error).toContain('Invalid API key');
+      expect(result.errorType).toBe('invalid_key');
+      expect(result.error).toContain('Double-check');
     });
 
-    it('returns rate limited error on 429', async () => {
+    it('returns no_funds on 402 response', async () => {
+      (global.fetch as jest.Mock).mockResolvedValueOnce({
+        ok: false,
+        status: 402,
+        json: () => Promise.resolve({}),
+      });
+      const result = await testApiKey('sk-ant-api03-nofunds');
+      expect(result.valid).toBe(false);
+      expect(result.errorType).toBe('no_funds');
+      expect(result.error).toContain('billing');
+    });
+
+    it('returns rate_limited on 429', async () => {
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
         status: 429,
@@ -149,6 +162,7 @@ describe('apiKeyService', () => {
       });
       const result = await testApiKey('sk-ant-api03-ratelimited');
       expect(result.valid).toBe(false);
+      expect(result.errorType).toBe('rate_limited');
       expect(result.error).toContain('Rate limited');
     });
 
@@ -156,6 +170,7 @@ describe('apiKeyService', () => {
       (global.fetch as jest.Mock).mockRejectedValueOnce(new Error('Network fail'));
       const result = await testApiKey('sk-ant-api03-nonetwork');
       expect(result.valid).toBe(false);
+      expect(result.errorType).toBe('network');
       expect(result.error).toContain('Could not reach');
     });
   });

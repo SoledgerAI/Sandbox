@@ -13,9 +13,12 @@ export interface KeyFormatResult {
   error?: string;
 }
 
+export type KeyTestErrorType = 'invalid_key' | 'no_funds' | 'rate_limited' | 'network' | 'unknown';
+
 export interface KeyTestResult {
   valid: boolean;
   error?: string;
+  errorType?: KeyTestErrorType;
   model?: string;
 }
 
@@ -108,9 +111,9 @@ export async function testApiKey(key: string): Promise<KeyTestResult> {
         'anthropic-version': TEST_API_VERSION,
       },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
+        model: 'claude-haiku-4-5-20251001',
         max_tokens: 10,
-        messages: [{ role: 'user', content: 'Hi' }],
+        messages: [{ role: 'user', content: 'ping' }],
       }),
       signal: controller.signal,
     });
@@ -123,30 +126,43 @@ export async function testApiKey(key: string): Promise<KeyTestResult> {
     if (response.status === 401) {
       return {
         valid: false,
-        error: 'Invalid API key. Check that you copied the full key from console.anthropic.com.',
+        errorType: 'invalid_key',
+        error: 'Double-check you copied the full key from console.anthropic.com.',
+      };
+    }
+
+    if (response.status === 402 || response.status === 403) {
+      return {
+        valid: false,
+        errorType: 'no_funds',
+        error: 'Set up billing at console.anthropic.com/settings/billing to activate your key.',
       };
     }
 
     if (response.status === 429) {
       return {
         valid: false,
-        error: 'Rate limited. The key is valid but you have hit the usage limit. Try again shortly.',
+        errorType: 'rate_limited',
+        error: 'Rate limited. The key looks valid but you hit a usage limit. Try again shortly.',
       };
     }
 
     return {
       valid: false,
+      errorType: 'unknown',
       error: `API returned status ${response.status}. Please try again.`,
     };
   } catch (err: unknown) {
     if (err instanceof Error && err.name === 'AbortError') {
       return {
         valid: false,
+        errorType: 'network',
         error: 'Request timed out. Check your internet connection and try again.',
       };
     }
     return {
       valid: false,
+      errorType: 'network',
       error: 'Could not reach Anthropic servers. Check your internet connection.',
     };
   } finally {

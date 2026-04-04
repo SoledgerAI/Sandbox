@@ -46,7 +46,7 @@ export function Heatmap({
   height = 200,
   title,
   unit = '',
-  colorScale = { low: '#2A3370', mid: '#8B7A3B', high: '#D4A843' },
+  colorScale = { low: Colors.cardBackground, mid: '#8B7A3B', high: '#D4A843' },
   thumbnail = false,
 }: HeatmapProps) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);

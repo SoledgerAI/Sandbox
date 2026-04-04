@@ -178,22 +178,25 @@ export default function CoachScreen() {
             </View>
           )}
 
-          {/* Unlock AI Coach — at bottom, not blocking */}
+          {/* Unlock AI Coach — warm CTA, not blocking */}
           <View style={styles.liteUpgradeCard}>
-            <Ionicons name="sparkles-outline" size={24} color={Colors.accent} />
-            <Text style={styles.liteUpgradeTitle}>Unlock AI Coach</Text>
+            <Ionicons name="sparkles" size={28} color={Colors.accent} />
+            <Text style={styles.liteUpgradeTitle}>Ready for Personal Coaching?</Text>
             <Text style={styles.liteUpgradeText}>
-              Get personalized advice, meal suggestions, and daily coaching powered by Claude AI.
+              Your tracking data is building a picture of your habits.
+              Add an AI Coach to get personalized advice, meal ideas, and daily check-ins based on everything you log.
             </Text>
             <TouchableOpacity
               style={styles.setupButton}
               onPress={() => setShowWizard(true)}
               activeOpacity={0.7}
             >
-              <Text style={styles.setupButtonText}>Set Up API Key</Text>
+              <Ionicons name="key-outline" size={18} color={Colors.primaryBackground} style={{ marginRight: 8 }} />
+              <Text style={styles.setupButtonText}>Set Up in 2 Minutes</Text>
             </TouchableOpacity>
             <Text style={styles.setupFooter}>
-              Your key stays on your device. Typically $0.01-0.05 per message.
+              Bring your own Anthropic API key. Typical cost: $2-5/month.{'\n'}
+              All tracking features work without this.
             </Text>
           </View>
         </ScrollView>
@@ -354,11 +357,14 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   setupButton: {
+    flexDirection: 'row',
     backgroundColor: Colors.accent,
     borderRadius: 12,
     paddingVertical: 14,
     paddingHorizontal: 32,
     marginTop: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   setupButtonText: {
     color: Colors.primaryBackground,

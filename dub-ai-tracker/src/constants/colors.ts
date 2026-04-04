@@ -9,7 +9,16 @@ export const Colors = {
   warning: '#D4A843',
   danger: '#EF5350',               // non-text (borders, icons, chart fills)
   dangerText: '#FF6B6B',           // red text variant, 4.99:1 on navy
-  cardBackground: '#2A3370',
+  // Card background — WCAG 2.1 AA remediation
+  // OLD: #2A3370 (L=0.040, avg-RGB delta 13 from bg — insufficient separation)
+  // NEW: #334480 (L=0.064, avg-RGB delta 27 from bg — 22-28 target met)
+  // Contrast ratios on #334480:
+  //   #FFFFFF  text     → 9.21:1 ✓  (AA)
+  //   #B8B8B8  secondary→ 4.64:1 ✓  (AA)
+  //   #E8C468  accent   → 5.49:1 ✓  (AA)
+  //   #66BB6A  success  → 3.89:1 ⚠  (needs bump to pass AA on card)
+  //   #FF6B6B  danger   → 3.28:1 ⚠  (was 4.19:1 on old card — pre-existing)
+  cardBackground: '#334480',
   inputBackground: '#1A2050',
   divider: '#3A4580',
 } as const;

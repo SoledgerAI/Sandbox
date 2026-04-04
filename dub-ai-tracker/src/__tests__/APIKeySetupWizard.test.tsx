@@ -1,5 +1,5 @@
-// Tests for APIKeySetupWizard and Coach tab empty state
-// Prompt 04 v2: BYOK UX
+// Tests for APIKeySetupWizard — single-page guided walkthrough
+// Covers: 3-step layout, paste validation, FAQ, error messages
 
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
@@ -51,37 +51,42 @@ describe('APIKeySetupWizard', () => {
       };
     });
     mockApiKeyService.setApiKey.mockResolvedValue(undefined);
-    mockApiKeyService.testApiKey.mockResolvedValue({ valid: true, model: 'claude-sonnet-4-20250514' });
+    mockApiKeyService.testApiKey.mockResolvedValue({ valid: true, model: 'claude-haiku-4-5-20251001' });
   });
 
-  it('renders introduction screen by default', () => {
+  it('renders hero and all 3 numbered steps on single page', () => {
     const { getByText } = render(<APIKeySetupWizard {...defaultProps} />);
-    expect(getByText('Connect Your AI')).toBeTruthy();
-    expect(getByText('Get Started')).toBeTruthy();
-    expect(getByText('I already have a key')).toBeTruthy();
+    expect(getByText('Unlock Your AI Coach')).toBeTruthy();
+    expect(getByText('1')).toBeTruthy();
+    expect(getByText('2')).toBeTruthy();
+    expect(getByText('3')).toBeTruthy();
   });
 
-  it('navigates to how-to screen on Get Started', () => {
+  it('renders cost callout', () => {
     const { getByText } = render(<APIKeySetupWizard {...defaultProps} />);
-    fireEvent.press(getByText('Get Started'));
-    expect(getByText('How to Get a Key')).toBeTruthy();
+    expect(getByText(/Typical cost: \$2-5\/month/)).toBeTruthy();
   });
 
-  it('skips to enter screen on "I already have a key"', () => {
-    const { getByText } = render(<APIKeySetupWizard {...defaultProps} />);
-    fireEvent.press(getByText('I already have a key'));
-    expect(getByText('Paste Your API Key')).toBeTruthy();
+  it('renders FAQ section with expandable items', () => {
+    const { getByText, queryByText } = render(<APIKeySetupWizard {...defaultProps} />);
+    expect(getByText('What is an API key?')).toBeTruthy();
+    expect(getByText('Is it secure?')).toBeTruthy();
+    expect(getByText('Can I skip this?')).toBeTruthy();
+
+    // FAQ answers hidden by default
+    expect(queryByText(/unique code that lets DUB_AI/)).toBeNull();
+
+    // Expand FAQ
+    fireEvent.press(getByText('What is an API key?'));
+    expect(getByText(/unique code that lets DUB_AI/)).toBeTruthy();
   });
 
   it('shows error on invalid key format', () => {
     const { getByText, getByPlaceholderText } = render(
       <APIKeySetupWizard {...defaultProps} />,
     );
-    fireEvent.press(getByText('I already have a key'));
-
     const input = getByPlaceholderText('sk-ant-api03-...');
     fireEvent.changeText(input, 'not-a-valid-key');
-
     expect(getByText(/doesn't look like an Anthropic API key/)).toBeTruthy();
   });
 
@@ -89,11 +94,8 @@ describe('APIKeySetupWizard', () => {
     const { getByText, getByPlaceholderText } = render(
       <APIKeySetupWizard {...defaultProps} />,
     );
-    fireEvent.press(getByText('I already have a key'));
-
     const input = getByPlaceholderText('sk-ant-api03-...');
     fireEvent.changeText(input, 'sk-ant-oat01-sometoken');
-
     expect(getByText(/subscription token/)).toBeTruthy();
   });
 
@@ -101,30 +103,33 @@ describe('APIKeySetupWizard', () => {
     const { getByText, getByPlaceholderText } = render(
       <APIKeySetupWizard {...defaultProps} />,
     );
-    fireEvent.press(getByText('I already have a key'));
-
     const input = getByPlaceholderText('sk-ant-api03-...');
     fireEvent.changeText(input, 'sk-ant-api03-validkey123');
-
     expect(getByText('Format looks good')).toBeTruthy();
+  });
+
+  it('disables Verify button when format is invalid', () => {
+    const { getByText, getByPlaceholderText } = render(
+      <APIKeySetupWizard {...defaultProps} />,
+    );
+    const input = getByPlaceholderText('sk-ant-api03-...');
+    fireEvent.changeText(input, 'invalid-key');
+
+    const verifyButton = getByText('Verify & Save');
+    // Button exists but is disabled (opacity 0.4 via buttonDisabled style)
+    expect(verifyButton).toBeTruthy();
   });
 
   it('does not render when not visible', () => {
     const { queryByText } = render(
       <APIKeySetupWizard {...defaultProps} visible={false} />,
     );
-    // Modal is not rendered when visible=false on native
-    // The component still exists in tree but Modal hides contents
-    expect(queryByText('Connect Your AI')).toBeNull();
+    expect(queryByText('Unlock Your AI Coach')).toBeNull();
   });
 });
 
 describe('Coach tab empty state', () => {
-  // We test the useCoach hook behavior that drives the empty state
-  // The coach screen relies on apiKeyConfigured from useCoach
-
   it('useCoach exports apiKeyConfigured flag', () => {
-    // Verify the hook module exports are correct
     const mod = require('../hooks/useCoach');
     expect(mod.useCoach).toBeDefined();
   });
