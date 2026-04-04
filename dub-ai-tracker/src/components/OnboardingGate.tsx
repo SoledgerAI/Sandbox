@@ -6,7 +6,6 @@ import { useEffect, useState, useCallback } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import { Colors } from '../constants/colors';
 import { isOnboardingComplete } from '../services/onboardingService';
-import { debugStep } from './DebugOverlay'; // DEBUG: REMOVE BEFORE PRODUCTION
 import { PersonalizationFlow } from './PersonalizationFlow';
 
 interface OnboardingGateProps {
@@ -21,13 +20,12 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
     let cancelled = false;
     async function check() {
       try {
-        debugStep('STEP 4a: OnboardingGate — checking isOnboardingComplete (3s timeout)...'); // DEBUG: REMOVE BEFORE PRODUCTION
-        const t0 = Date.now(); // DEBUG: REMOVE BEFORE PRODUCTION
         const done = await isOnboardingComplete();
         if (cancelled) return;
-        const elapsed = Date.now() - t0; // DEBUG: REMOVE BEFORE PRODUCTION
-        debugStep(`STEP 4b: OnboardingGate — complete = ${done} (${elapsed}ms${elapsed >= 3000 ? ' TIMEOUT-FALLBACK' : ''})`); // DEBUG: REMOVE BEFORE PRODUCTION
         setComplete(done);
+      } catch {
+        // Storage error — default to not complete so user sees onboarding
+        if (!cancelled) setComplete(false);
       } finally {
         if (!cancelled) setChecking(false);
       }
@@ -44,9 +42,7 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
     function rafCheck() {
       if (cancelled) return;
       if (Date.now() - start >= 5000) {
-        debugStep('STEP 4-SAFETY: OnboardingGate 5s raf timeout — forcing past check'); // DEBUG: REMOVE BEFORE PRODUCTION
         setChecking(false);
-        // Default to not complete — will show PersonalizationFlow
         return;
       }
       requestAnimationFrame(rafCheck);
@@ -60,7 +56,6 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
   }, []);
 
   if (checking) {
-    debugStep('STEP 4: OnboardingGate render — checking...'); // DEBUG: REMOVE BEFORE PRODUCTION
     return (
       <View style={styles.loading}>
         <ActivityIndicator color={Colors.accent} size="large" />
@@ -69,11 +64,9 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
   }
 
   if (!complete) {
-    debugStep('STEP 4c: OnboardingGate — NOT complete, showing PersonalizationFlow'); // DEBUG: REMOVE BEFORE PRODUCTION
     return <PersonalizationFlow onComplete={handleComplete} />;
   }
 
-  debugStep('STEP 4 DONE: OnboardingGate — complete, rendering children'); // DEBUG: REMOVE BEFORE PRODUCTION
   return <>{children}</>;
 }
 

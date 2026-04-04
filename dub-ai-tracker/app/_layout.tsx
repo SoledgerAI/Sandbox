@@ -7,8 +7,6 @@ import { ActivityIndicator, AppState, AppStateStatus, Text, View } from 'react-n
 import { Stack, router, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // DEBUG: REMOVE BEFORE PRODUCTION — diagnostic
-import * as SecureStore from 'expo-secure-store'; // DEBUG: REMOVE BEFORE PRODUCTION — diagnostic
 import { Colors } from '../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../src/utils/storage';
 import { processQueue } from '../src/utils/offline';
@@ -16,85 +14,12 @@ import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
 import { AuthGate } from '../src/components/AuthGate';
 import { OnboardingGate } from '../src/components/OnboardingGate';
 import { isOnboardingComplete } from '../src/services/onboardingService';
-import { DebugOverlay, debugStep } from '../src/components/DebugOverlay'; // DEBUG: REMOVE BEFORE PRODUCTION
 import type { AppSettings } from '../src/types/profile';
 
-// DEBUG: REMOVE BEFORE PRODUCTION — hide splash IMMEDIATELY so debug overlay is visible
-// We no longer keep the splash screen up; we want to see the debug text instead.
-debugStep('STEP 0: Module loaded — hiding splash immediately');
-SplashScreen.hideAsync().catch(() => {});
-
-// DEBUG: REMOVE BEFORE PRODUCTION — Raw storage diagnostic
-// Runs at module scope BEFORE any component renders.
-// Tests whether native modules respond at all in release builds.
-// Uses dual setTimeout + requestAnimationFrame timeout to diagnose which timer works.
-const DIAG_TIMEOUT = 3000;
-
-/** Race a promise against a dual setTimeout+raf timeout (for diagnostics) */
-function diagRace<T>(promise: Promise<T>, label: string): Promise<T> {
-  let settled = false;
-  const timeout = new Promise<T>((_, rej) => {
-    const start = Date.now();
-    const timer = setTimeout(() => {
-      if (!settled) { settled = true; rej(new Error(`setTimeout TIMEOUT ${DIAG_TIMEOUT}ms`)); }
-    }, DIAG_TIMEOUT);
-    function rafCheck() {
-      if (settled) { clearTimeout(timer); return; }
-      if (Date.now() - start >= DIAG_TIMEOUT) {
-        clearTimeout(timer); settled = true;
-        rej(new Error(`raf TIMEOUT ${DIAG_TIMEOUT}ms`));
-        return;
-      }
-      requestAnimationFrame(rafCheck);
-    }
-    requestAnimationFrame(rafCheck);
-  });
-  return Promise.race([promise, timeout]).then(
-    (v) => { settled = true; return v; },
-    (e) => { settled = true; throw e; },
-  );
-}
-
-(async () => {
-  // Test 1: AsyncStorage — read a non-existent key (should return null fast)
-  debugStep('DIAG-1: AsyncStorage.getItem (non-existent key)...');
-  try {
-    const t0 = Date.now();
-    const val = await diagRace(AsyncStorage.getItem('__DIAG_NOKEY__'), 'DIAG-1');
-    debugStep(`DIAG-1: result = ${JSON.stringify(val)} (${Date.now() - t0}ms)`);
-  } catch (e: unknown) {
-    debugStep(`DIAG-1: FAIL — ${e instanceof Error ? e.message : e}`);
-  }
-
-  // Test 2: AsyncStorage — full set/get/remove cycle
-  debugStep('DIAG-2: AsyncStorage set+get+remove...');
-  try {
-    const t0 = Date.now();
-    await diagRace(AsyncStorage.setItem('__DIAG__', 'ok'), 'DIAG-2-set');
-    const val = await diagRace(AsyncStorage.getItem('__DIAG__'), 'DIAG-2-get');
-    debugStep(`DIAG-2: result = ${JSON.stringify(val)} (${Date.now() - t0}ms)`);
-    AsyncStorage.removeItem('__DIAG__').catch(() => {});
-  } catch (e: unknown) {
-    debugStep(`DIAG-2: FAIL — ${e instanceof Error ? e.message : e}`);
-  }
-
-  // Test 3: SecureStore — full set/get/remove cycle
-  debugStep('DIAG-3: SecureStore set+get+remove...');
-  try {
-    const t0 = Date.now();
-    await diagRace(SecureStore.setItemAsync('__DIAG__', 'ok'), 'DIAG-3-set');
-    const val = await diagRace(SecureStore.getItemAsync('__DIAG__'), 'DIAG-3-get');
-    debugStep(`DIAG-3: result = ${JSON.stringify(val)} (${Date.now() - t0}ms)`);
-    SecureStore.deleteItemAsync('__DIAG__').catch(() => {});
-  } catch (e: unknown) {
-    debugStep(`DIAG-3: FAIL — ${e instanceof Error ? e.message : e}`);
-  }
-
-  debugStep('DIAG: All storage tests complete');
-})();
+// Keep splash screen visible until initialization completes
+SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  debugStep('STEP 1: RootLayout function body executing'); // DEBUG: REMOVE BEFORE PRODUCTION
   const [checking, setChecking] = useState(true);
   const navigationState = useRootNavigationState();
 
@@ -162,38 +87,30 @@ export default function RootLayout() {
     setQuickHideActive(false);
   }, []);
 
-  // DEBUG: REMOVE BEFORE PRODUCTION — log navigation state on every render
   useEffect(() => {
-    debugStep(`STEP 2: navigationState.key = ${navigationState?.key ?? 'UNDEFINED'}`);
-  }, [navigationState?.key]);
+    if (!navigationState?.key) return;
 
-  useEffect(() => {
-    if (!navigationState?.key) {
-      debugStep('STEP 2a: navigationState.key is falsy — waiting...'); // DEBUG: REMOVE BEFORE PRODUCTION
-      return;
-    }
-
-    debugStep('STEP 2b: navigationState ready — checking onboarding...'); // DEBUG: REMOVE BEFORE PRODUCTION
     async function checkOnboarding() {
       try {
-        debugStep('STEP 2c: reading ONBOARDING_COMPLETE from SecureStore (3s timeout)...'); // DEBUG: REMOVE BEFORE PRODUCTION
-        const t0 = Date.now(); // DEBUG: REMOVE BEFORE PRODUCTION
         const complete = await isOnboardingComplete();
-        const elapsed = Date.now() - t0; // DEBUG: REMOVE BEFORE PRODUCTION
-        debugStep(`STEP 2d: ONBOARDING_COMPLETE = ${complete} (${elapsed}ms${elapsed >= 3000 ? ' TIMEOUT-FALLBACK' : ''})`); // DEBUG: REMOVE BEFORE PRODUCTION
         if (!complete) {
-          debugStep('STEP 2e: routing to /onboarding'); // DEBUG: REMOVE BEFORE PRODUCTION
           router.replace('/onboarding');
         }
-      } catch (err) {
-        debugStep(`STEP 2x: checkOnboarding ERROR: ${err}`); // DEBUG: REMOVE BEFORE PRODUCTION
+      } catch {
+        // Storage error — treat as not complete, route to onboarding
       } finally {
         setChecking(false);
-        debugStep('STEP 2 DONE: checking=false'); // DEBUG: REMOVE BEFORE PRODUCTION
       }
     }
     checkOnboarding();
   }, [navigationState?.key]);
+
+  // Hide splash screen once initialization is complete
+  useEffect(() => {
+    if (!checking) {
+      SplashScreen.hideAsync();
+    }
+  }, [checking]);
 
   // Safety net: if navigation state never resolves, force past checking after 5 seconds.
   // Uses requestAnimationFrame polling because setTimeout may not fire
@@ -204,7 +121,6 @@ export default function RootLayout() {
     function rafCheck() {
       if (cancelled) return;
       if (Date.now() - start >= 5000) {
-        debugStep('STEP TIMEOUT: 5s raf safety net fired — forcing checking=false'); // DEBUG: REMOVE BEFORE PRODUCTION
         setChecking(false);
         return;
       }
@@ -216,12 +132,8 @@ export default function RootLayout() {
 
   const showOverlay = privacyOverlay || quickHideActive;
 
-  debugStep(`STEP 5: RootLayout render — checking=${checking}`); // DEBUG: REMOVE BEFORE PRODUCTION
-
   return (
     <ErrorBoundary>
-      {/* DEBUG: REMOVE BEFORE PRODUCTION — debug overlay renders on top of everything */}
-      <DebugOverlay />
       <AuthGate>
         <OnboardingGate>
           <StatusBar style="light" />
@@ -237,8 +149,6 @@ export default function RootLayout() {
               <ActivityIndicator color={Colors.accent} size="large" />
             </View>
           )}
-          {/* DEBUG: REMOVE BEFORE PRODUCTION */}
-          {(() => { debugStep('STEP 6: Main app content rendering (Stack navigator)'); return null; })()}
           <View style={{ flex: 1 }} onTouchEnd={handleTouchEnd}>
             <Stack
               screenOptions={{

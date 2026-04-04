@@ -15,7 +15,6 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
-import { debugStep } from './DebugOverlay'; // DEBUG: REMOVE BEFORE PRODUCTION
 import {
   isLockEnabled,
   getAuthMethod,
@@ -54,26 +53,19 @@ export function AuthGate({ children }: AuthGateProps) {
     let cancelled = false;
     async function check() {
       try {
-        debugStep('STEP 3a: AuthGate — checking isLockEnabled (3s timeout)...'); // DEBUG: REMOVE BEFORE PRODUCTION
-        const t0 = Date.now(); // DEBUG: REMOVE BEFORE PRODUCTION
         const enabled = await isLockEnabled();
         if (cancelled) return;
-        const elapsed = Date.now() - t0; // DEBUG: REMOVE BEFORE PRODUCTION
-        debugStep(`STEP 3b: AuthGate — lock enabled = ${enabled} (${elapsed}ms${elapsed >= 3000 ? ' TIMEOUT-FALLBACK' : ''})`); // DEBUG: REMOVE BEFORE PRODUCTION
         lockEnabledRef.current = enabled;
 
         if (!enabled) {
-          debugStep('STEP 3c: AuthGate — lock NOT enabled, unlocking'); // DEBUG: REMOVE BEFORE PRODUCTION
           setState('unlocked');
           return;
         }
 
-        debugStep('STEP 3c: AuthGate — lock IS enabled, getting auth method (3s timeout)...'); // DEBUG: REMOVE BEFORE PRODUCTION
         const method = await getAuthMethod();
         if (cancelled) return;
         setAuthMethod(method);
 
-        debugStep('STEP 3d: AuthGate — checking biometric availability...'); // DEBUG: REMOVE BEFORE PRODUCTION
         const bio = await isBiometricAvailable();
         if (cancelled) return;
         setBiometryType(bio.biometryType);
@@ -85,12 +77,10 @@ export function AuthGate({ children }: AuthGateProps) {
           setLockView('biometric');
         }
 
-        debugStep(`STEP 3e: AuthGate — LOCKED (view=${method === 'pin' || !bio.available ? 'pin' : 'biometric'})`); // DEBUG: REMOVE BEFORE PRODUCTION
         setState('locked');
-      } catch (err) {
+      } catch {
         // If auth check fails, let the user through rather than locking them out forever
         if (cancelled) return;
-        debugStep(`STEP 3x: AuthGate — ERROR: ${err}`); // DEBUG: REMOVE BEFORE PRODUCTION
         setState('unlocked');
       }
     }
@@ -109,7 +99,6 @@ export function AuthGate({ children }: AuthGateProps) {
       if (Date.now() - start >= 5000) {
         setState((prev) => {
           if (prev === 'loading') {
-            debugStep('STEP 3-SAFETY: AuthGate 5s raf timeout — forcing unlocked'); // DEBUG: REMOVE BEFORE PRODUCTION
             return 'unlocked';
           }
           return prev;
@@ -224,7 +213,6 @@ export function AuthGate({ children }: AuthGateProps) {
   // ---- RENDER ----
 
   if (state === 'loading') {
-    debugStep('STEP 3: AuthGate render — state=loading (checking lock...)'); // DEBUG: REMOVE BEFORE PRODUCTION
     return (
       <View style={styles.fullScreen}>
         <ActivityIndicator color={Colors.accent} size="large" />
@@ -233,7 +221,6 @@ export function AuthGate({ children }: AuthGateProps) {
   }
 
   if (state === 'unlocked') {
-    debugStep('STEP 3 DONE: AuthGate render — state=unlocked, rendering children'); // DEBUG: REMOVE BEFORE PRODUCTION
     return <>{children}</>;
   }
 
