@@ -105,12 +105,14 @@ export default function RootLayout() {
     checkOnboarding();
   }, [navigationState?.key]);
 
-  // Hide splash screen once initialization is complete
+  // Hide splash screen immediately on mount. Do NOT gate on `checking` —
+  // RAF/setTimeout safety nets may never fire while the native splash
+  // covers the RN view (Hermes release-build timer deadlock).
+  // AuthGate and OnboardingGate render their own full-screen loading UI,
+  // so the visual transition from native splash to React spinner is seamless.
   useEffect(() => {
-    if (!checking) {
-      SplashScreen.hideAsync();
-    }
-  }, [checking]);
+    SplashScreen.hideAsync();
+  }, []);
 
   // Safety net: if navigation state never resolves, force past checking after 5 seconds.
   // Uses requestAnimationFrame polling because setTimeout may not fire
