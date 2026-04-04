@@ -51,11 +51,13 @@ export function AuthGate({ children }: AuthGateProps) {
 
   // Check lock state on mount
   useEffect(() => {
+    let cancelled = false;
     async function check() {
       try {
         debugStep('STEP 3a: AuthGate — checking isLockEnabled (3s timeout)...'); // DEBUG: REMOVE BEFORE PRODUCTION
         const t0 = Date.now(); // DEBUG: REMOVE BEFORE PRODUCTION
         const enabled = await isLockEnabled();
+        if (cancelled) return;
         const elapsed = Date.now() - t0; // DEBUG: REMOVE BEFORE PRODUCTION
         debugStep(`STEP 3b: AuthGate — lock enabled = ${enabled} (${elapsed}ms${elapsed >= 3000 ? ' TIMEOUT-FALLBACK' : ''})`); // DEBUG: REMOVE BEFORE PRODUCTION
         lockEnabledRef.current = enabled;
@@ -68,10 +70,12 @@ export function AuthGate({ children }: AuthGateProps) {
 
         debugStep('STEP 3c: AuthGate — lock IS enabled, getting auth method (3s timeout)...'); // DEBUG: REMOVE BEFORE PRODUCTION
         const method = await getAuthMethod();
+        if (cancelled) return;
         setAuthMethod(method);
 
         debugStep('STEP 3d: AuthGate — checking biometric availability...'); // DEBUG: REMOVE BEFORE PRODUCTION
         const bio = await isBiometricAvailable();
+        if (cancelled) return;
         setBiometryType(bio.biometryType);
 
         // Decide initial view
@@ -85,11 +89,37 @@ export function AuthGate({ children }: AuthGateProps) {
         setState('locked');
       } catch (err) {
         // If auth check fails, let the user through rather than locking them out forever
+        if (cancelled) return;
         debugStep(`STEP 3x: AuthGate — ERROR: ${err}`); // DEBUG: REMOVE BEFORE PRODUCTION
         setState('unlocked');
       }
     }
     check();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Safety net: if auth check hangs, force unlocked after 5 seconds.
+  // Uses requestAnimationFrame polling because setTimeout may not fire
+  // in Hermes release builds.
+  useEffect(() => {
+    let cancelled = false;
+    const start = Date.now();
+    function rafCheck() {
+      if (cancelled) return;
+      if (Date.now() - start >= 5000) {
+        setState((prev) => {
+          if (prev === 'loading') {
+            debugStep('STEP 3-SAFETY: AuthGate 5s raf timeout — forcing unlocked'); // DEBUG: REMOVE BEFORE PRODUCTION
+            return 'unlocked';
+          }
+          return prev;
+        });
+        return;
+      }
+      requestAnimationFrame(rafCheck);
+    }
+    requestAnimationFrame(rafCheck);
+    return () => { cancelled = true; };
   }, []);
 
   // Re-lock when app goes to background

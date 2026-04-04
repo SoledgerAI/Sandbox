@@ -158,6 +158,10 @@ const writeLocks = new Map<string, Promise<void>>();
  * Race a promise against a timeout. If the timeout wins, return the fallback
  * value and log a warning. Used to prevent storage reads from hanging
  * indefinitely in release builds.
+ *
+ * Uses BOTH setTimeout AND requestAnimationFrame polling to guarantee the
+ * timeout fires even when the Hermes timer module is non-responsive during
+ * cold start in release builds.
  */
 export async function asyncWithTimeout<T>(
   promise: Promise<T>,
@@ -165,19 +169,43 @@ export async function asyncWithTimeout<T>(
   fallback: T,
   label?: string,
 ): Promise<T> {
-  let timer: ReturnType<typeof setTimeout>;
+  let settled = false;
+
   const timeout = new Promise<T>((resolve) => {
-    timer = setTimeout(() => {
-      console.warn(`[Storage] TIMEOUT after ${ms}ms${label ? ` (${label})` : ''} — using fallback`);
+    const start = Date.now();
+
+    function onTimeout(source: string) {
+      if (settled) return;
+      settled = true;
+      console.warn(`[Storage] ${source} TIMEOUT after ${ms}ms${label ? ` (${label})` : ''} — using fallback`);
       resolve(fallback);
-    }, ms);
+    }
+
+    // Primary: setTimeout (works in most environments)
+    const timer = setTimeout(() => onTimeout('setTimeout'), ms);
+
+    // Backup: requestAnimationFrame polling (works when setTimeout doesn't
+    // fire in Hermes release builds, as long as the UI thread is rendering)
+    function rafCheck() {
+      if (settled) {
+        clearTimeout(timer);
+        return;
+      }
+      if (Date.now() - start >= ms) {
+        clearTimeout(timer);
+        onTimeout('raf');
+        return;
+      }
+      requestAnimationFrame(rafCheck);
+    }
+    requestAnimationFrame(rafCheck);
   });
 
   try {
     const result = await Promise.race([promise, timeout]);
     return result;
   } finally {
-    clearTimeout(timer!);
+    settled = true;
   }
 }
 

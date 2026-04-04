@@ -18,19 +18,41 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
   const [complete, setComplete] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
     async function check() {
       try {
         debugStep('STEP 4a: OnboardingGate — checking isOnboardingComplete (3s timeout)...'); // DEBUG: REMOVE BEFORE PRODUCTION
         const t0 = Date.now(); // DEBUG: REMOVE BEFORE PRODUCTION
         const done = await isOnboardingComplete();
+        if (cancelled) return;
         const elapsed = Date.now() - t0; // DEBUG: REMOVE BEFORE PRODUCTION
         debugStep(`STEP 4b: OnboardingGate — complete = ${done} (${elapsed}ms${elapsed >= 3000 ? ' TIMEOUT-FALLBACK' : ''})`); // DEBUG: REMOVE BEFORE PRODUCTION
         setComplete(done);
       } finally {
-        setChecking(false);
+        if (!cancelled) setChecking(false);
       }
     }
     check();
+    return () => { cancelled = true; };
+  }, []);
+
+  // Safety net: if onboarding check hangs, force past checking after 5 seconds.
+  // Uses requestAnimationFrame because setTimeout may not fire in Hermes release builds.
+  useEffect(() => {
+    let cancelled = false;
+    const start = Date.now();
+    function rafCheck() {
+      if (cancelled) return;
+      if (Date.now() - start >= 5000) {
+        debugStep('STEP 4-SAFETY: OnboardingGate 5s raf timeout — forcing past check'); // DEBUG: REMOVE BEFORE PRODUCTION
+        setChecking(false);
+        // Default to not complete — will show PersonalizationFlow
+        return;
+      }
+      requestAnimationFrame(rafCheck);
+    }
+    requestAnimationFrame(rafCheck);
+    return () => { cancelled = true; };
   }, []);
 
   const handleComplete = useCallback(() => {
