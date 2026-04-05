@@ -61,7 +61,11 @@
       "Bash(xxd /c/Users/joshs/Documents/Sandbox/dub-ai-tracker/.npmrc)",
       "Bash(python3:*)",
       "Bash(npx eas:*)",
-      "Bash(npx expo-doctor:*)"
+      "Bash(npx expo-doctor:*)",
+      "Bash(find /c/Users/joshs/Documents/Sandbox/dub-ai-tracker -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"MoodEntry\\\\|mood.*component\\\\|mood.*picker\" {} \\\\;)",
+      "Bash(npx eslint:*)",
+      "Bash(bash /tmp/find_accessibility.sh)",
+      "Bash(bash /tmp/check_buttons.sh)"
     ]
   }
 }
