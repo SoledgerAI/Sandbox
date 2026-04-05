@@ -70,6 +70,8 @@ export interface RollingStats {
   avg_sleep_hours: number | null;
   avg_mood: number | null;
   avg_weight: number | null;
+  /** Number of weight data points in the 7-day window */
+  weight_count: number;
   workout_count: number;
 }
 

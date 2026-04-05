@@ -204,16 +204,20 @@ export async function buildCoachContext(userMessage: string): Promise<{
   // Conditional sections
   const conditionalSections: string[] = [];
 
-  // 7-day rolling stats (conditional on trend keywords)
+  // Always compute 7-day weight average (P1 redesign: weight context is always-include)
+  const weightRolling = await compute7DayRolling(today);
+  if (weightRolling?.avg_weight != null) {
+    conditionalSections.push(`[WEIGHT 7D] Avg:${weightRolling.avg_weight.toFixed(1)} Pts:${weightRolling.weight_count}`);
+  }
+
+  // 7-day rolling stats for non-weight metrics (conditional on trend keywords)
   if (messageMatchesKeywords(userMessage, TREND_KEYWORDS)) {
-    const rolling = await compute7DayRolling(today);
-    if (rolling) {
+    if (weightRolling) {
       const parts: string[] = [];
-      if (rolling.avg_calories != null) parts.push(`Cal:${Math.round(rolling.avg_calories)}avg`);
-      if (rolling.avg_protein_g != null) parts.push(`P:${Math.round(rolling.avg_protein_g)}g`);
-      if (rolling.avg_sleep_hours != null) parts.push(`Sleep:${rolling.avg_sleep_hours.toFixed(1)}h`);
-      if (rolling.avg_mood != null) parts.push(`Mood:${rolling.avg_mood.toFixed(1)}`);
-      if (rolling.avg_weight != null) parts.push(`Wt:${rolling.avg_weight.toFixed(1)}`);
+      if (weightRolling.avg_calories != null) parts.push(`Cal:${Math.round(weightRolling.avg_calories)}avg`);
+      if (weightRolling.avg_protein_g != null) parts.push(`P:${Math.round(weightRolling.avg_protein_g)}g`);
+      if (weightRolling.avg_sleep_hours != null) parts.push(`Sleep:${weightRolling.avg_sleep_hours.toFixed(1)}h`);
+      if (weightRolling.avg_mood != null) parts.push(`Mood:${weightRolling.avg_mood.toFixed(1)}`);
       if (parts.length > 0) {
         conditionalSections.push(`[7D] ${parts.join(' ')}`);
       }
@@ -479,6 +483,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
       avg_sleep_hours: null,
       avg_mood: null,
       avg_weight: null,
+      weight_count: 0,
       workout_count: 0,
     },
     bmr,
@@ -594,6 +599,7 @@ async function compute7DayRolling(today: string): Promise<RollingStats | null> {
     avg_sleep_hours: avg(stats.sleep),
     avg_mood: avg(stats.mood),
     avg_weight: avg(stats.weight),
+    weight_count: stats.weight.length,
     workout_count: workoutCount,
   };
 }

@@ -1,5 +1,6 @@
-// Dashboard body card -- current weight and trend direction
+// Dashboard body card -- weight trend with 7-day average
 // Phase 9: Body Metrics and Weight Tracking
+// Redesign: P1 plain-language weight display
 
 import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
@@ -8,7 +9,6 @@ import { Colors } from '../../constants/colors';
 import { DashboardCard } from './DashboardCard';
 import { SparkLine } from '../charts/SparkLine';
 import { LBS_PER_KG } from '../../constants/formulas';
-import { WEIGHT_PROJECTION_DISCLAIMER } from '../../utils/calories';
 import {
   storageGet,
   storageList,
@@ -17,14 +17,18 @@ import {
 import type { BodyEntry } from '../../types';
 import type { UserProfile } from '../../types/profile';
 
-interface WeightPoint {
-  weight: number;
-}
+/** Threshold (in display units) above which daily fluctuation triggers context note */
+const FLUCTUATION_THRESHOLD = 1.5;
+
+/** Minimum data points in the last 7 days to show a rolling average */
+const MIN_POINTS_FOR_AVERAGE = 3;
 
 export function BodyCard() {
-  const [currentWeight, setCurrentWeight] = useState<number | null>(null);
-  const [trendDirection, setTrendDirection] = useState<'up' | 'down' | 'stable'>('stable');
+  const [sevenDayAvg, setSevenDayAvg] = useState<number | null>(null);
+  const [todayWeight, setTodayWeight] = useState<number | null>(null);
+  const [dailyDelta, setDailyDelta] = useState<number | null>(null);
   const [sparkData, setSparkData] = useState<number[]>([]);
+  const [pointsInWindow, setPointsInWindow] = useState(0);
   const [units, setUnits] = useState<'imperial' | 'metric'>('imperial');
 
   const loadData = useCallback(async () => {
@@ -33,7 +37,7 @@ export function BodyCard() {
     setUnits(unitPref);
 
     const keys = await storageList(STORAGE_KEYS.LOG_BODY + '.');
-    const points: WeightPoint[] = [];
+    const allWeights: number[] = [];
 
     for (const key of keys.sort()) {
       const entry = await storageGet<BodyEntry>(key);
@@ -42,29 +46,45 @@ export function BodyCard() {
           unitPref === 'metric'
             ? entry.weight_lbs / LBS_PER_KG
             : entry.weight_lbs;
-        points.push({ weight });
+        allWeights.push(weight);
       }
     }
 
-    if (points.length === 0) {
-      setCurrentWeight(null);
+    if (allWeights.length === 0) {
+      setTodayWeight(null);
+      setSevenDayAvg(null);
+      setDailyDelta(null);
       setSparkData([]);
+      setPointsInWindow(0);
       return;
     }
 
-    const last7 = points.slice(-7).map((p) => p.weight);
-    setSparkData(last7);
-    setCurrentWeight(points[points.length - 1].weight);
+    // Last 14 data points for sparkline
+    const last14 = allWeights.slice(-14);
+    setSparkData(last14);
 
-    // Determine trend from last 3+ days
-    if (points.length >= 3) {
-      const recent = points.slice(-3).map((p) => p.weight);
-      const avgRecent = recent.reduce((a, b) => a + b, 0) / recent.length;
-      const first = recent[0];
-      const diff = avgRecent - first;
-      if (diff > 0.5) setTrendDirection('up');
-      else if (diff < -0.5) setTrendDirection('down');
-      else setTrendDirection('stable');
+    // Today's weight is most recent entry
+    const current = allWeights[allWeights.length - 1];
+    setTodayWeight(current);
+
+    // 7-day window: last 7 data points
+    const last7 = allWeights.slice(-7);
+    setPointsInWindow(Math.min(last7.length, 7));
+
+    // Compute 7-day rolling average (only if >= MIN_POINTS_FOR_AVERAGE)
+    if (last7.length >= MIN_POINTS_FOR_AVERAGE) {
+      const avg = last7.reduce((a, b) => a + b, 0) / last7.length;
+      setSevenDayAvg(avg);
+    } else {
+      setSevenDayAvg(null);
+    }
+
+    // Daily delta: difference between last two entries
+    if (allWeights.length >= 2) {
+      const prev = allWeights[allWeights.length - 2];
+      setDailyDelta(current - prev);
+    } else {
+      setDailyDelta(null);
     }
   }, []);
 
@@ -73,22 +93,15 @@ export function BodyCard() {
   }, [loadData]);
 
   const unitLabel = units === 'metric' ? 'kg' : 'lbs';
+  const fluctuationThreshold =
+    units === 'metric' ? FLUCTUATION_THRESHOLD / LBS_PER_KG : FLUCTUATION_THRESHOLD;
 
-  const trendIcon =
-    trendDirection === 'up'
-      ? 'trending-up'
-      : trendDirection === 'down'
-        ? 'trending-down'
-        : 'remove-outline';
+  // Show context note when daily swing exceeds threshold
+  const showFluctuationNote =
+    dailyDelta != null && Math.abs(dailyDelta) > fluctuationThreshold;
 
-  const trendColor =
-    trendDirection === 'up'
-      ? Colors.danger
-      : trendDirection === 'down'
-        ? Colors.success
-        : Colors.secondaryText;
-
-  if (currentWeight == null) {
+  // No data at all
+  if (todayWeight == null) {
     return (
       <DashboardCard title="Body">
         <Text style={styles.emptyText}>No weight data logged yet</Text>
@@ -96,82 +109,162 @@ export function BodyCard() {
     );
   }
 
+  // Not enough data for average
+  const needsMoreData = pointsInWindow < MIN_POINTS_FOR_AVERAGE;
+
+  // Neutral arrow direction (never red/green)
+  const deltaIcon: 'arrow-up' | 'arrow-down' | 'remove-outline' =
+    dailyDelta != null && dailyDelta > 0.05
+      ? 'arrow-up'
+      : dailyDelta != null && dailyDelta < -0.05
+        ? 'arrow-down'
+        : 'remove-outline';
+
   return (
     <DashboardCard title="Body">
-      <View style={styles.row}>
-        <View style={styles.weightSection}>
-          <View style={styles.weightRow}>
-            <Text style={styles.weightValue}>
-              {currentWeight.toFixed(1)}
+      {/* PRIMARY: 7-day rolling average or "needs more data" prompt */}
+      {needsMoreData ? (
+        <Text style={styles.needsDataText}>
+          Log 3+ weights this week to see your trend
+        </Text>
+      ) : (
+        <View style={styles.averageSection}>
+          <Text style={styles.averageLabel}>7-Day Average</Text>
+          <View style={styles.averageRow}>
+            <Text style={styles.averageValue}>
+              {sevenDayAvg!.toFixed(1)}
             </Text>
-            <Text style={styles.weightUnit}>{unitLabel}</Text>
+            <Text style={styles.averageUnit}>{unitLabel}</Text>
           </View>
-          <View style={styles.trendRow}>
-            <Ionicons name={trendIcon as any} size={16} color={trendColor} />
-            <Text style={[styles.trendText, { color: trendColor }]}>
-              {trendDirection === 'up'
-                ? 'Trending up'
-                : trendDirection === 'down'
-                  ? 'Trending down'
-                  : 'Stable'}
+        </View>
+      )}
+
+      {/* SECONDARY + TERTIARY: today's weight and sparkline */}
+      <View style={styles.row}>
+        <View style={styles.todaySection}>
+          <Text style={styles.todayLabel}>Today</Text>
+          <View style={styles.todayRow}>
+            <Text style={styles.todayValue}>
+              {todayWeight.toFixed(1)}
             </Text>
+            <Text style={styles.todayUnit}>{unitLabel}</Text>
+            {dailyDelta != null && (
+              <View style={styles.deltaRow}>
+                <Ionicons
+                  name={deltaIcon}
+                  size={12}
+                  color={Colors.secondaryText}
+                />
+                <Text style={styles.deltaText}>
+                  {Math.abs(dailyDelta).toFixed(1)}
+                </Text>
+              </View>
+            )}
           </View>
         </View>
         <SparkLine
           data={sparkData}
-          width={90}
+          width={100}
           height={36}
-          color={trendColor}
+          color={Colors.accent}
         />
       </View>
-      <Text style={styles.disclaimer}>{WEIGHT_PROJECTION_DISCLAIMER}</Text>
+
+      {/* CONTEXT NOTE: auto-show on large daily fluctuation */}
+      {showFluctuationNote && (
+        <Text style={styles.contextNote}>
+          Daily weight varies 1–3 lbs from hydration and sodium.{'\n'}
+          The 7-day average shows your real trend.
+        </Text>
+      )}
     </DashboardCard>
   );
 }
 
 const styles = StyleSheet.create({
+  averageSection: {
+    marginBottom: 12,
+  },
+  averageLabel: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    fontWeight: '500',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  averageRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+    marginTop: 2,
+  },
+  averageValue: {
+    color: Colors.text,
+    fontSize: 28,
+    fontWeight: 'bold',
+    fontVariant: ['tabular-nums'],
+  },
+  averageUnit: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  weightSection: {
+  todaySection: {
     flex: 1,
   },
-  weightRow: {
+  todayLabel: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  todayRow: {
     flexDirection: 'row',
     alignItems: 'baseline',
     gap: 4,
+    marginTop: 2,
   },
-  weightValue: {
-    color: Colors.text,
-    fontSize: 24,
-    fontWeight: 'bold',
+  todayValue: {
+    color: Colors.secondaryText,
+    fontSize: 16,
+    fontWeight: '600',
     fontVariant: ['tabular-nums'],
   },
-  weightUnit: {
+  todayUnit: {
     color: Colors.secondaryText,
-    fontSize: 14,
+    fontSize: 12,
   },
-  trendRow: {
+  deltaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    marginTop: 4,
+    gap: 2,
+    marginLeft: 4,
   },
-  trendText: {
+  deltaText: {
+    color: Colors.secondaryText,
     fontSize: 12,
-    fontWeight: '500',
+    fontVariant: ['tabular-nums'],
+  },
+  needsDataText: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+    marginBottom: 8,
+    fontStyle: 'italic',
+  },
+  contextNote: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.divider,
+    lineHeight: 16,
   },
   emptyText: {
     color: Colors.secondaryText,
     fontSize: 13,
-  },
-  disclaimer: {
-    color: Colors.secondaryText,
-    fontSize: 10,
-    marginTop: 8,
-    fontStyle: 'italic',
-    lineHeight: 14,
   },
 });

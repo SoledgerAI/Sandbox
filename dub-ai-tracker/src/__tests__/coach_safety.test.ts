@@ -34,6 +34,7 @@ function makeMinimalContext(overrides?: Partial<CoachContext>): CoachContext {
     avg_sleep_hours: 7.2,
     avg_mood: 3.8,
     avg_weight: 180,
+    weight_count: 5,
     workout_count: 4,
   };
 
