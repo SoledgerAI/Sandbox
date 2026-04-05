@@ -22,6 +22,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { BloodPressureEntry, BPPosition, BPArm, BPTiming } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -107,6 +109,7 @@ interface BloodPressureLoggerProps {
 }
 
 export function BloodPressureLogger({ onEntryLogged }: BloodPressureLoggerProps) {
+  const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<BloodPressureEntry>('blood.pressure');
   const [entries, setEntries] = useState<BloodPressureEntry[]>([]);
   const [systolic, setSystolic] = useState('');
   const [diastolic, setDiastolic] = useState('');
@@ -160,13 +163,14 @@ export function BloodPressureLogger({ onEntryLogged }: BloodPressureLoggerProps)
 
     const updated = [...entries, entry];
     await storageSet(key, updated);
+    await saveAsLast(entry);
     setEntries(updated);
     setSystolic('');
     setDiastolic('');
     setPulse('');
     setNotes('');
     onEntryLogged?.();
-  }, [entries, sysNum, diaNum, pulseNum, position, arm, timing, notes, isValidReading, onEntryLogged]);
+  }, [entries, sysNum, diaNum, pulseNum, position, arm, timing, notes, isValidReading, onEntryLogged, saveAsLast]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -179,9 +183,26 @@ export function BloodPressureLogger({ onEntryLogged }: BloodPressureLoggerProps)
     [entries],
   );
 
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    if (lastEntry.position) setPosition(lastEntry.position);
+    if (lastEntry.arm) setArm(lastEntry.arm);
+    if (lastEntry.timing) setTiming(lastEntry.timing);
+  }, [lastEntry]);
+
+  const repeatSubtitle = lastEntry
+    ? `${lastEntry.systolic}/${lastEntry.diastolic}`
+    : undefined;
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="blood pressure"
+        subtitle={repeatSubtitle}
+        visible={!lastLoading && lastEntry != null}
+        onRepeat={handleRepeatLast}
+      />
       {/* Systolic / Diastolic inputs */}
       <Text style={styles.sectionTitle}>Blood Pressure (mmHg)</Text>
       <View style={styles.bpRow}>

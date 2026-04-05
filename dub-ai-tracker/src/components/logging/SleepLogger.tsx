@@ -23,6 +23,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { SleepEntry } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -42,6 +44,7 @@ interface SleepLoggerProps {
 }
 
 export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
+  const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<SleepEntry>('sleep.tracking');
   const [entry, setEntry] = useState<SleepEntry | null>(null);
 
   // Form state
@@ -117,9 +120,10 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
     const today = todayDateString();
     const key = dateKey(STORAGE_KEYS.LOG_SLEEP, today);
     await storageSet(key, newEntry);
+    await saveAsLast(newEntry);
     setEntry(newEntry);
     onEntryLogged?.();
-  }, [bedHour, bedMinute, bedAmPm, wakeHour, wakeMinute, wakeAmPm, quality, bathroomTrips, alarmUsed, timeToFallAsleep, notes, onEntryLogged]);
+  }, [bedHour, bedMinute, bedAmPm, wakeHour, wakeMinute, wakeAmPm, quality, bathroomTrips, alarmUsed, timeToFallAsleep, notes, onEntryLogged, saveAsLast]);
 
   const clearEntry = useCallback(async () => {
     const today = todayDateString();
@@ -200,9 +204,44 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
     );
   }
 
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    if (lastEntry.bedtime) {
+      const bed = new Date(lastEntry.bedtime);
+      const bH = bed.getHours();
+      const bM = bed.getMinutes();
+      const display12H = bH === 0 ? 12 : bH > 12 ? bH - 12 : bH;
+      setBedHour(String(display12H));
+      setBedMinute(String(bM).padStart(2, '0'));
+      setBedAmPm(bH >= 12 ? 'PM' : 'AM');
+    }
+    if (lastEntry.wake_time) {
+      const wake = new Date(lastEntry.wake_time);
+      const wH = wake.getHours();
+      const wM = wake.getMinutes();
+      const display12H = wH === 0 ? 12 : wH > 12 ? wH - 12 : wH;
+      setWakeHour(String(display12H));
+      setWakeMinute(String(wM).padStart(2, '0'));
+      setWakeAmPm(wH >= 12 ? 'PM' : 'AM');
+    }
+    if (lastEntry.quality) setQuality(lastEntry.quality);
+  }, [lastEntry]);
+
+  const repeatSubtitle = lastEntry
+    ? lastEntry.quality
+      ? `Quality ${lastEntry.quality}/5 - ${QUALITY_LABELS[lastEntry.quality]}`
+      : undefined
+    : undefined;
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="sleep"
+        subtitle={repeatSubtitle}
+        visible={!lastLoading && lastEntry != null}
+        onRepeat={handleRepeatLast}
+      />
       {/* Bedtime */}
       <Text style={styles.sectionTitle}>Bedtime (last night)</Text>
       <View style={styles.timeRow}>

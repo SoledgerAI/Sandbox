@@ -22,6 +22,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { BloodworkEntry, BloodworkMarker } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -122,6 +124,7 @@ const PANEL_CATEGORIES: PanelCategory[] = [
 ];
 
 export function BloodworkPanel() {
+  const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<BloodworkEntry>('health.markers');
   const [labName, setLabName] = useState('');
   const [notes, setNotes] = useState('');
   const [markerValues, setMarkerValues] = useState<Record<string, string>>({});
@@ -190,9 +193,10 @@ export function BloodworkPanel() {
     };
 
     await storageSet(key, entry);
+    await saveAsLast(entry);
     setSavedEntry(entry);
     Alert.alert('Saved', `${markers.length} marker(s) saved.`);
-  }, [markerValues, labName, notes]);
+  }, [markerValues, labName, notes, saveAsLast]);
 
   const setMarkerValue = (name: string, value: string) => {
     setMarkerValues((prev) => ({ ...prev, [name]: value }));
@@ -200,9 +204,22 @@ export function BloodworkPanel() {
 
   const flaggedCount = savedEntry?.markers.filter((m) => m.flagged).length ?? 0;
 
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    if (lastEntry.lab_name) setLabName(lastEntry.lab_name);
+  }, [lastEntry]);
+
+  const repeatSubtitle = lastEntry?.lab_name ?? undefined;
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="bloodwork"
+        subtitle={repeatSubtitle}
+        visible={!lastLoading && lastEntry != null}
+        onRepeat={handleRepeatLast}
+      />
       {/* Disclaimer */}
       <View style={styles.disclaimerBanner}>
         <Ionicons name="information-circle-outline" size={18} color={Colors.secondaryText} />

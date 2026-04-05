@@ -22,6 +22,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { CustomEntry } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -64,6 +66,15 @@ export function CustomTagLogger() {
 
   // Per-tag input values
   const [inputValues, setInputValues] = useState<Record<string, string>>({});
+
+  const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<CustomEntry>('custom.tag');
+
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    if (typeof lastEntry.value !== 'boolean') {
+      setInputValues((prev) => ({ ...prev, [lastEntry.tag_id]: String(lastEntry.value) }));
+    }
+  }, [lastEntry]);
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -157,8 +168,9 @@ export function CustomTagLogger() {
       await storageSet(key, updated);
       setEntries(updated);
       setInputValues((prev) => ({ ...prev, [tag.id]: '' }));
+      await saveAsLast(entry);
     },
-    [entries, inputValues],
+    [entries, inputValues, saveAsLast],
   );
 
   const deleteEntry = useCallback(
@@ -175,6 +187,13 @@ export function CustomTagLogger() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="custom entry"
+        subtitle={lastEntry?.tag_id ?? undefined}
+        visible={!lastEntryLoading && lastEntry !== null}
+        onRepeat={handleRepeatLast}
+      />
+
       {/* Create new tag button */}
       <TouchableOpacity
         style={styles.createToggle}

@@ -21,6 +21,8 @@ import {
   STORAGE_KEYS,
   dateKey,
 } from '../../utils/storage';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 import type { WaterEntry, BeverageType } from '../../types';
 
 const QUICK_ADD_OPTIONS = [
@@ -54,6 +56,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
   const [customAmount, setCustomAmount] = useState('');
   const [waterGoal, setWaterGoal] = useState(DEFAULT_WATER_GOAL_OZ);
   const [selectedBeverage, setSelectedBeverage] = useState<BeverageType>('water');
+  const { lastEntry: lastWater, saveAsLast: saveLastWater } = useLastEntry<WaterEntry>('hydration.water');
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -97,10 +100,11 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
 
       const updated = [...entries, entry];
       await storageSet(key, updated);
+      await saveLastWater(entry);
       setEntries(updated);
       onEntryLogged?.();
     },
-    [entries, onEntryLogged, selectedBeverage],
+    [entries, onEntryLogged, selectedBeverage, saveLastWater],
   );
 
   const logCustom = useCallback(() => {
@@ -124,6 +128,12 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
     [entries],
   );
 
+  const repeatLastWater = useCallback(() => {
+    if (!lastWater) return;
+    setSelectedBeverage(lastWater.beverage ?? 'water');
+    setCustomAmount(String(lastWater.amount_oz));
+  }, [lastWater]);
+
   function beverageLabel(bev: string): string {
     return BEVERAGE_OPTIONS.find((b) => b.value === bev)?.label ?? bev;
   }
@@ -135,6 +145,13 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="water"
+        subtitle={lastWater ? `${lastWater.amount_oz} oz ${lastWater.beverage ?? 'water'}` : undefined}
+        visible={lastWater != null}
+        onRepeat={repeatLastWater}
+      />
+
       {/* Daily total and goal */}
       <View style={styles.summaryCard}>
         <View style={styles.summaryRow}>

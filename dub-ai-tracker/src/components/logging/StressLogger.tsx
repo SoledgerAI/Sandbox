@@ -21,6 +21,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { StressEntry, StressTrigger } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -51,6 +53,13 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
   const [score, setScore] = useState<number>(5);
   const [selectedTriggers, setSelectedTriggers] = useState<StressTrigger[]>([]);
   const [notes, setNotes] = useState('');
+  const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<StressEntry>('mental.wellness.stress');
+
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    setScore(lastEntry.score);
+    if (lastEntry.trigger) setSelectedTriggers([lastEntry.trigger]);
+  }, [lastEntry]);
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -88,8 +97,9 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
     setEntries(updated);
     setNotes('');
     setSelectedTriggers([]);
+    await saveAsLast(entry);
     onEntryLogged?.();
-  }, [entries, score, selectedTriggers, notes, onEntryLogged]);
+  }, [entries, score, selectedTriggers, notes, onEntryLogged, saveAsLast]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -105,6 +115,13 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="stress"
+        subtitle={lastEntry ? `Level ${lastEntry.score}` : undefined}
+        visible={!lastEntryLoading && lastEntry != null}
+        onRepeat={handleRepeatLast}
+      />
+
       {/* Score display */}
       <View style={styles.scoreCard}>
         <Text style={[styles.scoreValue, { color: stressColor(score) }]}>{score}</Text>

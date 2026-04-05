@@ -22,6 +22,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { GratitudeEntry } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -37,6 +39,14 @@ export function GratitudeLogger({ onEntryLogged }: GratitudeLoggerProps) {
   const [item1, setItem1] = useState('');
   const [item2, setItem2] = useState('');
   const [item3, setItem3] = useState('');
+  const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<GratitudeEntry>('mental.wellness.gratitude');
+
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    setItem1(lastEntry.items[0] ?? '');
+    setItem2(lastEntry.items[1] ?? '');
+    setItem3(lastEntry.items[2] ?? '');
+  }, [lastEntry]);
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -71,8 +81,9 @@ export function GratitudeLogger({ onEntryLogged }: GratitudeLoggerProps) {
     setItem1('');
     setItem2('');
     setItem3('');
+    await saveAsLast(entry);
     onEntryLogged?.();
-  }, [entries, item1, item2, item3, onEntryLogged]);
+  }, [entries, item1, item2, item3, onEntryLogged, saveAsLast]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -88,6 +99,13 @@ export function GratitudeLogger({ onEntryLogged }: GratitudeLoggerProps) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="gratitude"
+        subtitle={lastEntry?.items[0] ? (lastEntry.items[0].length > 40 ? lastEntry.items[0].slice(0, 40) + '...' : lastEntry.items[0]) : undefined}
+        visible={!lastEntryLoading && lastEntry != null}
+        onRepeat={handleRepeatLast}
+      />
+
       {/* Prompt */}
       <View style={styles.promptCard}>
         <Ionicons name="heart" size={28} color={Colors.accent} />

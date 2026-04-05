@@ -22,6 +22,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { MeditationEntry } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -48,6 +50,13 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
   const [duration, setDuration] = useState('');
   const [selectedType, setSelectedType] = useState<MeditationType>('guided');
   const [notes, setNotes] = useState('');
+  const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<MeditationEntry>('mental.wellness.meditation');
+
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    setDuration(String(lastEntry.duration_minutes));
+    setSelectedType(lastEntry.type);
+  }, [lastEntry]);
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -78,8 +87,9 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
     const key = dateKey(STORAGE_KEYS.LOG_MEDITATION, today);
     await storageSet(key, newEntry);
     setEntry(newEntry);
+    await saveAsLast(newEntry);
     onEntryLogged?.();
-  }, [duration, selectedType, notes, onEntryLogged]);
+  }, [duration, selectedType, notes, onEntryLogged, saveAsLast]);
 
   const clearEntry = useCallback(async () => {
     const today = todayDateString();
@@ -130,6 +140,13 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="meditation"
+        subtitle={lastEntry ? `${lastEntry.duration_minutes} min ${lastEntry.type}` : undefined}
+        visible={!lastEntryLoading && lastEntry != null}
+        onRepeat={handleRepeatLast}
+      />
+
       {/* Type selector */}
       <Text style={styles.sectionTitle}>Type</Text>
       <View style={styles.typeGrid}>

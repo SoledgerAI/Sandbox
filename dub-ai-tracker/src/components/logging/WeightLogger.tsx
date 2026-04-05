@@ -21,6 +21,8 @@ import {
 import { LBS_PER_KG } from '../../constants/formulas';
 import type { BodyEntry } from '../../types';
 import type { UserProfile } from '../../types/profile';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -32,6 +34,7 @@ interface WeightLoggerProps {
 }
 
 export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
+  const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<BodyEntry>('body.measurements');
   const [weightInput, setWeightInput] = useState('');
   const [units, setUnits] = useState<'imperial' | 'metric'>('imperial');
   const [todayEntry, setTodayEntry] = useState<BodyEntry | null>(null);
@@ -86,10 +89,11 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
     };
 
     await storageSet(key, entry);
+    await saveAsLast(entry);
     setTodayEntry(entry);
     setWeightInput('');
     onEntryLogged?.();
-  }, [weightInput, units, unitLabel, onEntryLogged]);
+  }, [weightInput, units, unitLabel, onEntryLogged, saveAsLast]);
 
   const clearWeight = useCallback(async () => {
     const today = todayDateString();
@@ -102,8 +106,26 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
     setTodayEntry(updated);
   }, []);
 
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry?.weight_lbs) return;
+    const displayVal = units === 'metric'
+      ? (lastEntry.weight_lbs / LBS_PER_KG).toFixed(1)
+      : lastEntry.weight_lbs.toFixed(1);
+    setWeightInput(displayVal);
+  }, [lastEntry, units]);
+
+  const repeatSubtitle = lastEntry?.weight_lbs != null
+    ? `${lastEntry.weight_lbs.toFixed(1)} lbs`
+    : undefined;
+
   return (
     <View style={styles.container}>
+      <RepeatLastEntry
+        tagLabel="body entry"
+        subtitle={repeatSubtitle}
+        visible={!lastLoading && lastEntry != null}
+        onRepeat={handleRepeatLast}
+      />
       {/* Current weight display */}
       {displayWeight != null && (
         <View style={styles.currentCard}>

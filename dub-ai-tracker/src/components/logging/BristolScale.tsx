@@ -19,6 +19,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { DigestiveEntry, BristolStoolType } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -48,6 +50,13 @@ export function BristolScale() {
   const [selectedType, setSelectedType] = useState<BristolStoolType>(4);
   const [notes, setNotes] = useState('');
 
+  const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<DigestiveEntry>('digestive.health');
+
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    setSelectedType(lastEntry.bristol_type);
+  }, [lastEntry]);
+
   const loadData = useCallback(async () => {
     const today = todayDateString();
     const key = dateKey(STORAGE_KEYS.LOG_DIGESTIVE, today);
@@ -74,7 +83,8 @@ export function BristolScale() {
     await storageSet(key, updated);
     setEntries(updated);
     setNotes('');
-  }, [entries, selectedType, notes]);
+    await saveAsLast(entry);
+  }, [entries, selectedType, notes, saveAsLast]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -91,6 +101,13 @@ export function BristolScale() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <RepeatLastEntry
+        tagLabel="digestive"
+        subtitle={lastEntry ? `Type ${lastEntry.bristol_type}` : undefined}
+        visible={!lastEntryLoading && lastEntry !== null}
+        onRepeat={handleRepeatLast}
+      />
+
       {/* Current selection */}
       <View style={[styles.selectedCard, { borderColor: selectedInfo.color }]}>
         <Text style={[styles.selectedType, { color: selectedInfo.color }]}>

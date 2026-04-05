@@ -22,6 +22,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { GlucoseEntry, GlucoseTiming, FoodEntry } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -68,6 +70,7 @@ interface GlucoseLoggerProps {
 }
 
 export function GlucoseLogger({ onEntryLogged }: GlucoseLoggerProps) {
+  const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<GlucoseEntry>('blood.glucose');
   const [entries, setEntries] = useState<GlucoseEntry[]>([]);
   const [reading, setReading] = useState('');
   const [timing, setTiming] = useState<GlucoseTiming>('fasting');
@@ -112,12 +115,13 @@ export function GlucoseLogger({ onEntryLogged }: GlucoseLoggerProps) {
 
     const updated = [...entries, entry];
     await storageSet(key, updated);
+    await saveAsLast(entry);
     setEntries(updated);
     setReading('');
     setNotes('');
     setLinkedFoodId(null);
     onEntryLogged?.();
-  }, [entries, readingNum, timing, linkedFoodId, notes, isValidReading, onEntryLogged]);
+  }, [entries, readingNum, timing, linkedFoodId, notes, isValidReading, onEntryLogged, saveAsLast]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -134,9 +138,25 @@ export function GlucoseLogger({ onEntryLogged }: GlucoseLoggerProps) {
     ? todayFoods.find((f) => f.id === linkedFoodId)
     : null;
 
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    setReading(String(lastEntry.reading_mg_dl));
+    setTiming(lastEntry.timing);
+  }, [lastEntry]);
+
+  const repeatSubtitle = lastEntry
+    ? `${lastEntry.reading_mg_dl} mg/dL`
+    : undefined;
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="glucose"
+        subtitle={repeatSubtitle}
+        visible={!lastLoading && lastEntry != null}
+        onRepeat={handleRepeatLast}
+      />
       {/* Reading input */}
       <Text style={styles.sectionTitle}>Reading (mg/dL)</Text>
       <TextInput

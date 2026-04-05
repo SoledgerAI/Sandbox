@@ -20,6 +20,8 @@ import {
   dateKey,
 } from '../../src/utils/storage';
 import type { SexualEntry } from '../../src/types';
+import { useLastEntry } from '../../src/hooks/useLastEntry';
+import { RepeatLastEntry } from '../../src/components/logging/RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -43,6 +45,14 @@ export default function SexualScreen() {
   const [entries, setEntries] = useState<SexualEntry[]>([]);
   const [duration, setDuration] = useState('15');
   const [intensity, setIntensity] = useState<SexualEntry['intensity']>('moderate');
+
+  const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<SexualEntry>('sexual.activity');
+
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    setDuration(String(lastEntry.duration_minutes));
+    setIntensity(lastEntry.intensity);
+  }, [lastEntry]);
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -83,7 +93,8 @@ export default function SexualScreen() {
     await storageSet(key, updated);
     setEntries(updated);
     setDuration('15');
-  }, [entries, durationMin, intensity, selectedOption, caloriesBurned]);
+    await saveAsLast(entry);
+  }, [entries, durationMin, intensity, selectedOption, caloriesBurned, saveAsLast]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -111,6 +122,13 @@ export default function SexualScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        <RepeatLastEntry
+          tagLabel="activity"
+          subtitle={lastEntry ? `${lastEntry.duration_minutes} min` : undefined}
+          visible={!lastEntryLoading && lastEntry !== null}
+          onRepeat={handleRepeatLast}
+        />
+
         {/* Calorie estimate card */}
         <View style={styles.calorieCard}>
           <Text style={styles.calorieValue}>{caloriesBurned}</Text>

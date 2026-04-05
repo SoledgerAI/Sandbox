@@ -7,6 +7,7 @@ export * from './profile';
 export * from './tags';
 export * from './food';
 export * from './workout';
+export * from './strength';
 export * from './coach';
 export * from './marketplace';
 

@@ -21,6 +21,8 @@ import {
   STORAGE_KEYS,
   dateKey,
 } from '../../utils/storage';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 import type { CaffeineEntry } from '../../types';
 
 const CAFFEINE_PRESETS = [
@@ -47,6 +49,7 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
   const [entries, setEntries] = useState<CaffeineEntry[]>([]);
   const [customMg, setCustomMg] = useState('');
   const [customSource, setCustomSource] = useState('');
+  const { lastEntry: lastCaffeine, saveAsLast: saveLastCaffeine } = useLastEntry<CaffeineEntry>('hydration.caffeine');
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -76,10 +79,11 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
 
       const updated = [...entries, entry];
       await storageSet(key, updated);
+      await saveLastCaffeine(entry);
       setEntries(updated);
       onEntryLogged?.();
     },
-    [entries, onEntryLogged],
+    [entries, onEntryLogged, saveLastCaffeine],
   );
 
   const logCustom = useCallback(() => {
@@ -92,6 +96,12 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
     setCustomMg('');
     setCustomSource('');
   }, [customMg, customSource, logCaffeine]);
+
+  const repeatLastCaffeine = useCallback(() => {
+    if (!lastCaffeine) return;
+    setCustomMg(String(lastCaffeine.amount_mg));
+    setCustomSource(lastCaffeine.source);
+  }, [lastCaffeine]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -107,6 +117,13 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="caffeine"
+        subtitle={lastCaffeine ? `${lastCaffeine.amount_mg} mg ${lastCaffeine.source}` : undefined}
+        visible={lastCaffeine != null}
+        onRepeat={repeatLastCaffeine}
+      />
+
       {/* Daily total */}
       <View style={styles.summaryCard}>
         <View style={styles.summaryRow}>

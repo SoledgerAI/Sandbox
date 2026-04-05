@@ -25,6 +25,8 @@ import { calculateCalorieBurnImperial } from '../../utils/calories';
 import { ACTIVITIES, getActivitiesByCategory } from '../../data/activities';
 import type { Activity } from '../../data/activities';
 import type { WorkoutEntry, IntensityLevel } from '../../types/workout';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 const RECENT_ACTIVITIES_KEY = 'dub.recent_activities';
 const MAX_RECENT = 5;
@@ -55,6 +57,16 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
   const [intensity, setIntensity] = useState<IntensityLevel>('moderate');
   const [notes, setNotes] = useState('');
   const [weightLbs, setWeightLbs] = useState<number>(170);
+
+  const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<WorkoutEntry>('fitness.workout');
+
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    const found = ACTIVITIES.find((a) => a.name === lastEntry.activity_name);
+    if (found) setSelectedActivity(found);
+    setDurationMinutes(lastEntry.duration_minutes);
+    setIntensity(lastEntry.intensity);
+  }, [lastEntry]);
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -160,13 +172,16 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
     // Update recent activities
     await updateRecentActivities(selectedActivity.id);
 
+    // Save as last entry for repeat-last
+    await saveAsLast(entry);
+
     // Reset form
     setSelectedActivity(null);
     setDurationMinutes(30);
     setIntensity('moderate');
     setNotes('');
     onEntryLogged?.();
-  }, [selectedActivity, durationMinutes, intensity, notes, calorieEstimate, entries, onEntryLogged, updateRecentActivities]);
+  }, [selectedActivity, durationMinutes, intensity, notes, calorieEstimate, entries, onEntryLogged, updateRecentActivities, saveAsLast]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -243,6 +258,13 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <RepeatLastEntry
+        tagLabel="workout"
+        subtitle={lastEntry ? `${lastEntry.activity_name} - ${lastEntry.duration_minutes}min` : undefined}
+        visible={!lastEntryLoading && lastEntry !== null}
+        onRepeat={handleRepeatLast}
+      />
+
       {/* Today's summary */}
       {entries.length > 0 && (
         <View style={styles.summaryCard}>

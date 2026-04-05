@@ -16,6 +16,8 @@ import { BarcodeScanner } from '../../src/components/logging/BarcodeScanner';
 import { NLPFoodEntry } from '../../src/components/logging/NLPFoodEntry';
 import { PhotoFoodEntry } from '../../src/components/logging/PhotoFoodEntry';
 import { Button } from '../../src/components/common/Button';
+import { RepeatLastEntry } from '../../src/components/logging/RepeatLastEntry';
+import { useLastEntry } from '../../src/hooks/useLastEntry';
 import { loadIngredientFlags, detectFlaggedIngredients } from '../../src/utils/ingredients';
 import type { FoodItem, FoodEntry, MealType, IngredientFlag } from '../../src/types/food';
 
@@ -42,6 +44,7 @@ export default function FoodLogScreen() {
   const [customWeightGrams, setCustomWeightGrams] = useState<number | null>(null);
   const [mealType] = useState<MealType>(guessMealType);
   const [ingredientFlags, setIngredientFlags] = useState<IngredientFlag[]>([]);
+  const { lastEntry: lastFoodEntry, saveAsLast: saveLastFood } = useLastEntry<FoodEntry>('nutrition.food');
 
   useEffect(() => {
     loadIngredientFlags().then(setIngredientFlags);
@@ -60,9 +63,10 @@ export default function FoodLogScreen() {
       };
 
       await storageSet(key, [...existing, entry]);
+      await saveLastFood(entry);
       router.back();
     },
-    [],
+    [saveLastFood],
   );
 
   const handleBarcodeFound = useCallback((food: FoodItem) => {
@@ -75,6 +79,19 @@ export default function FoodLogScreen() {
   const handleBarcodeNotFound = useCallback((_barcode: string) => {
     setScreen('manual');
   }, []);
+
+  const repeatLastFood = useCallback(() => {
+    if (!lastFoodEntry) return;
+    setSelectedFood(lastFoodEntry.food_item);
+    setServingIndex(
+      lastFoodEntry.food_item.serving_sizes.findIndex(
+        (s) => s.description === lastFoodEntry.serving.description,
+      ) ?? 0,
+    );
+    setQuantity(lastFoodEntry.quantity);
+    setCustomWeightGrams(null);
+    setScreen('configure');
+  }, [lastFoodEntry]);
 
   const handleFoodSelected = useCallback((food: FoodItem) => {
     setSelectedFood(food);
@@ -258,6 +275,13 @@ export default function FoodLogScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         {screen === 'search' && (
+          <>
+          <RepeatLastEntry
+            tagLabel="food"
+            subtitle={lastFoodEntry?.food_item.name}
+            visible={lastFoodEntry != null}
+            onRepeat={repeatLastFood}
+          />
           <FoodSearch
             onSelect={handleFoodSelected}
             onManualEntry={() => setScreen('manual')}
@@ -266,6 +290,7 @@ export default function FoodLogScreen() {
             onNLPEntry={() => setScreen('nlp')}
             onPhotoEntry={() => setScreen('photo')}
           />
+          </>
         )}
 
         {screen === 'barcode' && (

@@ -20,6 +20,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { CycleEntry, FlowLevel, PeriodSymptom, CyclePhase } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -69,6 +71,8 @@ export function CycleLogger() {
   const [isPeriodDay, setIsPeriodDay] = useState(false);
   const [lastPeriodStart, setLastPeriodStart] = useState<string | null>(null);
 
+  const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<CycleEntry>('womens.health');
+
   const loadData = useCallback(async () => {
     const today = todayDateString();
     const key = dateKey(STORAGE_KEYS.LOG_CYCLE, today);
@@ -110,7 +114,19 @@ export function CycleLogger() {
     const key = dateKey(STORAGE_KEYS.LOG_CYCLE, today);
     await storageSet(key, updated);
     setEntry(updated);
-  }, []);
+    await saveAsLast(updated);
+  }, [saveAsLast]);
+
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    const updated = {
+      ...entry,
+      flow_level: lastEntry.flow_level,
+      symptoms: lastEntry.symptoms ?? [],
+    };
+    if (lastEntry.flow_level) setIsPeriodDay(true);
+    saveEntry(updated);
+  }, [lastEntry, entry, saveEntry]);
 
   const togglePeriodDay = () => {
     const newVal = !isPeriodDay;
@@ -163,6 +179,13 @@ export function CycleLogger() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <RepeatLastEntry
+        tagLabel="cycle"
+        subtitle={lastEntry?.flow_level ?? lastEntry?.computed_phase ?? undefined}
+        visible={!lastEntryLoading && lastEntry !== null}
+        onRepeat={handleRepeatLast}
+      />
+
       {/* Current phase display */}
       {entry.computed_phase && (
         <View style={[styles.phaseCard, { borderColor: PHASE_INFO[entry.computed_phase].color }]}>

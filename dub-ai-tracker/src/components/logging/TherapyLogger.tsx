@@ -22,6 +22,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { TherapyEntry, TherapyType } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -44,6 +46,14 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
   const [therapistName, setTherapistName] = useState('');
   const [selectedType, setSelectedType] = useState<TherapyType>('individual');
   const [notes, setNotes] = useState('');
+  const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<TherapyEntry>('mental.wellness.therapy');
+
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    if (lastEntry.therapist_name) setTherapistName(lastEntry.therapist_name);
+    if (lastEntry.type) setSelectedType(lastEntry.type);
+    // DO NOT prefill notes -- they are MAXIMALLY PRIVATE
+  }, [lastEntry]);
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -69,8 +79,9 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
     const key = dateKey(STORAGE_KEYS.LOG_THERAPY, today);
     await storageSet(key, newEntry);
     setEntry(newEntry);
+    await saveAsLast(newEntry);
     onEntryLogged?.();
-  }, [therapistName, selectedType, notes, onEntryLogged]);
+  }, [therapistName, selectedType, notes, onEntryLogged, saveAsLast]);
 
   const clearEntry = useCallback(async () => {
     const today = todayDateString();
@@ -143,6 +154,13 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
           never exported or sent to the AI Coach.
         </Text>
       </View>
+
+      <RepeatLastEntry
+        tagLabel="therapy"
+        subtitle={lastEntry ? (lastEntry.therapist_name ? `${lastEntry.type ?? 'therapy'} - ${lastEntry.therapist_name}` : (lastEntry.type ?? 'therapy')) : undefined}
+        visible={!lastEntryLoading && lastEntry != null}
+        onRepeat={handleRepeatLast}
+      />
 
       {/* Session type */}
       <Text style={styles.sectionTitle}>Session Type</Text>

@@ -28,6 +28,8 @@ import type {
   CannabisMethod,
 } from '../../types';
 import type { SobrietyGoal } from '../../types/profile';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 type SubstanceTab = 'alcohol' | 'cannabis' | 'tobacco';
 
@@ -73,6 +75,21 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
   const [tobaccoCount, setTobaccoCount] = useState('1');
   const [tobaccoNotes, setTobaccoNotes] = useState('');
 
+  const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<SubstanceEntry>('substances.tracking');
+
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    setActiveTab(lastEntry.substance as SubstanceTab);
+    if (lastEntry.substance === 'alcohol') {
+      if (lastEntry.alcohol_type) setSelectedAlcoholType(lastEntry.alcohol_type);
+      setAlcoholCount(String(lastEntry.amount));
+    } else if (lastEntry.substance === 'cannabis') {
+      if (lastEntry.cannabis_method) setSelectedMethod(lastEntry.cannabis_method);
+    } else if (lastEntry.substance === 'tobacco') {
+      setTobaccoCount(String(lastEntry.amount));
+    }
+  }, [lastEntry]);
+
   const loadData = useCallback(async () => {
     const today = todayDateString();
     const key = dateKey(STORAGE_KEYS.LOG_SUBSTANCES, today);
@@ -101,6 +118,9 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
       await storageSet(key, updated);
       setEntries(updated);
 
+      // Save as last entry for repeat-last
+      await saveAsLast(newEntry);
+
       // D10-007: Auto-reset sobriety streak on substance log
       try {
         const sobrietyGoals = await storageGet<Record<string, SobrietyGoal>>(STORAGE_KEYS.SOBRIETY);
@@ -125,7 +145,7 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
 
       onEntryLogged?.();
     },
-    [entries, onEntryLogged],
+    [entries, onEntryLogged, saveAsLast],
   );
 
   const deleteEntry = useCallback(
@@ -410,6 +430,13 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="substance"
+        subtitle={lastEntry?.substance ?? undefined}
+        visible={!lastEntryLoading && lastEntry !== null}
+        onRepeat={handleRepeatLast}
+      />
+
       {/* Tab bar */}
       <View style={styles.tabBar}>
         {(['alcohol', 'cannabis', 'tobacco'] as SubstanceTab[]).map((tab) => (

@@ -22,6 +22,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { MoodEntry } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -142,6 +144,14 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
   const [selectedEnergy, setSelectedEnergy] = useState(3);
   const [selectedAnxiety, setSelectedAnxiety] = useState(1);
   const [note, setNote] = useState('');
+  const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<MoodEntry>('mental.wellness.mood');
+
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    setSelectedMood(lastEntry.score);
+    if (lastEntry.energy != null) setSelectedEnergy(lastEntry.energy);
+    if (lastEntry.anxiety != null) setSelectedAnxiety(lastEntry.anxiety);
+  }, [lastEntry]);
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -171,8 +181,9 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
     await storageSet(key, updated);
     setEntries(updated);
     setNote('');
+    await saveAsLast(entry);
     onEntryLogged?.();
-  }, [entries, selectedMood, selectedEnergy, selectedAnxiety, note, onEntryLogged]);
+  }, [entries, selectedMood, selectedEnergy, selectedAnxiety, note, onEntryLogged, saveAsLast]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -199,6 +210,13 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="mood"
+        subtitle={lastEntry ? `${AXES[0].labels[lastEntry.score] ?? `Score: ${lastEntry.score}`}, E:${lastEntry.energy ?? '?'}, A:${lastEntry.anxiety ?? '?'}` : undefined}
+        visible={!lastEntryLoading && lastEntry != null}
+        onRepeat={handleRepeatLast}
+      />
+
       {/* Average card */}
       {entries.length > 0 && (
         <View style={styles.avgCard}>

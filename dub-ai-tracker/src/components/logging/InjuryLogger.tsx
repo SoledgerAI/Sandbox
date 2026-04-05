@@ -22,6 +22,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { InjuryEntry } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -52,6 +54,7 @@ function severityColor(sev: number): string {
 }
 
 export function InjuryLogger() {
+  const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<InjuryEntry>('injury.pain');
   const [entries, setEntries] = useState<InjuryEntry[]>([]);
   const [location, setLocation] = useState('');
   const [severity, setSeverity] = useState(5);
@@ -93,12 +96,13 @@ export function InjuryLogger() {
 
     const updated = [...entries, entry];
     await storageSet(key, updated);
+    await saveAsLast(entry);
     setEntries(updated);
     setLocation('');
     setDescription('');
     setAggravators([]);
     setSeverity(5);
-  }, [entries, location, severity, injuryType, description, aggravators]);
+  }, [entries, location, severity, injuryType, description, aggravators, saveAsLast]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -130,9 +134,24 @@ export function InjuryLogger() {
     );
   };
 
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    if (lastEntry.body_location) setLocation(lastEntry.body_location);
+    if (lastEntry.type) setInjuryType(lastEntry.type);
+    if (lastEntry.aggravators?.length) setAggravators(lastEntry.aggravators);
+  }, [lastEntry]);
+
+  const repeatSubtitle = lastEntry?.body_location ?? undefined;
+
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <RepeatLastEntry
+        tagLabel="injury"
+        subtitle={repeatSubtitle}
+        visible={!lastLoading && lastEntry != null}
+        onRepeat={handleRepeatLast}
+      />
       {/* Body location */}
       <Text style={styles.sectionTitle}>Body Location</Text>
       <TouchableOpacity

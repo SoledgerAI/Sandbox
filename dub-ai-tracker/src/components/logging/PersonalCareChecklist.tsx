@@ -19,6 +19,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { PersonalCareEntry } from '../../types';
+import { useLastEntry } from '../../hooks/useLastEntry';
+import { RepeatLastEntry } from './RepeatLastEntry';
 
 function todayDateString(): string {
   const now = new Date();
@@ -66,6 +68,8 @@ export function PersonalCareChecklist() {
   const [skincarePmDetail, setSkincarePmDetail] = useState('');
   const [groomingNotes, setGroomingNotes] = useState('');
 
+  const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<PersonalCareEntry>('personal.care');
+
   const loadData = useCallback(async () => {
     const today = todayDateString();
     const key = dateKey(STORAGE_KEYS.LOG_PERSONALCARE, today);
@@ -87,7 +91,17 @@ export function PersonalCareChecklist() {
     const key = dateKey(STORAGE_KEYS.LOG_PERSONALCARE, today);
     await storageSet(key, updated);
     setEntry(updated);
-  }, []);
+    await saveAsLast(updated);
+  }, [saveAsLast]);
+
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    const updated = { ...lastEntry };
+    saveEntry(updated);
+    setSkincareAmDetail(lastEntry.skincare_am_detail ?? '');
+    setSkincarePmDetail(lastEntry.skincare_pm_detail ?? '');
+    setGroomingNotes(lastEntry.grooming_notes ?? '');
+  }, [lastEntry, saveEntry]);
 
   const toggleItem = (itemKey: keyof PersonalCareEntry) => {
     const updated = { ...entry, [itemKey]: !entry[itemKey] };
@@ -119,8 +133,19 @@ export function PersonalCareChecklist() {
     (item) => entry[item.key] === true,
   ).length;
 
+  const lastEntryCheckedCount = lastEntry
+    ? CHECKLIST_ITEMS.filter((item) => lastEntry[item.key] === true).length
+    : 0;
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <RepeatLastEntry
+        tagLabel="personal care"
+        subtitle={lastEntry ? `${lastEntryCheckedCount} items checked` : undefined}
+        visible={!lastEntryLoading && lastEntry !== null}
+        onRepeat={handleRepeatLast}
+      />
+
       {/* Summary */}
       <View style={styles.summaryCard}>
         <Text style={styles.summaryValue}>

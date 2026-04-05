@@ -18,12 +18,15 @@ import { Colors } from '../../constants/colors';
 import {
   storageGet,
   storageSet,
+  storageList,
   STORAGE_KEYS,
   dateKey,
 } from '../../utils/storage';
 import type { SupplementEntry } from '../../types';
 import { DateTimePicker } from '../common/DateTimePicker';
 import { DosageWarningBanner, checkDosageWarning } from './DosageValidator';
+import { RepeatLastEntry } from './RepeatLastEntry';
+import { useLastEntry } from '../../hooks/useLastEntry';
 
 // MASTER-52: Supplement stack preset type
 interface SupplementStack {
@@ -68,6 +71,10 @@ export function SupplementChecklist() {
   const [unit, setUnit] = useState('mg');
   const [editingTimeId, setEditingTimeId] = useState<string | null>(null);
   const [stacks, setStacks] = useState<SupplementStack[]>([]);
+  const [morningStack, setMorningStack] = useState<SupplementEntry[] | null>(null);
+
+  const { lastEntry: lastSupplements, saveAsLast: saveLastSupplements } =
+    useLastEntry<SupplementEntry[]>('supplements.daily');
 
   const loadData = useCallback(async () => {
     const today = todayDateString();
@@ -84,12 +91,45 @@ export function SupplementChecklist() {
     loadData();
   }, [loadData]);
 
+  // Detect morning stack: supplements logged 5am-10am on most recent day with data
+  useEffect(() => {
+    (async () => {
+      const keys = await storageList(STORAGE_KEYS.LOG_SUPPLEMENTS);
+      // Sort descending to find most recent day first
+      const sortedKeys = keys
+        .filter((k) => k !== dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, todayDateString()))
+        .sort()
+        .reverse();
+
+      for (const key of sortedKeys.slice(0, 7)) {
+        const dayEntries = await storageGet<SupplementEntry[]>(key);
+        if (!dayEntries || dayEntries.length === 0) continue;
+
+        const morningEntries = dayEntries.filter((e) => {
+          if (!e.taken) return false;
+          const hour = new Date(e.timestamp).getHours();
+          return hour >= 5 && hour < 10;
+        });
+
+        if (morningEntries.length > 0) {
+          setMorningStack(morningEntries);
+          break;
+        }
+      }
+    })();
+  }, []);
+
   const saveEntries = useCallback(async (updated: SupplementEntry[]) => {
     const today = todayDateString();
     const key = dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, today);
     await storageSet(key, updated);
     setEntries(updated);
-  }, []);
+    // Save as last for repeat-last
+    const taken = updated.filter((e) => e.taken);
+    if (taken.length > 0) {
+      await saveLastSupplements(taken);
+    }
+  }, [saveLastSupplements]);
 
   // F2: Tap checked supplement = add another dose. Long-press = remove all.
   const toggleItem = useCallback(
@@ -306,6 +346,68 @@ export function SupplementChecklist() {
     [stacks],
   );
 
+  // Repeat last supplements: log all items from last entry
+  const repeatLastSupps = useCallback(async () => {
+    if (!lastSupplements || lastSupplements.length === 0) return;
+    const now = new Date();
+    const newEntries: SupplementEntry[] = [];
+
+    for (const prev of lastSupplements) {
+      const alreadyTaken = entries.some(
+        (e) => e.name === prev.name && e.category === prev.category && e.taken,
+      );
+      if (alreadyTaken) continue;
+
+      newEntries.push({
+        id: `supp_${now.getTime()}_${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: now.toISOString(),
+        name: prev.name,
+        dosage: prev.dosage,
+        unit: prev.unit,
+        taken: true,
+        category: prev.category,
+        notes: null,
+      });
+    }
+
+    if (newEntries.length === 0) {
+      Alert.alert('Already Taken', 'All supplements from last time are already logged today.');
+      return;
+    }
+    await saveEntries([...entries, ...newEntries]);
+  }, [lastSupplements, entries, saveEntries]);
+
+  // Repeat morning stack: log all supplements from 5am-10am on most recent day
+  const applyMorningStack = useCallback(async () => {
+    if (!morningStack || morningStack.length === 0) return;
+    const now = new Date();
+    const newEntries: SupplementEntry[] = [];
+
+    for (const prev of morningStack) {
+      const alreadyTaken = entries.some(
+        (e) => e.name === prev.name && e.category === prev.category && e.taken,
+      );
+      if (alreadyTaken) continue;
+
+      newEntries.push({
+        id: `supp_${now.getTime()}_${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: now.toISOString(),
+        name: prev.name,
+        dosage: prev.dosage,
+        unit: prev.unit,
+        taken: true,
+        category: prev.category,
+        notes: null,
+      });
+    }
+
+    if (newEntries.length === 0) {
+      Alert.alert('Already Taken', 'All morning supplements are already logged today.');
+      return;
+    }
+    await saveEntries([...entries, ...newEntries]);
+  }, [morningStack, entries, saveEntries]);
+
   const takenCount = entries.filter((e) => e.taken).length;
   const categoryEntries = entries.filter((e) => e.category === category && e.taken);
 
@@ -345,6 +447,22 @@ export function SupplementChecklist() {
         <Text style={styles.summaryValue}>{takenCount}</Text>
         <Text style={styles.summaryLabel}>supplements taken today</Text>
       </View>
+
+      {/* Repeat last supplements */}
+      <RepeatLastEntry
+        tagLabel="supplements"
+        subtitle={lastSupplements ? `${lastSupplements.length} item${lastSupplements.length !== 1 ? 's' : ''}` : undefined}
+        visible={lastSupplements != null && lastSupplements.length > 0 && entries.filter((e) => e.taken).length === 0}
+        onRepeat={repeatLastSupps}
+      />
+
+      {/* Repeat morning stack */}
+      <RepeatLastEntry
+        tagLabel="morning stack"
+        subtitle={morningStack ? `${[...new Set(morningStack.map((e) => e.name))].slice(0, 3).join(', ')}` : undefined}
+        visible={morningStack != null && morningStack.length > 0 && entries.filter((e) => e.taken).length === 0}
+        onRepeat={applyMorningStack}
+      />
 
       {/* MASTER-52: Quick Stacks */}
       {stacks.length > 0 && (
