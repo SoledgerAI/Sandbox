@@ -260,9 +260,25 @@ export async function scheduleTierReminders(): Promise<string[]> {
     { hour: 20, text: "Winding down? Log your evening activities." },
   ];
 
+  // Fasting-aware: suppress or neutralize meal reminders outside eating window
+  const fastingEnabled = settings?.fasting_enabled === true;
+  const windowStart = settings?.eating_window_start ?? 12;
+  const windowEnd = settings?.eating_window_end ?? 20;
+
+  const FASTING_AWARE_MESSAGES = REMINDER_MESSAGES.map((msg) => {
+    if (!fastingEnabled) return msg;
+    const outsideWindow = msg.hour < windowStart || msg.hour >= windowEnd;
+    if (outsideWindow) return null; // Skip reminders outside eating window
+    // Inside window: neutralize meal-specific language
+    if (msg.hour === 8) return { hour: msg.hour, text: "Ready to log your first meal?" };
+    if (msg.hour === 12) return { hour: msg.hour, text: "Time for a check-in — anything to log?" };
+    if (msg.hour === 16) return { hour: msg.hour, text: "Anything to log?" };
+    return msg;
+  }).filter((m): m is { hour: number; text: string } => m != null);
+
   // Use batch checkpoints for precision tier
-  const messagesForTier = tier === 'precision' ? PRECISION_BATCH_CHECKPOINTS : REMINDER_MESSAGES;
-  const countForTier = tier === 'precision' ? PRECISION_BATCH_CHECKPOINTS.length : count;
+  const messagesForTier = tier === 'precision' ? PRECISION_BATCH_CHECKPOINTS : (fastingEnabled ? FASTING_AWARE_MESSAGES : REMINDER_MESSAGES);
+  const countForTier = tier === 'precision' ? PRECISION_BATCH_CHECKPOINTS.length : (fastingEnabled ? FASTING_AWARE_MESSAGES.length : count);
 
   const ids: string[] = [];
 

@@ -3,8 +3,9 @@
 // P1-08: Deferred setup cards (Days 1-4 after onboarding)
 
 import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity, Pressable } from 'react-native';
 import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
 import type { AppSettings } from '../../src/types/profile';
@@ -58,6 +59,7 @@ export default function DashboardScreen() {
   } = useMilestone(streak);
 
   const [hideCalories, setHideCalories] = useState(false);
+  const [showScoreInfo, setShowScoreInfo] = useState(false);
   useEffect(() => {
     storageGet<Partial<AppSettings>>(STORAGE_KEYS.SETTINGS).then((s) => {
       setHideCalories(s?.hide_calories ?? false);
@@ -111,6 +113,33 @@ export default function DashboardScreen() {
       {/* Score Ring */}
       <View style={styles.ringContainer}>
         <ScoreRing score={scoreValue} />
+        <Pressable
+          style={styles.scoreInfoToggle}
+          onPress={() => setShowScoreInfo(!showScoreInfo)}
+          accessibilityRole="button"
+          accessibilityLabel={showScoreInfo ? 'Hide score explanation' : 'How your daily score works'}
+        >
+          <Ionicons name="information-circle-outline" size={16} color={Colors.accentText} />
+          <Text style={styles.scoreInfoToggleText}>
+            {showScoreInfo ? 'Hide' : 'How is this calculated?'}
+          </Text>
+        </Pressable>
+        {showScoreInfo && (
+          <View style={styles.scoreInfoBox}>
+            <Text style={styles.scoreInfoTitle}>How Your Daily Score Works</Text>
+            <Text style={styles.scoreInfoText}>
+              Your Daily Score (0–100) measures how closely today's logging matches your personal targets. It factors in:
+            </Text>
+            <Text style={styles.scoreInfoText}>{'\u2022'} Calorie accuracy — how close you are to your daily target</Text>
+            <Text style={styles.scoreInfoText}>{'\u2022'} Protein target — meeting your protein goal</Text>
+            <Text style={styles.scoreInfoText}>{'\u2022'} Hydration — water intake relative to your goal</Text>
+            <Text style={styles.scoreInfoText}>{'\u2022'} Activity — whether you logged movement today</Text>
+            <Text style={styles.scoreInfoText}>{'\u2022'} Logging consistency — completing your daily check-in</Text>
+            <Text style={[styles.scoreInfoText, { marginTop: 8 }]}>
+              Each factor is weighted based on your selected goals. The score resets each day.
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Deferred Setup Card (one at a time, Days 1-4) */}
@@ -212,5 +241,34 @@ const styles = StyleSheet.create({
   ringContainer: {
     alignItems: 'center',
     marginBottom: 24,
+  },
+  scoreInfoToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  scoreInfoToggleText: {
+    color: Colors.accentText,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  scoreInfoBox: {
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+    width: '100%',
+  },
+  scoreInfoTitle: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  scoreInfoText: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    lineHeight: 18,
   },
 });

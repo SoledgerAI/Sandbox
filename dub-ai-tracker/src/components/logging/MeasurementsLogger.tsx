@@ -138,6 +138,7 @@ export function MeasurementsLogger({ onEntryLogged }: MeasurementsLoggerProps) {
       hrv_ms: existing?.hrv_ms ?? null,
       spo2_pct: existing?.spo2_pct ?? null,
       timestamp: new Date().toISOString(),
+      source: 'manual',
     };
 
     await storageSet(key, entry);

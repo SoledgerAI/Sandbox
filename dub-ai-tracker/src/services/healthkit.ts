@@ -232,34 +232,52 @@ export async function syncFromHealthKit(): Promise<{
       synced.push('steps');
     }
 
-    // Sync sleep
+    // Sync sleep — manual-wins: do not overwrite manual bedtime/wake with device data
     const sleep = await readSleep(today);
     if (sleep) {
       const existingSleep = await storageGet<SleepEntry>(dateKey(STORAGE_KEYS.LOG_SLEEP, today));
       if (existingSleep) {
-        existingSleep.device_data = sleep;
+        if (existingSleep.source !== 'manual') {
+          existingSleep.device_data = { ...sleep, source: 'apple_health' };
+          existingSleep.source = 'apple_health';
+        } else {
+          // Manual entry exists — only add device stage data, keep manual bedtime/wake
+          existingSleep.device_data = { ...sleep, source: 'apple_health' };
+        }
         await storageSet(dateKey(STORAGE_KEYS.LOG_SLEEP, today), existingSleep);
       }
       synced.push('sleep');
     }
 
-    // Sync heart rate / HRV
+    // Sync heart rate / HRV — manual-wins conflict resolution
     const hrv = await readHRV(today);
     if (hrv != null) {
       const existingBody = await storageGet<BodyEntry>(dateKey(STORAGE_KEYS.LOG_BODY, today));
       if (existingBody) {
-        existingBody.hrv_ms = hrv;
+        if (existingBody.hrv_ms != null && existingBody.source === 'manual') {
+          // Manual entry exists — store device value as secondary
+          existingBody.device_hrv_ms = hrv;
+        } else {
+          existingBody.hrv_ms = hrv;
+          existingBody.source = 'apple_health';
+        }
         await storageSet(dateKey(STORAGE_KEYS.LOG_BODY, today), existingBody);
       }
       synced.push('hrv');
     }
 
-    // Sync weight
+    // Sync weight — manual-wins conflict resolution
     const weight = await readWeight();
     if (weight != null) {
       const existingBody = await storageGet<BodyEntry>(dateKey(STORAGE_KEYS.LOG_BODY, today));
       if (existingBody) {
-        existingBody.weight_lbs = weight;
+        if (existingBody.weight_lbs != null && existingBody.source === 'manual') {
+          // Manual entry exists — store device value as secondary
+          existingBody.device_weight_lbs = weight;
+        } else {
+          existingBody.weight_lbs = weight;
+          existingBody.source = 'apple_health';
+        }
         await storageSet(dateKey(STORAGE_KEYS.LOG_BODY, today), existingBody);
       }
       synced.push('weight');

@@ -21,12 +21,26 @@ import { useLastEntry } from '../../src/hooks/useLastEntry';
 import { loadIngredientFlags, detectFlaggedIngredients } from '../../src/utils/ingredients';
 import type { FoodItem, FoodEntry, MealType, IngredientFlag } from '../../src/types/food';
 import { todayDateString } from '../../src/utils/dayBoundary';
+import type { AppSettings } from '../../src/types/profile';
 
 type Screen = 'search' | 'configure' | 'manual' | 'quicklog' | 'barcode' | 'nlp' | 'photo';
 
 
-function guessMealType(): MealType {
-  const hour = new Date().getHours();
+function guessMealType(hour: number, settings?: AppSettings | null): MealType {
+  if (settings?.fasting_enabled) {
+    const start = settings.eating_window_start ?? 12;
+    const end = settings.eating_window_end ?? 20;
+    if (hour < start || hour >= end) {
+      return 'snack'; // Outside eating window
+    }
+    // Inside window: divide into thirds for meal categorization
+    const windowLength = end - start;
+    const elapsed = hour - start;
+    if (elapsed < windowLength / 3) return 'lunch';  // First meal (not "breakfast")
+    if (elapsed < (windowLength * 2) / 3) return 'dinner';
+    return 'snack';
+  }
+  // Original logic for non-fasting users
   if (hour < 11) return 'breakfast';
   if (hour < 15) return 'lunch';
   if (hour < 20) return 'dinner';
@@ -39,12 +53,18 @@ export default function FoodLogScreen() {
   const [servingIndex, setServingIndex] = useState(0);
   const [quantity, setQuantity] = useState(1);
   const [customWeightGrams, setCustomWeightGrams] = useState<number | null>(null);
-  const [mealType] = useState<MealType>(guessMealType);
+  const [mealType, setMealType] = useState<MealType>(() => guessMealType(new Date().getHours()));
   const [ingredientFlags, setIngredientFlags] = useState<IngredientFlag[]>([]);
   const { lastEntry: lastFoodEntry, saveAsLast: saveLastFood } = useLastEntry<FoodEntry>('nutrition.food');
 
   useEffect(() => {
     loadIngredientFlags().then(setIngredientFlags);
+    // Load fasting settings to refine meal type guess
+    storageGet<AppSettings>(STORAGE_KEYS.SETTINGS).then((settings) => {
+      if (settings?.fasting_enabled) {
+        setMealType(guessMealType(new Date().getHours(), settings));
+      }
+    });
   }, []);
 
   const saveEntry = useCallback(

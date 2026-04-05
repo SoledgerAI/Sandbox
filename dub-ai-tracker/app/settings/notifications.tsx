@@ -18,13 +18,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { useNotifications } from '../../src/hooks/useNotifications';
 import { getTierDefinition } from '../../src/constants/tiers';
-import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
+import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import { EODQuestionnaire } from '../../src/components/notifications/EODQuestionnaire';
-import type { EngagementTier } from '../../src/types/profile';
+import type { EngagementTier, AppSettings } from '../../src/types/profile';
 
 export default function NotificationsScreen() {
   const [tier, setTier] = useState<EngagementTier>('balanced');
   const [tierLoading, setTierLoading] = useState(true);
+
+  // Celebration toggles (default ON)
+  const [celebrationsWeight, setCelebrationsWeight] = useState(true);
+  const [celebrationsStreaks, setCelebrationsStreaks] = useState(true);
+  const [celebrationsPrs, setCelebrationsPrs] = useState(true);
 
   const {
     enabled: notifEnabled,
@@ -47,6 +52,10 @@ export default function NotificationsScreen() {
     async function loadTier() {
       const t = await storageGet<EngagementTier>(STORAGE_KEYS.TIER);
       setTier(t || 'balanced');
+      const appSettings = await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS);
+      if (appSettings?.celebrations_weight === false) setCelebrationsWeight(false);
+      if (appSettings?.celebrations_streaks === false) setCelebrationsStreaks(false);
+      if (appSettings?.celebrations_prs === false) setCelebrationsPrs(false);
       setTierLoading(false);
     }
     loadTier();
@@ -135,6 +144,60 @@ export default function NotificationsScreen() {
             <Switch
               value={remindersEnabled}
               onValueChange={setRemindersEnabled}
+              trackColor={{ false: Colors.divider, true: Colors.accent }}
+              thumbColor={Colors.text}
+            />
+          </View>
+
+          {/* Celebrations */}
+          <Text style={styles.sectionTitle}>Celebrations</Text>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Weight Milestones</Text>
+              <Text style={styles.settingDesc}>Weight change celebrations</Text>
+            </View>
+            <Switch
+              value={celebrationsWeight}
+              onValueChange={async (val) => {
+                setCelebrationsWeight(val);
+                const s = (await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS)) || {} as AppSettings;
+                await storageSet(STORAGE_KEYS.SETTINGS, { ...s, celebrations_weight: val });
+              }}
+              trackColor={{ false: Colors.divider, true: Colors.accent }}
+              thumbColor={Colors.text}
+            />
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Streak Achievements</Text>
+              <Text style={styles.settingDesc}>Logging streaks and macro streaks</Text>
+            </View>
+            <Switch
+              value={celebrationsStreaks}
+              onValueChange={async (val) => {
+                setCelebrationsStreaks(val);
+                const s = (await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS)) || {} as AppSettings;
+                await storageSet(STORAGE_KEYS.SETTINGS, { ...s, celebrations_streaks: val });
+              }}
+              trackColor={{ false: Colors.divider, true: Colors.accent }}
+              thumbColor={Colors.text}
+            />
+          </View>
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Text style={styles.settingLabel}>Personal Records</Text>
+              <Text style={styles.settingDesc}>New PR celebrations</Text>
+            </View>
+            <Switch
+              value={celebrationsPrs}
+              onValueChange={async (val) => {
+                setCelebrationsPrs(val);
+                const s = (await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS)) || {} as AppSettings;
+                await storageSet(STORAGE_KEYS.SETTINGS, { ...s, celebrations_prs: val });
+              }}
               trackColor={{ false: Colors.divider, true: Colors.accent }}
               thumbColor={Colors.text}
             />

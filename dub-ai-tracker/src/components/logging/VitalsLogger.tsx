@@ -125,6 +125,7 @@ export function VitalsLogger({ onEntryLogged }: VitalsLoggerProps) {
       hrv_ms: hrvVal ?? existing?.hrv_ms ?? null,
       spo2_pct: spo2Val ?? existing?.spo2_pct ?? null,
       timestamp: new Date().toISOString(),
+      source: 'manual',
     };
 
     await storageSet(key, entry);

@@ -112,6 +112,7 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
       time_to_fall_asleep_min: timeToFallAsleep ? parseInt(timeToFallAsleep, 10) : null,
       notes: notes.trim() || null,
       device_data: null,
+      source: 'manual',
     };
 
     const today = todayDateString();

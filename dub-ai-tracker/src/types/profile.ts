@@ -64,6 +64,15 @@ export interface AppSettings {
   consent_date: string | null;
   consent_version: string | null;
   day_boundary_hour: number | null; // P1-21: 0 (midnight), 3, 4, 5, or 6
+  // Fasting / eating window settings
+  fasting_enabled?: boolean;
+  fasting_protocol?: '16:8' | '18:6' | '20:4' | 'custom';
+  eating_window_start?: number; // hour (0-23), e.g. 12 for noon
+  eating_window_end?: number;   // hour (0-23), e.g. 20 for 8pm
+  // Per-category celebration toggles
+  celebrations_weight?: boolean;
+  celebrations_streaks?: boolean;
+  celebrations_prs?: boolean;
 }
 
 export interface StreakData {

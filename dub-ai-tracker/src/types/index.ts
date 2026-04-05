@@ -38,6 +38,8 @@ export interface CaffeineEntry {
 
 // -- BODY --
 
+export type BodyMetricSource = 'manual' | 'apple_health' | 'google_health_connect' | 'garmin' | 'whoop' | 'oura';
+
 export interface BodyEntry {
   weight_lbs: number | null;
   body_fat_pct: number | null;
@@ -48,6 +50,11 @@ export interface BodyEntry {
   hrv_ms: number | null;
   spo2_pct: number | null;
   timestamp: string; // ISO datetime
+  source?: BodyMetricSource;
+  // Device readings stored when manual entry takes priority ("manual wins")
+  device_weight_lbs?: number | null;
+  device_resting_hr?: number | null;
+  device_hrv_ms?: number | null;
 }
 
 export interface BodyMeasurements {
@@ -83,6 +90,8 @@ export interface ProgressPhoto {
 
 // -- SLEEP --
 
+export type SleepSource = 'manual' | 'apple_health' | 'google_health_connect' | 'oura' | 'whoop';
+
 export interface SleepEntry {
   bedtime: string | null; // ISO datetime
   wake_time: string | null; // ISO datetime
@@ -92,6 +101,7 @@ export interface SleepEntry {
   time_to_fall_asleep_min: number | null;
   notes: string | null;
   device_data: SleepDeviceData | null;
+  source?: SleepSource;
 }
 
 export interface SleepDeviceData {
@@ -102,6 +112,7 @@ export interface SleepDeviceData {
   hrv_during_sleep: number | null;
   spo2_during_sleep: number | null;
   respiratory_rate: number | null;
+  source?: 'apple_health' | 'google_health_connect' | 'oura' | 'whoop';
 }
 
 // -- MENTAL WELLNESS --

@@ -82,6 +82,13 @@ export default function SettingsScreen() {
   const [dayBoundary, setDayBoundary] = useState<DayBoundaryHour>(0);
   const [showDayBoundary, setShowDayBoundary] = useState(false);
 
+  // Fasting state
+  const [fastingEnabled, setFastingEnabled] = useState(false);
+  const [fastingProtocol, setFastingProtocol] = useState<'16:8' | '18:6' | '20:4' | 'custom'>('16:8');
+  const [eatingWindowStart, setEatingWindowStart] = useState(12);
+  const [eatingWindowEnd, setEatingWindowEnd] = useState(20);
+  const [showFastingProtocol, setShowFastingProtocol] = useState(false);
+
   const loadData = useCallback(async () => {
     setLoading(true);
     const [profile, tierVal, keyExists, lockVal, methodVal, bio, pinSet, sex, age, zip] =
@@ -105,6 +112,11 @@ export default function SettingsScreen() {
     } else {
       setDayBoundary(0);
     }
+    // Fasting settings
+    if (appSettings?.fasting_enabled) setFastingEnabled(true);
+    if (appSettings?.fasting_protocol) setFastingProtocol(appSettings.fasting_protocol);
+    if (appSettings?.eating_window_start != null) setEatingWindowStart(appSettings.eating_window_start);
+    if (appSettings?.eating_window_end != null) setEatingWindowEnd(appSettings.eating_window_end);
     setProfileName(profile?.name || 'Not set');
     setTier(tierVal ? tierVal.charAt(0).toUpperCase() + tierVal.slice(1) : 'Balanced');
     setHasKey(keyExists);
@@ -233,6 +245,41 @@ export default function SettingsScreen() {
     setDayBoundaryHour(hour);
     setDayBoundary(hour);
     setShowDayBoundary(false);
+  }, []);
+
+  const FASTING_PROTOCOL_DEFAULTS: Record<string, { start: number; end: number }> = {
+    '16:8': { start: 12, end: 20 },
+    '18:6': { start: 12, end: 18 },
+    '20:4': { start: 14, end: 18 },
+    'custom': { start: 12, end: 20 },
+  };
+
+  const handleFastingToggle = useCallback(async (enabled: boolean) => {
+    const settings = (await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS)) || {} as AppSettings;
+    await storageSet(STORAGE_KEYS.SETTINGS, { ...settings, fasting_enabled: enabled });
+    setFastingEnabled(enabled);
+  }, []);
+
+  const handleFastingProtocol = useCallback(async (protocol: '16:8' | '18:6' | '20:4' | 'custom') => {
+    const defaults = FASTING_PROTOCOL_DEFAULTS[protocol];
+    const settings = (await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS)) || {} as AppSettings;
+    await storageSet(STORAGE_KEYS.SETTINGS, {
+      ...settings,
+      fasting_protocol: protocol,
+      eating_window_start: defaults.start,
+      eating_window_end: defaults.end,
+    });
+    setFastingProtocol(protocol);
+    setEatingWindowStart(defaults.start);
+    setEatingWindowEnd(defaults.end);
+    setShowFastingProtocol(false);
+  }, []);
+
+  const handleEatingWindowChange = useCallback(async (start: number, end: number) => {
+    const settings = (await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS)) || {} as AppSettings;
+    await storageSet(STORAGE_KEYS.SETTINGS, { ...settings, eating_window_start: start, eating_window_end: end });
+    setEatingWindowStart(start);
+    setEatingWindowEnd(end);
   }, []);
 
   const handleResetOnboarding = useCallback(() => {
@@ -624,6 +671,84 @@ export default function SettingsScreen() {
                 </View>
               )}
 
+              {/* Fasting / Eating Window */}
+              <View style={styles.settingRow}>
+                <Ionicons name="timer-outline" size={22} color={Colors.accent} />
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Intermittent Fasting</Text>
+                  <Text style={styles.settingSubtitle}>I practice intermittent fasting</Text>
+                </View>
+                <Switch
+                  value={fastingEnabled}
+                  onValueChange={handleFastingToggle}
+                  trackColor={{ false: Colors.divider, true: Colors.accent }}
+                  thumbColor={Colors.text}
+                />
+              </View>
+
+              {fastingEnabled && (
+                <>
+                  <TouchableOpacity
+                    style={styles.settingRow}
+                    onPress={() => setShowFastingProtocol(!showFastingProtocol)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="nutrition-outline" size={22} color={Colors.accent} />
+                    <View style={styles.settingInfo}>
+                      <Text style={styles.settingLabel}>Protocol</Text>
+                      <Text style={styles.settingSubtitle}>{fastingProtocol}</Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+                  </TouchableOpacity>
+
+                  {showFastingProtocol && (
+                    <View style={styles.pickerGroup}>
+                      {(['16:8', '18:6', '20:4', 'custom'] as const).map((opt) => (
+                        <TouchableOpacity
+                          key={opt}
+                          style={[styles.pickerOption, fastingProtocol === opt && styles.pickerOptionSelected]}
+                          onPress={() => handleFastingProtocol(opt)}
+                          activeOpacity={0.7}
+                        >
+                          <Text style={[styles.pickerOptionText, fastingProtocol === opt && styles.pickerOptionTextSelected]}>
+                            {opt === 'custom' ? 'Custom' : `${opt} (${FASTING_PROTOCOL_DEFAULTS[opt].start > 12 ? FASTING_PROTOCOL_DEFAULTS[opt].start - 12 + 'pm' : FASTING_PROTOCOL_DEFAULTS[opt].start + 'pm'} – ${FASTING_PROTOCOL_DEFAULTS[opt].end > 12 ? FASTING_PROTOCOL_DEFAULTS[opt].end - 12 + 'pm' : FASTING_PROTOCOL_DEFAULTS[opt].end + 'pm'})`}
+                          </Text>
+                          {fastingProtocol === opt && (
+                            <Ionicons name="checkmark" size={18} color={Colors.accent} />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+
+                  <View style={styles.settingRow}>
+                    <Ionicons name="restaurant-outline" size={22} color={Colors.accent} />
+                    <View style={styles.settingInfo}>
+                      <Text style={styles.settingLabel}>Eating Window</Text>
+                      <Text style={styles.settingSubtitle}>
+                        {eatingWindowStart > 12 ? `${eatingWindowStart - 12}pm` : eatingWindowStart === 12 ? '12pm' : `${eatingWindowStart}am`}
+                        {' – '}
+                        {eatingWindowEnd > 12 ? `${eatingWindowEnd - 12}pm` : eatingWindowEnd === 12 ? '12pm' : `${eatingWindowEnd}am`}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', gap: 8 }}>
+                      <TouchableOpacity
+                        onPress={() => handleEatingWindowChange(Math.max(0, eatingWindowStart - 1), eatingWindowEnd)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="remove-circle-outline" size={24} color={Colors.accent} />
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={() => handleEatingWindowChange(Math.min(23, eatingWindowStart + 1), eatingWindowEnd)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons name="add-circle-outline" size={24} color={Colors.accent} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                </>
+              )}
+
               {/* Reset Onboarding */}
               <TouchableOpacity
                 style={styles.settingRow}
@@ -684,6 +809,14 @@ export default function SettingsScreen() {
                     )}
                   </TouchableOpacity>
                 ))}
+                {section.title === 'AI COACH' && (
+                  <View style={styles.coachDisclosure}>
+                    <Ionicons name="information-circle-outline" size={14} color={Colors.secondaryText} />
+                    <Text style={styles.coachDisclosureText}>
+                      Your AI Coach adapts its communication style based on your selected goals and tracking tier. More detailed tracking unlocks more specific coaching insights.
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
           ))}
@@ -851,5 +984,18 @@ const styles = StyleSheet.create({
     color: Colors.accentText,
     fontSize: 15,
     fontWeight: '600',
+  },
+  coachDisclosure: {
+    flexDirection: 'row',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    alignItems: 'flex-start',
+  },
+  coachDisclosureText: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    lineHeight: 16,
+    flex: 1,
   },
 });

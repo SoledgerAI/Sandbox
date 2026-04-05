@@ -16,7 +16,7 @@ import {
 import { Colors } from '../../constants/colors';
 import { storageGet, storageSet, dateKey, STORAGE_KEYS } from '../../utils/storage';
 import { ED_EXTREME_RESTRICTION_THRESHOLD, CALORIE_FLOOR_FEMALE, CALORIE_FLOOR_MALE } from '../../constants/formulas';
-import type { StreakData } from '../../types/profile';
+import type { StreakData, AppSettings } from '../../types/profile';
 import type { UserProfile } from '../../types/profile';
 import type { DailySummary, RecoveryScore } from '../../types';
 import type { FoodEntry } from '../../types/food';
@@ -209,9 +209,15 @@ export async function checkCelebrations(todayStr: string): Promise<CelebrationEv
     }
   }
 
+  // Load celebration toggle settings (defaults: all ON)
+  const appSettings = await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS);
+  const showWeightCelebrations = appSettings?.celebrations_weight !== false;
+  const showStreakCelebrations = appSettings?.celebrations_streaks !== false;
+  const showPrCelebrations = appSettings?.celebrations_prs !== false;
+
   // Check consistency milestones (based on total days logged, not consecutive streak)
   const streaks = await storageGet<StreakData>(STORAGE_KEYS.STREAKS);
-  if (streaks) {
+  if (streaks && showStreakCelebrations) {
     for (const milestone of CONSISTENCY_MILESTONES) {
       if (streaks.total_days_logged === milestone) {
         const trigger = `consistency_${milestone}` as CelebrationTrigger;
@@ -229,7 +235,7 @@ export async function checkCelebrations(todayStr: string): Promise<CelebrationEv
 
   // Check weight milestone (every 5 lbs toward goal)
   const profile = await storageGet<{ goal?: { direction: string; target_weight: number | null }; weight_lbs: number | null }>(STORAGE_KEYS.PROFILE);
-  if (profile?.goal?.target_weight && profile.weight_lbs) {
+  if (showWeightCelebrations && profile?.goal?.target_weight && profile.weight_lbs) {
     const todayBody = await storageGet<{ weight_lbs: number | null }>(dateKey(STORAGE_KEYS.LOG_BODY, todayStr));
     if (todayBody?.weight_lbs) {
       const startWeight = profile.weight_lbs;
@@ -241,11 +247,11 @@ export async function checkCelebrations(todayStr: string): Promise<CelebrationEv
       const milestonesReached = Math.floor(lost / 5);
 
       if (milestonesReached > 0 && !alreadyShown.includes('weight_milestone')) {
-        const direction = profile.goal.direction === 'LOSE' ? 'lost' : 'gained';
+        const sign = currentWeight < startWeight ? '-' : '+';
         events.push({
           trigger: 'weight_milestone',
-          title: 'Weight Milestone',
-          detail: `You've ${direction} ${milestonesReached * 5} lbs. Current: ${currentWeight} lbs. Target: ${targetWeight} lbs.`,
+          title: 'Weight Update',
+          detail: `Weight change: ${sign}${milestonesReached * 5} lbs from your starting point. Current: ${currentWeight} lbs. Target: ${targetWeight} lbs.`,
           timestamp: new Date().toISOString(),
         });
       }
@@ -253,10 +259,14 @@ export async function checkCelebrations(todayStr: string): Promise<CelebrationEv
   }
 
   // Check macro target streak (7 consecutive days)
-  await checkMacroStreak(todayStr, alreadyShown, events);
+  if (showStreakCelebrations) {
+    await checkMacroStreak(todayStr, alreadyShown, events);
+  }
 
   // Check recovery score streak (above 80 for 7 days)
-  await checkRecoveryStreak(todayStr, alreadyShown, events);
+  if (showStreakCelebrations) {
+    await checkRecoveryStreak(todayStr, alreadyShown, events);
+  }
 
   // Mark events as shown
   if (events.length > 0) {
@@ -295,7 +305,7 @@ async function checkMacroStreak(
     events.push({
       trigger: 'macro_streak_7',
       title: '7-Day Macro Streak',
-      detail: 'You hit your macro targets 7 days in a row. Consistency at this level drives measurable results.',
+      detail: 'You hit your macro targets 7 days in a row. Nice consistency this week — keep building healthy habits.',
       timestamp: new Date().toISOString(),
     });
   }

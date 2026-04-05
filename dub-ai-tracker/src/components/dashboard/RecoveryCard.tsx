@@ -2,7 +2,8 @@
 // Phase 12: Recovery Score v1.0
 
 import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Pressable } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { DashboardCard } from './DashboardCard';
 import { useRecovery } from '../../hooks/useRecovery';
@@ -62,6 +63,7 @@ export function RecoveryCard() {
   const today = getTodayKey();
   const { recovery, loading } = useRecovery(today);
   const [expanded, setExpanded] = useState(false);
+  const [showMethodology, setShowMethodology] = useState(false);
 
   if (loading) {
     return (
@@ -115,6 +117,39 @@ export function RecoveryCard() {
           {recovery.components.map((c) => (
             <ComponentRow key={c.name} component={c} />
           ))}
+
+          <Pressable
+            style={styles.methodologyToggle}
+            onPress={() => setShowMethodology(!showMethodology)}
+            accessibilityRole="button"
+            accessibilityLabel={showMethodology ? 'Hide methodology' : 'How recovery score works'}
+          >
+            <Ionicons name="information-circle-outline" size={14} color={Colors.accentText} />
+            <Text style={styles.methodologyToggleText}>
+              {showMethodology ? 'Hide' : 'How is this calculated?'}
+            </Text>
+          </Pressable>
+
+          {showMethodology && (
+            <View style={styles.methodologyBox}>
+              <Text style={styles.methodologyTitle}>How Recovery Score Works</Text>
+              <Text style={styles.methodologyText}>
+                Your Recovery Score (0–100) estimates readiness based on six factors:
+              </Text>
+              <Text style={styles.methodologyText}>{'\u2022'} HRV trend — compared to your personal 7-day average</Text>
+              <Text style={styles.methodologyText}>{'\u2022'} Resting heart rate — compared to your personal 7-day average</Text>
+              <Text style={styles.methodologyText}>{'\u2022'} Sleep duration — based on 7–9 hours as optimal</Text>
+              <Text style={styles.methodologyText}>{'\u2022'} Sleep quality — your self-reported rating</Text>
+              <Text style={styles.methodologyText}>{'\u2022'} Training load — recent workout intensity</Text>
+              <Text style={styles.methodologyText}>{'\u2022'} Alcohol impact — based on reported consumption</Text>
+              <Text style={[styles.methodologyText, { marginTop: 8 }]}>
+                Higher scores suggest greater readiness for intense training. This score uses your personal baselines, not population averages.
+              </Text>
+              <Text style={[styles.methodologyText, { marginTop: 4, fontStyle: 'italic' }]}>
+                Methodology: DUB_AI Recovery Model v1.0
+              </Text>
+            </View>
+          )}
         </View>
       )}
     </DashboardCard>
@@ -211,5 +246,33 @@ const styles = StyleSheet.create({
   componentBarFill: {
     height: 4,
     borderRadius: 2,
+  },
+  methodologyToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 8,
+  },
+  methodologyToggleText: {
+    color: Colors.accentText,
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  methodologyBox: {
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 8,
+    padding: 12,
+    marginTop: 8,
+  },
+  methodologyTitle: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 6,
+  },
+  methodologyText: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    lineHeight: 16,
   },
 });

@@ -16,7 +16,7 @@ import type {
   WorkoutEntry,
 } from '../types';
 
-import type { UserProfile } from '../types/profile';
+import type { UserProfile, AppSettings } from '../types/profile';
 import { CALORIE_FLOOR_FEMALE, CALORIE_FLOOR_MALE, ED_SUSTAINED_LOW_DAYS } from '../constants/formulas';
 
 const MAX_NEW_PATTERNS_PER_WEEK = 3;
@@ -371,6 +371,13 @@ export async function runPatternEngine(): Promise<PatternInsight[]> {
     // Don't let non-logging days break or extend the streak.
     const daysWithFood = recentDays.filter((d) => d.calories > 0);
 
+    // Fasting users: 0-calorie days within protocol are expected.
+    // Flag only if pattern exceeds protocol (e.g., 3+ consecutive
+    // 0-calorie days on a 16:8 protocol suggests restriction, not fasting).
+    const appSettings = await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS);
+    const fastingEnabled = appSettings?.fasting_enabled === true;
+    const adjustedThreshold = fastingEnabled ? ED_SUSTAINED_LOW_DAYS + 1 : ED_SUSTAINED_LOW_DAYS;
+
     // Find longest streak of consecutive low-calorie LOGGED days (from most recent)
     let consecutiveLow = 0;
     for (const d of daysWithFood) {
@@ -381,11 +388,14 @@ export async function runPatternEngine(): Promise<PatternInsight[]> {
       }
     }
 
-    if (consecutiveLow >= ED_SUSTAINED_LOW_DAYS) {
+    if (consecutiveLow >= adjustedThreshold) {
+      const fastingNote = fastingEnabled
+        ? ' Note: You have intermittent fasting enabled.'
+        : '';
       safetyPatterns.push({
         id: generateId(),
         category: 'eating_safety',
-        observation: `Your calorie intake has been below ${calorieFloor} cal for ${consecutiveLow} consecutive days. This level may not support your health and wellbeing. Consider discussing your nutrition goals with a healthcare provider.`,
+        observation: `Your calorie intake has been below ${calorieFloor} cal for ${consecutiveLow} consecutive days. This level may not support your health and wellbeing. Consider discussing your nutrition goals with a healthcare provider.${fastingNote}`,
         data_range: `${daysWithFood[consecutiveLow - 1]?.date ?? 'N/A'} to ${daysWithFood[0]?.date ?? 'N/A'}`,
         sample_size: consecutiveLow,
         correlation_note: 'Safety alert -- eating disorder risk guardrail',
