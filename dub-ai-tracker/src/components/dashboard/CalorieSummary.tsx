@@ -21,6 +21,8 @@ interface CalorieSummaryProps {
   goalDirection?: 'LOSE' | 'GAIN' | 'MAINTAIN';
   /** Activity level label for the math explanation */
   activityLabel?: string;
+  /** ED-safe mode: hide calorie totals */
+  hideCalories?: boolean;
 }
 
 function CalorieRow({ label, value, color }: { label: string; value: number; color?: string }) {
@@ -44,6 +46,7 @@ export function CalorieSummary({
   calorieTarget,
   goalDirection = 'MAINTAIN',
   activityLabel = 'your activity level',
+  hideCalories = false,
 }: CalorieSummaryProps) {
   const [mathExpanded, setMathExpanded] = useState(false);
 
@@ -65,18 +68,24 @@ export function CalorieSummary({
   const targetDiff = Math.abs(Math.round(calorieTarget) - Math.round(tdee));
 
   return (
-    <DashboardCard title="Calories">
-      {/* HEADLINE: plain-language daily target */}
-      <Text style={styles.headlineLabel}>Your Daily Target</Text>
-      <Text style={styles.headlineValue}>
-        {Math.round(calorieTarget).toLocaleString()} cal
-      </Text>
-      <Text style={styles.subtext}>
-        Based on your body burning ~{Math.round(tdee).toLocaleString()} cal/day
-      </Text>
+    <DashboardCard title={hideCalories ? 'Nutrition' : 'Calories'}>
+      {hideCalories ? (
+        <Text style={styles.subtext}>Nutrient tracking active</Text>
+      ) : (
+        <>
+          {/* HEADLINE: plain-language daily target */}
+          <Text style={styles.headlineLabel}>Your Daily Target</Text>
+          <Text style={styles.headlineValue}>
+            {Math.round(calorieTarget).toLocaleString()} cal
+          </Text>
+          <Text style={styles.subtext}>
+            Based on your body burning ~{Math.round(tdee).toLocaleString()} cal/day
+          </Text>
+        </>
+      )}
 
       {/* EXPANDABLE: "See the math" */}
-      <Pressable
+      {!hideCalories && <Pressable
         style={styles.expandToggle}
         onPress={() => setMathExpanded(!mathExpanded)}
         accessibilityRole="button"
@@ -90,9 +99,9 @@ export function CalorieSummary({
           size={14}
           color={Colors.accentText}
         />
-      </Pressable>
+      </Pressable>}
 
-      {mathExpanded && (
+      {!hideCalories && mathExpanded && (
         <View style={styles.mathSection}>
           <Text style={styles.mathText}>
             Your body burns about{' '}
@@ -114,28 +123,32 @@ export function CalorieSummary({
       )}
 
       {/* Progress bar */}
-      <View style={styles.progressBarContainer}>
+      {!hideCalories && <View style={styles.progressBarContainer}>
         <View style={[styles.progressBar, { width: `${progressPct}%` }]} />
-      </View>
+      </View>}
 
       {/* Consumption data */}
-      <View style={styles.consumptionGrid}>
-        <CalorieRow label="Consumed" value={consumed} />
-        <CalorieRow label="Burned" value={burned} />
-        <CalorieRow label="Net" value={net} />
-      </View>
+      {!hideCalories && (
+        <>
+          <View style={styles.consumptionGrid}>
+            <CalorieRow label="Consumed" value={consumed} />
+            <CalorieRow label="Burned" value={burned} />
+            <CalorieRow label="Net" value={net} />
+          </View>
 
-      <View style={styles.remainingContainer}>
-        <Text style={styles.remainingLabel}>Remaining</Text>
-        <Text style={[styles.remainingValue, { color: remainingColor }]}>
-          {Math.round(remaining).toLocaleString()}
-        </Text>
-      </View>
+          <View style={styles.remainingContainer}>
+            <Text style={styles.remainingLabel}>Remaining</Text>
+            <Text style={[styles.remainingValue, { color: remainingColor }]}>
+              {Math.round(remaining).toLocaleString()}
+            </Text>
+          </View>
 
-      {(calorieTarget === CALORIE_FLOOR_FEMALE || calorieTarget === CALORIE_FLOOR_MALE) && (
-        <Text style={styles.floorNote}>
-          Your target has been set to the minimum safe level.
-        </Text>
+          {(calorieTarget === CALORIE_FLOOR_FEMALE || calorieTarget === CALORIE_FLOOR_MALE) && (
+            <Text style={styles.floorNote}>
+              Your target has been set to the minimum safe level.
+            </Text>
+          )}
+        </>
       )}
     </DashboardCard>
   );

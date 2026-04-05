@@ -65,7 +65,10 @@
       "Bash(find /c/Users/joshs/Documents/Sandbox/dub-ai-tracker -type f \\\\\\( -name \"*.tsx\" -o -name \"*.ts\" \\\\\\) -exec grep -l \"MoodEntry\\\\|mood.*component\\\\|mood.*picker\" {} \\\\;)",
       "Bash(npx eslint:*)",
       "Bash(bash /tmp/find_accessibility.sh)",
-      "Bash(bash /tmp/check_buttons.sh)"
+      "Bash(bash /tmp/check_buttons.sh)",
+      "Bash(find:*)",
+      "Bash(sed 's/fontSize:\\\\s*//')",
+      "Bash(xargs basename:*)"
     ]
   }
 }

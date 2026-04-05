@@ -2,11 +2,12 @@
 // Phase 17: Settings and Profile Management
 // App version, legal links, privacy policy, terms of service, data deletion
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Alert,
   ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TouchableOpacity,
   View,
@@ -14,7 +15,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
-import { storageClearAll } from '../../src/utils/storage';
+import { storageClearAll, storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import { deleteSecure, SECURE_KEYS } from '../../src/services/secureStorageService';
 import { logAuditEvent } from '../../src/utils/audit';
 
@@ -22,6 +23,19 @@ const APP_VERSION = '1.1.0';
 
 export default function AboutScreen() {
   const [deleting, setDeleting] = useState(false);
+  const [hideCalories, setHideCalories] = useState(false);
+
+  useEffect(() => {
+    storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS).then((s) => {
+      setHideCalories((s?.hide_calories as boolean) ?? false);
+    });
+  }, []);
+
+  async function toggleHideCalories(value: boolean) {
+    setHideCalories(value);
+    const settings = (await storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS)) || {};
+    await storageSet(STORAGE_KEYS.SETTINGS, { ...settings, hide_calories: value });
+  }
 
   function handleDeleteData() {
     Alert.alert(
@@ -125,6 +139,25 @@ export default function AboutScreen() {
         <Text style={styles.privacyItem}>
           DUB_AI does not collect, transmit, or sell your personal data. You can delete all data at any time below.
         </Text>
+      </View>
+
+      {/* Display Preferences */}
+      <Text style={styles.sectionTitle}>Display</Text>
+      <View style={styles.privacyCard}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <View style={{ flex: 1, marginRight: 12 }}>
+            <Text style={[styles.privacyItem, { marginBottom: 2 }]}>Hide Calorie Totals</Text>
+            <Text style={{ color: Colors.secondaryText, fontSize: 12 }}>
+              Show nutrient breakdown without calorie counts
+            </Text>
+          </View>
+          <Switch
+            value={hideCalories}
+            onValueChange={toggleHideCalories}
+            trackColor={{ false: Colors.divider, true: Colors.accent }}
+            thumbColor={Colors.text}
+          />
+        </View>
       </View>
 
       {/* Legal Links */}

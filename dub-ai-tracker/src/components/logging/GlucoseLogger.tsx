@@ -52,7 +52,7 @@ function getGlucoseRange(reading: number, timing: GlucoseTiming): RangeResult {
   if (isPostMeal) {
     // Post-meal 2hr reference bands
     if (reading < 140) return { band: 'normal', label: 'Normal range', color: '#4CAF50' };
-    if (reading < 200) return { band: 'pre_diabetic', label: 'Pre-diabetic range', color: '#FFC107' };
+    if (reading < 200) return { band: 'pre_diabetic', label: 'Elevated', color: '#FFC107' };
     return { band: 'above_range', label: 'Above range', color: '#EF5350' };
   }
 

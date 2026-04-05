@@ -32,6 +32,10 @@ export interface NutritionInfo {
   vitamin_d_mcg: number | null;
   calcium_mg: number | null;
   iron_mg: number | null;
+  zinc_mg?: number | null;
+  magnesium_mg?: number | null;
+  selenium_mcg?: number | null;
+  vitamin_b12_mcg?: number | null;
 }
 
 export interface ServingSize {

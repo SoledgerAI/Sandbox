@@ -55,7 +55,7 @@ export function Heatmap({
   if (data.length === 0) {
     return (
       <View style={{ width, height, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: Colors.secondaryText, fontSize: 12 }}>No data</Text>
+        <Text style={{ color: Colors.secondaryText, fontSize: 14 }}>Start tracking to build your heatmap</Text>
       </View>
     );
   }

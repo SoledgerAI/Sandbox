@@ -12,6 +12,7 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { FontSize } from '../../constants/typography';
 import { scaleRecipe } from '../../ai/recipe_engine';
 import type { Recipe } from '../../ai/recipe_engine';
 import { openInstacartWithIngredients, buildShoppingListText } from '../../services/instacart';
@@ -220,7 +221,7 @@ const styles = StyleSheet.create({
   headerLeft: { flex: 1, marginRight: 8 },
   name: {
     color: Colors.text,
-    fontSize: 17,
+    fontSize: FontSize.md,
     fontWeight: '700',
     marginBottom: 4,
   },

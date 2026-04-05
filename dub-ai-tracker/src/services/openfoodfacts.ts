@@ -58,12 +58,14 @@ function parseNutrition(n: OffNutriments): NutritionInfo {
     fiber_g: nullIfUndefined(n.fiber_100g),
     sugar_g: nullIfUndefined(n.sugars_100g),
     added_sugar_g: null,
-    // MASTER-32: OFF reports sodium in grams or milligrams.
-    // Per-100g sodium in grams is almost never > 5g for any food.
-    // If value > 5, assume already in mg. Otherwise convert g -> mg.
-    sodium_mg: n.sodium_100g != null
-      ? (n.sodium_100g > 5 ? n.sodium_100g : n.sodium_100g * 1000)
-      : null,
+    // MASTER-32 fix: OFF consistently reports sodium in grams per 100g.
+    // Always convert g -> mg. Previous threshold heuristic (> 5) was wrong —
+    // very salty foods can legitimately exceed 5g sodium/100g.
+    sodium_mg: (() => {
+      if (n.sodium_100g == null) return null;
+      const raw = typeof n.sodium_100g === 'number' ? n.sodium_100g : parseFloat(n.sodium_100g as unknown as string);
+      return !isNaN(raw) ? Math.round(raw * 1000) : null;
+    })(),
     cholesterol_mg: nullIfUndefined(n.cholesterol_100g),
     saturated_fat_g: nullIfUndefined(n['saturated-fat_100g']),
     trans_fat_g: nullIfUndefined(n['trans-fat_100g']),

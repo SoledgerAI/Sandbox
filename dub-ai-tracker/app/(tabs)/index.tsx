@@ -6,6 +6,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
+import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
+import type { AppSettings } from '../../src/types/profile';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { useDeferredSetup } from '../../src/hooks/useDeferredSetup';
 import { useMoodTrend } from '../../src/hooks/useMoodTrend';
@@ -54,6 +56,13 @@ export default function DashboardScreen() {
     milestone,
     acknowledge: acknowledgeMilestone,
   } = useMilestone(streak);
+
+  const [hideCalories, setHideCalories] = useState(false);
+  useEffect(() => {
+    storageGet<Partial<AppSettings>>(STORAGE_KEYS.SETTINGS).then((s) => {
+      setHideCalories(s?.hide_calories ?? false);
+    });
+  }, []);
 
   const handleSetUp = useCallback((key: DeferredSetupKey) => {
     completeItem(key);
@@ -127,6 +136,7 @@ export default function DashboardScreen() {
           net={summary.calories_net}
           remaining={summary.calories_remaining}
           calorieTarget={Math.round(calorieTarget)}
+          hideCalories={hideCalories}
         />
       ) : (
         <TouchableOpacity

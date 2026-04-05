@@ -584,6 +584,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     padding: 12,
     marginBottom: 6,
+    minHeight: 48,
   },
   starBtn: {
     marginRight: 8,

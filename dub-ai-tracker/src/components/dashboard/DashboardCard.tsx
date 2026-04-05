@@ -5,6 +5,7 @@
 import { StyleSheet, View, Text, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { FontSize } from '../../constants/typography';
 
 interface DashboardCardProps {
   title?: string;
@@ -53,7 +54,7 @@ const styles = StyleSheet.create({
   },
   title: {
     color: Colors.accentText,
-    fontSize: 14,
+    fontSize: FontSize.base,
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 0.5,

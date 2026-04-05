@@ -17,6 +17,7 @@ interface FoodEntryCardProps {
   onPress?: () => void;
   onDelete?: () => void;
   onFavorite?: () => void;
+  hideCalories?: boolean;
 }
 
 const MEAL_LABELS: Record<string, string> = {
@@ -26,7 +27,7 @@ const MEAL_LABELS: Record<string, string> = {
   snack: 'Snack',
 };
 
-export const FoodEntryCard = React.memo(function FoodEntryCard({ entry, onPress, onDelete, onFavorite }: FoodEntryCardProps) {
+export const FoodEntryCard = React.memo(function FoodEntryCard({ entry, onPress, onDelete, onFavorite, hideCalories }: FoodEntryCardProps) {
   const { food_item, computed_nutrition, quantity, serving, meal_type, flagged_ingredients } = entry;
   const cal = Math.round(computed_nutrition.calories);
   const servingDesc =
@@ -56,10 +57,12 @@ export const FoodEntryCard = React.memo(function FoodEntryCard({ entry, onPress,
             {food_item.brand ? ` \u2022 ${food_item.brand}` : ''}
           </Text>
         </View>
-        <View style={styles.calColumn}>
-          <Text style={styles.calories}>{cal}</Text>
-          <Text style={styles.calLabel}>kcal</Text>
-        </View>
+        {!hideCalories && (
+          <View style={styles.calColumn}>
+            <Text style={styles.calories}>{cal}</Text>
+            <Text style={styles.calLabel}>kcal</Text>
+          </View>
+        )}
       </View>
 
       <View style={styles.macroRow}>

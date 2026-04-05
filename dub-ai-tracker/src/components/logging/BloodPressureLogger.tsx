@@ -59,6 +59,7 @@ interface StageResult {
 
 function getBPStage(systolic: number, diastolic: number): StageResult {
   // Crisis check first — takes precedence
+  // Note: Using >= (vs AHA's >) — intentionally conservative for patient safety
   if (systolic >= 180 || diastolic >= 120) {
     return {
       stage: 'crisis',
@@ -516,7 +517,7 @@ const styles = StyleSheet.create({
     fontWeight: '800',
   },
   crisisMessage: {
-    color: '#EF5350',
+    color: Colors.dangerText,
     fontSize: 13,
     fontWeight: '600',
     marginTop: 4,
@@ -619,7 +620,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   entryCrisis: {
-    color: '#EF5350',
+    color: Colors.dangerText,
     fontSize: 12,
     fontWeight: '600',
     marginTop: 2,

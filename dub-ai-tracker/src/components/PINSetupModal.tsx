@@ -224,6 +224,10 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     padding: 8,
+    minHeight: 48,
+    minWidth: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   cancelText: {
     color: Colors.accentText,
@@ -246,7 +250,7 @@ const styles = StyleSheet.create({
     marginBottom: 32,
   },
   errorText: {
-    color: Colors.danger,
+    color: Colors.dangerText,
     fontSize: 14,
     marginBottom: 12,
   },

@@ -48,7 +48,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.danger,
   },
   error: {
-    color: Colors.danger,
+    color: Colors.dangerText,
     fontSize: 12,
     marginTop: 4,
   },

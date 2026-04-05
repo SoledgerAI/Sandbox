@@ -83,6 +83,10 @@ const NUTRIENT_IDS: Record<string, number[]> = {
   vitamin_d_mcg: [1114, 1110],
   calcium_mg: [1087],
   iron_mg: [1089],
+  zinc_mg: [1095],
+  magnesium_mg: [1091],
+  selenium_mcg: [1103],
+  vitamin_b12_mcg: [1178, 1146],
 };
 
 function extractNutrientValue(
@@ -120,6 +124,10 @@ function parseNutrition(nutrients: UsdaFoodNutrient[]): NutritionInfo {
     vitamin_d_mcg: extractNutrientValue(nutrients, NUTRIENT_IDS.vitamin_d_mcg),
     calcium_mg: extractNutrientValue(nutrients, NUTRIENT_IDS.calcium_mg),
     iron_mg: extractNutrientValue(nutrients, NUTRIENT_IDS.iron_mg),
+    zinc_mg: extractNutrientValue(nutrients, NUTRIENT_IDS.zinc_mg),
+    magnesium_mg: extractNutrientValue(nutrients, NUTRIENT_IDS.magnesium_mg),
+    selenium_mcg: extractNutrientValue(nutrients, NUTRIENT_IDS.selenium_mcg),
+    vitamin_b12_mcg: extractNutrientValue(nutrients, NUTRIENT_IDS.vitamin_b12_mcg),
   };
 }
 

@@ -53,7 +53,7 @@ export function BarChart({
   if (data.length === 0) {
     return (
       <View style={{ width, height, justifyContent: 'center', alignItems: 'center' }}>
-        <Text style={{ color: Colors.secondaryText, fontSize: 12 }}>No data</Text>
+        <Text style={{ color: Colors.secondaryText, fontSize: 14 }}>Log an entry to see your chart</Text>
       </View>
     );
   }

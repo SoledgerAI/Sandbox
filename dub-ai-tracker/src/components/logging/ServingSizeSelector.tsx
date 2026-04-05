@@ -239,6 +239,21 @@ export function ServingSizeSelector({
         <NutritionRow label="Fiber" base={base.fiber_g} adjusted={display.fiber_g} unit="g" />
         <NutritionRow label="Sugar" base={base.sugar_g} adjusted={display.sugar_g} unit="g" />
         <NutritionRow label="Sodium" base={base.sodium_mg} adjusted={display.sodium_mg} unit="mg" />
+        <NutritionRow label="Cholesterol" base={base.cholesterol_mg} adjusted={display.cholesterol_mg} unit="mg" />
+        <NutritionRow label="Sat. Fat" base={base.saturated_fat_g} adjusted={display.saturated_fat_g} unit="g" />
+        <NutritionRow label="Trans Fat" base={base.trans_fat_g} adjusted={display.trans_fat_g} unit="g" />
+
+        {/* Micronutrients */}
+        <View style={styles.microDivider} />
+        <Text style={styles.microHeader}>Micronutrients</Text>
+        <NutritionRow label="Iron" base={base.iron_mg} adjusted={display.iron_mg} unit="mg" />
+        <NutritionRow label="Calcium" base={base.calcium_mg} adjusted={display.calcium_mg} unit="mg" />
+        <NutritionRow label="Vitamin D" base={base.vitamin_d_mcg} adjusted={display.vitamin_d_mcg} unit="mcg" />
+        <NutritionRow label="Potassium" base={base.potassium_mg} adjusted={display.potassium_mg} unit="mg" />
+        <NutritionRow label="Zinc" base={base.zinc_mg ?? null} adjusted={display.zinc_mg ?? null} unit="mg" />
+        <NutritionRow label="Magnesium" base={base.magnesium_mg ?? null} adjusted={display.magnesium_mg ?? null} unit="mg" />
+        <NutritionRow label="Selenium" base={base.selenium_mcg ?? null} adjusted={display.selenium_mcg ?? null} unit="mcg" />
+        <NutritionRow label="Vitamin B12" base={base.vitamin_b12_mcg ?? null} adjusted={display.vitamin_b12_mcg ?? null} unit="mcg" />
       </View>
     </View>
   );
@@ -402,5 +417,18 @@ const styles = StyleSheet.create({
   },
   nutritionHighlight: {
     color: Colors.accent,
+  },
+  microDivider: {
+    height: 1,
+    backgroundColor: Colors.divider,
+    marginVertical: 8,
+  },
+  microHeader: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
 });

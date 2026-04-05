@@ -117,6 +117,8 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderColor: Colors.divider,
+    minHeight: 48,
+    justifyContent: 'center',
   },
   dismissText: {
     color: Colors.secondaryText,

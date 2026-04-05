@@ -182,6 +182,14 @@ export default function LogScreen() {
   // Sections
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Nutrition']));
 
+  // ED-safe: hide calorie totals
+  const [hideCalories, setHideCalories] = useState(false);
+  useEffect(() => {
+    storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS).then((s) => {
+      setHideCalories((s?.hide_calories as boolean) ?? false);
+    });
+  }, []);
+
   // Food data
   const [foodEntries, setFoodEntries] = useState<FoodEntry[]>([]);
   const [favorites, setFavorites] = useState<FavoriteFood[]>([]);
@@ -211,7 +219,7 @@ export default function LogScreen() {
         id: f.id,
         tag: 'Food',
         label: f.food_item.name,
-        detail: `${Math.round(f.computed_nutrition.calories)} cal`,
+        detail: hideCalories ? f.serving.description : `${Math.round(f.computed_nutrition.calories)} cal`,
         time: new Date(f.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
         timestamp: new Date(f.timestamp).getTime(),
       });
@@ -235,7 +243,7 @@ export default function LogScreen() {
         id: w.id,
         tag: 'Exercise',
         label: w.type ?? 'Workout',
-        detail: `${w.duration_minutes ?? 0} min${w.calories_burned ? ` · ${w.calories_burned} cal` : ''}`,
+        detail: `${w.duration_minutes ?? 0} min${!hideCalories && w.calories_burned ? ` · ${w.calories_burned} cal` : ''}`,
         time: new Date(w.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
         timestamp: new Date(w.timestamp).getTime(),
       });
@@ -837,6 +845,10 @@ const styles = StyleSheet.create({
   },
   dateArrow: {
     padding: 6,
+    minWidth: 48,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   dateLabelWrap: {
     flexDirection: 'row',
@@ -1007,7 +1019,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.divider,
     flexBasis: '47%',
     flexGrow: 1,
-    minHeight: 44,
+    minHeight: 48,
   },
   categoryBtnText: {
     color: Colors.text,

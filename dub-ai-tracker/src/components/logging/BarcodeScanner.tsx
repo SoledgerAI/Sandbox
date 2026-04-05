@@ -197,12 +197,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   closeBtn: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.4)',
-    borderRadius: 20,
+    borderRadius: 24,
   },
   topTitle: {
     color: Colors.text,

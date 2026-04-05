@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { FontSize } from '../../constants/typography';
 import { DashboardCard } from './DashboardCard';
 import { SparkLine } from '../charts/SparkLine';
 import { LBS_PER_KG } from '../../constants/formulas';
@@ -265,6 +266,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     color: Colors.secondaryText,
-    fontSize: 13,
+    fontSize: FontSize.base,
   },
 });
