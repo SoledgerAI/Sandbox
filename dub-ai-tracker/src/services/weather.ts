@@ -3,7 +3,7 @@
 // Current conditions display on Dashboard (optional, small widget).
 // Free tier: 1,000 calls/day.
 
-import { storageGet, storageSet } from '../utils/storage';
+import { storageGet, storageSet, STORAGE_KEYS } from '../utils/storage';
 
 // ============================================================
 // API constants
@@ -12,7 +12,7 @@ import { storageGet, storageSet } from '../utils/storage';
 const OWM_BASE_URL = 'https://api.openweathermap.org/data/2.5/weather';
 
 // Cache key and TTL (30 minutes)
-const WEATHER_CACHE_KEY = 'dub.weather.current';
+const WEATHER_CACHE_KEY = STORAGE_KEYS.WEATHER_CACHE;
 const CACHE_TTL_MS = 30 * 60 * 1000;
 
 // ============================================================

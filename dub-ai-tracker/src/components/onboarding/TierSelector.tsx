@@ -125,7 +125,7 @@ const styles = StyleSheet.create({
   },
   defaultBadgeText: {
     color: Colors.primaryBackground,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
   },
   tierDescription: {

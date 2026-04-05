@@ -109,7 +109,7 @@ export async function getTriggeredProducts(): Promise<Product[]> {
   }
 
   // Seasonal trigger — MASTER-45: only fire in product's matching months (filtered below)
-  const currentMonth = getMonth(); // 0-11
+  const _currentMonth = getMonth(); // 0-11
   activeTriggers.add('seasonal');
 
   // Milestone trigger (completed first month)

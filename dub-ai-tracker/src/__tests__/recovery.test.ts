@@ -210,7 +210,7 @@ describe('Recovery Score', () => {
       await setWorkoutEntry(yesterdayOf(date), 30);
 
       // Substances: N alcohol entries
-      const substances = Array.from({ length: drinkCount }, (_, i) => ({
+      const substances = Array.from({ length: drinkCount }, (_, _i) => ({
         substance: 'alcohol',
         quantity: 1,
         unit: 'drink',

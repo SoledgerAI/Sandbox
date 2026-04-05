@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
   },
   scaleLabel: {
     color: Colors.secondaryText,
-    fontSize: 9,
+    fontSize: 11,
     marginTop: 2,
   },
   // Numeric input

@@ -571,7 +571,7 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   sectionBadgeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
   },
   list: {
@@ -621,12 +621,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
   },
   resultBadgeText: {
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '600',
   },
   completenessText: {
     color: Colors.secondaryText,
-    fontSize: 10,
+    fontSize: 11,
     fontStyle: 'italic',
   },
   resultCal: {
@@ -640,7 +640,7 @@ const styles = StyleSheet.create({
   },
   resultCalUnit: {
     color: Colors.secondaryText,
-    fontSize: 10,
+    fontSize: 11,
   },
   emptyContainer: {
     alignItems: 'center',

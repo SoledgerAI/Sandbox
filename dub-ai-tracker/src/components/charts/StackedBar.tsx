@@ -271,7 +271,7 @@ const styles = StyleSheet.create({
   },
   legendText: {
     color: Colors.secondaryText,
-    fontSize: 10,
+    fontSize: 11,
   },
   headerRow: {
     flexDirection: 'row',

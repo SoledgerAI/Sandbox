@@ -57,7 +57,7 @@ Return ONLY a JSON array. Each item must have these exact fields:
 Be realistic with portion sizes and nutrition estimates. Use USDA-aligned values when possible.
 Do not include any text outside the JSON array.`;
 
-export function NLPFoodEntry({ mealType, onConfirm, onCancel }: NLPFoodEntryProps) {
+export function NLPFoodEntry({ mealType: _mealType, onConfirm, onCancel }: NLPFoodEntryProps) {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [parsedItems, setParsedItems] = useState<NLPFoodItem[] | null>(null);
@@ -136,7 +136,6 @@ export function NLPFoodEntry({ mealType, onConfirm, onCancel }: NLPFoodEntryProp
         item[field] = value;
       } else {
         const num = parseFloat(value);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         // Reason: dynamic field assignment on mixed string/number/null interface
         (item as Record<string, string | number | null>)[field] = isNaN(num) ? 0 : num;
       }

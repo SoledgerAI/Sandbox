@@ -150,6 +150,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 10,
     marginTop: 4,
+    minHeight: 44,
   },
   dismissText: {
     color: Colors.secondaryText,

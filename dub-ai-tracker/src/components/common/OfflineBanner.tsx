@@ -1,7 +1,7 @@
 // P1-22: Slim offline banner — auto-appears/disappears on connectivity change
 
 import { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, Text, View } from 'react-native';
+import { Animated, StyleSheet, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';

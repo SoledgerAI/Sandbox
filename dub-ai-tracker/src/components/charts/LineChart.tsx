@@ -56,6 +56,7 @@ export function LineChart({
 
   useEffect(() => {
     opacity.value = withTiming(1, { duration: 400 });
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- opacity is a shared value ref, stable across renders
   }, [series]);
 
   if (thumbnail) {

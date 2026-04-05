@@ -2,7 +2,7 @@
 // P0-08: Tag visibility DECOUPLED from biological sex — all tags visible to everyone
 
 import { getVisibleTags, isTagVisibleForUser, getSuggestedSupplements } from '../services/tagFilterService';
-import { ALL_DEFAULT_TAGS, HEALTH_FITNESS_TAGS, PERSONAL_PRIVATE_TAGS } from '../constants/tags';
+import { ALL_DEFAULT_TAGS, PERSONAL_PRIVATE_TAGS } from '../constants/tags';
 
 describe('tagFilterService', () => {
   describe('getVisibleTags', () => {

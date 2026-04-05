@@ -94,7 +94,7 @@ export function WidgetPreview({ data }: { data: WidgetData }) {
 }
 
 // Stub function for updating widget data (would call native bridge)
-export async function updateWidgetData(data: WidgetData): Promise<void> {
+export async function updateWidgetData(_data: WidgetData): Promise<void> {
   // In production, this would use a native module to update the widget:
   // iOS: WidgetCenter.shared.reloadAllTimelines()
   // Android: AppWidgetManager.updateAppWidget()
@@ -147,7 +147,7 @@ const styles = StyleSheet.create({
   },
   widgetStatLabel: {
     color: Colors.secondaryText,
-    fontSize: 10,
+    fontSize: 11,
   },
   widgetNote: {
     color: Colors.secondaryText,

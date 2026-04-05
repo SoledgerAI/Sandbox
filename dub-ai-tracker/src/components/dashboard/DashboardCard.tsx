@@ -69,7 +69,7 @@ const styles = StyleSheet.create({
   },
   deviceText: {
     color: Colors.accentText,
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '500',
   },
 });

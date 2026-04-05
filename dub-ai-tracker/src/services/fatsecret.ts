@@ -44,8 +44,7 @@ async function getAccessToken(): Promise<string> {
   return cachedToken.access_token;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-// Reason: FatSecret API returns varying response shapes per endpoint; full typing impractical
+// FatSecret API returns varying response shapes per endpoint; full typing impractical
 async function apiCall(params: Record<string, string>): Promise<any> {
   const token = await getAccessToken();
 

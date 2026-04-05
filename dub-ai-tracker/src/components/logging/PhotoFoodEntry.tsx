@@ -58,7 +58,7 @@ Return ONLY a JSON array. Each item must have these exact fields:
 Be realistic. If uncertain about a food, set confidence to "low". Use USDA-aligned estimates.
 Do not include any text outside the JSON array.`;
 
-export function PhotoFoodEntry({ mealType, onConfirm, onCancel }: PhotoFoodEntryProps) {
+export function PhotoFoodEntry({ mealType: _mealType, onConfirm, onCancel }: PhotoFoodEntryProps) {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [parsedItems, setParsedItems] = useState<PhotoFoodItem[] | null>(null);
@@ -194,7 +194,6 @@ export function PhotoFoodEntry({ mealType, onConfirm, onCancel }: PhotoFoodEntry
       const copy = [...prev];
       const item = { ...copy[index] };
       if (field === 'name' || field === 'portion' || field === 'note' || field === 'confidence') {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         // Reason: dynamic field assignment — confidence is a union type, not plain string
         (item as Record<string, string | number | null>)[field] = value;
       } else {
@@ -510,7 +509,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontVariant: ['tabular-nums'],
   },
-  calUnit: { color: Colors.secondaryText, fontSize: 10, marginTop: -2 },
+  calUnit: { color: Colors.secondaryText, fontSize: 11, marginTop: -2 },
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

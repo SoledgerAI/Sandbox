@@ -99,7 +99,7 @@ export async function requestHealthConnectPermissions(): Promise<boolean> {
 /**
  * Read step count for a given date from Health Connect.
  */
-export async function readSteps(date: string): Promise<StepsEntry | null> {
+export async function readSteps(_date: string): Promise<StepsEntry | null> {
   if (!isHealthConnectAvailable()) return null;
 
   try {
@@ -113,7 +113,7 @@ export async function readSteps(date: string): Promise<StepsEntry | null> {
 /**
  * Read heart rate samples for a given date.
  */
-export async function readHeartRate(date: string): Promise<HealthConnectHeartRateRecord[]> {
+export async function readHeartRate(_date: string): Promise<HealthConnectHeartRateRecord[]> {
   if (!isHealthConnectAvailable()) return [];
 
   try {
@@ -127,7 +127,7 @@ export async function readHeartRate(date: string): Promise<HealthConnectHeartRat
 /**
  * Read HRV (RMSSD) for a given date.
  */
-export async function readHRV(date: string): Promise<number | null> {
+export async function readHRV(_date: string): Promise<number | null> {
   if (!isHealthConnectAvailable()) return null;
 
   try {
@@ -141,7 +141,7 @@ export async function readHRV(date: string): Promise<number | null> {
 /**
  * Read sleep session for a given date.
  */
-export async function readSleep(date: string): Promise<SleepDeviceData | null> {
+export async function readSleep(_date: string): Promise<SleepDeviceData | null> {
   if (!isHealthConnectAvailable()) return null;
 
   try {
@@ -171,7 +171,7 @@ export async function readWeight(): Promise<number | null> {
 /**
  * Read exercise sessions from Health Connect for a given date.
  */
-export async function readWorkouts(date: string): Promise<WorkoutEntry[]> {
+export async function readWorkouts(_date: string): Promise<WorkoutEntry[]> {
   if (!isHealthConnectAvailable()) return [];
 
   try {
@@ -189,7 +189,7 @@ export async function readWorkouts(date: string): Promise<WorkoutEntry[]> {
 /**
  * Write a workout/exercise session to Health Connect.
  */
-export async function writeWorkout(workout: WorkoutEntry): Promise<boolean> {
+export async function writeWorkout(_workout: WorkoutEntry): Promise<boolean> {
   if (!isHealthConnectAvailable()) return false;
 
   try {

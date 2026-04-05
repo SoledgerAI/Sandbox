@@ -74,7 +74,7 @@ export async function sendMessage(params: {
       },
       body: JSON.stringify(body),
     });
-  } catch (error) {
+  } catch {
     throw new AnthropicError(
       'Unable to reach the Anthropic API. Check your internet connection.',
       undefined,

@@ -104,7 +104,7 @@ function monthlyToChartPoint(s: MonthlySummary, field: keyof MonthlySummary): Ch
   return { label: shortMonth(s.month), value: val as number, date: s.month };
 }
 
-export function useTrendsData(timeRange: TimeRange, enabledTags: string[]) {
+export function useTrendsData(timeRange: TimeRange, _enabledTags: string[]) {
   const [data, setData] = useState<TrendDataSet>(EMPTY_DATASET);
   const [loading, setLoading] = useState(true);
 

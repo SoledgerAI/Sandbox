@@ -611,7 +611,7 @@ export async function checkDueReports(): Promise<ReportCadence[]> {
   due.push('daily');
 
   // Weekly: check day of week against user preference
-  const settings = await storageGet<{ weekly_report_day?: 'sunday' | 'monday' }>('dub.settings');
+  const settings = await storageGet<{ weekly_report_day?: 'sunday' | 'monday' }>(STORAGE_KEYS.SETTINGS);
   const weeklyDay = settings?.weekly_report_day ?? 'sunday';
   const dayOfWeek = now.getDay(); // 0=Sunday, 1=Monday
   if ((weeklyDay === 'sunday' && dayOfWeek === 0) || (weeklyDay === 'monday' && dayOfWeek === 1)) {

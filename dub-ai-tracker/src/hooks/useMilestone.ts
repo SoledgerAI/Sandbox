@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { storageGet, storageSet, storageList, STORAGE_KEYS, dateKey } from '../utils/storage';
 import type { StreakData } from '../types/profile';
-import type { StrengthEntry, StrengthExercise } from '../types/strength';
+import type { StrengthEntry } from '../types/strength';
 
 // ============================================================
 // Milestone Definitions

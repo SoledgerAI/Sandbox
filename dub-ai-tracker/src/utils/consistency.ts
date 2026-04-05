@@ -22,7 +22,7 @@ function formatDate(d: Date): string {
  */
 export async function computeConsistency(): Promise<StreakData> {
   const today = new Date();
-  const todayStr = formatDate(today);
+  const _todayStr = formatDate(today);
 
   // Build the set of dates in the 28-day window
   const windowDates: string[] = [];

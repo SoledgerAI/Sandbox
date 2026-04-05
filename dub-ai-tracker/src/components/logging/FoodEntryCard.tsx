@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   },
   calLabel: {
     color: Colors.secondaryText,
-    fontSize: 10,
+    fontSize: 11,
     marginTop: -2,
   },
   macroRow: {

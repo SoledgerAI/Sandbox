@@ -10,7 +10,7 @@ import { evaluateMoodTrend } from '../utils/mood_trend';
 import type { MoodTrendResult } from '../utils/mood_trend';
 import type { UserProfile } from '../types/profile';
 
-const DISMISS_KEY = 'dub.mood_resource.dismissed_at';
+const DISMISS_KEY = STORAGE_KEYS.MOOD_RESOURCE_DISMISSED;
 const DISMISS_DURATION_MS = 48 * 60 * 60 * 1000; // 48 hours
 
 interface UseMoodTrendReturn {

@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   entryTime: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
   citation: {
     color: Colors.secondaryText,
-    fontSize: 10,
+    fontSize: 11,
     textAlign: 'center',
     marginTop: 16,
   },

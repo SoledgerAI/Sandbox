@@ -7,7 +7,7 @@ import {
   getActivityById,
   getActivitiesByCategory,
 } from '../data/activities';
-import type { Activity, ActivityCategory } from '../data/activities';
+import type { Activity, ActivityCategory as _ActivityCategory } from '../data/activities';
 import { calculateCalorieBurnImperial, searchMetActivities } from '../utils/calories';
 
 describe('Activity Library', () => {

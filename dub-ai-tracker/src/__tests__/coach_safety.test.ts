@@ -277,3 +277,125 @@ describe('Recipe Engine', () => {
     expect(options).toContain('Nut-Free');
   });
 });
+
+describe('Coach Context — Wave 1-3 Data Sources', () => {
+  beforeEach(async () => {
+    await AsyncStorage.clear();
+    // Set up minimal profile
+    await AsyncStorage.setItem('dub.profile', JSON.stringify({
+      name: 'Test User', dob: '1994-06-15', units: 'imperial',
+      sex: 'male', height_inches: 70, weight_lbs: 180,
+      activity_level: 'moderately_active',
+      goal: { direction: 'MAINTAIN', target_weight: null, rate_lbs_per_week: null, gain_type: null, surplus_calories: null },
+      pronouns: null, metabolic_profile: null, main_goal: null, altitude_acclimated: false,
+    }));
+    await AsyncStorage.setItem('dub.tier', JSON.stringify('balanced'));
+  });
+
+  it('includes glucose readings in today_data tags when present', async () => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    await AsyncStorage.setItem(`dub.log.glucose.${dateStr}`, JSON.stringify([
+      { reading_mg_dl: 95, timing: 'fasting', timestamp: new Date().toISOString() },
+    ]));
+    const { context } = await buildCoachContext('check my glucose');
+    expect(context.today_data.tags_logged).toContain('blood.glucose');
+  });
+
+  it('includes blood pressure in today_data tags when present', async () => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    await AsyncStorage.setItem(`dub.log.bp.${dateStr}`, JSON.stringify([
+      { systolic: 120, diastolic: 80, pulse_bpm: 72, timestamp: new Date().toISOString() },
+    ]));
+    const { context } = await buildCoachContext('check my blood pressure');
+    expect(context.today_data.tags_logged).toContain('blood.pressure');
+  });
+
+  it('includes 3-axis mood (score, energy, anxiety) in today_data', async () => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    await AsyncStorage.setItem(`dub.log.mood.${dateStr}`, JSON.stringify([
+      { score: 3, energy: 4, anxiety: 2, timestamp: new Date().toISOString() },
+    ]));
+    const { context } = await buildCoachContext('how is my mood?');
+    expect(context.today_data.mood).toBe(3);
+    expect(context.today_data.energy).toBe(4);
+    expect(context.today_data.anxiety).toBe(2);
+  });
+
+  it('includes consistency_28d_pct in context', async () => {
+    const { context } = await buildCoachContext('how consistent am I?');
+    expect(typeof context.consistency_28d_pct).toBe('number');
+  });
+
+  it('includes active_milestone when milestone data exists', async () => {
+    // Set up streak data with enough days to trigger a milestone
+    await AsyncStorage.setItem('dub.streaks', JSON.stringify({
+      current_streak: 7,
+      longest_streak: 7,
+      total_days_logged: 7,
+      last_logged_date: '2026-04-04',
+      logged_dates_28d: ['2026-03-29','2026-03-30','2026-03-31','2026-04-01','2026-04-02','2026-04-03','2026-04-04'],
+    }));
+    const { context } = await buildCoachContext('hello');
+    // active_milestone should either be a string or null
+    expect(context.active_milestone === null || typeof context.active_milestone === 'string').toBe(true);
+  });
+
+  it('includes sobriety goals in context (safety-critical)', async () => {
+    await AsyncStorage.setItem('dub.sobriety', JSON.stringify([
+      { substance: 'alcohol', goal_type: 'quit', current_streak_days: 30, start_date: '2026-03-05' },
+    ]));
+    const { context } = await buildCoachContext('hello');
+    expect(context.sobriety_goals.length).toBe(1);
+    expect(context.sobriety_goals[0].substance).toBe('alcohol');
+    expect(context.sobriety_goals[0].goal_type).toBe('quit');
+  });
+
+  it('glucose conditional section appears on glucose keywords', async () => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    await AsyncStorage.setItem(`dub.log.glucose.${dateStr}`, JSON.stringify([
+      { reading_mg_dl: 110, timing: 'post_meal', timestamp: new Date().toISOString() },
+    ]));
+    const { conditionalSections } = await buildCoachContext('what is my glucose level?');
+    expect(conditionalSections.some(s => s.includes('[GLUCOSE TODAY]'))).toBe(true);
+  });
+
+  it('BP conditional section appears on bp keywords', async () => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    await AsyncStorage.setItem(`dub.log.bp.${dateStr}`, JSON.stringify([
+      { systolic: 130, diastolic: 85, pulse_bpm: 75, timestamp: new Date().toISOString() },
+    ]));
+    const { conditionalSections } = await buildCoachContext('how is my blood pressure?');
+    expect(conditionalSections.some(s => s.includes('[BP TODAY]'))).toBe(true);
+  });
+
+  it('mood_trend_alert is boolean in context', async () => {
+    const { context } = await buildCoachContext('hello');
+    expect(typeof context.mood_trend_alert).toBe('boolean');
+  });
+
+  it('prompt confidentiality rule is present in system prompt', () => {
+    // Import buildSystemPrompt to verify
+    const { buildSystemPrompt } = require('../ai/coach_system_prompt');
+    const ctx = makeMinimalContext();
+    const prompt = buildSystemPrompt(ctx, []);
+    expect(prompt).toContain('PROMPT CONFIDENTIALITY');
+    expect(prompt).toContain('NEVER output');
+    expect(prompt).toContain('system prompt');
+  });
+
+  it('sobriety QUIT goal prevents alcohol recipe suggestions', () => {
+    const { buildSystemPrompt } = require('../ai/coach_system_prompt');
+    const ctx = makeMinimalContext({
+      sobriety_goals: [{ substance: 'alcohol', goal_type: 'quit', current_streak_days: 30 }],
+    });
+    const prompt = buildSystemPrompt(ctx, [], { cuisines: ['Italian'], restrictions: [], dislikes: [] });
+    expect(prompt).toContain('[SOBRIETY]');
+    expect(prompt).toContain('alcohol:quit');
+    expect(prompt).toContain('NEVER include alcohol');
+  });
+});

@@ -70,7 +70,7 @@ const BLOODWORK_KEYWORDS = ['blood', 'lab', 'marker', 'cholesterol', 'iron', 'vi
 const GLUCOSE_KEYWORDS = ['glucose', 'blood sugar', 'sugar level', 'fasting', 'a1c', 'diabetic', 'pre-diabetic', 'mg/dl'];
 const BP_KEYWORDS = ['blood pressure', 'bp', 'systolic', 'diastolic', 'hypertension', 'mmhg', 'pulse'];
 const CYCLE_KEYWORDS = ['cycle', 'period', 'menstrual', 'phase', 'ovulation'];
-const SUBSTANCE_KEYWORDS = ['drink', 'alcohol', 'sober', 'substance', 'cannabis', 'tobacco'];
+const _SUBSTANCE_KEYWORDS = ['drink', 'alcohol', 'sober', 'substance', 'cannabis', 'tobacco'];
 const SUPPLEMENT_KEYWORDS = ['supplement', 'vitamin', 'medication', 'dosage'];
 const THERAPY_KEYWORDS = ['therapy', 'therapist', 'mental health', 'counseling'];
 const INGREDIENT_KEYWORDS = ['ingredient', 'flag', 'additive', 'sweetener', 'sugar', 'msg', 'artificial'];
@@ -236,6 +236,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
   // MASTER-34: Active injuries are safety-critical (e.g., user asks "design a workout"
   // with a torn rotator cuff). Always-include for severity >= 5 or acute type.
   // Minor/resolved injuries remain conditional on keywords.
+  // eslint-disable-next-line no-useless-assignment -- injuries is reassigned inside the block below
   let injuries: InjurySummary[] = [];
   {
     const allInjuryKeys = await storageList('dub.log.injury.');
@@ -524,7 +525,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
   return { context, conditionalSections };
 }
 
-async function compute7DayRolling(today: string): Promise<RollingStats | null> {
+async function compute7DayRolling(_today: string): Promise<RollingStats | null> {
   // MASTER-61: Build all 42 keys upfront, fetch in a single multiGet
   const dates: string[] = [];
   const allKeys: string[] = [];

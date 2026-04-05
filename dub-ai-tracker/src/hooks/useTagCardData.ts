@@ -3,8 +3,8 @@
 // MASTER-56: Only load data for visible tags (called per-card)
 
 import { useState, useEffect } from 'react';
-import { storageGet, storageGetMultiple, STORAGE_KEYS, dateKey } from '../utils/storage';
-import type { FoodEntry, WaterEntry, CaffeineEntry } from '../types';
+import { storageGetMultiple, STORAGE_KEYS, dateKey } from '../utils/storage';
+import type { FoodEntry, WaterEntry } from '../types';
 import type { WorkoutEntry } from '../types/workout';
 
 export interface TagCardData {

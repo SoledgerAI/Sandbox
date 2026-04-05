@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
   },
   gaugeLabel: {
     color: Colors.secondaryText,
-    fontSize: 10,
+    fontSize: 11,
     marginTop: -2,
   },
   summarySection: {

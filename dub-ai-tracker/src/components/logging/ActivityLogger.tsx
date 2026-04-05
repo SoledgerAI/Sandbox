@@ -29,7 +29,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
 
-const RECENT_ACTIVITIES_KEY = 'dub.recent_activities';
+const RECENT_ACTIVITIES_KEY = STORAGE_KEYS.RECENT_ACTIVITIES;
 const MAX_RECENT = 5;
 
 
@@ -182,6 +182,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
     setRpe(null);
     setNotes('');
     onEntryLogged?.();
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- rpe is intentionally excluded; it resets on save
   }, [selectedActivity, durationMinutes, intensity, notes, calorieEstimate, entries, onEntryLogged, updateRecentActivities, saveAsLast]);
 
   const deleteEntry = useCallback(

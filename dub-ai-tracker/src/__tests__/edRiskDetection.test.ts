@@ -3,16 +3,6 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { buildCoachContext } from '../ai/context_builder';
-import {
-  CALORIE_FLOOR_FEMALE,
-  CALORIE_FLOOR_MALE,
-  ED_EXTREME_RESTRICTION_THRESHOLD,
-  ED_SUSTAINED_LOW_DAYS,
-  BMI_UNDERWEIGHT,
-  BMI_NORMAL_UPPER,
-  LBS_PER_KG,
-  CM_PER_INCH,
-} from '../constants/formulas';
 
 function todayDateString(): string {
   const now = new Date();
@@ -66,7 +56,7 @@ describe('ED Risk Detection (MASTER-65)', () => {
   describe('Sustained low intake flag', () => {
     it('flags when below calorie floor for 3+ consecutive days', async () => {
       await setProfile({ sex: 'female' });
-      const today = todayDateString();
+      const _today = todayDateString();
 
       // Set 3 days of food below 1200 cal floor
       for (let i = 0; i < 3; i++) {

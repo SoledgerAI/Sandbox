@@ -92,7 +92,7 @@ export async function requestHealthKitPermissions(): Promise<boolean> {
 /**
  * Read step count for a given date from HealthKit.
  */
-export async function readSteps(date: string): Promise<StepsEntry | null> {
+export async function readSteps(_date: string): Promise<StepsEntry | null> {
   if (!isHealthKitAvailable()) return null;
 
   try {
@@ -108,7 +108,7 @@ export async function readSteps(date: string): Promise<StepsEntry | null> {
 /**
  * Read heart rate samples for a given date.
  */
-export async function readHeartRate(date: string): Promise<HealthKitSample[]> {
+export async function readHeartRate(_date: string): Promise<HealthKitSample[]> {
   if (!isHealthKitAvailable()) return [];
 
   try {
@@ -122,7 +122,7 @@ export async function readHeartRate(date: string): Promise<HealthKitSample[]> {
 /**
  * Read HRV (SDNN) for a given date.
  */
-export async function readHRV(date: string): Promise<number | null> {
+export async function readHRV(_date: string): Promise<number | null> {
   if (!isHealthKitAvailable()) return null;
 
   try {
@@ -136,7 +136,7 @@ export async function readHRV(date: string): Promise<number | null> {
 /**
  * Read sleep analysis for a given date.
  */
-export async function readSleep(date: string): Promise<SleepDeviceData | null> {
+export async function readSleep(_date: string): Promise<SleepDeviceData | null> {
   if (!isHealthKitAvailable()) return null;
 
   try {
@@ -165,7 +165,7 @@ export async function readWeight(): Promise<number | null> {
 /**
  * Read workouts from HealthKit for a given date.
  */
-export async function readWorkouts(date: string): Promise<WorkoutEntry[]> {
+export async function readWorkouts(_date: string): Promise<WorkoutEntry[]> {
   if (!isHealthKitAvailable()) return [];
 
   try {
@@ -183,7 +183,7 @@ export async function readWorkouts(date: string): Promise<WorkoutEntry[]> {
 /**
  * Write a workout to HealthKit.
  */
-export async function writeWorkout(workout: WorkoutEntry): Promise<boolean> {
+export async function writeWorkout(_workout: WorkoutEntry): Promise<boolean> {
   if (!isHealthKitAvailable()) return false;
 
   try {

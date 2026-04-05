@@ -22,9 +22,9 @@ export async function isOnboardingComplete(): Promise<boolean> {
   try {
     const raw = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING_COMPLETE);
     if (raw !== null) {
-      try { return JSON.parse(raw) === true; } catch { return false; }
+      try { return JSON.parse(raw) === true; } catch { /* no-op */ return false; }
     }
-  } catch {}
+  } catch { /* no-op */ }
 
   // FALLBACK: SecureStore — for data written before this fix (migration path)
   try {
@@ -37,7 +37,7 @@ export async function isOnboardingComplete(): Promise<boolean> {
       ).catch(() => {});
       return true;
     }
-  } catch {}
+  } catch { /* no-op */ }
 
   return false;
 }

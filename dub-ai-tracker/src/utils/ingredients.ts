@@ -1,7 +1,7 @@
 // Ingredient detection in food data
 // Phase 19: Ingredient Flag System and NLP/Photo Food Logging
 
-import { storageGet } from './storage';
+import { storageGet, STORAGE_KEYS } from './storage';
 import type { IngredientFlag } from '../types/food';
 
 // Default ingredient flags (all off by default, user enables what they care about)
@@ -74,7 +74,7 @@ export const DEFAULT_INGREDIENT_FLAGS: IngredientFlag[] = [
   },
 ];
 
-export const INGREDIENT_FLAGS_STORAGE_KEY = 'dub.settings.ingredient_flags';
+export const INGREDIENT_FLAGS_STORAGE_KEY = STORAGE_KEYS.INGREDIENT_FLAGS;
 
 /**
  * Load ingredient flags from storage. Falls back to defaults if not configured.

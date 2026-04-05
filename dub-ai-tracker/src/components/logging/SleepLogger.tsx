@@ -138,6 +138,35 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
     setNotes('');
   }, []);
 
+  const handleRepeatLast = useCallback(() => {
+    if (!lastEntry) return;
+    if (lastEntry.bedtime) {
+      const bed = new Date(lastEntry.bedtime);
+      const bH = bed.getHours();
+      const bM = bed.getMinutes();
+      const display12H = bH === 0 ? 12 : bH > 12 ? bH - 12 : bH;
+      setBedHour(String(display12H));
+      setBedMinute(String(bM).padStart(2, '0'));
+      setBedAmPm(bH >= 12 ? 'PM' : 'AM');
+    }
+    if (lastEntry.wake_time) {
+      const wake = new Date(lastEntry.wake_time);
+      const wH = wake.getHours();
+      const wM = wake.getMinutes();
+      const display12H = wH === 0 ? 12 : wH > 12 ? wH - 12 : wH;
+      setWakeHour(String(display12H));
+      setWakeMinute(String(wM).padStart(2, '0'));
+      setWakeAmPm(wH >= 12 ? 'PM' : 'AM');
+    }
+    if (lastEntry.quality) setQuality(lastEntry.quality);
+  }, [lastEntry]);
+
+  const repeatSubtitle = lastEntry
+    ? lastEntry.quality
+      ? `Quality ${lastEntry.quality}/5 - ${QUALITY_LABELS[lastEntry.quality]}`
+      : undefined
+    : undefined;
+
   // Show summary if already logged
   if (entry && entry.bedtime && entry.wake_time) {
     const duration = computeDurationHours(entry.bedtime, entry.wake_time);
@@ -200,35 +229,6 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
       </ScrollView>
     );
   }
-
-  const handleRepeatLast = useCallback(() => {
-    if (!lastEntry) return;
-    if (lastEntry.bedtime) {
-      const bed = new Date(lastEntry.bedtime);
-      const bH = bed.getHours();
-      const bM = bed.getMinutes();
-      const display12H = bH === 0 ? 12 : bH > 12 ? bH - 12 : bH;
-      setBedHour(String(display12H));
-      setBedMinute(String(bM).padStart(2, '0'));
-      setBedAmPm(bH >= 12 ? 'PM' : 'AM');
-    }
-    if (lastEntry.wake_time) {
-      const wake = new Date(lastEntry.wake_time);
-      const wH = wake.getHours();
-      const wM = wake.getMinutes();
-      const display12H = wH === 0 ? 12 : wH > 12 ? wH - 12 : wH;
-      setWakeHour(String(display12H));
-      setWakeMinute(String(wM).padStart(2, '0'));
-      setWakeAmPm(wH >= 12 ? 'PM' : 'AM');
-    }
-    if (lastEntry.quality) setQuality(lastEntry.quality);
-  }, [lastEntry]);
-
-  const repeatSubtitle = lastEntry
-    ? lastEntry.quality
-      ? `Quality ${lastEntry.quality}/5 - ${QUALITY_LABELS[lastEntry.quality]}`
-      : undefined
-    : undefined;
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   },
   qualityLabel: {
     color: Colors.secondaryText,
-    fontSize: 9,
+    fontSize: 11,
     marginTop: 2,
   },
   qualityLabelActive: {

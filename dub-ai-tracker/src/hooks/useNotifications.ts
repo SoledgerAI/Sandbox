@@ -54,8 +54,8 @@ interface UseNotificationsResult {
   refreshUnlogged: () => Promise<void>;
 }
 
-const PREFS_KEY = 'dub.notification.prefs';
-const EOD_DISMISSED_KEY = 'dub.eod.dismissed';
+const PREFS_KEY = STORAGE_KEYS.NOTIFICATION_PREFS;
+const EOD_DISMISSED_KEY = STORAGE_KEYS.EOD_DISMISSED;
 
 export function useNotifications(): UseNotificationsResult {
   const [enabled, setEnabledState] = useState(true);
@@ -66,7 +66,6 @@ export function useNotifications(): UseNotificationsResult {
   const [showEOD, setShowEOD] = useState(false);
   const [eodTime, setEodTime] = useState<{ hour: number; minute: number } | null>(null);
   const [loading, setLoading] = useState(true);
-  const notificationListener = useRef<EventSubscription | null>(null);
   const responseListener = useRef<EventSubscription | null>(null);
 
   // Load preferences and set up listeners
@@ -110,21 +109,17 @@ export function useNotifications(): UseNotificationsResult {
     init();
 
     // Listen for notification responses (user tapped notification)
-    responseListener.current = Notifications.addNotificationResponseReceivedListener((response) => {
+    const responseSub = Notifications.addNotificationResponseReceivedListener((response) => {
       const data = response.notification.request.content.data;
       if (data?.type === 'eod-questionnaire') {
         setShowEOD(true);
       }
     });
+    responseListener.current = responseSub;
 
     return () => {
       mounted = false;
-      if (notificationListener.current) {
-        notificationListener.current.remove();
-      }
-      if (responseListener.current) {
-        responseListener.current.remove();
-      }
+      responseSub.remove();
     };
   }, []);
 

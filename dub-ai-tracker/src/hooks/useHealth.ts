@@ -159,7 +159,7 @@ export function useHealth(): UseHealthResult {
   }, [refreshDeviceStates]);
 
   // Sync a single device
-  const syncDevice = useCallback(async (device: DeviceType, userWeightLbs: number): Promise<SyncResult> => {
+  const syncDevice = useCallback(async (device: DeviceType, _userWeightLbs: number): Promise<SyncResult> => {
     switch (device) {
       case 'apple': {
         const result = await syncFromHealthKit();

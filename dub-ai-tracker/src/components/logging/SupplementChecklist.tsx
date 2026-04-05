@@ -284,17 +284,19 @@ export function SupplementChecklist() {
       setStacks(updated);
     };
 
-    Alert.prompt
-      ? Alert.prompt('Save Stack', 'Name this supplement stack:', (name) => {
-          if (name?.trim()) doSave(name.trim());
-        })
-      : Alert.alert('Save Stack', `Save ${supplementNames.length} supplements as a stack?`, [
-          { text: 'Cancel', style: 'cancel' },
-          {
-            text: 'Save',
-            onPress: () => doSave(`${category === 'vitamin' ? 'Vitamin' : 'Supplement'} Stack`),
-          },
-        ]);
+    if (Alert.prompt) {
+      Alert.prompt('Save Stack', 'Name this supplement stack:', (name) => {
+        if (name?.trim()) doSave(name.trim());
+      });
+    } else {
+      Alert.alert('Save Stack', `Save ${supplementNames.length} supplements as a stack?`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Save',
+          onPress: () => doSave(`${category === 'vitamin' ? 'Vitamin' : 'Supplement'} Stack`),
+        },
+      ]);
+    }
   }, [entries, category, stacks]);
 
   // MASTER-52: Apply a stack — check all supplements in it

@@ -92,13 +92,13 @@ export function useCoach(): UseCoachResult {
       const systemPrompt = buildSystemPrompt(context, conditionalSections);
 
       if (__DEV__) {
-        console.log(`[Coach] System prompt: ~${estimateTokens(systemPrompt)} estimated tokens`);
+        console.warn(`[Coach] System prompt: ~${estimateTokens(systemPrompt)} estimated tokens`);
       }
 
       // Build conversation history for API (last 10 messages for context window)
       // MASTER-64: Ensure messages start with user role and alternate properly
       const recentMessages = updatedMessages.slice(-10);
-      let filteredMessages = recentMessages
+      const filteredMessages = recentMessages
         .filter((m) => m.role === 'user' || m.role === 'assistant')
         .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
 

@@ -41,7 +41,7 @@ const COMMON_EXERCISES = [
   'Leg Curl', 'Leg Extension', 'Calf Raise', 'Face Pull',
 ];
 
-const MODE_PREF_KEY = 'dub.strength.mode_pref';
+const MODE_PREF_KEY = STORAGE_KEYS.STRENGTH_MODE_PREF;
 const TAG_ID = 'strength.training';
 
 
@@ -882,7 +882,7 @@ const styles = StyleSheet.create({
   detailedField: { flex: 1 },
   fieldLabelSmall: {
     color: Colors.secondaryText,
-    fontSize: 10,
+    fontSize: 11,
     marginBottom: 2,
   },
   inputSmall: {

@@ -82,6 +82,25 @@ export const STORAGE_KEYS = {
   // Milestones (P2-05: earned moments, permanently acknowledged)
   MILESTONES_ACKNOWLEDGED: 'dub.milestones.acknowledged',
 
+  // Mood Resource (48h dismiss state)
+  MOOD_RESOURCE_DISMISSED: 'dub.mood_resource.dismissed_at',
+
+  // Notification Preferences
+  NOTIFICATION_PREFS: 'dub.notification.prefs',
+  EOD_DISMISSED: 'dub.eod.dismissed',
+
+  // Settings
+  INGREDIENT_FLAGS: 'dub.settings.ingredient_flags',
+
+  // Activity Logger
+  RECENT_ACTIVITIES: 'dub.recent_activities',
+
+  // Weather Cache
+  WEATHER_CACHE: 'dub.weather.current',
+
+  // Strength Logger
+  STRENGTH_MODE_PREF: 'dub.strength.mode_pref',
+
   // Offline Queue
   OFFLINE_QUEUE: 'dub.offline.queue',
 

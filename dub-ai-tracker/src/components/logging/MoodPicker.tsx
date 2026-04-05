@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
   },
   tapLabel: {
     color: Colors.secondaryText,
-    fontSize: 10,
+    fontSize: 11,
     marginTop: 2,
     textAlign: 'center',
   },
