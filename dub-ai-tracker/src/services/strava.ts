@@ -301,6 +301,7 @@ export function mapStravaActivity(activity: StravaActivity, userWeightKg: number
       max_heart_rate_bpm: activity.max_heartrate ?? null,
       heart_rate_zones: null,
     },
+    rpe: null,
     notes: `Synced from Strava`,
     source: 'strava',
   };

@@ -13,7 +13,9 @@ import * as SplashScreen from 'expo-splash-screen';
 import { Colors } from '../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../src/utils/storage';
 import { processQueue } from '../src/utils/offline';
+import { initDayBoundary } from '../src/utils/dayBoundary';
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
+import { OfflineBanner } from '../src/components/common/OfflineBanner';
 import { AuthGate } from '../src/components/AuthGate';
 import { isOnboardingComplete } from '../src/services/onboardingService';
 import type { AppSettings } from '../src/types/profile';
@@ -62,6 +64,9 @@ export default function RootLayout() {
 
     // MASTER-62: Also process queue on initial launch
     processQueue().catch(() => {});
+
+    // P1-21: Load day boundary setting
+    initDayBoundary().catch(() => {});
 
     return () => subscription.remove();
   }, []);
@@ -158,6 +163,9 @@ export default function RootLayout() {
       <AuthGate>
         <StatusBar style="light" />
         <View style={{ flex: 1, backgroundColor: Colors.primaryBackground }}>
+          {/* P1-22: Offline banner — slides in when connectivity lost */}
+          <OfflineBanner />
+
           {/* Stack ALWAYS renders — no gate blocks Expo Router initialization */}
           <View style={{ flex: 1 }} onTouchEnd={handleTouchEnd}>
             <Stack

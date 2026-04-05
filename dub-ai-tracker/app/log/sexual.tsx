@@ -22,11 +22,8 @@ import {
 import type { SexualEntry } from '../../src/types';
 import { useLastEntry } from '../../src/hooks/useLastEntry';
 import { RepeatLastEntry } from '../../src/components/logging/RepeatLastEntry';
+import { todayDateString } from '../../src/utils/dayBoundary';
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 // MET values from 2024 Compendium, Heading 14
 const INTENSITY_OPTIONS: {

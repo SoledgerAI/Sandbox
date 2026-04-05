@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../utils/storage';
 import type { SobrietyGoal, SobrietyGoalType } from '../../types/profile';
+import { todayDateString } from '../../utils/dayBoundary';
 
 type SubstanceKey = 'alcohol' | 'cannabis' | 'tobacco';
 
@@ -30,10 +31,6 @@ const GOAL_TYPES: { type: SobrietyGoalType; label: string; description: string }
   { type: 'monitor', label: 'Monitor', description: 'Track usage without a target' },
 ];
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 function daysBetween(dateStr: string): number {
   const start = new Date(dateStr);

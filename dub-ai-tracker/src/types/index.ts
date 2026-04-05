@@ -152,6 +152,30 @@ export interface TherapyEntry {
 
 // -- SUPPLEMENTS --
 
+// P1-20: Predefined side effect labels for medications
+export type SideEffectLabel =
+  | 'Nausea'
+  | 'Dizziness'
+  | 'Headache'
+  | 'Fatigue'
+  | 'Insomnia'
+  | 'Appetite change'
+  | 'Mood change'
+  | 'Other';
+
+export const SIDE_EFFECT_OPTIONS: SideEffectLabel[] = [
+  'Nausea', 'Dizziness', 'Headache', 'Fatigue',
+  'Insomnia', 'Appetite change', 'Mood change', 'Other',
+];
+
+export interface SideEffectEntry {
+  labels: SideEffectLabel[];
+  other_text: string | null;
+  timestamp: string;
+  medication_id: string;
+  medication_name: string;
+}
+
 export interface SupplementEntry {
   id: string;
   timestamp: string; // ISO datetime
@@ -161,6 +185,7 @@ export interface SupplementEntry {
   taken: boolean;
   category: 'vitamin' | 'medication' | 'supplement';
   notes: string | null;
+  side_effects: SideEffectEntry | null; // P1-20
 }
 
 // -- SUBSTANCES --

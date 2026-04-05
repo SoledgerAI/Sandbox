@@ -23,6 +23,7 @@ import { DataContextBanner } from '../../src/components/coach/DataContextBanner'
 import { APIKeySetupWizard } from '../../src/components/APIKeySetupWizard';
 import { AnthropicConsentModal, CONSENT_VERSION } from '../../src/components/coach/AnthropicConsentModal';
 import { useCoach } from '../../src/hooks/useCoach';
+import { useNetworkStatus } from '../../src/hooks/useNetworkStatus';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { runPatternEngine } from '../../src/ai/pattern_engine';
@@ -39,6 +40,9 @@ export default function CoachScreen() {
     sendUserMessage,
     refresh,
   } = useCoach();
+
+  const { isConnected, isInternetReachable } = useNetworkStatus();
+  const isOffline = !isConnected || isInternetReachable === false;
 
   const [inputText, setInputText] = useState('');
   const [showDisclaimer, setShowDisclaimer] = useState(true);
@@ -251,6 +255,13 @@ export default function CoachScreen() {
         onConsent={handleAnthropicConsent}
       />
 
+      {isOffline && apiKeyConfigured && (
+        <View style={styles.offlineNotice}>
+          <Ionicons name="cloud-offline-outline" size={16} color={Colors.accentText} />
+          <Text style={styles.offlineNoticeText}>AI Coach requires internet</Text>
+        </View>
+      )}
+
       <DataContextBanner tagsLogged={tagsLogged} hasApiKey={apiKeyConfigured} />
 
       <FlatList
@@ -302,9 +313,9 @@ export default function CoachScreen() {
             blurOnSubmit
           />
           <TouchableOpacity
-            style={[styles.sendButton, (!inputText.trim() || sending) && styles.sendButtonDisabled]}
+            style={[styles.sendButton, (!inputText.trim() || sending || isOffline) && styles.sendButtonDisabled]}
             onPress={handleSend}
-            disabled={!inputText.trim() || sending}
+            disabled={!inputText.trim() || sending || isOffline}
             activeOpacity={0.7}
           >
             <Ionicons
@@ -472,6 +483,22 @@ const styles = StyleSheet.create({
   modalButtonText: {
     color: Colors.primaryBackground,
     fontSize: 16,
+    fontWeight: '600',
+  },
+  // P1-22: Offline notice
+  offlineNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    backgroundColor: Colors.inputBackground,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.divider,
+  },
+  offlineNoticeText: {
+    color: Colors.accentText,
+    fontSize: 14,
     fontWeight: '600',
   },
   // MASTER-57: Coach Lite styles

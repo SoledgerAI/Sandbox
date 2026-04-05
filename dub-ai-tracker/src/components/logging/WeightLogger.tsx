@@ -23,11 +23,8 @@ import type { BodyEntry } from '../../types';
 import type { UserProfile } from '../../types/profile';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { todayDateString } from '../../utils/dayBoundary';
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 interface WeightLoggerProps {
   onEntryLogged?: () => void;

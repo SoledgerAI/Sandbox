@@ -34,6 +34,7 @@ import type {
   MealType,
 } from '../../src/types/food';
 import { scaleNutrition } from '../../src/utils/servingmath';
+import { todayDateString } from '../../src/utils/dayBoundary';
 
 // ============================================================
 // Date Helpers
@@ -41,10 +42,6 @@ import { scaleNutrition } from '../../src/utils/servingmath';
 
 function formatDate(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function todayDateString(): string {
-  return formatDate(new Date());
 }
 
 function displayDate(dateStr: string): string {

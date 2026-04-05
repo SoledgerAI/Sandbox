@@ -24,11 +24,8 @@ import {
 import type { BloodPressureEntry, BPPosition, BPArm, BPTiming } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { todayDateString } from '../../utils/dayBoundary';
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 const TIMING_OPTIONS: { value: BPTiming; label: string }[] = [
   { value: 'morning_before_meds', label: 'Morning (before meds)' },

@@ -29,6 +29,7 @@ import type {
   StrengthSet,
   StrengthLogMode,
 } from '../../types/strength';
+import { todayDateString } from '../../utils/dayBoundary';
 
 // -- Common exercises for quick selection --
 
@@ -43,10 +44,6 @@ const COMMON_EXERCISES = [
 const MODE_PREF_KEY = 'dub.strength.mode_pref';
 const TAG_ID = 'strength.training';
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 function generateId(): string {
   return `str_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;

@@ -20,13 +20,10 @@ import { RepeatLastEntry } from '../../src/components/logging/RepeatLastEntry';
 import { useLastEntry } from '../../src/hooks/useLastEntry';
 import { loadIngredientFlags, detectFlaggedIngredients } from '../../src/utils/ingredients';
 import type { FoodItem, FoodEntry, MealType, IngredientFlag } from '../../src/types/food';
+import { todayDateString } from '../../src/utils/dayBoundary';
 
 type Screen = 'search' | 'configure' | 'manual' | 'quicklog' | 'barcode' | 'nlp' | 'photo';
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 function guessMealType(): MealType {
   const hour = new Date().getHours();

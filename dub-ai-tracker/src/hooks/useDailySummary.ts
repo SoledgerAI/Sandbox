@@ -9,14 +9,7 @@ import { computeConsistency } from '../utils/consistency';
 import type { UserProfile, StreakData, EngagementTier } from '../types/profile';
 import type { DailySummary, FoodEntry, WaterEntry, CaffeineEntry } from '../types';
 import type { WorkoutEntry } from '../types/workout';
-
-function todayDateString(): string {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-}
+import { todayDateString } from '../utils/dayBoundary';
 
 function getGreetingTimeOfDay(): string {
   const hour = new Date().getHours();

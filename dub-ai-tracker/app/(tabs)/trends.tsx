@@ -294,11 +294,16 @@ export default function TrendsScreen() {
     return byEnabled.filter((c) => c.category === categoryFilter);
   }, [enabledCategories, categoryFilter]);
 
-  // Group by category for section headers
+  // P1-05: Filter out charts with 0 data points, then group by category
   const chartItems = useMemo(() => {
+    const chartsWithData = visibleCharts.filter((c) => {
+      const chartData = data[c.dataKey] as ChartDataPoint[] | undefined;
+      return chartData && chartData.length > 0;
+    });
+
     const items: { type: 'header' | 'chart'; category?: string; chart?: ChartConfig }[] = [];
     let lastCat = '';
-    for (const chart of visibleCharts) {
+    for (const chart of chartsWithData) {
       if (chart.category !== lastCat) {
         items.push({ type: 'header', category: chart.category });
         lastCat = chart.category;
@@ -306,7 +311,7 @@ export default function TrendsScreen() {
       items.push({ type: 'chart', chart });
     }
     return items;
-  }, [visibleCharts]);
+  }, [visibleCharts, data]);
 
   const getItemLayout = useCallback(
     (_: unknown, index: number) => ({
@@ -329,7 +334,6 @@ export default function TrendsScreen() {
 
       const config = item.chart!;
       const chartData = data[config.dataKey] as ChartDataPoint[];
-      const hasData = chartData && chartData.length > 0;
 
       return (
         <Pressable
@@ -345,25 +349,17 @@ export default function TrendsScreen() {
         >
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>{config.title}</Text>
-            {hasData && (
-              <Text style={styles.cardValue}>
-                {chartData[chartData.length - 1].value.toFixed(
-                  config.unit === 'cal' || config.unit === 'steps' ? 0 : 1,
-                )}
-                {config.unit ? ` ${config.unit}` : ''}
-              </Text>
-            )}
+            <Text style={styles.cardValue}>
+              {chartData[chartData.length - 1].value.toFixed(
+                config.unit === 'cal' || config.unit === 'steps' ? 0 : 1,
+              )}
+              {config.unit ? ` ${config.unit}` : ''}
+            </Text>
           </View>
 
-          {!hasData ? (
-            <View style={styles.emptyChart}>
-              <Text style={styles.emptyText}>No data yet</Text>
-            </View>
-          ) : (
-            <View style={styles.sparklineContainer}>
-              {renderSparkline(config, data, sparkWidth, SPARKLINE_HEIGHT, goalTargets)}
-            </View>
-          )}
+          <View style={styles.sparklineContainer}>
+            {renderSparkline(config, data, sparkWidth, SPARKLINE_HEIGHT, goalTargets)}
+          </View>
         </Pressable>
       );
     },
@@ -450,6 +446,13 @@ export default function TrendsScreen() {
       {loading && (
         <View style={styles.loadingContainer}>
           <ActivityIndicator color={Colors.accent} size="small" />
+        </View>
+      )}
+
+      {/* P1-05: All empty state */}
+      {!loading && chartItems.length === 0 && (
+        <View style={styles.allEmptyContainer}>
+          <Text style={styles.allEmptyText}>Start logging to see your trends</Text>
         </View>
       )}
 
@@ -674,13 +677,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyChart: {
+  allEmptyContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 80,
   },
-  emptyText: {
+  allEmptyText: {
     color: Colors.secondaryText,
-    fontSize: 12,
+    fontSize: 16,
+    textAlign: 'center',
   },
 });

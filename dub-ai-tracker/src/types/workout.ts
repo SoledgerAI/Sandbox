@@ -36,6 +36,7 @@ export interface WorkoutEntry {
   distance_unit: 'miles' | 'km' | 'meters' | 'yards' | null;
   environmental: EnvironmentalFields;
   biometric: BiometricFields;
+  rpe: number | null; // P1-19: Rate of Perceived Exertion, 1-10
   notes: string | null;
   source: 'manual' | 'strava' | 'apple_health' | 'google_health_connect';
 }

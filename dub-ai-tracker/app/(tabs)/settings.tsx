@@ -17,7 +17,10 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
-import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
+import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
+import { DAY_BOUNDARY_OPTIONS, setDayBoundaryHour } from '../../src/utils/dayBoundary';
+import type { DayBoundaryHour } from '../../src/utils/dayBoundary';
+import type { AppSettings } from '../../src/types/profile';
 import { isApiKeySet as checkHasApiKey } from '../../src/services/apiKeyService';
 import {
   isLockEnabled,
@@ -76,6 +79,8 @@ export default function SettingsScreen() {
   const [showSexPicker, setShowSexPicker] = useState(false);
   const [showAgePicker, setShowAgePicker] = useState(false);
   const [showZipInput, setShowZipInput] = useState(false);
+  const [dayBoundary, setDayBoundary] = useState<DayBoundaryHour>(0);
+  const [showDayBoundary, setShowDayBoundary] = useState(false);
 
   const loadData = useCallback(async () => {
     setLoading(true);
@@ -92,6 +97,14 @@ export default function SettingsScreen() {
         getUserAgeRange(),
         getUserZip(),
       ]);
+    // P1-21: Load day boundary from settings
+    const appSettings = await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS);
+    const dbh = appSettings?.day_boundary_hour;
+    if (dbh === 3 || dbh === 4 || dbh === 5 || dbh === 6) {
+      setDayBoundary(dbh);
+    } else {
+      setDayBoundary(0);
+    }
     setProfileName(profile?.name || 'Not set');
     setTier(tierVal ? tierVal.charAt(0).toUpperCase() + tierVal.slice(1) : 'Balanced');
     setHasKey(keyExists);
@@ -212,6 +225,14 @@ export default function SettingsScreen() {
       setUserZipState(zip);
     }
     setShowZipInput(false);
+  }, []);
+
+  const handleDayBoundaryChange = useCallback(async (hour: DayBoundaryHour) => {
+    const settings = (await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS)) || {} as AppSettings;
+    await storageSet(STORAGE_KEYS.SETTINGS, { ...settings, day_boundary_hour: hour });
+    setDayBoundaryHour(hour);
+    setDayBoundary(hour);
+    setShowDayBoundary(false);
   }, []);
 
   const handleResetOnboarding = useCallback(() => {
@@ -564,6 +585,42 @@ export default function SettingsScreen() {
               {showZipInput && (
                 <View style={styles.pickerGroup}>
                   <ZipInputRow currentZip={userZip} onSave={handleZipSave} />
+                </View>
+              )}
+
+              {/* P1-21: Day Boundary */}
+              <TouchableOpacity
+                style={styles.settingRow}
+                onPress={() => setShowDayBoundary(!showDayBoundary)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="time-outline" size={22} color={Colors.accent} />
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Day Starts At</Text>
+                  <Text style={styles.settingSubtitle}>
+                    {DAY_BOUNDARY_OPTIONS.find((o) => o.value === dayBoundary)?.label ?? 'Midnight'}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+              </TouchableOpacity>
+
+              {showDayBoundary && (
+                <View style={styles.pickerGroup}>
+                  {DAY_BOUNDARY_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[styles.pickerOption, dayBoundary === opt.value && styles.pickerOptionSelected]}
+                      onPress={() => handleDayBoundaryChange(opt.value)}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.pickerOptionText, dayBoundary === opt.value && styles.pickerOptionTextSelected]}>
+                        {opt.label}
+                      </Text>
+                      {dayBoundary === opt.value && (
+                        <Ionicons name="checkmark" size={18} color={Colors.accent} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
                 </View>
               )}
 

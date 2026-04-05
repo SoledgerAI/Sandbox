@@ -24,6 +24,7 @@ import {
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import type { CaffeineEntry } from '../../types';
+import { todayDateString } from '../../utils/dayBoundary';
 
 const CAFFEINE_PRESETS = [
   { label: 'Coffee', source: 'coffee', mg: 95, icon: 'cafe-outline' as const },
@@ -36,10 +37,6 @@ const CAFFEINE_PRESETS = [
 // FDA general guidance threshold
 const CAFFEINE_AWARENESS_MG = 400;
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 interface CaffeineLoggerProps {
   onEntryLogged?: () => void;

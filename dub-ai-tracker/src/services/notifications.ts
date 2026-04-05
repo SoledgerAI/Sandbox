@@ -11,6 +11,7 @@ import type { AppSettings } from '../types/profile';
 import type { SleepEntry } from '../types';
 import { checkDueReports, generateDailySummary, generateWeeklySummary, generateMonthlySummary } from './reporting';
 import { checkCelebrations } from '../components/common/Celebration';
+import { getEODBoundaryHour } from '../utils/dayBoundary';
 
 // ============================================================
 // Notification Channel Setup
@@ -93,7 +94,8 @@ export async function getObservedBedtime(): Promise<number> {
 }
 
 /**
- * Get the EOD trigger time: 1 hour before observed bedtime.
+ * Get the EOD trigger time: 1 hour before observed bedtime,
+ * but respecting the P1-21 day boundary (boundary - 3hrs) as a minimum.
  * Clamped between 6 PM (18:00) and 11 PM (23:00).
  */
 export async function getEODTriggerHour(): Promise<{ hour: number; minute: number }> {
@@ -102,6 +104,10 @@ export async function getEODTriggerHour(): Promise<{ hour: number; minute: numbe
 
   // Normalize if needed
   if (triggerHour >= 24) triggerHour -= 24;
+
+  // P1-21: Use day boundary override if it produces an earlier EOD
+  const boundaryEOD = getEODBoundaryHour();
+  triggerHour = Math.min(triggerHour, boundaryEOD);
 
   // Clamp to [18, 23]
   triggerHour = Math.max(18, Math.min(23, triggerHour));

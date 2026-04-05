@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { storageGet, storageSet, STORAGE_KEYS } from '../utils/storage';
+import { todayDateString } from '../utils/dayBoundary';
 
 export interface DeferredItem {
   shown_count: number;
@@ -30,10 +31,6 @@ const DEFERRED_ITEMS: { key: DeferredSetupKey; day: number; title: string; descr
 
 const MAX_DISMISSALS = 3;
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 function daysSince(dateStr: string): number {
   const then = new Date(dateStr + 'T00:00:00');

@@ -30,6 +30,7 @@ import type {
 import type { SobrietyGoal } from '../../types/profile';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { todayDateString } from '../../utils/dayBoundary';
 
 type SubstanceTab = 'alcohol' | 'cannabis' | 'tobacco';
 
@@ -48,10 +49,6 @@ const CANNABIS_METHODS: { label: string; method: CannabisMethod }[] = [
   { label: 'Beverage', method: 'beverage' },
 ];
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 interface SubstanceLoggerProps {
   initialTab?: SubstanceTab;

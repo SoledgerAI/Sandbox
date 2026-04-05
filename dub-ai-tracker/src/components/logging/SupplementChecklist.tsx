@@ -22,11 +22,13 @@ import {
   STORAGE_KEYS,
   dateKey,
 } from '../../utils/storage';
-import type { SupplementEntry } from '../../types';
+import type { SupplementEntry, SideEffectLabel, SideEffectEntry } from '../../types';
+import { SIDE_EFFECT_OPTIONS } from '../../types';
 import { DateTimePicker } from '../common/DateTimePicker';
 import { DosageWarningBanner, checkDosageWarning } from './DosageValidator';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { useLastEntry } from '../../hooks/useLastEntry';
+import { todayDateString } from '../../utils/dayBoundary';
 
 // MASTER-52: Supplement stack preset type
 interface SupplementStack {
@@ -36,10 +38,6 @@ interface SupplementStack {
   category: SupplementCategory;
 }
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 type SupplementCategory = 'vitamin' | 'medication' | 'supplement';
 
@@ -70,6 +68,9 @@ export function SupplementChecklist() {
   const [dosage, setDosage] = useState('');
   const [unit, setUnit] = useState('mg');
   const [editingTimeId, setEditingTimeId] = useState<string | null>(null);
+  const [editingSideEffectsId, setEditingSideEffectsId] = useState<string | null>(null);
+  const [sideEffectSelections, setSideEffectSelections] = useState<SideEffectLabel[]>([]);
+  const [sideEffectOther, setSideEffectOther] = useState('');
   const [stacks, setStacks] = useState<SupplementStack[]>([]);
   const [morningStack, setMorningStack] = useState<SupplementEntry[] | null>(null);
 
@@ -152,6 +153,7 @@ export function SupplementChecklist() {
           taken: true,
           category: cat,
           notes: null,
+          side_effects: null,
         };
         await saveEntries([...entries, entry]);
       } else {
@@ -165,6 +167,7 @@ export function SupplementChecklist() {
           taken: true,
           category: cat,
           notes: null,
+          side_effects: null,
         };
         await saveEntries([...entries, entry]);
       }
@@ -220,6 +223,7 @@ export function SupplementChecklist() {
       taken: true,
       category,
       notes: null,
+      side_effects: null,
     };
 
     const dailyTotal = entries
@@ -315,6 +319,7 @@ export function SupplementChecklist() {
           taken: true,
           category: stack.category,
           notes: null,
+          side_effects: null,
         });
       }
 
@@ -367,6 +372,7 @@ export function SupplementChecklist() {
         taken: true,
         category: prev.category,
         notes: null,
+        side_effects: null,
       });
     }
 
@@ -398,6 +404,7 @@ export function SupplementChecklist() {
         taken: true,
         category: prev.category,
         notes: null,
+        side_effects: null,
       });
     }
 
@@ -407,6 +414,50 @@ export function SupplementChecklist() {
     }
     await saveEntries([...entries, ...newEntries]);
   }, [morningStack, entries, saveEntries]);
+
+  // P1-20: Side effects handlers
+  const openSideEffectsEditor = useCallback((entryId: string) => {
+    const entry = entries.find((e) => e.id === entryId);
+    if (entry?.side_effects) {
+      setSideEffectSelections(entry.side_effects.labels);
+      setSideEffectOther(entry.side_effects.other_text ?? '');
+    } else {
+      setSideEffectSelections([]);
+      setSideEffectOther('');
+    }
+    setEditingSideEffectsId(entryId);
+  }, [entries]);
+
+  const toggleSideEffect = useCallback((label: SideEffectLabel) => {
+    setSideEffectSelections((prev) =>
+      prev.includes(label) ? prev.filter((l) => l !== label) : [...prev, label],
+    );
+  }, []);
+
+  const saveSideEffects = useCallback(async () => {
+    if (!editingSideEffectsId) return;
+    const entry = entries.find((e) => e.id === editingSideEffectsId);
+    if (!entry) return;
+
+    const sideEffect: SideEffectEntry | null =
+      sideEffectSelections.length > 0
+        ? {
+            labels: sideEffectSelections,
+            other_text: sideEffectSelections.includes('Other') ? sideEffectOther.trim() || null : null,
+            timestamp: new Date().toISOString(),
+            medication_id: entry.id,
+            medication_name: entry.name,
+          }
+        : null;
+
+    const updated = entries.map((e) =>
+      e.id === editingSideEffectsId ? { ...e, side_effects: sideEffect } : e,
+    );
+    await saveEntries(updated);
+    setEditingSideEffectsId(null);
+    setSideEffectSelections([]);
+    setSideEffectOther('');
+  }, [editingSideEffectsId, sideEffectSelections, sideEffectOther, entries, saveEntries]);
 
   const takenCount = entries.filter((e) => e.taken).length;
   const categoryEntries = entries.filter((e) => e.category === category && e.taken);
@@ -641,28 +692,101 @@ export function SupplementChecklist() {
             .slice()
             .reverse()
             .map((entry) => (
-              <View key={entry.id} style={styles.entryRow}>
-                <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
-                <View style={styles.entryInfo}>
-                  <Text style={styles.entryName}>{entry.name}</Text>
-                  {entry.dosage > 0 && (
-                    <Text style={styles.entryDosage}>
-                      {entry.dosage} {entry.unit}
+              <View key={entry.id}>
+                <View style={styles.entryRow}>
+                  <Ionicons name="checkmark-circle" size={20} color={Colors.success} />
+                  <View style={styles.entryInfo}>
+                    <Text style={styles.entryName}>{entry.name}</Text>
+                    {entry.dosage > 0 && (
+                      <Text style={styles.entryDosage}>
+                        {entry.dosage} {entry.unit}
+                      </Text>
+                    )}
+                    <Text style={[styles.entryTime, entry.notes === 'time_overridden' && styles.entryTimeOverridden]}>
+                      {new Date(entry.timestamp).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
                     </Text>
+                    {entry.side_effects && entry.side_effects.labels.length > 0 && (
+                      <Text style={styles.sideEffectSummary}>
+                        Side effects: {entry.side_effects.labels.join(', ')}
+                        {entry.side_effects.other_text ? ` (${entry.side_effects.other_text})` : ''}
+                      </Text>
+                    )}
+                  </View>
+                  {entry.category === 'medication' && (
+                    <TouchableOpacity
+                      onPress={() => openSideEffectsEditor(entry.id)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      style={{ marginRight: 4 }}
+                    >
+                      <Ionicons
+                        name={entry.side_effects ? 'warning' : 'warning-outline'}
+                        size={18}
+                        color={entry.side_effects ? Colors.accent : Colors.secondaryText}
+                      />
+                    </TouchableOpacity>
                   )}
-                  <Text style={[styles.entryTime, entry.notes === 'time_overridden' && styles.entryTimeOverridden]}>
-                    {new Date(entry.timestamp).toLocaleTimeString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </Text>
+                  <TouchableOpacity
+                    onPress={() => deleteEntry(entry.id)}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  onPress={() => deleteEntry(entry.id)}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <Ionicons name="trash-outline" size={18} color={Colors.danger} />
-                </TouchableOpacity>
+
+                {/* P1-20: Side effects editor for this medication */}
+                {editingSideEffectsId === entry.id && (
+                  <View style={styles.sideEffectsCard}>
+                    <Text style={styles.sideEffectsTitle}>Side Effects</Text>
+                    <View style={styles.sideEffectsGrid}>
+                      {SIDE_EFFECT_OPTIONS.map((label) => (
+                        <TouchableOpacity
+                          key={label}
+                          style={[
+                            styles.sideEffectChip,
+                            sideEffectSelections.includes(label) && styles.sideEffectChipActive,
+                          ]}
+                          onPress={() => toggleSideEffect(label)}
+                          activeOpacity={0.7}
+                        >
+                          <Text
+                            style={[
+                              styles.sideEffectChipText,
+                              sideEffectSelections.includes(label) && styles.sideEffectChipTextActive,
+                            ]}
+                          >
+                            {label}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                    {sideEffectSelections.includes('Other') && (
+                      <TextInput
+                        style={styles.sideEffectOtherInput}
+                        value={sideEffectOther}
+                        onChangeText={setSideEffectOther}
+                        placeholder="Describe other side effect..."
+                        placeholderTextColor={Colors.secondaryText}
+                      />
+                    )}
+                    <View style={styles.sideEffectsActions}>
+                      <TouchableOpacity
+                        onPress={() => setEditingSideEffectsId(null)}
+                        style={styles.sideEffectsCancelBtn}
+                      >
+                        <Text style={styles.sideEffectsCancelText}>Cancel</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        onPress={saveSideEffects}
+                        style={styles.sideEffectsSaveBtn}
+                      >
+                        <Text style={styles.sideEffectsSaveText}>Save</Text>
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                )}
               </View>
             ))}
         </>
@@ -845,5 +969,87 @@ const styles = StyleSheet.create({
     color: Colors.accentText,
     fontSize: 13,
     fontWeight: '500',
+  },
+  // P1-20: Side effects styles
+  sideEffectSummary: {
+    color: Colors.accentText,
+    fontSize: 11,
+    marginTop: 2,
+    fontStyle: 'italic',
+  },
+  sideEffectsCard: {
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 6,
+    marginTop: -2,
+  },
+  sideEffectsTitle: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  sideEffectsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
+  },
+  sideEffectChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 16,
+    backgroundColor: Colors.cardBackground,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  sideEffectChipActive: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  sideEffectChipText: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  sideEffectChipTextActive: {
+    color: Colors.primaryBackground,
+  },
+  sideEffectOtherInput: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    color: Colors.text,
+    fontSize: 13,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    marginBottom: 10,
+  },
+  sideEffectsActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  sideEffectsCancelBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+  },
+  sideEffectsCancelText: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  sideEffectsSaveBtn: {
+    backgroundColor: Colors.accent,
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+  },
+  sideEffectsSaveText: {
+    color: Colors.primaryBackground,
+    fontSize: 13,
+    fontWeight: '700',
   },
 });

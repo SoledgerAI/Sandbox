@@ -27,14 +27,11 @@ import type { Activity } from '../../data/activities';
 import type { WorkoutEntry, IntensityLevel } from '../../types/workout';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { todayDateString } from '../../utils/dayBoundary';
 
 const RECENT_ACTIVITIES_KEY = 'dub.recent_activities';
 const MAX_RECENT = 5;
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 const INTENSITY_OPTIONS: { value: IntensityLevel; label: string }[] = [
   { value: 'light', label: 'Light' },
@@ -55,6 +52,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
   const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null);
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [intensity, setIntensity] = useState<IntensityLevel>('moderate');
+  const [rpe, setRpe] = useState<number | null>(null);
   const [notes, setNotes] = useState('');
   const [weightLbs, setWeightLbs] = useState<number>(170);
 
@@ -66,6 +64,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
     if (found) setSelectedActivity(found);
     setDurationMinutes(lastEntry.duration_minutes);
     setIntensity(lastEntry.intensity);
+    setRpe(lastEntry.rpe ?? null);
   }, [lastEntry]);
 
   const loadData = useCallback(async () => {
@@ -159,6 +158,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
         max_heart_rate_bpm: null,
         heart_rate_zones: null,
       },
+      rpe,
       notes: notes.trim() || null,
       source: 'manual',
     };
@@ -179,6 +179,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
     setSelectedActivity(null);
     setDurationMinutes(30);
     setIntensity('moderate');
+    setRpe(null);
     setNotes('');
     onEntryLogged?.();
   }, [selectedActivity, durationMinutes, intensity, notes, calorieEstimate, entries, onEntryLogged, updateRecentActivities, saveAsLast]);
@@ -305,6 +306,12 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
             <Text style={styles.entryDetail}>{Math.round(entry.calories_burned)} kcal</Text>
             <Text style={styles.entryDot}>{'\u00B7'}</Text>
             <Text style={styles.entryDetail}>{entry.intensity}</Text>
+            {entry.rpe != null && (
+              <>
+                <Text style={styles.entryDot}>{'\u00B7'}</Text>
+                <Text style={styles.entryDetail}>RPE {entry.rpe}</Text>
+              </>
+            )}
           </View>
         </View>
       ))}
@@ -366,6 +373,23 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
               ]}
             >
               {opt.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* P1-19: RPE selector (optional) */}
+      <Text style={styles.fieldLabel}>RPE (optional)</Text>
+      <View style={styles.rpeRow}>
+        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((val) => (
+          <TouchableOpacity
+            key={val}
+            style={[styles.rpeBtn, rpe === val && styles.rpeBtnActive]}
+            onPress={() => setRpe(rpe === val ? null : val)}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.rpeText, rpe === val && styles.rpeTextActive]}>
+              {val}
             </Text>
           </TouchableOpacity>
         ))}
@@ -535,6 +559,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   intensityTextActive: {
+    color: Colors.primaryBackground,
+  },
+  rpeRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 12,
+    justifyContent: 'space-between',
+  },
+  rpeBtn: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.inputBackground,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  rpeBtnActive: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  rpeText: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  rpeTextActive: {
     color: Colors.primaryBackground,
   },
   calorieCard: {

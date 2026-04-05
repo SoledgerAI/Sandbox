@@ -24,6 +24,7 @@ import {
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import type { WaterEntry, BeverageType } from '../../types';
+import { todayDateString } from '../../utils/dayBoundary';
 
 const QUICK_ADD_OPTIONS = [
   { label: '8 oz', amount: 8 },
@@ -42,10 +43,6 @@ const BEVERAGE_OPTIONS: { value: BeverageType; label: string }[] = [
 
 const DEFAULT_WATER_GOAL_OZ = 64;
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 interface WaterLoggerProps {
   onEntryLogged?: () => void;

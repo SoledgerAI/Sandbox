@@ -55,6 +55,7 @@ async function setWorkoutEntry(date: string, durationMinutes: number) {
         distance_unit: null,
         environmental: { elevation_gain_ft: null, elevation_loss_ft: null, altitude_ft: null, temperature_f: null },
         biometric: { avg_heart_rate_bpm: null, max_heart_rate_bpm: null, heart_rate_zones: null },
+        rpe: null,
         notes: null,
         source: 'manual',
       },

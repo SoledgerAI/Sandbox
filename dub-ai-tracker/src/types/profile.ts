@@ -62,6 +62,7 @@ export interface AppSettings {
   privacy_screen_enabled: boolean;
   consent_date: string | null;
   consent_version: string | null;
+  day_boundary_hour: number | null; // P1-21: 0 (midnight), 3, 4, 5, or 6
 }
 
 export interface StreakData {

@@ -19,11 +19,8 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { BodyEntry } from '../../types';
+import { todayDateString } from '../../utils/dayBoundary';
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 interface BodyFatLoggerProps {
   onEntryLogged?: () => void;

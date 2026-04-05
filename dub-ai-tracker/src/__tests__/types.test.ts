@@ -134,6 +134,7 @@ describe('Type System -- Core Interfaces', () => {
         max_heart_rate_bpm: null,
         heart_rate_zones: null,
       },
+      rpe: null,
       notes: null,
       source: 'manual',
     };
@@ -229,6 +230,7 @@ describe('Type System -- Core Interfaces', () => {
       taken: true,
       category: 'vitamin',
       notes: null,
+      side_effects: null,
     };
     expect(entry.name).toBe('Vitamin D3');
   });

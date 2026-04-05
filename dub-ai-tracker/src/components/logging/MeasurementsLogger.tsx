@@ -25,11 +25,8 @@ import {
 import { CM_PER_INCH } from '../../constants/formulas';
 import type { BodyEntry, BodyMeasurements } from '../../types';
 import type { UserProfile } from '../../types/profile';
+import { todayDateString } from '../../utils/dayBoundary';
 
-function todayDateString(): string {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-}
 
 type MeasurementField = keyof BodyMeasurements;
 
