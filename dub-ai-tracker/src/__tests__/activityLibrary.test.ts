@@ -11,8 +11,8 @@ import type { Activity, ActivityCategory as _ActivityCategory } from '../data/ac
 import { calculateCalorieBurnImperial, searchMetActivities } from '../utils/calories';
 
 describe('Activity Library', () => {
-  it('has exactly 26 activities (prompt spec lists 26 across 8 categories)', () => {
-    expect(ACTIVITIES).toHaveLength(26);
+  it('has exactly 30 activities (26 base + 1 rucking + 3 adaptive/wheelchair)', () => {
+    expect(ACTIVITIES).toHaveLength(30);
   });
 
   it('each activity has required fields (id, name, category, met)', () => {

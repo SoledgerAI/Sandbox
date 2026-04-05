@@ -79,6 +79,10 @@ const PANEL_CATEGORIES: PanelCategory[] = [
       { name: 'HDL', unit: 'mg/dL', defaultLow: 40, defaultHigh: null },
       { name: 'Triglycerides', unit: 'mg/dL', defaultLow: null, defaultHigh: 150 },
       { name: 'VLDL', unit: 'mg/dL', defaultLow: 2, defaultHigh: 30 },
+      // ApoB — AHA/EAS: <90 mg/dL general population, <65 for high CV risk
+      { name: 'ApoB', unit: 'mg/dL', defaultLow: null, defaultHigh: 90 },
+      // Lp(a) — EAS: >75 nmol/L elevated; genetically determined
+      { name: 'Lp(a)', unit: 'nmol/L', defaultLow: null, defaultHigh: 75 },
     ],
   },
   {

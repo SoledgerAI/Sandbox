@@ -3,10 +3,15 @@
 
 import { storageGet, storageSet } from './storage';
 import { STORAGE_KEYS } from './storage';
+import { textSearchWaterfall } from './foodwaterfall';
+import { offBarcodeLookup } from '../services/openfoodfacts';
+import { sendMessage } from '../services/anthropic';
+import type { AnthropicMessage } from '../services/anthropic';
+import type { EngagementTier } from '../types/profile';
 
 export interface QueueItem {
   id: string;
-  type: 'food_search' | 'coach_message' | 'weather';
+  type: 'food_search' | 'coach_message' | 'barcode_lookup' | 'weather';
   payload: unknown;
   timestamp: string; // ISO 8601
   retryCount: number;
@@ -54,19 +59,69 @@ async function isOnline(): Promise<boolean> {
 
 /**
  * Process a single queue item by type.
- * Extend the switch cases as API handlers are wired up.
+ * Returns true on success (remove from queue), false on failure (retry).
  */
-async function processItem(item: QueueItem): Promise<void> {
+async function processItem(item: QueueItem): Promise<boolean> {
   switch (item.type) {
-    case 'food_search':
-      // Re-attempt food API lookup — will be wired to food search service
-      break;
-    case 'coach_message':
-      // Re-attempt Coach API call — will be wired to anthropic service
-      break;
+    case 'food_search': {
+      const { query } = item.payload as { query: string };
+      try {
+        const result = await textSearchWaterfall(query);
+        await storageSet(
+          `${STORAGE_KEYS.FOOD_SEARCH_CACHE}_${query}`,
+          JSON.stringify(result),
+        );
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    case 'coach_message': {
+      const { message, context, tier } = item.payload as {
+        message: string;
+        context: { systemPrompt: string; messages: AnthropicMessage[] };
+        tier: EngagementTier;
+      };
+      try {
+        const response = await sendMessage({
+          systemPrompt: context.systemPrompt,
+          messages: [...context.messages, { role: 'user', content: message }],
+          tier,
+        });
+        // Append assistant response to coach history
+        const history = (await storageGet<Array<{ role: string; content: string }>>(
+          STORAGE_KEYS.COACH_HISTORY,
+        )) ?? [];
+        history.push({ role: 'user', content: message });
+        history.push({ role: 'assistant', content: response });
+        await storageSet(STORAGE_KEYS.COACH_HISTORY, history);
+        return true;
+      } catch {
+        return false;
+      }
+    }
+    case 'barcode_lookup': {
+      const { barcode } = item.payload as { barcode: string };
+      try {
+        const result = await offBarcodeLookup(barcode);
+        if (result) {
+          await storageSet(
+            `${STORAGE_KEYS.BARCODE_CACHE}_${barcode}`,
+            JSON.stringify({ data: result, _cachedAt: Date.now() }),
+          );
+        }
+        return true;
+      } catch {
+        return false;
+      }
+    }
     case 'weather':
-      // Re-attempt weather API call
-      break;
+      // Weather retries are low-priority; remove stale weather requests
+      return true;
+    default: {
+      console.warn(`[Offline] Unknown queue item type: ${(item as QueueItem).type}`);
+      return true;
+    }
   }
 }
 
@@ -84,8 +139,8 @@ export async function processQueue(): Promise<void> {
 
   // FIFO: process from the front
   const item = queue[0];
-  try {
-    await processItem(item);
+  const success = await processItem(item);
+  if (success) {
     queue.shift();
     await storageSet(STORAGE_KEYS.OFFLINE_QUEUE, queue);
 
@@ -93,7 +148,7 @@ export async function processQueue(): Promise<void> {
     if (queue.length > 0) {
       await processQueue();
     }
-  } catch {
+  } else {
     item.retryCount++;
     if (item.retryCount >= MAX_RETRIES) {
       queue.shift();

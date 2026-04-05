@@ -17,6 +17,8 @@ export interface Activity {
   name: string;
   category: ActivityCategory;
   met: number;
+  hasLoadFactor?: boolean;    // activity uses pack weight MET adjustment (e.g. rucking)
+  supportsRepCount?: boolean; // enables push/rep count logging (e.g. wheelchair)
 }
 
 export const ACTIVITY_CATEGORIES: { key: ActivityCategory; label: string }[] = [
@@ -49,6 +51,8 @@ export const ACTIVITIES: Activity[] = [
   // WALK
   { id: 'walk', name: 'Walk', category: 'WALK', met: 3.5 },
   { id: 'hike', name: 'Hike', category: 'WALK', met: 6.0 },
+  // Rucking — Pandolf et al., 1977 load carriage model; base MET adjusted by pack weight
+  { id: 'ruck', name: 'Rucking', category: 'WALK', met: 4.5, hasLoadFactor: true },
 
   // STRENGTH
   { id: 'weight_training', name: 'Weight training', category: 'STRENGTH', met: 5.0 },
@@ -68,6 +72,11 @@ export const ACTIVITIES: Activity[] = [
   { id: 'pickleball', name: 'Pickleball', category: 'SPORT', met: 5.5 },
   { id: 'basketball', name: 'Basketball', category: 'SPORT', met: 6.5 },
   { id: 'soccer', name: 'Soccer', category: 'SPORT', met: 7.0 },
+
+  // ADAPTIVE — Collins et al., Adapted Physical Activity Quarterly, 2010
+  { id: 'wheelchair_push', name: 'Wheelchair Pushing', category: 'CARDIO', met: 3.5, supportsRepCount: true },
+  { id: 'handcycle', name: 'Hand Cycling', category: 'RIDE', met: 5.0 },
+  { id: 'wheelchair_basketball', name: 'Wheelchair Basketball', category: 'SPORT', met: 6.5 },
 
   // OTHER
   { id: 'stretching', name: 'Stretching / mobility', category: 'OTHER', met: 2.5 },

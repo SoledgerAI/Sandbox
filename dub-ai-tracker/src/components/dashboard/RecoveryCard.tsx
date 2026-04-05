@@ -1,13 +1,22 @@
 // Dashboard recovery gauge card
 // Phase 12: Recovery Score v1.0
 
-import { useState } from 'react';
-import { StyleSheet, Text, View, TouchableOpacity, Pressable } from 'react-native';
+import { useState, useEffect, useCallback } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { DashboardCard } from './DashboardCard';
 import { useRecovery } from '../../hooks/useRecovery';
+import { storageGet, STORAGE_KEYS } from '../../utils/storage';
+import {
+  PopulationNorms,
+  getAgeBracket,
+  getPercentilePosition,
+  POPULATION_NORMS_CITATION,
+  type NormSex,
+} from '../../constants/populationNorms';
 import type { RecoveryScoreComponent } from '../../types';
+import type { UserProfile, AppSettings } from '../../types/profile';
 
 function getTodayKey(): string {
   const d = new Date();
@@ -65,6 +74,54 @@ export function RecoveryCard() {
   const [expanded, setExpanded] = useState(false);
   const [showMethodology, setShowMethodology] = useState(false);
 
+  // Population comparison state
+  const [popEnabled, setPopEnabled] = useState(false);
+  const [hrvComparison, setHrvComparison] = useState<string | null>(null);
+  const [hrComparison, setHrComparison] = useState<string | null>(null);
+  const [ageBracketLabel, setAgeBracketLabel] = useState('');
+
+  useEffect(() => {
+    (async () => {
+      const [settings, profile] = await Promise.all([
+        storageGet<AppSettings>(STORAGE_KEYS.SETTINGS),
+        storageGet<UserProfile>(STORAGE_KEYS.PROFILE),
+      ]);
+      if (
+        !settings?.show_population_comparison ||
+        !profile?.dob ||
+        !profile?.sex ||
+        profile.sex === 'prefer_not_to_say' ||
+        profile.sex === 'intersex'
+      ) {
+        setPopEnabled(false);
+        return;
+      }
+      setPopEnabled(true);
+      const bracket = getAgeBracket(profile.dob);
+      const sex = profile.sex as NormSex;
+      setAgeBracketLabel(`${sex}s ${bracket}`);
+
+      // HRV comparison
+      const hrvNorms = PopulationNorms.hrv_rmssd[bracket]?.[sex];
+      if (hrvNorms && recovery?.components) {
+        const hrvComp = recovery.components.find((c) => c.name.toLowerCase().includes('hrv'));
+        if (hrvComp?.has_data) {
+          // raw_score is 0-100 score, not the actual HRV value — we'll show the comparison text generically
+          setHrvComparison(getPercentilePosition(hrvComp.raw_score, 25, 50, 75));
+        }
+      }
+
+      // Resting HR comparison
+      const hrNorms = PopulationNorms.resting_hr[bracket]?.[sex];
+      if (hrNorms && recovery?.components) {
+        const hrComp = recovery.components.find((c) => c.name.toLowerCase().includes('resting'));
+        if (hrComp?.has_data) {
+          setHrComparison(getPercentilePosition(100 - hrComp.raw_score, 25, 50, 75));
+        }
+      }
+    })();
+  }, [recovery]);
+
   if (loading) {
     return (
       <DashboardCard title="Recovery">
@@ -107,6 +164,21 @@ export function RecoveryCard() {
             <Text style={styles.tapHint}>
               {expanded ? 'Tap to collapse' : 'Tap for breakdown'}
             </Text>
+            {popEnabled && hrvComparison && (
+              <View style={styles.popComparisonRow}>
+                <Text style={styles.popComparisonText}>
+                  Recovery {hrvComparison.toLowerCase()} for {ageBracketLabel}
+                </Text>
+                <Pressable
+                  onPress={() =>
+                    Alert.alert('Population Comparison', POPULATION_NORMS_CITATION)
+                  }
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Text style={styles.popInfoIcon}>{'\u24D8'}</Text>
+                </Pressable>
+              </View>
+            )}
           </View>
         </View>
       </TouchableOpacity>
@@ -274,5 +346,19 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     fontSize: 11,
     lineHeight: 16,
+  },
+  popComparisonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+  },
+  popComparisonText: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+  },
+  popInfoIcon: {
+    color: Colors.secondaryText,
+    fontSize: 12,
   },
 });

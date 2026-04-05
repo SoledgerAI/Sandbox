@@ -2,12 +2,20 @@
 // MASTER-53: Replace empty shells with actual data
 // MASTER-56: Each card loads its own data lazily
 
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { useState, useEffect } from 'react';
+import { StyleSheet, Text, View, TouchableOpacity, Pressable, Alert } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { DashboardCard } from './DashboardCard';
 import { SparkLine } from '../charts/SparkLine';
 import { useTagCardData } from '../../hooks/useTagCardData';
+import { storageGet, STORAGE_KEYS } from '../../utils/storage';
+import {
+  PopulationNorms,
+  getSleepAgeBracket,
+  POPULATION_NORMS_CITATION,
+} from '../../constants/populationNorms';
+import type { UserProfile, AppSettings } from '../../types/profile';
 import type { TagDefault } from '../../constants/tags';
 
 // Map tag IDs to their logging route
@@ -39,6 +47,40 @@ interface TagCardWithDataProps {
 export function TagCardWithData({ tagId, tagDef }: TagCardWithDataProps) {
   const { loading, todaySummary, sparkData, hasDataToday } = useTagCardData(tagId);
   const logRoute = TAG_LOG_ROUTES[tagId];
+  const [sleepComparison, setSleepComparison] = useState<string | null>(null);
+
+  // Load sleep population comparison when applicable
+  useEffect(() => {
+    if (tagId !== 'sleep.tracking' || !todaySummary) return;
+    (async () => {
+      const [settings, profile] = await Promise.all([
+        storageGet<AppSettings>(STORAGE_KEYS.SETTINGS),
+        storageGet<UserProfile>(STORAGE_KEYS.PROFILE),
+      ]);
+      if (
+        !settings?.show_population_comparison ||
+        !profile?.dob ||
+        !profile?.sex ||
+        profile.sex === 'prefer_not_to_say' ||
+        profile.sex === 'intersex'
+      ) {
+        setSleepComparison(null);
+        return;
+      }
+      const hours = parseFloat(todaySummary);
+      if (isNaN(hours)) return;
+
+      const bracket = getSleepAgeBracket(profile.dob);
+      const norms = PopulationNorms.sleep_duration[bracket];
+      if (hours >= norms.recommended.min && hours <= norms.recommended.max) {
+        setSleepComparison('Within recommended range for your age');
+      } else if (hours < norms.recommended.min) {
+        setSleepComparison(`Below recommended for your age (${norms.recommended.min}-${norms.recommended.max} hrs)`);
+      } else {
+        setSleepComparison(`Above recommended for your age (${norms.recommended.min}-${norms.recommended.max} hrs)`);
+      }
+    })();
+  }, [tagId, todaySummary]);
 
   const handlePress = () => {
     if (logRoute) {
@@ -54,7 +96,20 @@ export function TagCardWithData({ tagId, tagDef }: TagCardWithDataProps) {
             {loading ? (
               <Text style={styles.loadingText}>Loading...</Text>
             ) : hasDataToday && todaySummary ? (
-              <Text style={styles.summaryValue}>{todaySummary}</Text>
+              <>
+                <Text style={styles.summaryValue}>{todaySummary}</Text>
+                {sleepComparison && (
+                  <View style={styles.popComparisonRow}>
+                    <Text style={styles.popComparisonText}>{sleepComparison}</Text>
+                    <Pressable
+                      onPress={() => Alert.alert('Population Comparison', POPULATION_NORMS_CITATION)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={styles.popInfoIcon}>{'\u24D8'}</Text>
+                    </Pressable>
+                  </View>
+                )}
+              </>
             ) : (
               <Text style={styles.noDataText}>Not logged yet — tap to log</Text>
             )}
@@ -94,5 +149,19 @@ const styles = StyleSheet.create({
   loadingText: {
     color: Colors.secondaryText,
     fontSize: 13,
+  },
+  popComparisonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 2,
+  },
+  popComparisonText: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+  },
+  popInfoIcon: {
+    color: Colors.secondaryText,
+    fontSize: 12,
   },
 });

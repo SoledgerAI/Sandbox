@@ -73,6 +73,8 @@ export interface AppSettings {
   celebrations_weight?: boolean;
   celebrations_streaks?: boolean;
   celebrations_prs?: boolean;
+  // Population norm comparison
+  show_population_comparison?: boolean; // default: false
 }
 
 export interface StreakData {

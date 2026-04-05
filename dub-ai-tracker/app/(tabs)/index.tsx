@@ -23,6 +23,7 @@ import { ALL_DEFAULT_TAGS } from '../../src/constants/tags';
 import { BodyCard } from '../../src/components/dashboard/BodyCard';
 import { RecoveryCard } from '../../src/components/dashboard/RecoveryCard';
 import { TagCardWithData } from '../../src/components/dashboard/TagCardWithData';
+import { shareDailySummary } from '../../src/components/sharing/DailySummaryCard';
 import type { DeferredSetupKey } from '../../src/hooks/useDeferredSetup';
 
 export default function DashboardScreen() {
@@ -98,8 +99,26 @@ export default function DashboardScreen() {
     >
       {/* Greeting */}
       <View style={styles.header}>
-        <Text style={styles.greeting}>{greeting}</Text>
-        <Text style={styles.date}>{dateDisplay}</Text>
+        <View>
+          <Text style={styles.greeting}>{greeting}</Text>
+          <Text style={styles.date}>{dateDisplay}</Text>
+        </View>
+        {!loading && summary.calories_consumed > 0 && (
+          <TouchableOpacity
+            style={styles.shareDayBtn}
+            onPress={() =>
+              shareDailySummary({
+                summary,
+                calorieTarget: Math.round(calorieTarget),
+                proteinTarget: calorieTarget > 0 ? Math.round(calorieTarget * 0.3 / 4) : 0,
+                streakCount: streak?.current_streak,
+              })
+            }
+            activeOpacity={0.7}
+          >
+            <Ionicons name="share-outline" size={20} color={Colors.accentText} />
+          </TouchableOpacity>
+        )}
       </View>
 
       {/* Mood Resource Card — safety feature, always at TOP */}
@@ -227,6 +246,18 @@ const styles = StyleSheet.create({
   },
   header: {
     marginBottom: 24,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  shareDayBtn: {
+    padding: 8,
+    borderRadius: 8,
+    backgroundColor: Colors.cardBackground,
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   greeting: {
     color: Colors.text,

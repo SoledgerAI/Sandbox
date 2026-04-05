@@ -104,6 +104,13 @@ export const STORAGE_KEYS = {
   // Offline Queue
   OFFLINE_QUEUE: 'dub.offline.queue',
 
+  // Caches
+  BARCODE_CACHE: 'dub.cache.barcode',
+  FOOD_SEARCH_CACHE: 'dub.cache.food_search',
+
+  // Auth Tokens
+  FATSECRET_TOKEN: 'dub.auth.fatsecret_token',
+
   // Photos
   PHOTOS_PROGRESS: 'dub.photos.progress',
 } as const;

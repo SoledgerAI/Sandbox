@@ -49,6 +49,19 @@ function generateId(): string {
   return `str_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// Epley formula: 1RM = w(1 + r/30), Brzycki: 1RM = w(36/(37-r))
+// Source: LeSuer et al., J Strength Cond Res, 1997
+function estimate1RM(weight: number, reps: number): number {
+  if (reps <= 0 || weight <= 0) return weight;
+  if (reps === 1) return weight;
+  if (reps <= 10) {
+    // Epley formula — most accurate for low rep ranges
+    return Math.round(weight * (1 + reps / 30));
+  }
+  // Brzycki formula — better for higher rep ranges
+  return Math.round(weight * (36 / (37 - reps)));
+}
+
 // Quick-log maps rep range string (e.g. "8-12") to midpoint
 function repRangeMidpoint(range: string): number {
   const parts = range.split('-').map(Number);
@@ -506,12 +519,19 @@ export function StrengthLogger() {
                   </TouchableOpacity>
                 </View>
                 <View style={styles.setsPreview}>
-                  {exercise.sets.map((set) => (
-                    <Text key={set.set_number} style={styles.setPreviewText}>
-                      Set {set.set_number}: {set.weight_lbs} lbs x {set.reps}
-                      {set.rpe != null ? ` @RPE ${set.rpe}` : ''}
-                    </Text>
-                  ))}
+                  {exercise.sets.map((set) => {
+                    const show1RM = set.weight_lbs > 0 && set.reps > 0 && set.reps < 30;
+                    return (
+                      <Text key={set.set_number} style={styles.setPreviewText}>
+                        Set {set.set_number}: {set.weight_lbs} lbs x {set.reps}
+                        {set.rpe != null ? ` @RPE ${set.rpe}` : ''}
+                        {show1RM ? ` — Est. 1RM: ${estimate1RM(set.weight_lbs, set.reps)} lbs` : ''}
+                      </Text>
+                    );
+                  })}
+                  <Text style={styles.volumeText}>
+                    Volume: {exercise.sets.reduce((s, set) => s + set.weight_lbs * set.reps, 0).toLocaleString()} lbs
+                  </Text>
                 </View>
               </View>
             ))}
@@ -804,6 +824,7 @@ const styles = StyleSheet.create({
   },
   setsPreview: { paddingLeft: 26 },
   setPreviewText: { color: Colors.secondaryText, fontSize: 12, marginBottom: 2 },
+  volumeText: { color: Colors.accentText, fontSize: 12, fontWeight: '600', marginTop: 4 },
 
   // Exercise selector
   exerciseSelector: {

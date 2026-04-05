@@ -82,6 +82,10 @@ export default function SettingsScreen() {
   const [dayBoundary, setDayBoundary] = useState<DayBoundaryHour>(0);
   const [showDayBoundary, setShowDayBoundary] = useState(false);
 
+  // Population comparison
+  const [showPopulationComparison, setShowPopulationComparison] = useState(false);
+  const [hasProfileForComparison, setHasProfileForComparison] = useState(false);
+
   // Fasting state
   const [fastingEnabled, setFastingEnabled] = useState(false);
   const [fastingProtocol, setFastingProtocol] = useState<'16:8' | '18:6' | '20:4' | 'custom'>('16:8');
@@ -112,6 +116,10 @@ export default function SettingsScreen() {
     } else {
       setDayBoundary(0);
     }
+    // Population comparison
+    if (appSettings?.show_population_comparison) setShowPopulationComparison(true);
+    setHasProfileForComparison(!!profile?.dob && !!profile?.sex && profile.sex !== 'prefer_not_to_say');
+
     // Fasting settings
     if (appSettings?.fasting_enabled) setFastingEnabled(true);
     if (appSettings?.fasting_protocol) setFastingProtocol(appSettings.fasting_protocol);
@@ -253,6 +261,12 @@ export default function SettingsScreen() {
     '20:4': { start: 14, end: 18 },
     'custom': { start: 12, end: 20 },
   };
+
+  const handlePopulationComparisonToggle = useCallback(async (enabled: boolean) => {
+    const settings = (await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS)) || {} as AppSettings;
+    await storageSet(STORAGE_KEYS.SETTINGS, { ...settings, show_population_comparison: enabled });
+    setShowPopulationComparison(enabled);
+  }, []);
 
   const handleFastingToggle = useCallback(async (enabled: boolean) => {
     const settings = (await storageGet<AppSettings>(STORAGE_KEYS.SETTINGS)) || {} as AppSettings;
@@ -748,6 +762,26 @@ export default function SettingsScreen() {
                   </View>
                 </>
               )}
+
+              {/* Population Comparison */}
+              <View style={styles.settingRow}>
+                <Ionicons name="people-outline" size={22} color={Colors.accent} />
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Show population comparison</Text>
+                  <Text style={styles.settingSubtitle}>
+                    {hasProfileForComparison
+                      ? 'Compare your metrics to age/sex averages'
+                      : 'Set your date of birth and biological sex in Profile to enable'}
+                  </Text>
+                </View>
+                <Switch
+                  value={showPopulationComparison}
+                  onValueChange={handlePopulationComparisonToggle}
+                  disabled={!hasProfileForComparison}
+                  trackColor={{ false: Colors.divider, true: Colors.accent }}
+                  thumbColor={Colors.text}
+                />
+              </View>
 
               {/* Reset Onboarding */}
               <TouchableOpacity

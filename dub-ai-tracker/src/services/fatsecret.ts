@@ -1,6 +1,8 @@
 // FatSecret Platform API client with OAuth 2.0 (client credentials)
 // Phase 7: Food Logging -- Barcode and Additional APIs
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEYS } from '../utils/storage';
 import type { FoodItem, NutritionInfo, ServingSize } from '../types/food';
 
 const TOKEN_URL = 'https://oauth.fatsecret.com/connect/token';
@@ -13,8 +15,23 @@ const CLIENT_SECRET = 'FATSECRET_CLIENT_SECRET';
 let cachedToken: { access_token: string; expires_at: number } | null = null;
 
 async function getAccessToken(): Promise<string> {
+  // Check in-memory cache first
   if (cachedToken && Date.now() < cachedToken.expires_at - 60_000) {
     return cachedToken.access_token;
+  }
+
+  // Check persisted token from AsyncStorage
+  try {
+    const stored = await AsyncStorage.getItem(STORAGE_KEYS.FATSECRET_TOKEN);
+    if (stored) {
+      const { token, expiresAt } = JSON.parse(stored);
+      if (Date.now() < expiresAt - 60_000) {
+        cachedToken = { access_token: token, expires_at: expiresAt };
+        return token;
+      }
+    }
+  } catch {
+    // Persisted read failed — proceed to OAuth
   }
 
   const body = new URLSearchParams({
@@ -36,10 +53,21 @@ async function getAccessToken(): Promise<string> {
   }
 
   const data = await response.json();
+  const expiresAt = Date.now() + data.expires_in * 1000;
   cachedToken = {
     access_token: data.access_token,
-    expires_at: Date.now() + data.expires_in * 1000,
+    expires_at: expiresAt,
   };
+
+  // Persist token to survive app restarts
+  try {
+    await AsyncStorage.setItem(
+      STORAGE_KEYS.FATSECRET_TOKEN,
+      JSON.stringify({ token: data.access_token, expiresAt }),
+    );
+  } catch {
+    // Persist failed — non-critical, in-memory cache still works
+  }
 
   return cachedToken.access_token;
 }

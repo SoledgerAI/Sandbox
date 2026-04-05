@@ -37,6 +37,8 @@ export interface WorkoutEntry {
   environmental: EnvironmentalFields;
   biometric: BiometricFields;
   rpe: number | null; // P1-19: Rate of Perceived Exertion, 1-10
+  pack_weight_lbs?: number | null;  // Load carried (rucking, weighted vest, etc.)
+  push_count?: number | null;       // Total pushes (wheelchair propulsion)
   notes: string | null;
   source: 'manual' | 'strava' | 'apple_health' | 'google_health_connect';
 }

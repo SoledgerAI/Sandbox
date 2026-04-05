@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   StyleSheet,
   Text,
+  TextInput,
   View,
   TouchableOpacity,
   ScrollView,
@@ -22,6 +23,7 @@ import {
   dateKey,
 } from '../../utils/storage';
 import { calculateCalorieBurnImperial } from '../../utils/calories';
+import { shareWorkoutSummary } from '../sharing/WorkoutSummaryCard';
 import { ACTIVITIES, getActivitiesByCategory } from '../../data/activities';
 import type { Activity } from '../../data/activities';
 import type { WorkoutEntry, IntensityLevel } from '../../types/workout';
@@ -53,6 +55,8 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
   const [durationMinutes, setDurationMinutes] = useState(30);
   const [intensity, setIntensity] = useState<IntensityLevel>('moderate');
   const [rpe, setRpe] = useState<number | null>(null);
+  const [packWeightLbs, setPackWeightLbs] = useState<string>('');
+  const [pushCount, setPushCount] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [weightLbs, setWeightLbs] = useState<number>(170);
 
@@ -88,8 +92,15 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
 
   const calorieEstimate = useMemo(() => {
     if (!selectedActivity || durationMinutes <= 0) return 0;
-    return Math.round(calculateCalorieBurnImperial(selectedActivity.met, weightLbs, durationMinutes));
-  }, [selectedActivity, durationMinutes, weightLbs]);
+    let met = selectedActivity.met;
+    // Load-adjusted MET approximation based on Pandolf et al., 1977
+    // Simplified: MET * (1 + 0.01 * load_lbs) provides reasonable estimate
+    const packLbs = parseFloat(packWeightLbs);
+    if (selectedActivity.hasLoadFactor && !isNaN(packLbs) && packLbs > 0) {
+      met = met * (1 + 0.01 * packLbs);
+    }
+    return Math.round(calculateCalorieBurnImperial(met, weightLbs, durationMinutes));
+  }, [selectedActivity, durationMinutes, weightLbs, packWeightLbs]);
 
   // Build section list data for activity picker
   const sectionData = useMemo(() => {
@@ -136,6 +147,9 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
       return;
     }
 
+    const packLbs = parseFloat(packWeightLbs);
+    const pushCt = parseInt(pushCount, 10);
+
     const entry: WorkoutEntry = {
       id: `workout_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
       timestamp: new Date().toISOString(),
@@ -159,6 +173,8 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
         heart_rate_zones: null,
       },
       rpe,
+      pack_weight_lbs: !isNaN(packLbs) && packLbs > 0 ? packLbs : null,
+      push_count: !isNaN(pushCt) && pushCt > 0 ? pushCt : null,
       notes: notes.trim() || null,
       source: 'manual',
     };
@@ -180,6 +196,8 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
     setDurationMinutes(30);
     setIntensity('moderate');
     setRpe(null);
+    setPackWeightLbs('');
+    setPushCount('');
     setNotes('');
     onEntryLogged?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- rpe is intentionally excluded; it resets on save
@@ -297,6 +315,12 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
             <Text style={styles.entryName} numberOfLines={1}>
               {entry.activity_name}
             </Text>
+            <TouchableOpacity
+              onPress={() => shareWorkoutSummary({ entry })}
+              style={styles.shareEntryBtn}
+            >
+              <Ionicons name="share-outline" size={16} color={Colors.accentText} />
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => deleteEntry(entry.id)}>
               <Ionicons name="trash-outline" size={16} color={Colors.danger} />
             </TouchableOpacity>
@@ -311,6 +335,18 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
               <>
                 <Text style={styles.entryDot}>{'\u00B7'}</Text>
                 <Text style={styles.entryDetail}>RPE {entry.rpe}</Text>
+              </>
+            )}
+            {entry.pack_weight_lbs != null && entry.pack_weight_lbs > 0 && (
+              <>
+                <Text style={styles.entryDot}>{'\u00B7'}</Text>
+                <Text style={styles.entryDetail}>{entry.pack_weight_lbs} lbs pack</Text>
+              </>
+            )}
+            {entry.push_count != null && entry.push_count > 0 && (
+              <>
+                <Text style={styles.entryDot}>{'\u00B7'}</Text>
+                <Text style={styles.entryDetail}>{entry.push_count.toLocaleString()} pushes</Text>
               </>
             )}
           </View>
@@ -396,6 +432,36 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
         ))}
       </View>
 
+      {/* Pack Weight (for rucking and load-bearing activities) */}
+      {selectedActivity?.hasLoadFactor && (
+        <>
+          <Text style={styles.fieldLabel}>Pack Weight (lbs)</Text>
+          <TextInput
+            style={styles.packWeightInput}
+            value={packWeightLbs}
+            onChangeText={setPackWeightLbs}
+            placeholder="lbs"
+            placeholderTextColor={Colors.secondaryText}
+            keyboardType="numeric"
+          />
+        </>
+      )}
+
+      {/* Push Count (for wheelchair activities) */}
+      {selectedActivity?.supportsRepCount && (
+        <>
+          <Text style={styles.fieldLabel}>Push Count</Text>
+          <TextInput
+            style={styles.packWeightInput}
+            value={pushCount}
+            onChangeText={setPushCount}
+            placeholder="total pushes"
+            placeholderTextColor={Colors.secondaryText}
+            keyboardType="numeric"
+          />
+        </>
+      )}
+
       {/* Calorie estimate */}
       {calorieEstimate > 0 && (
         <View style={styles.calorieCard}>
@@ -473,6 +539,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     flex: 1,
+  },
+  shareEntryBtn: {
+    padding: 4,
   },
   entryDetails: {
     flexDirection: 'row',
@@ -588,6 +657,17 @@ const styles = StyleSheet.create({
   },
   rpeTextActive: {
     color: Colors.primaryBackground,
+  },
+  packWeightInput: {
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: Colors.text,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    marginBottom: 12,
   },
   calorieCard: {
     flexDirection: 'row',

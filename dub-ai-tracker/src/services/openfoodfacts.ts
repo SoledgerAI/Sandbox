@@ -1,6 +1,8 @@
 // Open Food Facts API client
 // Phase 7: Food Logging -- Barcode and Additional APIs
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { STORAGE_KEYS } from '../utils/storage';
 import type { FoodItem, NutritionInfo, ServingSize } from '../types/food';
 
 const BASE_URL = 'https://world.openfoodfacts.org';
@@ -114,10 +116,28 @@ function mapProductToItem(product: OffProduct): FoodItem | null {
   };
 }
 
+const BARCODE_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 /**
  * Look up a product by barcode via Open Food Facts.
+ * Checks local cache first; caches successful lookups for 30 days.
  */
 export async function offBarcodeLookup(barcode: string): Promise<FoodItem | null> {
+  // Check cache first
+  const cacheKey = `${STORAGE_KEYS.BARCODE_CACHE}_${barcode}`;
+  try {
+    const cachedStr = await AsyncStorage.getItem(cacheKey);
+    if (cachedStr) {
+      const cached = JSON.parse(cachedStr);
+      const ageMs = Date.now() - (cached._cachedAt || 0);
+      if (ageMs < BARCODE_CACHE_TTL_MS) {
+        return cached.data;
+      }
+    }
+  } catch {
+    // Cache read failed — proceed to network
+  }
+
   const url = `${BASE_URL}/api/v0/product/${encodeURIComponent(barcode)}.json`;
 
   const response = await fetch(url, {
@@ -131,7 +151,21 @@ export async function offBarcodeLookup(barcode: string): Promise<FoodItem | null
   const data: OffBarcodeResponse = await response.json();
   if (data.status !== 1 || !data.product) return null;
 
-  return mapProductToItem(data.product);
+  const item = mapProductToItem(data.product);
+
+  // Cache successful lookup
+  if (item) {
+    try {
+      await AsyncStorage.setItem(
+        cacheKey,
+        JSON.stringify({ data: item, _cachedAt: Date.now() }),
+      );
+    } catch {
+      // Cache write failed — non-critical
+    }
+  }
+
+  return item;
 }
 
 /**

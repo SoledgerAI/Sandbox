@@ -16,6 +16,7 @@ import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
 import { useTrendsData, TrendDataSet } from '../../src/hooks/useTrendsData';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
+import { useBloodworkSummaries, type BloodworkMarkerSummary } from '../../src/hooks/useBloodworkTrends';
 import { useStorage } from '../../src/hooks/useStorage';
 import { STORAGE_KEYS } from '../../src/utils/storage';
 import { LineChart } from '../../src/components/charts/LineChart';
@@ -232,7 +233,7 @@ const CHART_CONFIGS: ChartConfig[] = [
 
 
 // MASTER-51: Category filter pills
-const CATEGORY_FILTERS = ['All', 'Nutrition', 'Hydration', 'Fitness', 'Body', 'Sleep', 'Recovery', 'Mood', 'Substances'] as const;
+const CATEGORY_FILTERS = ['All', 'Nutrition', 'Hydration', 'Fitness', 'Body', 'Bloodwork', 'Sleep', 'Recovery', 'Mood', 'Substances'] as const;
 type CategoryFilter = typeof CATEGORY_FILTERS[number];
 
 // MASTER-104: Extended tag-to-category mapping for all tag types
@@ -262,6 +263,7 @@ export default function TrendsScreen() {
   const { data: enabledTags } = useStorage<string[]>(STORAGE_KEYS.TAGS_ENABLED, []);
   const { data, loading } = useTrendsData(timeRange, enabledTags ?? []);
   const { calorieTarget, summary: dailySummary } = useDailySummary();
+  const { summaries: bloodworkSummaries } = useBloodworkSummaries();
   const { width: screenWidth } = useWindowDimensions();
   const sparkWidth = Math.floor(screenWidth * SPARKLINE_WIDTH_RATIO);
 
@@ -469,6 +471,49 @@ export default function TrendsScreen() {
         removeClippedSubviews
         maxToRenderPerBatch={6}
         windowSize={5}
+        ListFooterComponent={
+          (categoryFilter === 'All' || categoryFilter === 'Bloodwork') &&
+          bloodworkSummaries.length > 0 ? (
+            <View style={styles.bloodworkSection}>
+              <View style={styles.sectionHeader}>
+                <Text style={styles.sectionTitle}>Lab Results</Text>
+              </View>
+              {bloodworkSummaries.map((marker) => (
+                <View key={marker.name} style={styles.bloodworkCard}>
+                  <View style={styles.bloodworkCardHeader}>
+                    <Text style={styles.bloodworkMarkerName}>{marker.name}</Text>
+                    <View style={styles.bloodworkValueRow}>
+                      <Text
+                        style={[
+                          styles.bloodworkValue,
+                          marker.flagged && styles.bloodworkValueFlagged,
+                        ]}
+                      >
+                        {marker.latestValue} {marker.unit}
+                      </Text>
+                      <Text style={styles.bloodworkDirection}>
+                        {marker.direction === 'up'
+                          ? '\u2191'
+                          : marker.direction === 'down'
+                            ? '\u2193'
+                            : '\u2192'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Text style={styles.bloodworkMeta}>
+                    {marker.dataPointCount} results
+                    {marker.previousValue != null
+                      ? ` \u00B7 prev: ${marker.previousValue} ${marker.unit}`
+                      : ''}
+                    {marker.referenceLow != null || marker.referenceHigh != null
+                      ? ` \u00B7 ref: ${marker.referenceLow ?? ''}-${marker.referenceHigh ?? ''} ${marker.unit}`
+                      : ''}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          ) : null
+        }
       />
     </View>
   );
@@ -687,5 +732,47 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     fontSize: 16,
     textAlign: 'center',
+  },
+  bloodworkSection: {
+    marginTop: 8,
+  },
+  bloodworkCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: CARD_MARGIN,
+  },
+  bloodworkCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  bloodworkMarkerName: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  bloodworkValueRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  bloodworkValue: {
+    color: Colors.accentText,
+    fontSize: 16,
+    fontWeight: 'bold',
+    fontVariant: ['tabular-nums'] as const,
+  },
+  bloodworkValueFlagged: {
+    color: Colors.danger,
+  },
+  bloodworkDirection: {
+    fontSize: 16,
+    color: Colors.secondaryText,
+  },
+  bloodworkMeta: {
+    color: Colors.secondaryText,
+    fontSize: 11,
   },
 });

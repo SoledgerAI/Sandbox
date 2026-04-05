@@ -5,7 +5,7 @@
 // CRITICAL: Mood/gratitude raw entries are NEVER included -- summary statistics only.
 // Coach chat history is NEVER included.
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -23,6 +23,7 @@ import {
   type HealthReportConfig,
   SECTION_LABELS,
 } from '../../src/services/pdf';
+import { DateRangePicker } from '../../src/components/common/DateRangePicker';
 
 // ============================================================
 // Available Sections
@@ -96,6 +97,13 @@ export default function HealthReportScreen() {
     new Set(['weight_body_composition', 'nutrition', 'exercise', 'sleep', 'vital_signs']),
   );
   const [dateRangePreset, setDateRangePreset] = useState<DateRangePreset>('30d');
+  const [customRange, setCustomRange] = useState<{ start: Date; end: Date }>(() => {
+    const end = new Date();
+    const start = new Date();
+    start.setDate(start.getDate() - 30);
+    return { start, end };
+  });
+  const [useCustomRange, setUseCustomRange] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   const toggleSection = (section: HealthReportSection) => {
@@ -127,7 +135,12 @@ export default function HealthReportScreen() {
     setGenerating(true);
 
     try {
-      const { start, end } = getDateRange(dateRangePreset);
+      const { start, end } = useCustomRange
+        ? {
+            start: `${customRange.start.getFullYear()}-${String(customRange.start.getMonth() + 1).padStart(2, '0')}-${String(customRange.start.getDate()).padStart(2, '0')}`,
+            end: `${customRange.end.getFullYear()}-${String(customRange.end.getMonth() + 1).padStart(2, '0')}-${String(customRange.end.getDate()).padStart(2, '0')}`,
+          }
+        : getDateRange(dateRangePreset);
       const config: HealthReportConfig = {
         sections: Array.from(selectedSections),
         dateRange: { start, end },
@@ -168,20 +181,33 @@ export default function HealthReportScreen() {
                 key={preset}
                 style={[
                   styles.dateChip,
-                  dateRangePreset === preset && styles.dateChipActive,
+                  dateRangePreset === preset && !useCustomRange && styles.dateChipActive,
                 ]}
-                onPress={() => setDateRangePreset(preset)}
+                onPress={() => {
+                  setDateRangePreset(preset);
+                  setUseCustomRange(false);
+                }}
               >
                 <Text
                   style={[
                     styles.dateChipText,
-                    dateRangePreset === preset && styles.dateChipTextActive,
+                    dateRangePreset === preset && !useCustomRange && styles.dateChipTextActive,
                   ]}
                 >
                   {DATE_RANGE_LABELS[preset]}
                 </Text>
               </Pressable>
             ))}
+        </View>
+        <View style={styles.customRangeContainer}>
+          <Text style={styles.customRangeLabel}>Or select a custom range:</Text>
+          <DateRangePicker
+            currentRange={customRange}
+            onRangeChange={(range) => {
+              setCustomRange(range);
+              setUseCustomRange(true);
+            }}
+          />
         </View>
 
         {/* Section Selector */}
@@ -337,6 +363,14 @@ const styles = StyleSheet.create({
   dateChipTextActive: {
     color: Colors.primaryBackground,
     fontWeight: '600',
+  },
+  customRangeContainer: {
+    marginBottom: 20,
+  },
+  customRangeLabel: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    marginBottom: 8,
   },
   sectionRow: {
     flexDirection: 'row',

@@ -289,11 +289,11 @@ function buildVitalSignsSection(bodyEntries: Array<BodyEntry & { date: string }>
 }
 
 async function buildBloodworkSection(dates: string[]): Promise<string> {
-  // Find most recent bloodwork entry
-  const entries: BloodworkEntry[] = [];
+  // Find all bloodwork entries in range
+  const entries: Array<BloodworkEntry & { _date: string }> = [];
   for (const dateStr of dates) {
     const entry = await storageGet<BloodworkEntry>(dateKey(STORAGE_KEYS.LOG_BLOODWORK, dateStr));
-    if (entry) entries.push(entry);
+    if (entry) entries.push({ ...entry, _date: dateStr });
   }
 
   if (entries.length === 0) {
@@ -302,6 +302,8 @@ async function buildBloodworkSection(dates: string[]): Promise<string> {
 
   const latest = entries[entries.length - 1];
   let html = `<p class="footnote">Most recent panel: ${latest.date}${latest.lab_name ? ` (${latest.lab_name})` : ''}</p>`;
+
+  // Most recent panel table
   html += '<table><tr><th>Marker</th><th>Value</th><th>Reference Range</th><th>Status</th></tr>';
 
   for (const marker of latest.markers) {
@@ -311,8 +313,51 @@ async function buildBloodworkSection(dates: string[]): Promise<string> {
     const status = marker.flagged ? '<span class="flagged">FLAGGED</span>' : 'Normal';
     html += `<tr><td>${marker.name}</td><td>${marker.value} ${marker.unit}</td><td>${rangeStr}</td><td>${status}</td></tr>`;
   }
-
   html += '</table>';
+
+  // Historical trending table (if multiple entries exist)
+  if (entries.length >= 2) {
+    // Collect all unique marker names across entries
+    const markerNames = new Set<string>();
+    for (const entry of entries) {
+      for (const m of entry.markers) markerNames.add(m.name);
+    }
+
+    // Show last 5 entries max for the historical table
+    const recentEntries = entries.slice(-5);
+
+    html += '<h3 style="margin-top:16px;color:#1E2761;">Historical Values</h3>';
+    html += '<table><tr><th>Date</th>';
+    const markerList = Array.from(markerNames);
+    for (const name of markerList) {
+      html += `<th>${name}</th>`;
+    }
+    html += '</tr>';
+
+    for (const entry of recentEntries) {
+      html += `<tr><td>${entry._date}</td>`;
+      for (const name of markerList) {
+        const marker = entry.markers.find((m) => m.name === name);
+        if (marker) {
+          // Show direction vs previous entry
+          const prevEntry = entries[entries.indexOf(entry) - 1];
+          const prevMarker = prevEntry?.markers.find((m) => m.name === name);
+          let arrow = '';
+          if (prevMarker) {
+            const diff = marker.value - prevMarker.value;
+            arrow = Math.abs(diff) < 0.01 ? ' \u2192' : diff > 0 ? ' \u2191' : ' \u2193';
+          }
+          const cellStyle = marker.flagged ? ' class="flagged"' : '';
+          html += `<td${cellStyle}>${marker.value}${arrow}</td>`;
+        } else {
+          html += '<td>--</td>';
+        }
+      }
+      html += '</tr>';
+    }
+    html += '</table>';
+  }
+
   html += '<p class="footnote">Bloodwork values are self-reported and have not been verified by a healthcare provider. Results should be confirmed against original laboratory reports.</p>';
   return html;
 }
