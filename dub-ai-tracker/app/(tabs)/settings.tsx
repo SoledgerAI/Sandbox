@@ -236,7 +236,19 @@ export default function SettingsScreen() {
 
   const settingsSections: { title: string; items: SettingsItem[] }[] = [
     {
-      title: 'TRACKING',
+      title: 'ACCOUNT',
+      items: [
+        {
+          id: 'tier',
+          icon: 'speedometer-outline',
+          label: 'Engagement Tier',
+          subtitle: `${tier} tier`,
+          route: '/settings/tier',
+        },
+      ],
+    },
+    {
+      title: 'TRACKING SETUP',
       items: [
         {
           id: 'tags',
@@ -246,11 +258,11 @@ export default function SettingsScreen() {
           route: '/settings/tags',
         },
         {
-          id: 'taste',
-          icon: 'restaurant-outline',
-          label: 'Taste Profile',
-          subtitle: 'Cuisines, restrictions, dislikes',
-          route: '/settings/taste',
+          id: 'devices',
+          icon: 'watch-outline',
+          label: 'Devices',
+          subtitle: 'Connected health devices',
+          route: '/settings/devices',
         },
       ],
     },
@@ -260,41 +272,17 @@ export default function SettingsScreen() {
         {
           id: 'apikey',
           icon: 'key-outline',
-          label: 'API Key',
+          label: 'API Key Setup',
           subtitle: hasKey ? 'Configured' : 'Not configured',
           route: '/settings/apikey',
           badge: hasKey ? undefined : 'Setup',
         },
-      ],
-    },
-    {
-      title: 'NOTIFICATIONS',
-      items: [
         {
-          id: 'notifications',
-          icon: 'notifications-outline',
-          label: 'Notifications',
-          subtitle: 'Reminders and check-ins',
-          route: '/settings/notifications',
-        },
-      ],
-    },
-    {
-      title: 'INTEGRATIONS',
-      items: [
-        {
-          id: 'devices',
-          icon: 'watch-outline',
-          label: 'Devices',
-          subtitle: 'Connected health devices',
-          route: '/settings/devices',
-        },
-        {
-          id: 'marketplace',
-          icon: 'cart-outline',
-          label: 'Marketplace',
-          subtitle: 'Products, influencers, deals',
-          route: '/marketplace',
+          id: 'taste',
+          icon: 'restaurant-outline',
+          label: 'Taste Profile',
+          subtitle: 'Cuisines, restrictions, dislikes',
+          route: '/settings/taste',
         },
       ],
     },
@@ -309,11 +297,23 @@ export default function SettingsScreen() {
           route: '/settings/export',
         },
         {
-          id: 'tier',
-          icon: 'speedometer-outline',
-          label: 'Engagement Tier',
-          subtitle: `${tier} tier`,
-          route: '/settings/tier',
+          id: 'healthreport',
+          icon: 'document-text-outline',
+          label: 'Health Report',
+          subtitle: 'Generate PDF health summary',
+          route: '/settings/healthreport',
+        },
+      ],
+    },
+    {
+      title: 'NOTIFICATIONS',
+      items: [
+        {
+          id: 'notifications',
+          icon: 'notifications-outline',
+          label: 'Preferences',
+          subtitle: 'Reminders and check-ins',
+          route: '/settings/notifications',
         },
       ],
     },
@@ -323,9 +323,16 @@ export default function SettingsScreen() {
         {
           id: 'about',
           icon: 'information-circle-outline',
-          label: 'About & Legal',
+          label: 'About DUB_AI',
           subtitle: 'Version, privacy, data deletion',
           route: '/settings/about',
+        },
+        {
+          id: 'marketplace',
+          icon: 'cart-outline',
+          label: 'Marketplace',
+          subtitle: 'Products, influencers, deals',
+          route: '/marketplace',
         },
       ],
     },

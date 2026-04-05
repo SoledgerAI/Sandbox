@@ -71,6 +71,10 @@ export const STORAGE_KEYS = {
   DEVICES_OURA: 'dub.devices.oura',
   DEVICES_GARMIN: 'dub.devices.garmin',
 
+  // Log tab favorites and repeat-last
+  FAVORITE_TAGS: 'dub.favorite.tags',
+  LAST_ENTRY: 'dub.last.entry', // date-keyed by tag ID: dub.last.entry.{tagId}
+
   // Marketplace
   MARKETPLACE_DISMISSED: 'dub.marketplace.dismissed',
   MARKETPLACE_PURCHASES: 'dub.marketplace.purchases',
