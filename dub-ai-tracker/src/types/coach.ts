@@ -45,6 +45,8 @@ export interface CoachContext {
   ed_risk_flags: EdRiskFlag[];
   /** True when mood trend detection triggers (sustained low mood, high anxiety, or crisis mood) */
   mood_trend_alert: boolean;
+  /** Active milestone event string, e.g. "milestone: 100 days logged" (P2-05) */
+  active_milestone: string | null;
 }
 
 export interface TodayDataSummary {

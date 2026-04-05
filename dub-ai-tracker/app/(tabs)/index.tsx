@@ -9,9 +9,11 @@ import { Colors } from '../../src/constants/colors';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { useDeferredSetup } from '../../src/hooks/useDeferredSetup';
 import { useMoodTrend } from '../../src/hooks/useMoodTrend';
+import { useMilestone } from '../../src/hooks/useMilestone';
 import { ScoreRing } from '../../src/components/charts/ScoreRing';
 import { CalorieSummary } from '../../src/components/dashboard/CalorieSummary';
 import { StreakCounter } from '../../src/components/dashboard/StreakCounter';
+import { MilestoneCard } from '../../src/components/dashboard/MilestoneCard';
 import { DeferredSetupCard } from '../../src/components/dashboard/DeferredSetupCard';
 import { MoodResourceCard } from '../../src/components/dashboard/MoodResourceCard';
 import { ALL_DEFAULT_TAGS } from '../../src/constants/tags';
@@ -47,6 +49,11 @@ export default function DashboardScreen() {
     showVeteransLine,
     dismiss: dismissMoodResource,
   } = useMoodTrend();
+
+  const {
+    milestone,
+    acknowledge: acknowledgeMilestone,
+  } = useMilestone(streak);
 
   const handleSetUp = useCallback((key: DeferredSetupKey) => {
     completeItem(key);
@@ -138,6 +145,11 @@ export default function DashboardScreen() {
 
       {/* Streak Counter */}
       <StreakCounter streak={streak} />
+
+      {/* Milestone Card — one at a time, earned moments only (P2-05) */}
+      {milestone && (
+        <MilestoneCard milestone={milestone} onAcknowledge={acknowledgeMilestone} />
+      )}
 
       {/* Body Card */}
       <BodyCard />

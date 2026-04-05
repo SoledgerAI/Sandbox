@@ -74,6 +74,7 @@ function makeMinimalContext(overrides?: Partial<CoachContext>): CoachContext {
     therapy_today: false,
     ed_risk_flags: [],
     mood_trend_alert: false,
+    active_milestone: null,
     ...overrides,
   };
 }

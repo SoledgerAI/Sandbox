@@ -79,6 +79,9 @@ export const STORAGE_KEYS = {
   MARKETPLACE_DISMISSED: 'dub.marketplace.dismissed',
   MARKETPLACE_PURCHASES: 'dub.marketplace.purchases',
 
+  // Milestones (P2-05: earned moments, permanently acknowledged)
+  MILESTONES_ACKNOWLEDGED: 'dub.milestones.acknowledged',
+
   // Offline Queue
   OFFLINE_QUEUE: 'dub.offline.queue',
 

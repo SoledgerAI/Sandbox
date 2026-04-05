@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { storageGet, STORAGE_KEYS, dateKey, storageList } from '../utils/storage';
 import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge, lbsToKg, inchesToCm } from '../utils/calories';
 import { computeConsistency, consistencyPct } from '../utils/consistency';
+import { getActiveMilestone } from '../hooks/useMilestone';
 import type { UserProfile, EngagementTier, SobrietyGoal } from '../types/profile';
 import type {
   CoachContext,
@@ -462,6 +463,12 @@ export async function buildCoachContext(userMessage: string): Promise<{
   // Mood trend detection — safety-critical, always computed
   const moodTrend = await evaluateMoodTrend();
 
+  // P2-05: Active milestone for coach context
+  const activeMilestone = await getActiveMilestone(consistencyData);
+  if (activeMilestone) {
+    conditionalSections.push(`[${activeMilestone.toUpperCase()}]`);
+  }
+
   const context: CoachContext = {
     profile: profile ?? {
       name: 'User',
@@ -507,6 +514,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
     therapy_today: therapyToday,
     ed_risk_flags: edRiskFlags,
     mood_trend_alert: moodTrend.triggered,
+    active_milestone: activeMilestone,
   };
 
   // Therapy note firewall: verify no therapy content leaked
