@@ -24,6 +24,31 @@ export interface TooltipData {
   seriesLabel?: string;
 }
 
+/** Fired when a data point is tapped in interactive mode */
+export interface PointSelectEvent {
+  /** ISO date string */
+  date: string;
+  /** Display label (e.g. "3/15") */
+  label: string;
+  /** Raw numeric value */
+  value: number;
+  /** Pixel coordinates relative to chart SVG */
+  x: number;
+  y: number;
+  /** Series name (for multi-series charts) */
+  seriesLabel?: string;
+  /** Unit string (e.g. "cal", "lbs") */
+  unit?: string;
+}
+
+/** Delta between two selected points */
+export interface DeltaInfo {
+  from: { date: string; label: string; value: number; x: number; y: number };
+  to: { date: string; label: string; value: number; x: number; y: number };
+  delta: number;
+  percentChange: number;
+}
+
 export interface ChartDimensions {
   width: number;
   height: number;

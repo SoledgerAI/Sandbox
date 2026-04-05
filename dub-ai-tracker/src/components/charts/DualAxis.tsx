@@ -12,7 +12,7 @@ import Svg, {
   Rect,
 } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
-import { ChartDataPoint, computeYTicks, formatTickValue, getChartArea, scaleY } from './types';
+import { ChartDataPoint, PointSelectEvent, computeYTicks, formatTickValue, getChartArea, scaleY } from './types';
 
 interface DualAxisSeries {
   data: ChartDataPoint[];
@@ -29,6 +29,8 @@ interface DualAxisProps {
   height?: number;
   title: string;
   thumbnail?: boolean;
+  /** When provided, fires on dot press instead of showing internal tooltip */
+  onPointSelect?: (event: PointSelectEvent) => void;
 }
 
 export function DualAxis({
@@ -38,6 +40,7 @@ export function DualAxis({
   height = 200,
   title,
   thumbnail = false,
+  onPointSelect,
 }: DualAxisProps) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
   const [showTable, setShowTable] = useState(false);
@@ -192,19 +195,25 @@ export function DualAxis({
             <SvgCircle key={`ld-${i}`}
               cx={toX(i, left.data.length)} cy={toLY(d.value)}
               r={left.data.length > 30 ? 1.5 : 3} fill={left.color}
-              onPress={() => setTooltip({
-                x: toX(i, left.data.length), y: toLY(d.value),
-                text: `${d.label}: ${left.label} ${d.value.toFixed(1)} ${left.unit}`,
-              })} />
+              onPress={() => {
+                if (onPointSelect) {
+                  onPointSelect({ date: d.date, label: d.label, value: d.value, x: toX(i, left.data.length), y: toLY(d.value), seriesLabel: left.label, unit: left.unit });
+                  return;
+                }
+                setTooltip({ x: toX(i, left.data.length), y: toLY(d.value), text: `${d.label}: ${left.label} ${d.value.toFixed(1)} ${left.unit}` });
+              }} />
           ))}
           {right.data.map((d, i) => (
             <SvgCircle key={`rd-${i}`}
               cx={toX(i, right.data.length)} cy={toRY(d.value)}
               r={right.data.length > 30 ? 1.5 : 3} fill={right.color}
-              onPress={() => setTooltip({
-                x: toX(i, right.data.length), y: toRY(d.value),
-                text: `${d.label}: ${right.label} ${d.value.toFixed(1)} ${right.unit}`,
-              })} />
+              onPress={() => {
+                if (onPointSelect) {
+                  onPointSelect({ date: d.date, label: d.label, value: d.value, x: toX(i, right.data.length), y: toRY(d.value), seriesLabel: right.label, unit: right.unit });
+                  return;
+                }
+                setTooltip({ x: toX(i, right.data.length), y: toRY(d.value), text: `${d.label}: ${right.label} ${d.value.toFixed(1)} ${right.unit}` });
+              }} />
           ))}
 
           {/* Tooltip */}

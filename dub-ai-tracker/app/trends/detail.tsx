@@ -2,8 +2,9 @@
 // Phase 16: Trends and Charts
 // Per spec: Full interactive chart with axis labels, data point tooltips,
 // year-over-year overlay toggle. Rendered one at a time.
+// Wave 3 P2: Interactive tooltip card, pinch-to-zoom, long-press drag delta
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback, useRef } from 'react';
 import {
   StyleSheet,
   Text,
@@ -12,6 +13,7 @@ import {
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
@@ -23,7 +25,7 @@ import { LineChart } from '../../src/components/charts/LineChart';
 import { BarChart } from '../../src/components/charts/BarChart';
 import { StackedBar } from '../../src/components/charts/StackedBar';
 import { DualAxis } from '../../src/components/charts/DualAxis';
-import type { TimeRange, ChartDataPoint } from '../../src/components/charts/types';
+import type { TimeRange, ChartDataPoint, PointSelectEvent, DeltaInfo } from '../../src/components/charts/types';
 
 const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: '7d', label: '7D' },
@@ -33,6 +35,9 @@ const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: '1yr', label: '1Y' },
   { key: 'all', label: 'All' },
 ];
+
+/** Ordered zoom levels for pinch gesture (pinch-out = zoom out = wider range) */
+const ZOOM_LEVELS: TimeRange[] = ['7d', '30d', '90d', '1yr'];
 
 interface ChartMeta {
   title: string;
@@ -194,6 +199,72 @@ export default function TrendsDetailScreen() {
   const { calorieTarget } = useDailySummary();
   const proteinTarget = calorieTarget > 0 ? Math.round(calorieTarget * 0.3 / 4) : 0;
 
+  // --- Wave 3 P2: Interactive state ---
+  const [selectedPoint, setSelectedPoint] = useState<PointSelectEvent | null>(null);
+  const [deltaInfo, setDeltaInfo] = useState<DeltaInfo | null>(null);
+  const [deltaAnchor, setDeltaAnchor] = useState<PointSelectEvent | null>(null);
+
+  // Tap data point → show tooltip card
+  const handlePointSelect = useCallback((event: PointSelectEvent) => {
+    // If we have an anchor for delta mode, complete the delta
+    if (deltaAnchor) {
+      const delta = event.value - deltaAnchor.value;
+      const pct = deltaAnchor.value !== 0 ? (delta / deltaAnchor.value) * 100 : 0;
+      setDeltaInfo({
+        from: { date: deltaAnchor.date, label: deltaAnchor.label, value: deltaAnchor.value, x: deltaAnchor.x, y: deltaAnchor.y },
+        to: { date: event.date, label: event.label, value: event.value, x: event.x, y: event.y },
+        delta,
+        percentChange: pct,
+      });
+      setDeltaAnchor(null);
+      setSelectedPoint(null);
+      return;
+    }
+    setSelectedPoint(event);
+    setDeltaInfo(null);
+  }, [deltaAnchor]);
+
+  // Dismiss tooltip / delta overlay
+  const dismissOverlays = useCallback(() => {
+    setSelectedPoint(null);
+    setDeltaInfo(null);
+    setDeltaAnchor(null);
+  }, []);
+
+  // Long-press on a point → enter delta anchor mode
+  const startDeltaMode = useCallback(() => {
+    if (selectedPoint) {
+      setDeltaAnchor(selectedPoint);
+      setSelectedPoint(null);
+      setDeltaInfo(null);
+    }
+  }, [selectedPoint]);
+
+  // Navigate to log tab filtered to the tapped date
+  const viewDayLog = useCallback((date: string) => {
+    setSelectedPoint(null);
+    router.push({ pathname: '/(tabs)/log', params: { date } });
+  }, []);
+
+  // Pinch-to-zoom: cycle time range
+  const pinchBaseScale = useRef(1);
+  const pinchGesture = Gesture.Pinch()
+    .onStart(() => {
+      pinchBaseScale.current = 1;
+    })
+    .onEnd((e) => {
+      const scale = e.scale;
+      const currentIdx = ZOOM_LEVELS.indexOf(timeRange);
+      if (scale < 0.75 && currentIdx > 0) {
+        // Pinch-in = zoom in = narrower range
+        setTimeRange(ZOOM_LEVELS[currentIdx - 1]);
+      } else if (scale > 1.3 && currentIdx < ZOOM_LEVELS.length - 1) {
+        // Pinch-out = zoom out = wider range
+        setTimeRange(ZOOM_LEVELS[currentIdx + 1]);
+      }
+      dismissOverlays();
+    });
+
   const rawMeta = CHART_META[chartId];
   // Inject dynamic goal lines for calorie and protein charts
   const meta = useMemo(() => {
@@ -302,17 +373,108 @@ export default function TrendsDetailScreen() {
           </Pressable>
         )}
 
-        {/* Chart */}
-        <View style={styles.chartContainer}>
-          {!hasData ? (
-            <View style={[styles.emptyChart, { height: chartHeight }]}>
-              <Text style={styles.emptyText}>No data for this time range</Text>
-              <Text style={styles.emptyHint}>Start logging to see trends here</Text>
-            </View>
-          ) : (
-            renderFullChart(meta, data, chartWidth, chartHeight, showYoY)
-          )}
-        </View>
+        {/* Chart with pinch-to-zoom */}
+        <GestureDetector gesture={pinchGesture}>
+          <View style={styles.chartContainer}>
+            {!hasData ? (
+              <View style={[styles.emptyChart, { height: chartHeight }]}>
+                <Text style={styles.emptyText}>No data for this time range</Text>
+                <Text style={styles.emptyHint}>Start logging to see trends here</Text>
+              </View>
+            ) : (
+              <Pressable onPress={dismissOverlays}>
+                {renderFullChart(meta, data, chartWidth, chartHeight, showYoY, handlePointSelect)}
+              </Pressable>
+            )}
+
+            {/* Delta anchor indicator */}
+            {deltaAnchor && (
+              <View style={styles.deltaAnchorBadge}>
+                <Ionicons name="locate-outline" size={14} color={Colors.accent} />
+                <Text style={styles.deltaAnchorText}>
+                  Tap another point to see delta from {deltaAnchor.label}
+                </Text>
+                <Pressable onPress={dismissOverlays} hitSlop={8}>
+                  <Ionicons name="close-circle" size={18} color={Colors.secondaryText} />
+                </Pressable>
+              </View>
+            )}
+
+            {/* Tooltip card overlay */}
+            {selectedPoint && (
+              <View style={styles.tooltipCard}>
+                <View style={styles.tooltipHeader}>
+                  <Text style={styles.tooltipDate}>{selectedPoint.label}</Text>
+                  <Pressable onPress={dismissOverlays} hitSlop={8} accessibilityLabel="Dismiss tooltip">
+                    <Ionicons name="close" size={18} color={Colors.secondaryText} />
+                  </Pressable>
+                </View>
+                <Text style={styles.tooltipValue}>
+                  {selectedPoint.value.toFixed(
+                    selectedPoint.unit === 'cal' || selectedPoint.unit === 'steps' ? 0 : 1,
+                  )}
+                  {selectedPoint.unit ? ` ${selectedPoint.unit}` : ''}
+                </Text>
+                {selectedPoint.seriesLabel && (
+                  <Text style={styles.tooltipSeries}>{selectedPoint.seriesLabel}</Text>
+                )}
+                <View style={styles.tooltipActions}>
+                  <Pressable
+                    style={styles.tooltipLink}
+                    onPress={() => viewDayLog(selectedPoint.date)}
+                    accessibilityRole="link"
+                    accessibilityLabel={`View log for ${selectedPoint.label}`}
+                  >
+                    <Ionicons name="calendar-outline" size={14} color={Colors.accent} />
+                    <Text style={styles.tooltipLinkText}>View day's log</Text>
+                  </Pressable>
+                  <Pressable
+                    style={styles.tooltipLink}
+                    onPress={startDeltaMode}
+                    accessibilityRole="button"
+                    accessibilityLabel="Compare with another point"
+                  >
+                    <Ionicons name="swap-horizontal-outline" size={14} color={Colors.accent} />
+                    <Text style={styles.tooltipLinkText}>Compare</Text>
+                  </Pressable>
+                </View>
+              </View>
+            )}
+
+            {/* Delta result overlay */}
+            {deltaInfo && (
+              <View style={styles.deltaCard}>
+                <View style={styles.tooltipHeader}>
+                  <Text style={styles.tooltipDate}>Delta</Text>
+                  <Pressable onPress={dismissOverlays} hitSlop={8} accessibilityLabel="Dismiss delta">
+                    <Ionicons name="close" size={18} color={Colors.secondaryText} />
+                  </Pressable>
+                </View>
+                <View style={styles.deltaRow}>
+                  <View style={styles.deltaPoint}>
+                    <Text style={styles.deltaLabel}>{deltaInfo.from.label}</Text>
+                    <Text style={styles.deltaPointValue}>{deltaInfo.from.value.toFixed(1)}</Text>
+                  </View>
+                  <Ionicons name="arrow-forward" size={16} color={Colors.secondaryText} />
+                  <View style={styles.deltaPoint}>
+                    <Text style={styles.deltaLabel}>{deltaInfo.to.label}</Text>
+                    <Text style={styles.deltaPointValue}>{deltaInfo.to.value.toFixed(1)}</Text>
+                  </View>
+                </View>
+                <Text style={[
+                  styles.deltaValue,
+                  { color: deltaInfo.delta > 0 ? Colors.successText : deltaInfo.delta < 0 ? Colors.dangerText : Colors.text },
+                ]}>
+                  {deltaInfo.delta > 0 ? '+' : ''}{deltaInfo.delta.toFixed(1)}
+                  {meta.unit ? ` ${meta.unit}` : ''}
+                  {' ('}
+                  {deltaInfo.percentChange > 0 ? '+' : ''}{deltaInfo.percentChange.toFixed(1)}%
+                  {')'}
+                </Text>
+              </View>
+            )}
+          </View>
+        </GestureDetector>
 
         {/* Stats */}
         {stats && (
@@ -348,6 +510,7 @@ function renderFullChart(
   width: number,
   height: number,
   showYoY: boolean,
+  onPointSelect?: (event: PointSelectEvent) => void,
 ) {
   const chartData = data[meta.dataKey] as ChartDataPoint[];
 
@@ -376,6 +539,7 @@ function renderFullChart(
           unit={meta.unit}
           thresholdValue={meta.thresholdValue}
           thresholdLabel={meta.thresholdLabel}
+          onPointSelect={onPointSelect}
         />
       );
     }
@@ -389,6 +553,7 @@ function renderFullChart(
           unit={meta.unit}
           goalValue={meta.goalValue}
           goalLabel={meta.goalLabel}
+          onPointSelect={onPointSelect}
         />
       );
     case 'stacked': {
@@ -410,6 +575,7 @@ function renderFullChart(
           height={height}
           title={meta.title}
           unit={meta.unit}
+          onPointSelect={onPointSelect}
         />
       );
     }
@@ -434,6 +600,7 @@ function renderFullChart(
           width={width}
           height={height}
           title={meta.title}
+          onPointSelect={onPointSelect}
         />
       );
     }
@@ -582,5 +749,129 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     fontSize: 11,
     marginTop: 4,
+  },
+
+  // --- Tooltip card ---
+  tooltipCard: {
+    position: 'absolute',
+    bottom: 8,
+    left: 16,
+    right: 16,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  tooltipHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  tooltipDate: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  tooltipValue: {
+    color: Colors.accentText,
+    fontSize: 22,
+    fontWeight: 'bold',
+    fontVariant: ['tabular-nums'],
+  },
+  tooltipSeries: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  tooltipActions: {
+    flexDirection: 'row',
+    gap: 16,
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: Colors.divider,
+  },
+  tooltipLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    minHeight: 44,
+    paddingVertical: 4,
+  },
+  tooltipLinkText: {
+    color: Colors.accentText,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  // --- Delta card ---
+  deltaCard: {
+    position: 'absolute',
+    bottom: 8,
+    left: 16,
+    right: 16,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  deltaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 16,
+    marginVertical: 8,
+  },
+  deltaPoint: {
+    alignItems: 'center',
+  },
+  deltaLabel: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+  },
+  deltaPointValue: {
+    color: Colors.text,
+    fontSize: 16,
+    fontWeight: '600',
+    fontVariant: ['tabular-nums'],
+  },
+  deltaValue: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    fontVariant: ['tabular-nums'],
+  },
+
+  // --- Delta anchor badge ---
+  deltaAnchorBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginTop: 8,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  deltaAnchorText: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    flex: 1,
   },
 });

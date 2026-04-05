@@ -14,6 +14,7 @@ import { Colors } from '../../constants/colors';
 import {
   ChartDataPoint,
   TooltipData,
+  PointSelectEvent,
   computeYTicks,
   formatTickValue,
   getChartArea,
@@ -30,6 +31,8 @@ interface BarChartProps {
   goalValue?: number;
   goalLabel?: string;
   thumbnail?: boolean;
+  /** When provided, fires on bar press instead of showing internal tooltip */
+  onPointSelect?: (event: PointSelectEvent) => void;
 }
 
 export function BarChart({
@@ -42,6 +45,7 @@ export function BarChart({
   goalValue,
   goalLabel,
   thumbnail = false,
+  onPointSelect,
 }: BarChartProps) {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [showTable, setShowTable] = useState(false);
@@ -73,6 +77,17 @@ export function BarChart({
   const baseY = toY(0);
 
   const handlePress = (point: ChartDataPoint, x: number) => {
+    if (onPointSelect) {
+      onPointSelect({
+        date: point.date,
+        label: point.label,
+        value: point.value,
+        x,
+        y: toY(point.value) - 8,
+        unit,
+      });
+      return;
+    }
     setTooltip({
       x,
       y: toY(point.value) - 8,

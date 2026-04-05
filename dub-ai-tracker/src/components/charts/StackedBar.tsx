@@ -11,7 +11,7 @@ import Svg, {
   Rect as SvgRect,
 } from 'react-native-svg';
 import { Colors } from '../../constants/colors';
-import { computeYTicks, formatTickValue, getChartArea, scaleY } from './types';
+import { PointSelectEvent, computeYTicks, formatTickValue, getChartArea, scaleY } from './types';
 
 export interface StackedBarSegment {
   label: string;
@@ -32,6 +32,8 @@ interface StackedBarProps {
   title: string;
   unit?: string;
   thumbnail?: boolean;
+  /** When provided, fires on bar press instead of showing internal tooltip */
+  onPointSelect?: (event: PointSelectEvent) => void;
 }
 
 export function StackedBar({
@@ -42,6 +44,7 @@ export function StackedBar({
   title,
   unit = '',
   thumbnail = false,
+  onPointSelect,
 }: StackedBarProps) {
   const [tooltip, setTooltip] = useState<{ x: number; y: number; text: string } | null>(null);
   const [showTable, setShowTable] = useState(false);
@@ -71,6 +74,18 @@ export function StackedBar({
   const baseY = toY(0);
 
   const handlePress = (point: StackedBarDataPoint, x: number) => {
+    if (onPointSelect) {
+      const total = point.values.reduce((s, v) => s + v, 0);
+      onPointSelect({
+        date: point.date,
+        label: point.label,
+        value: total,
+        x,
+        y: padding.top,
+        unit,
+      });
+      return;
+    }
     const lines = segments.map((seg, j) => `${seg.label}: ${point.values[j].toFixed(1)}`).join(', ');
     setTooltip({ x, y: padding.top, text: `${point.label} - ${lines}` });
   };

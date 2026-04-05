@@ -16,6 +16,7 @@ import { Colors } from '../../constants/colors';
 import {
   ChartSeries,
   TooltipData,
+  PointSelectEvent,
   computeYTicks,
   formatTickValue,
   getChartArea,
@@ -33,6 +34,8 @@ interface LineChartProps {
   thresholdLabel?: string;
   showDots?: boolean;
   thumbnail?: boolean;
+  /** When provided, fires on dot press instead of showing internal tooltip */
+  onPointSelect?: (event: PointSelectEvent) => void;
 }
 
 export function LineChart({
@@ -45,6 +48,7 @@ export function LineChart({
   thresholdLabel,
   showDots = true,
   thumbnail = false,
+  onPointSelect,
 }: LineChartProps) {
   const [tooltip, setTooltip] = useState<TooltipData | null>(null);
   const [showTable, setShowTable] = useState(false);
@@ -71,7 +75,19 @@ export function LineChart({
   const toX = (i: number, count: number) => scaleX(i, count, chartW, padding.left);
   const toY = (val: number) => scaleY(val, minVal, range, chartH, padding.top);
 
-  const handlePress = (point: { x: number; y: number; label: string; value: number }, seriesLabel: string) => {
+  const handlePress = (point: { x: number; y: number; label: string; value: number; date: string }, seriesLabel: string) => {
+    if (onPointSelect) {
+      onPointSelect({
+        date: point.date,
+        label: point.label,
+        value: point.value,
+        x: point.x,
+        y: point.y,
+        seriesLabel,
+        unit,
+      });
+      return;
+    }
     setTooltip({
       x: point.x,
       y: point.y,
@@ -229,7 +245,7 @@ export function LineChart({
                       fill={s.color}
                       onPress={() =>
                         handlePress(
-                          { x: toX(i, s.data.length), y: toY(d.value), label: d.label, value: d.value },
+                          { x: toX(i, s.data.length), y: toY(d.value), label: d.label, value: d.value, date: d.date },
                           s.label,
                         )
                       }

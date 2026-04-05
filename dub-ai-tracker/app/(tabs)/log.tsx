@@ -5,7 +5,7 @@
 // P1-02: Date selector, search, favorites, category grouping, repeat last entry
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useFocusEffect } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams } from 'expo-router';
 import {
   StyleSheet,
   Text,
@@ -159,9 +159,19 @@ interface RecentEntry {
 // ============================================================
 
 export default function LogScreen() {
+  // Deep-link: accept ?date=YYYY-MM-DD from trends tooltip
+  const { date: paramDate } = useLocalSearchParams<{ date?: string }>();
+
   // Date selector state
-  const [selectedDate, setSelectedDate] = useState(todayDateString());
+  const [selectedDate, setSelectedDate] = useState(paramDate ?? todayDateString());
   const isToday = selectedDate === todayDateString();
+
+  // Sync date when navigating from trends tooltip
+  useEffect(() => {
+    if (paramDate && paramDate !== selectedDate) {
+      setSelectedDate(paramDate);
+    }
+  }, [paramDate]);
 
   // Search
   const [searchQuery, setSearchQuery] = useState('');
