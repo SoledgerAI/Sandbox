@@ -8,10 +8,12 @@ import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { useDeferredSetup } from '../../src/hooks/useDeferredSetup';
+import { useMoodTrend } from '../../src/hooks/useMoodTrend';
 import { ScoreRing } from '../../src/components/charts/ScoreRing';
 import { CalorieSummary } from '../../src/components/dashboard/CalorieSummary';
 import { StreakCounter } from '../../src/components/dashboard/StreakCounter';
 import { DeferredSetupCard } from '../../src/components/dashboard/DeferredSetupCard';
+import { MoodResourceCard } from '../../src/components/dashboard/MoodResourceCard';
 import { ALL_DEFAULT_TAGS } from '../../src/constants/tags';
 import { BodyCard } from '../../src/components/dashboard/BodyCard';
 import { RecoveryCard } from '../../src/components/dashboard/RecoveryCard';
@@ -39,6 +41,12 @@ export default function DashboardScreen() {
     dismissItem,
     completeItem,
   } = useDeferredSetup();
+
+  const {
+    showCard: showMoodResource,
+    showVeteransLine,
+    dismiss: dismissMoodResource,
+  } = useMoodTrend();
 
   const handleSetUp = useCallback((key: DeferredSetupKey) => {
     completeItem(key);
@@ -75,6 +83,14 @@ export default function DashboardScreen() {
         <Text style={styles.greeting}>{greeting}</Text>
         <Text style={styles.date}>{dateDisplay}</Text>
       </View>
+
+      {/* Mood Resource Card — safety feature, always at TOP */}
+      {showMoodResource && (
+        <MoodResourceCard
+          showVeteransLine={showVeteransLine}
+          onDismiss={dismissMoodResource}
+        />
+      )}
 
       {/* Score Ring */}
       <View style={styles.ringContainer}>

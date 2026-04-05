@@ -28,6 +28,7 @@ import {
   LBS_PER_KG,
   CM_PER_INCH,
 } from '../constants/formulas';
+import { evaluateMoodTrend } from '../utils/mood_trend';
 import type {
   FoodEntry,
   WaterEntry,
@@ -461,6 +462,9 @@ export async function buildCoachContext(userMessage: string): Promise<{
     }
   }
 
+  // Mood trend detection — safety-critical, always computed
+  const moodTrend = await evaluateMoodTrend();
+
   const context: CoachContext = {
     profile: profile ?? {
       name: 'User',
@@ -505,6 +509,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
     supplement_flags: supplementFlags,
     therapy_today: therapyToday,
     ed_risk_flags: edRiskFlags,
+    mood_trend_alert: moodTrend.triggered,
   };
 
   // Therapy note firewall: verify no therapy content leaked

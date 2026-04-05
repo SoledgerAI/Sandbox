@@ -43,6 +43,8 @@ export interface CoachContext {
   supplement_flags: string[];
   therapy_today: boolean;
   ed_risk_flags: EdRiskFlag[];
+  /** True when mood trend detection triggers (sustained low mood, high anxiety, or crisis mood) */
+  mood_trend_alert: boolean;
 }
 
 export interface TodayDataSummary {
