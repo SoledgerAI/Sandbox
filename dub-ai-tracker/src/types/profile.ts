@@ -69,6 +69,7 @@ export interface StreakData {
   longest_streak: number;
   total_days_logged: number;
   last_logged_date: string | null; // ISO date
+  logged_dates_28d: string[]; // ISO date strings within the rolling 28-day window
 }
 
 export type SobrietyGoalType = 'reduce' | 'quit' | 'monitor';

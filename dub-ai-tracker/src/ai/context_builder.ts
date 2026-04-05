@@ -6,6 +6,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { storageGet, STORAGE_KEYS, dateKey, storageList } from '../utils/storage';
 import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge, lbsToKg, inchesToCm } from '../utils/calories';
+import { computeConsistency, consistencyPct } from '../utils/consistency';
 import type { UserProfile, EngagementTier, SobrietyGoal } from '../types/profile';
 import type {
   CoachContext,
@@ -102,10 +103,11 @@ export async function buildCoachContext(userMessage: string): Promise<{
   const today = todayDateString();
 
   // Always-load data (sobriety goals are safety-critical — MASTER-03)
-  const [profile, tier, sobrietyGoalEntries] = await Promise.all([
+  const [profile, tier, sobrietyGoalEntries, consistencyData] = await Promise.all([
     storageGet<UserProfile>(STORAGE_KEYS.PROFILE),
     storageGet<EngagementTier>(STORAGE_KEYS.TIER),
     storageGet<SobrietyGoal[]>(STORAGE_KEYS.SOBRIETY),
+    computeConsistency(),
   ]);
 
   const currentTier = tier ?? 'balanced';
@@ -483,6 +485,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
     tdee,
     calorie_target: calorieTarget,
     recovery_score: recoveryScore?.total_score ?? null,
+    consistency_28d_pct: consistencyPct(consistencyData),
     active_correlations: activePatterns,
     active_injuries: injuries,
     latest_bloodwork: bloodwork,

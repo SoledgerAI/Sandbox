@@ -209,17 +209,17 @@ export async function checkCelebrations(todayStr: string): Promise<CelebrationEv
     }
   }
 
-  // Check consistency milestones
+  // Check consistency milestones (based on total days logged, not consecutive streak)
   const streaks = await storageGet<StreakData>(STORAGE_KEYS.STREAKS);
   if (streaks) {
     for (const milestone of CONSISTENCY_MILESTONES) {
-      if (streaks.current_streak === milestone) {
+      if (streaks.total_days_logged === milestone) {
         const trigger = `consistency_${milestone}` as CelebrationTrigger;
         if (!alreadyShown.includes(trigger)) {
           events.push({
             trigger,
-            title: `${milestone}-Day Streak`,
-            detail: `${milestone} consecutive days logged. Your consistency is building real data for better insights.`,
+            title: `${milestone} Days Logged`,
+            detail: `${milestone} total days of tracking. More data means better insights.`,
             timestamp: new Date().toISOString(),
           });
         }

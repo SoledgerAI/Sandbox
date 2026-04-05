@@ -57,6 +57,7 @@ function makeContext(overrides?: Partial<CoachContext>): CoachContext {
     tdee: 2742,
     calorie_target: 2242,
     recovery_score: 78,
+    consistency_28d_pct: 75,
     active_correlations: [],
     active_injuries: [],
     latest_bloodwork: null,

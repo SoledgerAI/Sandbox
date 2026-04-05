@@ -34,6 +34,7 @@ export interface CoachContext {
   tdee: number | null;
   calorie_target: number | null;
   recovery_score: number | null;
+  consistency_28d_pct: number;
   active_correlations: PatternInsight[];
   active_injuries: InjurySummary[];
   latest_bloodwork: BloodworkSummary | null;

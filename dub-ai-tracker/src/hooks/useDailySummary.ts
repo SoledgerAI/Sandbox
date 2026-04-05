@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { storageGet, STORAGE_KEYS, dateKey } from '../utils/storage';
 import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge, lbsToKg, inchesToCm } from '../utils/calories';
 import { computeDailyScore, DailyScoreBreakdown } from '../utils/dailyScore';
+import { computeConsistency } from '../utils/consistency';
 import type { UserProfile, StreakData, EngagementTier } from '../types/profile';
 import type { DailySummary, FoodEntry, WaterEntry, CaffeineEntry } from '../types';
 import type { WorkoutEntry } from '../types/workout';
@@ -46,6 +47,7 @@ const DEFAULT_STREAK: StreakData = {
   longest_streak: 0,
   total_days_logged: 0,
   last_logged_date: null,
+  logged_dates_28d: [],
 };
 
 const DEFAULT_SUMMARY: DailySummary = {
@@ -102,7 +104,7 @@ export function useDailySummary(): DailySummaryResult {
           storageGet<EngagementTier>(STORAGE_KEYS.TIER),
           storageGet<string[]>(STORAGE_KEYS.TAGS_ENABLED),
           storageGet<string[]>(STORAGE_KEYS.TAGS_ORDER),
-          storageGet<StreakData>(STORAGE_KEYS.STREAKS),
+          computeConsistency(),
           storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, today)),
           storageGet<WaterEntry[]>(dateKey(STORAGE_KEYS.LOG_WATER, today)),
           storageGet<CaffeineEntry[]>(dateKey(STORAGE_KEYS.LOG_CAFFEINE, today)),
@@ -113,7 +115,7 @@ export function useDailySummary(): DailySummaryResult {
       setTier(t);
       setEnabledTags(tags ?? []);
       setTagOrder(order ?? tags ?? []);
-      setStreak(streakData ?? DEFAULT_STREAK);
+      setStreak(streakData);
 
       // Compute BMR/TDEE from profile
       let computedBmr = 0;
