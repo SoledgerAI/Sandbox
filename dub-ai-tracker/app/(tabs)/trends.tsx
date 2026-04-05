@@ -202,7 +202,7 @@ const CHART_CONFIGS: ChartConfig[] = [
     unit: '/100',
   },
 
-  // Mood
+  // Mood (3-axis)
   {
     id: 'mood',
     title: 'Mood Trend',
@@ -211,6 +211,22 @@ const CHART_CONFIGS: ChartConfig[] = [
     dataKey: 'mood',
     unit: '/5',
     yoyDataKey: 'yoyMood',
+  },
+  {
+    id: 'energy',
+    title: 'Energy Trend',
+    category: 'Mood',
+    type: 'line',
+    dataKey: 'energy',
+    unit: '/5',
+  },
+  {
+    id: 'anxiety',
+    title: 'Anxiety Trend',
+    category: 'Mood',
+    type: 'line',
+    dataKey: 'anxiety',
+    unit: '/5',
   },
 ];
 

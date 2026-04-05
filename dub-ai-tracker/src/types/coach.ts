@@ -56,6 +56,8 @@ export interface TodayDataSummary {
   steps: number;
   workouts: string[];
   mood: number | null;
+  energy: number | null;
+  anxiety: number | null;
   sleep_hours: number | null;
   sleep_quality: number | null;
   tags_logged: string[];
@@ -69,6 +71,8 @@ export interface RollingStats {
   avg_water_oz: number | null;
   avg_sleep_hours: number | null;
   avg_mood: number | null;
+  avg_energy: number | null;
+  avg_anxiety: number | null;
   avg_weight: number | null;
   /** Number of weight data points in the 7-day window */
   weight_count: number;

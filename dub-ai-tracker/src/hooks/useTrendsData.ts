@@ -19,6 +19,8 @@ interface MonthlySummary {
   avg_water_oz: number;
   avg_sleep_hours: number | null;
   avg_mood: number | null;
+  avg_energy: number | null;
+  avg_anxiety: number | null;
   avg_weight: number | null;
   workout_count: number;
   days_logged: number;
@@ -37,6 +39,8 @@ export interface TrendDataSet {
   sleepHours: ChartDataPoint[];
   sleepQuality: ChartDataPoint[];
   mood: ChartDataPoint[];
+  energy: ChartDataPoint[];
+  anxiety: ChartDataPoint[];
   weight: ChartDataPoint[];
   recovery: ChartDataPoint[];
   workoutCount: ChartDataPoint[];
@@ -54,7 +58,7 @@ const EMPTY_DATASET: TrendDataSet = {
   calories: [], protein: [], carbs: [], fat: [],
   caloriesBurned: [], water: [], caffeine: [], steps: [],
   activeMinutes: [], sleepHours: [], sleepQuality: [],
-  mood: [], weight: [], recovery: [], workoutCount: [], glucose: [], bpSystolic: [],
+  mood: [], energy: [], anxiety: [], weight: [], recovery: [], workoutCount: [], glucose: [], bpSystolic: [],
   yoyCalories: [], yoyWeight: [], yoySleep: [], yoyMood: [],
   hasYoYData: false,
 };
@@ -161,6 +165,8 @@ async function loadDailyData(
       pushIfNotNull(result.sleepHours, dailyToChartPoint(summary, 'sleep_hours'));
       pushIfNotNull(result.sleepQuality, dailyToChartPoint(summary, 'sleep_quality'));
       pushIfNotNull(result.mood, dailyToChartPoint(summary, 'mood_avg'));
+      pushIfNotNull(result.energy, dailyToChartPoint(summary, 'energy_avg'));
+      pushIfNotNull(result.anxiety, dailyToChartPoint(summary, 'anxiety_avg'));
       pushIfNotNull(result.weight, dailyToChartPoint(summary, 'weight_lbs'));
       pushIfNotNull(result.recovery, dailyToChartPoint(summary, 'recovery_score'));
       pushIfNotNull(result.glucose, dailyToChartPoint(summary, 'glucose_avg_mg_dl'));
@@ -214,6 +220,8 @@ async function loadWeeklyData(
       pushIfNotNull(result.water, weeklyToChartPoint(summary, 'avg_water_oz'));
       pushIfNotNull(result.sleepHours, weeklyToChartPoint(summary, 'avg_sleep_hours'));
       pushIfNotNull(result.mood, weeklyToChartPoint(summary, 'avg_mood'));
+      pushIfNotNull(result.energy, weeklyToChartPoint(summary, 'avg_energy'));
+      pushIfNotNull(result.anxiety, weeklyToChartPoint(summary, 'avg_anxiety'));
       pushIfNotNull(result.weight, weeklyToChartPoint(summary, 'avg_weight'));
       if (summary.workout_count != null) {
         result.workoutCount.push({
@@ -262,6 +270,8 @@ async function loadMonthlyData(
     pushIfNotNull(result.water, monthlyToChartPoint(summary, 'avg_water_oz'));
     pushIfNotNull(result.sleepHours, monthlyToChartPoint(summary, 'avg_sleep_hours'));
     pushIfNotNull(result.mood, monthlyToChartPoint(summary, 'avg_mood'));
+    pushIfNotNull(result.energy, monthlyToChartPoint(summary, 'avg_energy'));
+    pushIfNotNull(result.anxiety, monthlyToChartPoint(summary, 'avg_anxiety'));
     pushIfNotNull(result.weight, monthlyToChartPoint(summary, 'avg_weight'));
     if (summary.workout_count != null) {
       result.workoutCount.push({

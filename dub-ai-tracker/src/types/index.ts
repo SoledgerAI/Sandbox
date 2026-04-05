@@ -108,7 +108,11 @@ export interface SleepDeviceData {
 export interface MoodEntry {
   id: string;
   timestamp: string; // ISO datetime
-  score: number; // 1-5 scale
+  score: number; // 1-5 mood scale ("very low" ↔ "great")
+  /** 1-5 energy scale ("exhausted" ↔ "energized"). Null for pre-migration entries. */
+  energy: number | null;
+  /** 1-5 anxiety scale ("calm" ↔ "very anxious"). Null for pre-migration entries. */
+  anxiety: number | null;
   note: string | null;
 }
 
@@ -354,6 +358,8 @@ export interface DailySummary {
   sleep_hours: number | null;
   sleep_quality: number | null;
   mood_avg: number | null;
+  energy_avg: number | null;
+  anxiety_avg: number | null;
   weight_lbs: number | null;
   glucose_avg_mg_dl: number | null;
   bp_systolic_avg: number | null;
@@ -374,6 +380,8 @@ export interface WeeklySummary {
   avg_water_oz: number;
   avg_sleep_hours: number | null;
   avg_mood: number | null;
+  avg_energy: number | null;
+  avg_anxiety: number | null;
   avg_weight: number | null;
   weight_change: number | null;
   workout_count: number;

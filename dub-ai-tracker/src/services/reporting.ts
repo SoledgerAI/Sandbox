@@ -35,6 +35,8 @@ export interface MonthlySummary {
   avg_water_oz: number;
   avg_sleep_hours: number | null;
   avg_mood: number | null;
+  avg_energy: number | null;
+  avg_anxiety: number | null;
   avg_recovery: number | null;
   start_weight: number | null;
   end_weight: number | null;
@@ -157,10 +159,20 @@ export async function generateDailySummary(dateStr: string): Promise<DailySummar
     sleepHours = Math.round(((wake.getTime() - bed.getTime()) / 3600000) * 10) / 10;
   }
 
-  // Mood average
+  // Mood averages (3-axis: mood, energy, anxiety)
   let moodAvg: number | null = null;
+  let energyAvg: number | null = null;
+  let anxietyAvg: number | null = null;
   if (moodEntries && moodEntries.length > 0) {
     moodAvg = Math.round((moodEntries.reduce((s, m) => s + m.score, 0) / moodEntries.length) * 10) / 10;
+    const withEnergy = moodEntries.filter((m) => m.energy != null);
+    if (withEnergy.length > 0) {
+      energyAvg = Math.round((withEnergy.reduce((s, m) => s + m.energy!, 0) / withEnergy.length) * 10) / 10;
+    }
+    const withAnxiety = moodEntries.filter((m) => m.anxiety != null);
+    if (withAnxiety.length > 0) {
+      anxietyAvg = Math.round((withAnxiety.reduce((s, m) => s + m.anxiety!, 0) / withAnxiety.length) * 10) / 10;
+    }
   }
 
   // Determine which tags were logged
@@ -217,6 +229,8 @@ export async function generateDailySummary(dateStr: string): Promise<DailySummar
     sleep_hours: sleepHours,
     sleep_quality: sleepEntry?.quality ?? null,
     mood_avg: moodAvg,
+    energy_avg: energyAvg,
+    anxiety_avg: anxietyAvg,
     weight_lbs: bodyEntry?.weight_lbs ?? null,
     glucose_avg_mg_dl: glucoseEntries && glucoseEntries.length > 0
       ? Math.round(glucoseEntries.reduce((s, g) => s + g.reading_mg_dl, 0) / glucoseEntries.length)
@@ -269,6 +283,8 @@ export async function generateWeeklySummary(
   const weights = dailySummaries.filter((d) => d.weight_lbs !== null).map((d) => d.weight_lbs!);
   const sleeps = dailySummaries.filter((d) => d.sleep_hours !== null).map((d) => d.sleep_hours!);
   const moods = dailySummaries.filter((d) => d.mood_avg !== null).map((d) => d.mood_avg!);
+  const energies = dailySummaries.filter((d) => d.energy_avg !== null).map((d) => d.energy_avg!);
+  const anxieties = dailySummaries.filter((d) => d.anxiety_avg !== null).map((d) => d.anxiety_avg!);
   const workoutDays = dailySummaries.filter(
     (d) => d.tags_logged.includes('fitness.workout') || d.tags_logged.includes('strength.training'),
   ).length;
@@ -285,6 +301,8 @@ export async function generateWeeklySummary(
     avg_water_oz: Math.round(dailySummaries.reduce((s, d) => s + d.water_oz, 0) / n),
     avg_sleep_hours: sleeps.length > 0 ? Math.round((sleeps.reduce((a, b) => a + b, 0) / sleeps.length) * 10) / 10 : null,
     avg_mood: moods.length > 0 ? Math.round((moods.reduce((a, b) => a + b, 0) / moods.length) * 10) / 10 : null,
+    avg_energy: energies.length > 0 ? Math.round((energies.reduce((a, b) => a + b, 0) / energies.length) * 10) / 10 : null,
+    avg_anxiety: anxieties.length > 0 ? Math.round((anxieties.reduce((a, b) => a + b, 0) / anxieties.length) * 10) / 10 : null,
     avg_weight: weights.length > 0 ? Math.round((weights.reduce((a, b) => a + b, 0) / weights.length) * 10) / 10 : null,
     weight_change: weights.length >= 2 ? Math.round((weights[weights.length - 1] - weights[0]) * 10) / 10 : null,
     workout_count: workoutDays,
@@ -330,6 +348,8 @@ export async function generateMonthlySummary(
   const weights = dailySummaries.filter((d) => d.weight_lbs !== null).map((d) => d.weight_lbs!);
   const sleeps = dailySummaries.filter((d) => d.sleep_hours !== null).map((d) => d.sleep_hours!);
   const moods = dailySummaries.filter((d) => d.mood_avg !== null).map((d) => d.mood_avg!);
+  const mEnergies = dailySummaries.filter((d) => d.energy_avg !== null).map((d) => d.energy_avg!);
+  const mAnxieties = dailySummaries.filter((d) => d.anxiety_avg !== null).map((d) => d.anxiety_avg!);
   const recoveries = dailySummaries.filter((d) => d.recovery_score !== null).map((d) => d.recovery_score!);
   const workoutDays = dailySummaries.filter(
     (d) => d.tags_logged.includes('fitness.workout') || d.tags_logged.includes('strength.training'),
@@ -347,6 +367,8 @@ export async function generateMonthlySummary(
     avg_water_oz: Math.round(dailySummaries.reduce((s, d) => s + d.water_oz, 0) / n),
     avg_sleep_hours: sleeps.length > 0 ? Math.round((sleeps.reduce((a, b) => a + b, 0) / sleeps.length) * 10) / 10 : null,
     avg_mood: moods.length > 0 ? Math.round((moods.reduce((a, b) => a + b, 0) / moods.length) * 10) / 10 : null,
+    avg_energy: mEnergies.length > 0 ? Math.round((mEnergies.reduce((a, b) => a + b, 0) / mEnergies.length) * 10) / 10 : null,
+    avg_anxiety: mAnxieties.length > 0 ? Math.round((mAnxieties.reduce((a, b) => a + b, 0) / mAnxieties.length) * 10) / 10 : null,
     avg_recovery: recoveries.length > 0 ? Math.round(recoveries.reduce((a, b) => a + b, 0) / recoveries.length) : null,
     start_weight: weights.length > 0 ? weights[0] : null,
     end_weight: weights.length > 0 ? weights[weights.length - 1] : null,

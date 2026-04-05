@@ -173,7 +173,12 @@ export function buildSystemPrompt(context: CoachContext, conditionalSections: st
   const td = context.today_data;
   const today = new Date().toISOString().slice(0, 10);
   const budgetForToday = context.calorie_target ?? context.tdee;
-  parts.push(`[TODAY ${today}] Cal:${td.calories_consumed}/${budgetForToday ? Math.round(budgetForToday) : '?'} Burned:${td.calories_burned} Remaining:${budgetForToday ? Math.round(budgetForToday) - td.calories_consumed + td.calories_burned : '?'} P:${td.protein_g}g C:${td.carbs_g}g F:${td.fat_g}g H2O:${td.water_oz}oz`);
+  const moodParts: string[] = [];
+  if (td.mood != null) moodParts.push(`Mood:${td.mood.toFixed(1)}/5`);
+  if (td.energy != null) moodParts.push(`Energy:${td.energy.toFixed(1)}/5`);
+  if (td.anxiety != null) moodParts.push(`Anxiety:${td.anxiety.toFixed(1)}/5`);
+  const moodStr = moodParts.length > 0 ? ` ${moodParts.join(' ')}` : '';
+  parts.push(`[TODAY ${today}] Cal:${td.calories_consumed}/${budgetForToday ? Math.round(budgetForToday) : '?'} Burned:${td.calories_burned} Remaining:${budgetForToday ? Math.round(budgetForToday) - td.calories_consumed + td.calories_burned : '?'} P:${td.protein_g}g C:${td.carbs_g}g F:${td.fat_g}g H2O:${td.water_oz}oz${moodStr}`);
 
   if (context.recovery_score != null) {
     parts.push(`[RECOVERY] ${context.recovery_score}`);

@@ -145,6 +145,8 @@ describe('useDailySummary hook logic', () => {
       sleep_hours: 7.5,
       sleep_quality: 4,
       mood_avg: 4.0,
+      energy_avg: 3.5,
+      anxiety_avg: 2.0,
       weight_lbs: 180,
       tags_logged: ['nutrition.food'],
       recovery_score: 78,

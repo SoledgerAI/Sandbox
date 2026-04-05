@@ -169,6 +169,8 @@ export async function buildCoachContext(userMessage: string): Promise<{
     steps: stepsEntry?.total_steps ?? 0,
     workouts: workouts.map((w) => w.activity_name),
     mood: moods.length > 0 ? moods.reduce((s, m) => s + m.score, 0) / moods.length : null,
+    energy: moods.length > 0 ? moods.filter((m) => m.energy != null).reduce((s, m) => s + m.energy!, 0) / Math.max(moods.filter((m) => m.energy != null).length, 1) || null : null,
+    anxiety: moods.length > 0 ? moods.filter((m) => m.anxiety != null).reduce((s, m) => s + m.anxiety!, 0) / Math.max(moods.filter((m) => m.anxiety != null).length, 1) || null : null,
     sleep_hours: sleepEntry?.bedtime && sleepEntry?.wake_time
       ? (new Date(sleepEntry.wake_time).getTime() - new Date(sleepEntry.bedtime).getTime()) / 3600000
       : null,
@@ -218,6 +220,8 @@ export async function buildCoachContext(userMessage: string): Promise<{
       if (weightRolling.avg_protein_g != null) parts.push(`P:${Math.round(weightRolling.avg_protein_g)}g`);
       if (weightRolling.avg_sleep_hours != null) parts.push(`Sleep:${weightRolling.avg_sleep_hours.toFixed(1)}h`);
       if (weightRolling.avg_mood != null) parts.push(`Mood:${weightRolling.avg_mood.toFixed(1)}`);
+      if (weightRolling.avg_energy != null) parts.push(`Energy:${weightRolling.avg_energy.toFixed(1)}`);
+      if (weightRolling.avg_anxiety != null) parts.push(`Anxiety:${weightRolling.avg_anxiety.toFixed(1)}`);
       if (parts.length > 0) {
         conditionalSections.push(`[7D] ${parts.join(' ')}`);
       }
@@ -482,6 +486,8 @@ export async function buildCoachContext(userMessage: string): Promise<{
       avg_water_oz: null,
       avg_sleep_hours: null,
       avg_mood: null,
+      avg_energy: null,
+      avg_anxiety: null,
       avg_weight: null,
       weight_count: 0,
       workout_count: 0,
@@ -549,6 +555,8 @@ async function compute7DayRolling(today: string): Promise<RollingStats | null> {
     water: [] as number[],
     sleep: [] as number[],
     mood: [] as number[],
+    energy: [] as number[],
+    anxiety: [] as number[],
     weight: [] as number[],
   };
 
@@ -575,6 +583,14 @@ async function compute7DayRolling(today: string): Promise<RollingStats | null> {
     const moodEntries = parse<MoodEntry[]>(STORAGE_KEYS.LOG_MOOD, date);
     if (moodEntries && moodEntries.length > 0) {
       stats.mood.push(moodEntries.reduce((s, m) => s + m.score, 0) / moodEntries.length);
+      const withEnergy = moodEntries.filter((m) => m.energy != null);
+      if (withEnergy.length > 0) {
+        stats.energy.push(withEnergy.reduce((s, m) => s + m.energy!, 0) / withEnergy.length);
+      }
+      const withAnxiety = moodEntries.filter((m) => m.anxiety != null);
+      if (withAnxiety.length > 0) {
+        stats.anxiety.push(withAnxiety.reduce((s, m) => s + m.anxiety!, 0) / withAnxiety.length);
+      }
     }
 
     const bodyEntry = parse<BodyEntry>(STORAGE_KEYS.LOG_BODY, date);
@@ -598,6 +614,8 @@ async function compute7DayRolling(today: string): Promise<RollingStats | null> {
     avg_water_oz: avg(stats.water),
     avg_sleep_hours: avg(stats.sleep),
     avg_mood: avg(stats.mood),
+    avg_energy: avg(stats.energy),
+    avg_anxiety: avg(stats.anxiety),
     avg_weight: avg(stats.weight),
     weight_count: stats.weight.length,
     workout_count: workoutCount,

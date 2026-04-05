@@ -159,6 +159,8 @@ describe('Type System -- Core Interfaces', () => {
       id: 'mood_1',
       timestamp: '2026-03-27T12:00:00Z',
       score: 4,
+      energy: 3,
+      anxiety: 2,
       note: 'Good day',
     };
     expect(entry.score).toBe(4);
@@ -346,6 +348,8 @@ describe('Type System -- Core Interfaces', () => {
       sleep_hours: 7.5,
       sleep_quality: 4,
       mood_avg: 4.0,
+      energy_avg: 3.5,
+      anxiety_avg: 2.0,
       weight_lbs: 180,
       glucose_avg_mg_dl: null,
       bp_systolic_avg: null,

@@ -161,6 +161,20 @@ const CHART_META: Record<string, ChartMeta> = {
     unit: '/5',
     yoyDataKey: 'yoyMood',
   },
+  energy: {
+    title: 'Energy Trend',
+    category: 'Mood',
+    type: 'line',
+    dataKey: 'energy',
+    unit: '/5',
+  },
+  anxiety: {
+    title: 'Anxiety Trend',
+    category: 'Mood',
+    type: 'line',
+    dataKey: 'anxiety',
+    unit: '/5',
+  },
 };
 
 export default function TrendsDetailScreen() {
