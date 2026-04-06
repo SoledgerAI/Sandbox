@@ -24,6 +24,7 @@ import {
 import type { GlucoseEntry, GlucoseTiming, FoodEntry } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -69,6 +70,7 @@ interface GlucoseLoggerProps {
 export function GlucoseLogger({ onEntryLogged }: GlucoseLoggerProps) {
   const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<GlucoseEntry>('blood.glucose');
   const [entries, setEntries] = useState<GlucoseEntry[]>([]);
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [reading, setReading] = useState('');
   const [timing, setTiming] = useState<GlucoseTiming>('fasting');
   const [notes, setNotes] = useState('');
@@ -103,7 +105,7 @@ export function GlucoseLogger({ onEntryLogged }: GlucoseLoggerProps) {
 
     const entry: GlucoseEntry = {
       id: `glucose_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       reading_mg_dl: readingNum,
       timing,
       linked_food_entry_id: linkedFoodId,
@@ -154,6 +156,9 @@ export function GlucoseLogger({ onEntryLogged }: GlucoseLoggerProps) {
         visible={!lastLoading && lastEntry != null}
         onRepeat={handleRepeatLast}
       />
+
+      <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
+
       {/* Reading input */}
       <Text style={styles.sectionTitle}>Reading (mg/dL)</Text>
       <TextInput

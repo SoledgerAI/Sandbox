@@ -22,6 +22,7 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { BodyEntry } from '../../types';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -54,6 +55,7 @@ interface VitalsLoggerProps {
 }
 
 export function VitalsLogger({ onEntryLogged }: VitalsLoggerProps) {
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [systolic, setSystolic] = useState('');
   const [diastolic, setDiastolic] = useState('');
   const [hr, setHr] = useState('');
@@ -124,7 +126,7 @@ export function VitalsLogger({ onEntryLogged }: VitalsLoggerProps) {
       resting_hr: hrVal ?? existing?.resting_hr ?? null,
       hrv_ms: hrvVal ?? existing?.hrv_ms ?? null,
       spo2_pct: spo2Val ?? existing?.spo2_pct ?? null,
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       source: 'manual',
     };
 
@@ -198,6 +200,8 @@ export function VitalsLogger({ onEntryLogged }: VitalsLoggerProps) {
             )}
           </View>
         )}
+
+      <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
 
       {/* Blood Pressure */}
       <Text style={styles.sectionTitle}>Blood Pressure</Text>

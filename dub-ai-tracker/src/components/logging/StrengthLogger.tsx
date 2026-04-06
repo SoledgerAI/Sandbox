@@ -23,6 +23,7 @@ import {
 } from '../../utils/storage';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import type {
   StrengthEntry,
   StrengthExercise,
@@ -129,6 +130,7 @@ function emptyDetailedForm(numSets: number = 4): DetailedExerciseForm {
 
 export function StrengthLogger() {
   const [mode, setMode] = useState<StrengthLogMode>('quick');
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [entries, setEntries] = useState<StrengthEntry[]>([]);
   const [exercises, setExercises] = useState<StrengthExercise[]>([]);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
@@ -264,7 +266,7 @@ export function StrengthLogger() {
 
     const entry: StrengthEntry = {
       id: generateId(),
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       exercises,
       mode,
       duration_minutes: null,
@@ -467,6 +469,8 @@ export function StrengthLogger() {
             </View>
           </View>
         )}
+
+        <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
 
         {/* Mode toggle: [Detailed] [Quick Log] */}
         <View style={styles.modeRow}>

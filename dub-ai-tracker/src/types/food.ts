@@ -88,6 +88,14 @@ export interface MealTemplate {
   last_used: string | null;
 }
 
+// Recent food entry for quick-repeat logging (F-03)
+export interface RecentFoodInfo {
+  food_item: FoodItem;
+  serving: ServingSize;
+  quantity: number;
+  calories: number;
+}
+
 export interface FavoriteFood {
   id: string;
   food_item: FoodItem;

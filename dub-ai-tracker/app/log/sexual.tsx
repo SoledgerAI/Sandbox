@@ -22,6 +22,7 @@ import {
 import type { SexualEntry } from '../../src/types';
 import { useLastEntry } from '../../src/hooks/useLastEntry';
 import { RepeatLastEntry } from '../../src/components/logging/RepeatLastEntry';
+import { TimestampPicker } from '../../src/components/common/TimestampPicker';
 import { todayDateString } from '../../src/utils/dayBoundary';
 
 
@@ -42,6 +43,7 @@ export default function SexualScreen() {
   const [entries, setEntries] = useState<SexualEntry[]>([]);
   const [duration, setDuration] = useState('15');
   const [intensity, setIntensity] = useState<SexualEntry['intensity']>('moderate');
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
 
   const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<SexualEntry>('sexual.activity');
 
@@ -78,7 +80,7 @@ export default function SexualScreen() {
 
     const entry: SexualEntry = {
       id: `sexual_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       duration_minutes: durationMin,
       intensity,
       compendium_code: selectedOption.code,
@@ -91,7 +93,7 @@ export default function SexualScreen() {
     setEntries(updated);
     setDuration('15');
     await saveAsLast(entry);
-  }, [entries, durationMin, intensity, selectedOption, caloriesBurned, saveAsLast]);
+  }, [entries, durationMin, intensity, selectedOption, caloriesBurned, saveAsLast, entryTimestamp]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -125,6 +127,8 @@ export default function SexualScreen() {
           visible={!lastEntryLoading && lastEntry !== null}
           onRepeat={handleRepeatLast}
         />
+
+        <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
 
         {/* Calorie estimate card */}
         <View style={styles.calorieCard}>

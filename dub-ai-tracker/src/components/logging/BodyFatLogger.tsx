@@ -19,6 +19,7 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { BodyEntry } from '../../types';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -27,6 +28,7 @@ interface BodyFatLoggerProps {
 }
 
 export function BodyFatLogger({ onEntryLogged }: BodyFatLoggerProps) {
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [bfInput, setBfInput] = useState('');
   const [todayEntry, setTodayEntry] = useState<BodyEntry | null>(null);
 
@@ -61,7 +63,7 @@ export function BodyFatLogger({ onEntryLogged }: BodyFatLoggerProps) {
       resting_hr: existing?.resting_hr ?? null,
       hrv_ms: existing?.hrv_ms ?? null,
       spo2_pct: existing?.spo2_pct ?? null,
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       source: 'manual',
     };
 
@@ -84,6 +86,8 @@ export function BodyFatLogger({ onEntryLogged }: BodyFatLoggerProps) {
 
   return (
     <View style={styles.container}>
+      <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
+
       {/* Current body fat display */}
       {todayEntry?.body_fat_pct != null && (
         <View style={styles.currentCard}>

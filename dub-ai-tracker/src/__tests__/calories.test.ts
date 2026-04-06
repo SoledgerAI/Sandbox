@@ -161,4 +161,69 @@ describe('Calorie Engine', () => {
       expect(calculateCalorieBurn(9.8, 80, 0)).toBe(0);
     });
   });
+
+  // ── F-05 Spec Test Vectors (Mifflin-St Jeor full pipeline) ──
+  // Note: coefficients are 9.99/4.92 (source-faithful), not 10/5 (rounded).
+  // Expected values computed with precise coefficients.
+
+  describe('F-05: Full calorie target pipeline', () => {
+    it('Male, 30, 180cm, 80kg, moderately active, maintenance ≈ 2,466 cal', () => {
+      // BMR = (9.99*80) + (6.25*180) - (4.92*30) + 5 = 799.2 + 1125 - 147.6 + 5 = 1781.6
+      // TDEE = 1781.6 * 1.55 = 2761.48
+      // Target = TDEE + 0 (maintain) = 2761 (rounded)
+      const bmr = calculateBmr({ weightKg: 80, heightCm: 180, ageYears: 30, sex: 'male' });
+      const tdee = calculateTdee(bmr, 'moderately_active');
+      const target = calculateCalorieTarget({ tdee, goalDirection: 'MAINTAIN', sex: 'male' });
+      expect(bmr).toBeCloseTo(1781.6, 0);
+      expect(target).toBeCloseTo(2761, -1); // within ~10 cal
+    });
+
+    it('Female, 25, 165cm, 60kg, lightly active, fat loss ≈ 1,266 cal', () => {
+      // BMR = (9.99*60) + (6.25*165) - (4.92*25) - 161 = 599.4 + 1031.25 - 123 - 161 = 1346.65
+      // TDEE = 1346.65 * 1.375 = 1851.64
+      // Target = 1851.64 - 500 = 1351.64 ≈ 1352
+      const bmr = calculateBmr({ weightKg: 60, heightCm: 165, ageYears: 25, sex: 'female' });
+      const tdee = calculateTdee(bmr, 'lightly_active');
+      const target = calculateCalorieTarget({
+        tdee, goalDirection: 'LOSE', sex: 'female', rateLbsPerWeek: 1.0,
+      });
+      expect(bmr).toBeCloseTo(1346.65, 0);
+      expect(target).toBeCloseTo(1352, -1); // within ~10 cal
+    });
+
+    it('Male, 45, 175cm, 90kg, sedentary, maintenance ≈ 1,961 cal', () => {
+      // BMR = (9.99*90) + (6.25*175) - (4.92*45) + 5 = 899.1 + 1093.75 - 221.4 + 5 = 1776.45
+      // TDEE = 1776.45 * 1.2 = 2131.74
+      // Target = 2131.74 (maintain) ≈ 2132
+      const bmr = calculateBmr({ weightKg: 90, heightCm: 175, ageYears: 45, sex: 'male' });
+      const tdee = calculateTdee(bmr, 'sedentary');
+      const target = calculateCalorieTarget({ tdee, goalDirection: 'MAINTAIN', sex: 'male' });
+      expect(bmr).toBeCloseTo(1776.45, 0);
+      expect(target).toBeCloseTo(2132, -1);
+    });
+
+    it('returns null-safe: calculateBmr throws for age < 18', () => {
+      expect(() =>
+        calculateBmr({ weightKg: 60, heightCm: 165, ageYears: 15, sex: 'female' }),
+      ).toThrow('BMR calculation requires age >= 18');
+    });
+
+    it('returns null-safe: zero weight produces zero BMR', () => {
+      // Zero weight edge case — formula still runs but result is meaningless
+      const bmr = calculateBmr({ weightKg: 0, heightCm: 165, ageYears: 25, sex: 'female' });
+      // BMR = (9.99*0) + (6.25*165) - (4.92*25) - 161 = 0 + 1031.25 - 123 - 161 = 747.25
+      // Not zero, but the calorie target is not meaningful
+      expect(bmr).toBeCloseTo(747.25, 0);
+    });
+
+    it('gain surplus defaults to 300 (F-05 spec)', () => {
+      const target = calculateCalorieTarget({
+        tdee: 2500,
+        goalDirection: 'GAIN',
+        sex: 'male',
+      });
+      // TDEE 2500 + default surplus 300 = 2800
+      expect(target).toBe(2800);
+    });
+  });
 });

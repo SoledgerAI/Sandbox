@@ -1,5 +1,6 @@
-// Food search with parallel USDA + OpenFoodFacts, source badges, favorites, completeness
+// Food search with recent foods first, barcode elevation, and improved row sizing
 // Phase 6/7: Food Logging -- Core + Additional APIs
+// F-03: Recent foods as default view, 2-tap repeat, barcode elevation
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import {
@@ -16,7 +17,7 @@ import { Colors } from '../../constants/colors';
 import { parallelFoodSearch } from '../../utils/foodwaterfall';
 import type { GroupedSearchResult } from '../../utils/foodwaterfall';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../utils/storage';
-import type { FoodItem, FavoriteFood, NutritionInfo } from '../../types/food';
+import type { FoodItem, FavoriteFood, NutritionInfo, RecentFoodInfo } from '../../types/food';
 
 const MAX_CACHE_SIZE = 500;
 const MACRO_FIELDS: (keyof NutritionInfo)[] = [
@@ -30,6 +31,8 @@ interface FoodSearchProps {
   onBarcodeScan?: () => void;
   onNLPEntry?: () => void;
   onPhotoEntry?: () => void;
+  /** Called when a recent food is tapped for quick-repeat (F-03) */
+  onRecentTap?: (entry: RecentFoodInfo) => void;
 }
 
 type SectionData = {
@@ -43,10 +46,10 @@ function countAvailableMacros(nutrition: NutritionInfo): number {
   return MACRO_FIELDS.filter((k) => nutrition[k] != null && nutrition[k] !== 0).length;
 }
 
-export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan, onNLPEntry, onPhotoEntry }: FoodSearchProps) {
+export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan, onNLPEntry, onPhotoEntry, onRecentTap }: FoodSearchProps) {
   const [query, setQuery] = useState('');
   const [sections, setSections] = useState<SectionData[]>([]);
-  const [recentFoods, setRecentFoods] = useState<FoodItem[]>([]);
+  const [recentEntries, setRecentEntries] = useState<RecentFoodInfo[]>([]);
   const [favorites, setFavorites] = useState<FavoriteFood[]>([]);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(false);
@@ -54,10 +57,29 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
   const [searched, setSearched] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load recent foods and favorites on mount
+  // Load recent food entries and favorites on mount
   useEffect(() => {
-    storageGet<FoodItem[]>(STORAGE_KEYS.FOOD_RECENT).then((foods) => {
-      if (foods) setRecentFoods(foods.slice(0, 10));
+    storageGet<RecentFoodInfo[]>(STORAGE_KEYS.FOOD_RECENT).then((entries) => {
+      if (entries && entries.length > 0) {
+        // Handle backward compat: old format was FoodItem[], new format is RecentFoodInfo[]
+        if ((entries[0] as any).food_item) {
+          setRecentEntries(entries.slice(0, 15));
+        } else {
+          // Old format — convert FoodItem[] to RecentFoodInfo[]
+          const items = entries as unknown as FoodItem[];
+          const converted: RecentFoodInfo[] = items.slice(0, 15).map((f) => {
+            const serving = f.serving_sizes[f.default_serving_index];
+            const scale = serving?.gram_weight ? serving.gram_weight / 100 : 1;
+            return {
+              food_item: f,
+              serving,
+              quantity: 1,
+              calories: Math.round(f.nutrition_per_100g.calories * scale),
+            };
+          });
+          setRecentEntries(converted);
+        }
+      }
     });
     storageGet<FavoriteFood[]>(STORAGE_KEYS.FOOD_FAVORITES).then((favs) => {
       if (favs) {
@@ -240,23 +262,29 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
 
   const handleSelect = useCallback(
     async (food: FoodItem) => {
-      // Update recent foods
-      const recent = await storageGet<FoodItem[]>(STORAGE_KEYS.FOOD_RECENT);
-      const existing = recent ?? [];
-      const filtered = existing.filter((f) => f.source_id !== food.source_id);
-      const updated = [{ ...food, last_accessed: new Date().toISOString() }, ...filtered].slice(0, 50);
+      // Update recent foods (keep enriched format)
+      const recent = await storageGet<RecentFoodInfo[]>(STORAGE_KEYS.FOOD_RECENT) ?? [];
+      const serving = food.serving_sizes[food.default_serving_index];
+      const scale = serving?.gram_weight ? serving.gram_weight / 100 : 1;
+      const newEntry: RecentFoodInfo = {
+        food_item: { ...food, last_accessed: new Date().toISOString() },
+        serving,
+        quantity: 1,
+        calories: Math.round(food.nutrition_per_100g.calories * scale),
+      };
+      const filtered = recent.filter((r) => r.food_item.source_id !== food.source_id);
+      const updated = [newEntry, ...filtered].slice(0, 50);
       await storageSet(STORAGE_KEYS.FOOD_RECENT, updated);
       onSelect(food);
     },
     [onSelect],
   );
 
-  // Show recents/favorites when no search has been performed
-  const showRecent = !searched && recentFoods.length > 0;
+  // Show favorites when no search has been performed (recents are above search now)
   const showFavorites = !searched && favorites.length > 0;
   const totalResults = sections.reduce((sum, s) => sum + s.data.length, 0);
 
-  // Build sections for recents/favorites view
+  // Build sections for favorites-only view (recents moved above search)
   const idleSections: SectionData[] = [];
   if (showFavorites) {
     idleSections.push({
@@ -266,20 +294,53 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
       data: favorites.map((f) => f.food_item),
     });
   }
-  if (showRecent) {
-    idleSections.push({
-      title: 'Recent',
-      badge: '',
-      badgeColor: '',
-      data: recentFoods,
-    });
-  }
 
   const displaySections = searched ? sections : idleSections;
 
   return (
     <View style={styles.container}>
-      {/* Search input */}
+      {/* F-03: Recent Foods — FIRST visible element */}
+      {!searched && recentEntries.length > 0 && (
+        <View style={styles.recentSection}>
+          <View style={styles.recentHeader}>
+            <Ionicons name="time-outline" size={16} color={Colors.secondaryText} />
+            <Text style={styles.recentTitle}>Recent Foods</Text>
+          </View>
+          {recentEntries.map((entry) => (
+            <TouchableOpacity
+              key={entry.food_item.source_id}
+              style={styles.recentRow}
+              onPress={() => onRecentTap?.(entry)}
+              activeOpacity={0.7}
+            >
+              <View style={styles.recentInfo}>
+                <Text style={styles.recentName} numberOfLines={1}>
+                  {entry.food_item.name}
+                </Text>
+                <Text style={styles.recentServing} numberOfLines={1}>
+                  {entry.serving?.description ?? 'Default serving'}
+                </Text>
+              </View>
+              <View style={styles.recentCalCol}>
+                <Text style={styles.recentCal}>{entry.calories}</Text>
+                <Text style={styles.recentCalUnit}>cal</Text>
+              </View>
+            </TouchableOpacity>
+          ))}
+        </View>
+      )}
+
+      {/* Empty state for new users */}
+      {!searched && recentEntries.length === 0 && favorites.length === 0 && (
+        <View style={styles.emptyStateCard}>
+          <Ionicons name="nutrition-outline" size={32} color={Colors.secondaryText} />
+          <Text style={styles.emptyStateText}>
+            Search for your first food or scan a barcode to get started.
+          </Text>
+        </View>
+      )}
+
+      {/* Search input + barcode button */}
       <View style={styles.searchRow}>
         <View style={styles.searchInputWrapper}>
           <Ionicons name="search" size={18} color={Colors.secondaryText} />
@@ -306,16 +367,16 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
             </TouchableOpacity>
           )}
         </View>
-      </View>
-
-      {/* Quick action buttons */}
-      <View style={styles.quickActions}>
+        {/* F-03: Barcode button elevated to search bar level */}
         {onBarcodeScan && (
-          <TouchableOpacity style={styles.quickBtn} onPress={onBarcodeScan}>
-            <Ionicons name="barcode-outline" size={18} color={Colors.accent} />
-            <Text style={styles.quickBtnText}>Scan</Text>
+          <TouchableOpacity style={styles.barcodeBtn} onPress={onBarcodeScan} activeOpacity={0.7}>
+            <Ionicons name="barcode-outline" size={24} color={Colors.primaryBackground} />
           </TouchableOpacity>
         )}
+      </View>
+
+      {/* Quick action buttons (barcode moved to search row) */}
+      <View style={styles.quickActions}>
         <TouchableOpacity style={styles.quickBtn} onPress={onManualEntry}>
           <Ionicons name="create-outline" size={18} color={Colors.accent} />
           <Text style={styles.quickBtnText}>Manual Entry</Text>
@@ -354,16 +415,15 @@ export function FoodSearch({ onSelect, onManualEntry, onQuickLog, onBarcodeScan,
         </View>
       )}
 
-      {/* Grouped search results or recents/favorites */}
+      {/* Grouped search results or favorites */}
       <SectionList
         sections={displaySections}
         keyExtractor={(item) => item.source_id}
+        ItemSeparatorComponent={() => <View style={styles.separator} />}
         renderSectionHeader={({ section }) => (
           <View style={styles.sectionHeader}>
             {section.title === 'Favorites' ? (
               <Ionicons name="star" size={14} color={Colors.accent} />
-            ) : section.title === 'Recent' ? (
-              <Ionicons name="time-outline" size={14} color={Colors.secondaryText} />
             ) : (
               <Ionicons name="restaurant-outline" size={14} color={Colors.secondaryText} />
             )}
@@ -427,8 +487,9 @@ function FoodResultRow({
   badge: string;
   badgeColor: string;
 }) {
-  const cal = Math.round(food.nutrition_per_100g.calories);
   const defaultServing = food.serving_sizes[food.default_serving_index];
+  const scale = defaultServing?.gram_weight ? defaultServing.gram_weight / 100 : 1;
+  const cal = Math.round(food.nutrition_per_100g.calories * scale);
   const macroCount = countAvailableMacros(food.nutrition_per_100g);
   const showCompleteness = macroCount < MACRO_FIELDS.length;
 
@@ -451,30 +512,30 @@ function FoodResultRow({
         <Text style={styles.resultName} numberOfLines={1}>
           {food.name}
         </Text>
-        <View style={styles.resultMetaRow}>
-          <Text style={styles.resultDetails} numberOfLines={1}>
-            {defaultServing?.description ?? '100g'}
-            {food.brand ? ` \u2022 ${food.brand}` : ''}
-          </Text>
-        </View>
+        <Text style={styles.resultServing} numberOfLines={1}>
+          {defaultServing?.description ?? '100g'}
+          {food.brand ? ` \u2022 ${food.brand}` : ''}
+        </Text>
         {/* Source badge + completeness indicator */}
-        <View style={styles.resultBadgeRow}>
-          {badge.length > 0 && (
-            <View style={[styles.resultBadge, { backgroundColor: badgeColor + '22', borderColor: badgeColor + '55' }]}>
-              <Text style={[styles.resultBadgeText, { color: badgeColor }]}>{badge}</Text>
-            </View>
-          )}
-          {showCompleteness && (
-            <Text style={styles.completenessText}>
-              {macroCount} of {MACRO_FIELDS.length} macros
-            </Text>
-          )}
-        </View>
+        {(badge.length > 0 || showCompleteness) && (
+          <View style={styles.resultBadgeRow}>
+            {badge.length > 0 && (
+              <View style={[styles.resultBadge, { backgroundColor: badgeColor + '22', borderColor: badgeColor + '55' }]}>
+                <Text style={[styles.resultBadgeText, { color: badgeColor }]}>{badge}</Text>
+              </View>
+            )}
+            {showCompleteness && (
+              <Text style={styles.completenessText}>
+                {macroCount} of {MACRO_FIELDS.length} macros
+              </Text>
+            )}
+          </View>
+        )}
       </View>
 
       <View style={styles.resultCal}>
         <Text style={styles.resultCalText}>{cal}</Text>
-        <Text style={styles.resultCalUnit}>kcal/100g</Text>
+        <Text style={styles.resultCalUnit}>cal</Text>
       </View>
     </TouchableOpacity>
   );
@@ -484,10 +545,85 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
+
+  // ── Recent Foods (F-03) ──
+  recentSection: {
+    marginBottom: 16,
+  },
+  recentHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  recentTitle: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 4,
+    minHeight: 56,
+  },
+  recentInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  recentName: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  recentServing: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  recentCalCol: {
+    alignItems: 'flex-end',
+  },
+  recentCal: {
+    color: Colors.accentText,
+    fontSize: 18,
+    fontWeight: 'bold',
+    fontVariant: ['tabular-nums'],
+  },
+  recentCalUnit: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+  },
+
+  // ── Empty state (new user) ──
+  emptyStateCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 24,
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 10,
+  },
+  emptyStateText: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
+  // ── Search + Barcode ──
   searchRow: {
+    flexDirection: 'row',
+    gap: 10,
     marginBottom: 12,
+    alignItems: 'center',
   },
   searchInputWrapper: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.inputBackground,
@@ -503,6 +639,16 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 8,
   },
+  barcodeBtn: {
+    width: 48,
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+
+  // ── Quick Actions ──
   quickActions: {
     flexDirection: 'row',
     gap: 8,
@@ -519,12 +665,15 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.divider,
     gap: 6,
+    minHeight: 48,
   },
   quickBtnText: {
     color: Colors.accent,
     fontSize: 13,
     fontWeight: '500',
   },
+
+  // ── Loading / Error ──
   loadingRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -550,6 +699,8 @@ const styles = StyleSheet.create({
     color: Colors.warning,
     fontSize: 13,
   },
+
+  // ── Section Headers ──
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -574,20 +725,25 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
   },
+
+  // ── Results List ──
   list: {
     flex: 1,
+  },
+  separator: {
+    height: 6,
   },
   resultRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.cardBackground,
     borderRadius: 10,
-    padding: 12,
-    marginBottom: 6,
-    minHeight: 48,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    minHeight: 56,
   },
   starBtn: {
-    marginRight: 8,
+    marginRight: 10,
     padding: 2,
   },
   resultInfo: {
@@ -596,18 +752,13 @@ const styles = StyleSheet.create({
   },
   resultName: {
     color: Colors.text,
-    fontSize: 14,
-    fontWeight: '500',
+    fontSize: 15,
+    fontWeight: '600',
   },
-  resultMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-  },
-  resultDetails: {
+  resultServing: {
     color: Colors.secondaryText,
-    fontSize: 12,
-    flex: 1,
+    fontSize: 13,
+    marginTop: 2,
   },
   resultBadgeRow: {
     flexDirection: 'row',
@@ -634,8 +785,8 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   resultCalText: {
-    color: Colors.accent,
-    fontSize: 16,
+    color: Colors.accentText,
+    fontSize: 18,
     fontWeight: 'bold',
     fontVariant: ['tabular-nums'],
   },
@@ -643,6 +794,8 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     fontSize: 11,
   },
+
+  // ── Empty / Fallback ──
   emptyContainer: {
     alignItems: 'center',
     paddingVertical: 32,

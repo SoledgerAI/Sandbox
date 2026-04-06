@@ -21,6 +21,7 @@ import {
 import type { DigestiveEntry, BristolStoolType } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -44,6 +45,7 @@ const BRISTOL_TYPES: BristolTypeInfo[] = [
 
 export function BristolScale() {
   const [entries, setEntries] = useState<DigestiveEntry[]>([]);
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [selectedType, setSelectedType] = useState<BristolStoolType>(4);
   const [notes, setNotes] = useState('');
 
@@ -71,7 +73,7 @@ export function BristolScale() {
 
     const entry: DigestiveEntry = {
       id: `digest_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       bristol_type: selectedType,
       notes: notes.trim() || null,
     };
@@ -104,6 +106,8 @@ export function BristolScale() {
         visible={!lastEntryLoading && lastEntry !== null}
         onRepeat={handleRepeatLast}
       />
+
+      <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
 
       {/* Current selection */}
       <View style={[styles.selectedCard, { borderColor: selectedInfo.color }]}>

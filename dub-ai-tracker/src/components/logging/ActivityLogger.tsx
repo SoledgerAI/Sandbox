@@ -29,6 +29,7 @@ import type { Activity } from '../../data/activities';
 import type { WorkoutEntry, IntensityLevel } from '../../types/workout';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 const RECENT_ACTIVITIES_KEY = STORAGE_KEYS.RECENT_ACTIVITIES;
@@ -47,6 +48,7 @@ interface ActivityLoggerProps {
 
 export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
   const [entries, setEntries] = useState<WorkoutEntry[]>([]);
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [showActivityPicker, setShowActivityPicker] = useState(false);
   const [recentActivityIds, setRecentActivityIds] = useState<string[]>([]);
 
@@ -152,7 +154,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
 
     const entry: WorkoutEntry = {
       id: `workout_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       activity_name: selectedActivity.name,
       compendium_code: selectedActivity.id,
       met_value: selectedActivity.met,
@@ -355,6 +357,8 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
 
       {/* New entry form */}
       <Text style={styles.sectionTitle}>Log Activity</Text>
+
+      <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
 
       {/* Activity selector */}
       <TouchableOpacity

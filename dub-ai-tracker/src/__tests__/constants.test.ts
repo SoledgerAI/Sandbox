@@ -21,9 +21,8 @@ describe('Colors', () => {
     expect(Colors.accent).toBe('#D4A843');
   });
 
-  it('danger = #EF5350 (NOT #E53935)', () => {
-    expect(Colors.danger).toBe('#EF5350');
-    expect(Colors.danger).not.toBe('#E53935');
+  it('danger = #E57373 (WCAG AA: 4.8:1 on navy, 3.1:1 on card)', () => {
+    expect(Colors.danger).toBe('#E57373');
   });
 
   it('success = #4CAF50', () => {

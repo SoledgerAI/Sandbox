@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   lockoutText: {
-    color: Colors.danger,
+    color: Colors.dangerText,
     fontSize: 15,
     marginBottom: 16,
     textAlign: 'center',

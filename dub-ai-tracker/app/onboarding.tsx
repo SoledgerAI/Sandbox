@@ -1,14 +1,16 @@
-// Onboarding route — redirects to Dashboard
-// Express onboarding is handled by OnboardingGate + PersonalizationFlow.
-// This route exists as a fallback; if reached, complete and go to Dashboard.
+// Onboarding route — renders PersonalizationFlow
+// Express onboarding is handled by PersonalizationFlow.
+// Root layout routes here if onboarding is not complete.
 
-import { useEffect } from 'react';
+import { useCallback, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '../src/constants/colors';
 import { isOnboardingComplete } from '../src/services/onboardingService';
+import { PersonalizationFlow } from '../src/components/PersonalizationFlow';
 
 export default function OnboardingScreen() {
+  // If already complete (e.g. deep link), redirect immediately
   useEffect(() => {
     isOnboardingComplete().then((done) => {
       if (done) {
@@ -17,18 +19,9 @@ export default function OnboardingScreen() {
     });
   }, []);
 
-  return (
-    <View style={styles.container}>
-      <ActivityIndicator color={Colors.accent} size="large" />
-    </View>
-  );
-}
+  const handleComplete = useCallback(() => {
+    router.replace('/(tabs)');
+  }, []);
 
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: Colors.primaryBackground,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+  return <PersonalizationFlow onComplete={handleComplete} />;
+}

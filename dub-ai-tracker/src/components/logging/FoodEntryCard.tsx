@@ -3,7 +3,7 @@
 // Phase 19: Ingredient flag icons on flagged foods
 
 import React from 'react';
-import { Alert, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Alert, Image, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import type { FoodEntry } from '../../types/food';
@@ -28,7 +28,7 @@ const MEAL_LABELS: Record<string, string> = {
 };
 
 export const FoodEntryCard = React.memo(function FoodEntryCard({ entry, onPress, onDelete, onFavorite, hideCalories }: FoodEntryCardProps) {
-  const { food_item, computed_nutrition, quantity, serving, meal_type, flagged_ingredients } = entry;
+  const { food_item, computed_nutrition, quantity, serving, meal_type, flagged_ingredients, photo_uri } = entry;
   const cal = Math.round(computed_nutrition.calories);
   const servingDesc =
     quantity !== 1
@@ -43,6 +43,9 @@ export const FoodEntryCard = React.memo(function FoodEntryCard({ entry, onPress,
       activeOpacity={onPress ? 0.7 : 1}
     >
       <View style={styles.mainRow}>
+        {photo_uri ? (
+          <Image source={{ uri: photo_uri }} style={styles.entryThumb} />
+        ) : null}
         <View style={styles.info}>
           <View style={styles.nameRow}>
             <Text style={styles.name} numberOfLines={1}>
@@ -132,6 +135,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
+  },
+  entryThumb: {
+    width: 40,
+    height: 40,
+    borderRadius: 6,
+    marginRight: 10,
+    backgroundColor: Colors.inputBackground,
   },
   info: {
     flex: 1,

@@ -24,6 +24,7 @@ import {
 import type { CustomEntry } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -55,6 +56,7 @@ const ICON_OPTIONS = [
 export function CustomTagLogger() {
   const [tags, setTags] = useState<CustomTagDef[]>([]);
   const [entries, setEntries] = useState<CustomEntry[]>([]);
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newIcon, setNewIcon] = useState('star-outline');
@@ -156,7 +158,7 @@ export function CustomTagLogger() {
       const entry: CustomEntry = {
         id: `custom_entry_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
         tag_id: tag.id,
-        timestamp: new Date().toISOString(),
+        timestamp: entryTimestamp.toISOString(),
         value,
         notes: null,
       };
@@ -190,6 +192,8 @@ export function CustomTagLogger() {
         visible={!lastEntryLoading && lastEntry !== null}
         onRepeat={handleRepeatLast}
       />
+
+      <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
 
       {/* Create new tag button */}
       <TouchableOpacity

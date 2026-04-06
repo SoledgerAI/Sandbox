@@ -125,7 +125,7 @@ export const BMI_NORMAL_UPPER = 24.9;
 // ============================================================================
 
 export const DEFAULT_LOSS_RATE_LBS_PER_WEEK = 1.0; // moderate deficit
-export const DEFAULT_GAIN_SURPLUS_CALORIES = 500; // standard bulk
+export const DEFAULT_GAIN_SURPLUS_CALORIES = 300; // moderate surplus per F-05 spec
 
 // ============================================================================
 // Unit Conversion Constants

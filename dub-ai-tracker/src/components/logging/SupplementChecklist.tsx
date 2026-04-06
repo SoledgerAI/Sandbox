@@ -25,10 +25,12 @@ import {
 import type { SupplementEntry, SideEffectLabel, SideEffectEntry } from '../../types';
 import { SIDE_EFFECT_OPTIONS } from '../../types';
 import { DateTimePicker } from '../common/DateTimePicker';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { DosageWarningBanner, checkDosageWarning } from './DosageValidator';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
+import type { UserProfile, ActivityLevel } from '../../types/profile';
 
 // MASTER-52: Supplement stack preset type
 interface SupplementStack {
@@ -73,6 +75,11 @@ export function SupplementChecklist() {
   const [sideEffectOther, setSideEffectOther] = useState('');
   const [stacks, setStacks] = useState<SupplementStack[]>([]);
   const [morningStack, setMorningStack] = useState<SupplementEntry[] | null>(null);
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
+
+  const [mySupplements, setMySupplements] = useState<string[] | null>(null); // null = not loaded yet
+  const [editingSelection, setEditingSelection] = useState(false);
+  const [recommendations, setRecommendations] = useState<{ name: string; reason: string }[]>([]);
 
   const { lastEntry: lastSupplements, saveAsLast: saveLastSupplements } =
     useLastEntry<SupplementEntry[]>('supplements.daily');
@@ -80,12 +87,37 @@ export function SupplementChecklist() {
   const loadData = useCallback(async () => {
     const today = todayDateString();
     const key = dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, today);
-    const [stored, savedStacks] = await Promise.all([
+    const [stored, savedStacks, savedMySupps, profile] = await Promise.all([
       storageGet<SupplementEntry[]>(key),
       storageGet<SupplementStack[]>(STORAGE_KEYS.SUPPLEMENT_STACKS),
+      storageGet<string[]>(STORAGE_KEYS.MY_SUPPLEMENTS),
+      storageGet<Partial<UserProfile>>(STORAGE_KEYS.PROFILE),
     ]);
     setEntries(stored ?? []);
     setStacks(savedStacks ?? []);
+    setMySupplements(savedMySupps); // null means never configured
+
+    // Build recommendations from profile
+    const recs: { name: string; reason: string }[] = [];
+    recs.push({ name: 'Vitamin D', reason: 'Recommended for most adults' });
+    recs.push({ name: 'Omega-3 Fish Oil', reason: 'Recommended for most adults' });
+    if (profile?.sex === 'female') {
+      recs.push({ name: 'Iron', reason: 'Recommended based on your profile' });
+      recs.push({ name: 'Calcium', reason: 'Recommended based on your profile' });
+      recs.push({ name: 'Vitamin B9', reason: 'Folate — recommended based on your profile' });
+    }
+    const age = profile?.dob ? Math.floor((Date.now() - new Date(profile.dob).getTime()) / (365.25 * 24 * 3600 * 1000)) : null;
+    if (age != null && age >= 50) {
+      recs.push({ name: 'Vitamin B12', reason: 'Recommended for adults over 50' });
+      recs.push({ name: 'Calcium', reason: 'Recommended for adults over 50' });
+    }
+    const activeLevel = profile?.activity_level;
+    if (activeLevel === 'very_active' || activeLevel === 'extremely_active') {
+      recs.push({ name: 'Electrolytes', reason: 'Recommended for active lifestyles' });
+    }
+    // Deduplicate by name
+    const seen = new Set<string>();
+    setRecommendations(recs.filter((r) => { if (seen.has(r.name)) return false; seen.add(r.name); return true; }));
   }, []);
 
   useEffect(() => {
@@ -146,7 +178,7 @@ export function SupplementChecklist() {
         }
         const entry: SupplementEntry = {
           id: `supp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          timestamp: new Date().toISOString(),
+          timestamp: entryTimestamp.toISOString(),
           name,
           dosage: 0,
           unit: 'mg',
@@ -160,7 +192,7 @@ export function SupplementChecklist() {
         // Not taken — log first dose
         const entry: SupplementEntry = {
           id: `supp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          timestamp: new Date().toISOString(),
+          timestamp: entryTimestamp.toISOString(),
           name,
           dosage: 0,
           unit: 'mg',
@@ -172,7 +204,7 @@ export function SupplementChecklist() {
         await saveEntries([...entries, entry]);
       }
     },
-    [entries, saveEntries],
+    [entries, saveEntries, entryTimestamp],
   );
 
   const removeAllForItem = useCallback(
@@ -216,7 +248,7 @@ export function SupplementChecklist() {
 
     const entry: SupplementEntry = {
       id: `supp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       name,
       dosage: dosageVal,
       unit,
@@ -253,7 +285,7 @@ export function SupplementChecklist() {
     await saveEntries([...entries, entry]);
     setCustomName('');
     setDosage('');
-  }, [customName, dosage, unit, category, entries, saveEntries]);
+  }, [customName, dosage, unit, category, entries, saveEntries, entryTimestamp]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -302,7 +334,6 @@ export function SupplementChecklist() {
   // MASTER-52: Apply a stack — check all supplements in it
   const applyStack = useCallback(
     async (stack: SupplementStack) => {
-      const now = new Date();
       const newEntries: SupplementEntry[] = [];
 
       for (const name of stack.supplement_ids) {
@@ -313,8 +344,8 @@ export function SupplementChecklist() {
         if (alreadyTaken) continue;
 
         newEntries.push({
-          id: `supp_${now.getTime()}_${Math.random().toString(36).slice(2, 8)}`,
-          timestamp: now.toISOString(),
+          id: `supp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          timestamp: entryTimestamp.toISOString(),
           name,
           dosage: 0,
           unit: 'mg',
@@ -332,7 +363,7 @@ export function SupplementChecklist() {
 
       await saveEntries([...entries, ...newEntries]);
     },
-    [entries, saveEntries],
+    [entries, saveEntries, entryTimestamp],
   );
 
   const deleteStack = useCallback(
@@ -356,7 +387,6 @@ export function SupplementChecklist() {
   // Repeat last supplements: log all items from last entry
   const repeatLastSupps = useCallback(async () => {
     if (!lastSupplements || lastSupplements.length === 0) return;
-    const now = new Date();
     const newEntries: SupplementEntry[] = [];
 
     for (const prev of lastSupplements) {
@@ -366,8 +396,8 @@ export function SupplementChecklist() {
       if (alreadyTaken) continue;
 
       newEntries.push({
-        id: `supp_${now.getTime()}_${Math.random().toString(36).slice(2, 8)}`,
-        timestamp: now.toISOString(),
+        id: `supp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: entryTimestamp.toISOString(),
         name: prev.name,
         dosage: prev.dosage,
         unit: prev.unit,
@@ -383,12 +413,11 @@ export function SupplementChecklist() {
       return;
     }
     await saveEntries([...entries, ...newEntries]);
-  }, [lastSupplements, entries, saveEntries]);
+  }, [lastSupplements, entries, saveEntries, entryTimestamp]);
 
   // Repeat morning stack: log all supplements from 5am-10am on most recent day
   const applyMorningStack = useCallback(async () => {
     if (!morningStack || morningStack.length === 0) return;
-    const now = new Date();
     const newEntries: SupplementEntry[] = [];
 
     for (const prev of morningStack) {
@@ -398,8 +427,8 @@ export function SupplementChecklist() {
       if (alreadyTaken) continue;
 
       newEntries.push({
-        id: `supp_${now.getTime()}_${Math.random().toString(36).slice(2, 8)}`,
-        timestamp: now.toISOString(),
+        id: `supp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: entryTimestamp.toISOString(),
         name: prev.name,
         dosage: prev.dosage,
         unit: prev.unit,
@@ -415,7 +444,7 @@ export function SupplementChecklist() {
       return;
     }
     await saveEntries([...entries, ...newEntries]);
-  }, [morningStack, entries, saveEntries]);
+  }, [morningStack, entries, saveEntries, entryTimestamp]);
 
   // P1-20: Side effects handlers
   const openSideEffectsEditor = useCallback((entryId: string) => {
@@ -473,7 +502,20 @@ export function SupplementChecklist() {
       return acc;
     }, {});
 
-  const checklist = category === 'vitamin' ? DEFAULT_VITAMINS : COMMON_SUPPLEMENTS;
+  const fullChecklist = category === 'vitamin' ? DEFAULT_VITAMINS : COMMON_SUPPLEMENTS;
+  // F-12: Filter to "My Supplements" if configured (non-null)
+  const checklist = mySupplements != null && !editingSelection
+    ? fullChecklist.filter((name) => mySupplements.includes(name))
+    : fullChecklist;
+
+  const toggleMySupplementSelection = useCallback(async (name: string) => {
+    const current = mySupplements ?? [];
+    const updated = current.includes(name)
+      ? current.filter((n) => n !== name)
+      : [...current, name];
+    setMySupplements(updated);
+    await storageSet(STORAGE_KEYS.MY_SUPPLEMENTS, updated);
+  }, [mySupplements]);
 
   // F3: Get count + latest timestamp for each supplement in checklist
   function getItemInfo(name: string, cat: SupplementCategory) {
@@ -500,6 +542,9 @@ export function SupplementChecklist() {
         <Text style={styles.summaryValue}>{takenCount}</Text>
         <Text style={styles.summaryLabel}>supplements taken today</Text>
       </View>
+
+      {/* Default timestamp for new entries */}
+      <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
 
       {/* Repeat last supplements */}
       <RepeatLastEntry
@@ -567,13 +612,83 @@ export function SupplementChecklist() {
         ))}
       </View>
 
-      {/* Checklist for vitamins/supplements */}
-      {category !== 'medication' && (
+      {/* F-12: Supplement selection mode */}
+      {editingSelection && category !== 'medication' && (
+        <>
+          {/* Recommendations */}
+          {recommendations.length > 0 && (
+            <>
+              <Text style={styles.sectionTitle}>Recommended for You</Text>
+              {recommendations.map((rec) => {
+                const selected = (mySupplements ?? []).includes(rec.name);
+                return (
+                  <TouchableOpacity
+                    key={rec.name}
+                    style={styles.checkRow}
+                    onPress={() => toggleMySupplementSelection(rec.name)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons
+                      name={selected ? 'checkbox' : 'square-outline'}
+                      size={22}
+                      color={selected ? Colors.accent : Colors.secondaryText}
+                    />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.checkLabel, selected && styles.checkLabelTaken]}>{rec.name}</Text>
+                      <Text style={styles.sectionHint}>{rec.reason}</Text>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </>
+          )}
+
+          <Text style={styles.sectionTitle}>
+            {category === 'vitamin' ? 'All Vitamins' : 'All Supplements'}
+          </Text>
+          <Text style={styles.sectionHint}>Select the supplements you take regularly.</Text>
+          {fullChecklist.map((name) => {
+            const selected = (mySupplements ?? []).includes(name);
+            return (
+              <TouchableOpacity
+                key={name}
+                style={styles.checkRow}
+                onPress={() => toggleMySupplementSelection(name)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={selected ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={selected ? Colors.accent : Colors.secondaryText}
+                />
+                <Text style={[styles.checkLabel, selected && styles.checkLabelTaken]}>{name}</Text>
+              </TouchableOpacity>
+            );
+          })}
+          <TouchableOpacity
+            style={styles.editSelectionBtn}
+            onPress={() => setEditingSelection(false)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="checkmark-circle" size={18} color={Colors.primaryBackground} />
+            <Text style={styles.editSelectionBtnText}>Done</Text>
+          </TouchableOpacity>
+        </>
+      )}
+
+      {/* Checklist for vitamins/supplements (daily logging view) */}
+      {!editingSelection && category !== 'medication' && (
         <>
           <Text style={styles.sectionTitle}>
-            {category === 'vitamin' ? 'Vitamins' : 'Common Supplements'}
+            {category === 'vitamin' ? 'Vitamins' : 'Supplements'}
           </Text>
-          <Text style={styles.sectionHint}>Tap to log. Tap again to add another dose. Long-press to remove.</Text>
+          {checklist.length === 0 && mySupplements != null ? (
+            <Text style={styles.sectionHint}>
+              No {category === 'vitamin' ? 'vitamins' : 'supplements'} selected. Tap "Edit My Supplements" below to choose.
+            </Text>
+          ) : (
+            <Text style={styles.sectionHint}>Tap to log. Tap again to add another dose. Long-press to remove.</Text>
+          )}
           {checklist.map((name) => {
             const { count, latest, hasOverriddenTime } = getItemInfo(name, category);
             const taken = count > 0;
@@ -612,6 +727,16 @@ export function SupplementChecklist() {
               </TouchableOpacity>
             );
           })}
+
+          {/* F-12: Edit My Supplements link */}
+          <TouchableOpacity
+            style={styles.editSelectionLink}
+            onPress={() => setEditingSelection(true)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="create-outline" size={16} color={Colors.accent} />
+            <Text style={styles.editSelectionLinkText}>Edit My Supplements</Text>
+          </TouchableOpacity>
         </>
       )}
 
@@ -1053,5 +1178,34 @@ const styles = StyleSheet.create({
     color: Colors.primaryBackground,
     fontSize: 13,
     fontWeight: '700',
+  },
+  editSelectionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+    marginTop: 16,
+    marginBottom: 24,
+  },
+  editSelectionBtnText: {
+    color: Colors.primaryBackground,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  editSelectionLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    gap: 6,
+    marginTop: 8,
+  },
+  editSelectionLinkText: {
+    color: Colors.accent,
+    fontSize: 14,
+    fontWeight: '500',
   },
 });

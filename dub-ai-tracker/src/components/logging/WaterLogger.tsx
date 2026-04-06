@@ -12,6 +12,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -23,13 +24,18 @@ import {
 } from '../../utils/storage';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import type { WaterEntry, BeverageType } from '../../types';
 import { todayDateString } from '../../utils/dayBoundary';
 
 const QUICK_ADD_OPTIONS = [
   { label: '8 oz', amount: 8 },
+  { label: '12 oz', amount: 12 },
   { label: '16 oz', amount: 16 },
+  { label: '20 oz', amount: 20 },
   { label: '24 oz', amount: 24 },
+  { label: '32 oz', amount: 32 },
+  { label: '40 oz', amount: 40 },
 ];
 
 const BEVERAGE_OPTIONS: { value: BeverageType; label: string }[] = [
@@ -53,6 +59,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
   const [customAmount, setCustomAmount] = useState('');
   const [waterGoal, setWaterGoal] = useState(DEFAULT_WATER_GOAL_OZ);
   const [selectedBeverage, setSelectedBeverage] = useState<BeverageType>('water');
+  const [timestamp, setTimestamp] = useState(new Date());
   const { lastEntry: lastWater, saveAsLast: saveLastWater } = useLastEntry<WaterEntry>('hydration.water');
 
   const loadData = useCallback(async () => {
@@ -89,7 +96,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
 
       const entry: WaterEntry = {
         id: `water_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        timestamp: new Date().toISOString(),
+        timestamp: timestamp.toISOString(),
         amount_oz: amount,
         beverage: selectedBeverage,
         notes: null,
@@ -101,7 +108,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
       setEntries(updated);
       onEntryLogged?.();
     },
-    [entries, onEntryLogged, selectedBeverage, saveLastWater],
+    [entries, onEntryLogged, selectedBeverage, saveLastWater, timestamp],
   );
 
   const logCustom = useCallback(() => {
@@ -148,6 +155,8 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
         visible={lastWater != null}
         onRepeat={repeatLastWater}
       />
+
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
 
       {/* Daily total and goal */}
       <View style={styles.summaryCard}>
@@ -213,22 +222,25 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
         ))}
       </View>
 
-      {/* Quick-add buttons */}
+      {/* Quick-add buttons — horizontal scrollable pills */}
       <Text style={styles.sectionTitle}>Quick Add</Text>
-      <View style={styles.quickAddRow}>
-        {QUICK_ADD_OPTIONS.map((opt) => (
+      <FlatList
+        horizontal
+        data={QUICK_ADD_OPTIONS}
+        keyExtractor={(item) => String(item.amount)}
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.quickAddRow}
+        renderItem={({ item: opt }) => (
           <TouchableOpacity
-            key={opt.amount}
-            style={styles.quickAddBtn}
+            style={styles.quickAddPill}
             onPress={() => logHydration(opt.amount)}
             activeOpacity={0.7}
             accessibilityLabel={`Add ${opt.label} of ${selectedBeverage}`}
           >
-            <Ionicons name="water-outline" size={20} color={Colors.primaryBackground} />
             <Text style={styles.quickAddText}>{opt.label}</Text>
           </TouchableOpacity>
-        ))}
-      </View>
+        )}
+      />
 
       {/* Custom amount */}
       <Text style={styles.sectionTitle}>Custom Amount</Text>
@@ -376,20 +388,18 @@ const styles = StyleSheet.create({
     color: Colors.primaryBackground,
   },
   quickAddRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 24,
+    gap: 8,
+    paddingBottom: 24,
   },
-  quickAddBtn: {
-    flex: 1,
-    flexDirection: 'row',
+  quickAddPill: {
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
     backgroundColor: Colors.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
-    minHeight: 48,
+    borderRadius: 24,
+    paddingVertical: 12,
+    paddingHorizontal: 18,
+    minHeight: 44,
+    minWidth: 64,
   },
   quickAddText: {
     color: Colors.primaryBackground,

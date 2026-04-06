@@ -13,7 +13,6 @@ import * as SplashScreen from 'expo-splash-screen';
 import { Colors } from '../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../src/utils/storage';
 import { processQueue } from '../src/utils/offline';
-import { initDayBoundary } from '../src/utils/dayBoundary';
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
 import { OfflineBanner } from '../src/components/common/OfflineBanner';
 import { AuthGate } from '../src/components/AuthGate';
@@ -65,8 +64,6 @@ export default function RootLayout() {
     // MASTER-62: Also process queue on initial launch
     processQueue().catch(() => {});
 
-    // P1-21: Load day boundary setting
-    initDayBoundary().catch(() => {});
 
     return () => subscription.remove();
   }, []);

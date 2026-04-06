@@ -24,6 +24,7 @@ import {
 import type { MoodEntry } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -137,6 +138,7 @@ interface MoodPickerProps {
 
 export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
   const [entries, setEntries] = useState<MoodEntry[]>([]);
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [selectedMood, setSelectedMood] = useState(3);
   const [selectedEnergy, setSelectedEnergy] = useState(3);
   const [selectedAnxiety, setSelectedAnxiety] = useState(1);
@@ -167,7 +169,7 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
 
     const entry: MoodEntry = {
       id: `mood_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       score: selectedMood,
       energy: selectedEnergy,
       anxiety: selectedAnxiety,
@@ -213,6 +215,8 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
         visible={!lastEntryLoading && lastEntry != null}
         onRepeat={handleRepeatLast}
       />
+
+      <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
 
       {/* Average card */}
       {entries.length > 0 && (

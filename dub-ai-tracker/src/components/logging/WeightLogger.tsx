@@ -23,6 +23,7 @@ import type { BodyEntry } from '../../types';
 import type { UserProfile } from '../../types/profile';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -32,6 +33,7 @@ interface WeightLoggerProps {
 
 export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
   const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<BodyEntry>('body.measurements');
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [weightInput, setWeightInput] = useState('');
   const [units, setUnits] = useState<'imperial' | 'metric'>('imperial');
   const [todayEntry, setTodayEntry] = useState<BodyEntry | null>(null);
@@ -82,7 +84,7 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
       resting_hr: existing?.resting_hr ?? null,
       hrv_ms: existing?.hrv_ms ?? null,
       spo2_pct: existing?.spo2_pct ?? null,
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       source: 'manual',
     };
 
@@ -124,6 +126,9 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
         visible={!lastLoading && lastEntry != null}
         onRepeat={handleRepeatLast}
       />
+
+      <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
+
       {/* Current weight display */}
       {displayWeight != null && (
         <View style={styles.currentCard}>

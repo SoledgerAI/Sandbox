@@ -25,6 +25,7 @@ import {
 import { CM_PER_INCH } from '../../constants/formulas';
 import type { BodyEntry, BodyMeasurements } from '../../types';
 import type { UserProfile } from '../../types/profile';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -61,6 +62,7 @@ interface MeasurementsLoggerProps {
 }
 
 export function MeasurementsLogger({ onEntryLogged }: MeasurementsLoggerProps) {
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [inputs, setInputs] = useState<Record<MeasurementField, string>>(
     () => {
       const initial: Record<string, string> = {};
@@ -137,7 +139,7 @@ export function MeasurementsLogger({ onEntryLogged }: MeasurementsLoggerProps) {
       resting_hr: existing?.resting_hr ?? null,
       hrv_ms: existing?.hrv_ms ?? null,
       spo2_pct: existing?.spo2_pct ?? null,
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       source: 'manual',
     };
 
@@ -162,6 +164,8 @@ export function MeasurementsLogger({ onEntryLogged }: MeasurementsLoggerProps) {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
+
       {/* Current measurements */}
       {todayMeasurements != null && (
         <View style={styles.currentCard}>

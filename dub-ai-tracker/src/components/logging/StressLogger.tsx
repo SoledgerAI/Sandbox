@@ -23,6 +23,7 @@ import {
 import type { StressEntry, StressTrigger } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -50,6 +51,7 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
   const [score, setScore] = useState<number>(5);
   const [selectedTriggers, setSelectedTriggers] = useState<StressTrigger[]>([]);
   const [notes, setNotes] = useState('');
+  const [timestamp, setTimestamp] = useState(new Date());
   const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<StressEntry>('mental.wellness.stress');
 
   const handleRepeatLast = useCallback(() => {
@@ -83,7 +85,7 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
     const trigger = selectedTriggers.length > 0 ? selectedTriggers[0] : null;
     const entry: StressEntry = {
       id: `stress_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
       score,
       trigger,
       notes: notes.trim() || null,
@@ -96,7 +98,7 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
     setSelectedTriggers([]);
     await saveAsLast(entry);
     onEntryLogged?.();
-  }, [entries, score, selectedTriggers, notes, onEntryLogged, saveAsLast]);
+  }, [entries, score, selectedTriggers, notes, onEntryLogged, saveAsLast, timestamp]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -118,6 +120,8 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
         visible={!lastEntryLoading && lastEntry != null}
         onRepeat={handleRepeatLast}
       />
+
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
 
       {/* Score display */}
       <View style={styles.scoreCard}>

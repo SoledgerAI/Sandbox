@@ -30,6 +30,7 @@ import type {
 import type { SobrietyGoal } from '../../types/profile';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 type SubstanceTab = 'alcohol' | 'cannabis' | 'tobacco';
@@ -58,6 +59,7 @@ interface SubstanceLoggerProps {
 export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: SubstanceLoggerProps) {
   const [activeTab, setActiveTab] = useState<SubstanceTab>(initialTab);
   const [entries, setEntries] = useState<SubstanceEntry[]>([]);
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
 
   // Alcohol state
   const [selectedAlcoholType, setSelectedAlcoholType] = useState<AlcoholType>('beer');
@@ -108,7 +110,7 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
       const newEntry: SubstanceEntry = {
         ...entry,
         id: `sub_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        timestamp: new Date().toISOString(),
+        timestamp: entryTimestamp.toISOString(),
       };
 
       const updated = [...entries, newEntry];
@@ -433,6 +435,8 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
         visible={!lastEntryLoading && lastEntry !== null}
         onRepeat={handleRepeatLast}
       />
+
+      <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
 
       {/* Tab bar */}
       <View style={styles.tabBar}>

@@ -7,8 +7,8 @@ export const Colors = {
   success: '#4CAF50',               // non-text (progress bars, chart fills)
   successText: '#66BB6A',           // green text variant, 4.6:1 on navy (MASTER-04)
   warning: '#D4A843',
-  danger: '#EF5350',               // non-text (borders, icons, chart fills)
-  dangerText: '#FF8A8A',           // red text variant, WCAG AA on navy (5.8:1) AND card bg (4.5:1)
+  danger: '#E57373',               // non-text (borders, icons, chart fills) — 4.8:1 on navy, 3.1:1 on card
+  dangerText: '#FF9C9C',           // red text variant — WCAG AA: 7.2:1 on navy, 4.6:1 on card
   // Card background — WCAG 2.1 AA remediation
   // OLD: #2A3370 (L=0.040, avg-RGB delta 13 from bg — insufficient separation)
   // NEW: #334480 (L=0.064, avg-RGB delta 27 from bg — 22-28 target met)

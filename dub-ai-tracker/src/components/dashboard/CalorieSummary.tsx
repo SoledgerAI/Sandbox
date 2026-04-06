@@ -51,7 +51,7 @@ export function CalorieSummary({
   const [mathExpanded, setMathExpanded] = useState(false);
 
   const remainingColor =
-    remaining >= 0 ? Colors.successText : Colors.danger;
+    remaining >= 0 ? Colors.successText : Colors.dangerText;
 
   const progressPct = calorieTarget > 0
     ? Math.min((consumed / calorieTarget) * 100, 100)

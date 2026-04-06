@@ -23,6 +23,7 @@ import {
 } from '../../utils/storage';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import type { CaffeineEntry } from '../../types';
 import { todayDateString } from '../../utils/dayBoundary';
 
@@ -46,6 +47,7 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
   const [entries, setEntries] = useState<CaffeineEntry[]>([]);
   const [customMg, setCustomMg] = useState('');
   const [customSource, setCustomSource] = useState('');
+  const [timestamp, setTimestamp] = useState(new Date());
   const { lastEntry: lastCaffeine, saveAsLast: saveLastCaffeine } = useLastEntry<CaffeineEntry>('hydration.caffeine');
 
   const loadData = useCallback(async () => {
@@ -68,7 +70,7 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
 
       const entry: CaffeineEntry = {
         id: `caff_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        timestamp: new Date().toISOString(),
+        timestamp: timestamp.toISOString(),
         amount_mg,
         source,
         notes: null,
@@ -80,7 +82,7 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
       setEntries(updated);
       onEntryLogged?.();
     },
-    [entries, onEntryLogged, saveLastCaffeine],
+    [entries, onEntryLogged, saveLastCaffeine, timestamp],
   );
 
   const logCustom = useCallback(() => {
@@ -120,6 +122,8 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
         visible={lastCaffeine != null}
         onRepeat={repeatLastCaffeine}
       />
+
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
 
       {/* Daily total */}
       <View style={styles.summaryCard}>

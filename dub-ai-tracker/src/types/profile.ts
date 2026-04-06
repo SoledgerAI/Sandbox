@@ -63,7 +63,7 @@ export interface AppSettings {
   hide_calories: boolean;
   consent_date: string | null;
   consent_version: string | null;
-  day_boundary_hour: number | null; // P1-21: 0 (midnight), 3, 4, 5, or 6
+  day_boundary_hour?: number | null; // DEPRECATED (F-08): always midnight. Kept for storage compat.
   // Fasting / eating window settings
   fasting_enabled?: boolean;
   fasting_protocol?: '16:8' | '18:6' | '20:4' | 'custom';

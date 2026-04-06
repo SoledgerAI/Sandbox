@@ -257,7 +257,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   errorText: {
-    color: Colors.danger,
+    color: Colors.dangerText,
     fontSize: 12,
     marginTop: 4,
     marginBottom: 12,

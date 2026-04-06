@@ -24,6 +24,7 @@ import {
 import type { TherapyEntry, TherapyType } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -43,6 +44,7 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
   const [therapistName, setTherapistName] = useState('');
   const [selectedType, setSelectedType] = useState<TherapyType>('individual');
   const [notes, setNotes] = useState('');
+  const [timestamp, setTimestamp] = useState(new Date());
   const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<TherapyEntry>('mental.wellness.therapy');
 
   const handleRepeatLast = useCallback(() => {
@@ -69,7 +71,7 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
       therapist_name: therapistName.trim() || null,
       type: selectedType,
       notes: notes.trim() || null, // MAXIMALLY PRIVATE -- never exported, never sent to Coach
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
     };
 
     const today = todayDateString();
@@ -78,7 +80,7 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
     setEntry(newEntry);
     await saveAsLast(newEntry);
     onEntryLogged?.();
-  }, [therapistName, selectedType, notes, onEntryLogged, saveAsLast]);
+  }, [therapistName, selectedType, notes, onEntryLogged, saveAsLast, timestamp]);
 
   const clearEntry = useCallback(async () => {
     const today = todayDateString();
@@ -158,6 +160,8 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
         visible={!lastEntryLoading && lastEntry != null}
         onRepeat={handleRepeatLast}
       />
+
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
 
       {/* Session type */}
       <Text style={styles.sectionTitle}>Session Type</Text>
@@ -344,7 +348,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   deleteBtnText: {
-    color: Colors.danger,
+    color: Colors.dangerText,
     fontSize: 14,
     fontWeight: '500',
   },

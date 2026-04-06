@@ -24,6 +24,7 @@ import {
 import type { GratitudeEntry } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -36,6 +37,7 @@ export function GratitudeLogger({ onEntryLogged }: GratitudeLoggerProps) {
   const [item1, setItem1] = useState('');
   const [item2, setItem2] = useState('');
   const [item3, setItem3] = useState('');
+  const [timestamp, setTimestamp] = useState(new Date());
   const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<GratitudeEntry>('mental.wellness.gratitude');
 
   const handleRepeatLast = useCallback(() => {
@@ -68,7 +70,7 @@ export function GratitudeLogger({ onEntryLogged }: GratitudeLoggerProps) {
 
     const entry: GratitudeEntry = {
       id: `gratitude_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
       items,
     };
 
@@ -80,7 +82,7 @@ export function GratitudeLogger({ onEntryLogged }: GratitudeLoggerProps) {
     setItem3('');
     await saveAsLast(entry);
     onEntryLogged?.();
-  }, [entries, item1, item2, item3, onEntryLogged, saveAsLast]);
+  }, [entries, item1, item2, item3, onEntryLogged, saveAsLast, timestamp]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -102,6 +104,8 @@ export function GratitudeLogger({ onEntryLogged }: GratitudeLoggerProps) {
         visible={!lastEntryLoading && lastEntry != null}
         onRepeat={handleRepeatLast}
       />
+
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
 
       {/* Prompt */}
       <View style={styles.promptCard}>

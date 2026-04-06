@@ -115,6 +115,7 @@ export function useBloodworkTrends(
 export function useBloodworkSummaries(): {
   summaries: BloodworkMarkerSummary[];
   loading: boolean;
+  reload: () => Promise<void>;
 } {
   const [summaries, setSummaries] = useState<BloodworkMarkerSummary[]>([]);
   const [loading, setLoading] = useState(true);
@@ -194,5 +195,5 @@ export function useBloodworkSummaries(): {
     loadData();
   }, [loadData]);
 
-  return { summaries, loading };
+  return { summaries, loading, reload: loadData };
 }

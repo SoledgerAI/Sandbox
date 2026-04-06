@@ -24,6 +24,7 @@ import {
 import type { MeditationEntry } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -47,6 +48,7 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
   const [duration, setDuration] = useState('');
   const [selectedType, setSelectedType] = useState<MeditationType>('guided');
   const [notes, setNotes] = useState('');
+  const [timestamp, setTimestamp] = useState(new Date());
   const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<MeditationEntry>('mental.wellness.meditation');
 
   const handleRepeatLast = useCallback(() => {
@@ -76,7 +78,7 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
     const newEntry: MeditationEntry = {
       duration_minutes: dur,
       type: selectedType,
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
       notes: notes.trim() || null,
     };
 
@@ -86,7 +88,7 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
     setEntry(newEntry);
     await saveAsLast(newEntry);
     onEntryLogged?.();
-  }, [duration, selectedType, notes, onEntryLogged, saveAsLast]);
+  }, [duration, selectedType, notes, onEntryLogged, saveAsLast, timestamp]);
 
   const clearEntry = useCallback(async () => {
     const today = todayDateString();
@@ -143,6 +145,8 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
         visible={!lastEntryLoading && lastEntry != null}
         onRepeat={handleRepeatLast}
       />
+
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
 
       {/* Type selector */}
       <Text style={styles.sectionTitle}>Type</Text>

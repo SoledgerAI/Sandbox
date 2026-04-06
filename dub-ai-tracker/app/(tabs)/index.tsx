@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity, Pressable } from 'react-native';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
@@ -40,6 +40,7 @@ export default function DashboardScreen() {
     enabledTags,
     tagOrder,
     dailyScore,
+    refresh,
   } = useDailySummary();
 
   const {
@@ -61,11 +62,16 @@ export default function DashboardScreen() {
 
   const [hideCalories, setHideCalories] = useState(false);
   const [showScoreInfo, setShowScoreInfo] = useState(false);
-  useEffect(() => {
-    storageGet<Partial<AppSettings>>(STORAGE_KEYS.SETTINGS).then((s) => {
-      setHideCalories(s?.hide_calories ?? false);
-    });
-  }, []);
+
+  // F-02: Refresh all data when tab gains focus
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+      storageGet<Partial<AppSettings>>(STORAGE_KEYS.SETTINGS).then((s) => {
+        setHideCalories(s?.hide_calories ?? false);
+      });
+    }, [refresh]),
+  );
 
   const handleSetUp = useCallback((key: DeferredSetupKey) => {
     completeItem(key);
@@ -97,28 +103,32 @@ export default function DashboardScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
-      {/* Greeting */}
+      {/* Greeting — F-06: centered banner */}
       <View style={styles.header}>
-        <View>
+        {/* Left spacer (matches share button width for centering) */}
+        <View style={styles.headerSide} />
+        <View style={styles.headerCenter}>
           <Text style={styles.greeting}>{greeting}</Text>
           <Text style={styles.date}>{dateDisplay}</Text>
         </View>
-        {!loading && summary.calories_consumed > 0 && (
-          <TouchableOpacity
-            style={styles.shareDayBtn}
-            onPress={() =>
-              shareDailySummary({
-                summary,
-                calorieTarget: Math.round(calorieTarget),
-                proteinTarget: calorieTarget > 0 ? Math.round(calorieTarget * 0.3 / 4) : 0,
-                streakCount: streak?.current_streak,
-              })
-            }
-            activeOpacity={0.7}
-          >
-            <Ionicons name="share-outline" size={20} color={Colors.accentText} />
-          </TouchableOpacity>
-        )}
+        <View style={styles.headerSide}>
+          {!loading && summary.calories_consumed > 0 && (
+            <TouchableOpacity
+              style={styles.shareDayBtn}
+              onPress={() =>
+                shareDailySummary({
+                  summary,
+                  calorieTarget: Math.round(calorieTarget),
+                  proteinTarget: calorieTarget > 0 ? Math.round(calorieTarget * 0.3 / 4) : 0,
+                  streakCount: streak?.current_streak,
+                })
+              }
+              activeOpacity={0.7}
+            >
+              <Ionicons name="share-outline" size={20} color={Colors.accentText} />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Mood Resource Card — safety feature, always at TOP */}
@@ -193,10 +203,10 @@ export default function DashboardScreen() {
           activeOpacity={0.7}
         >
           <Text style={{ color: Colors.secondaryText, fontSize: 14, textAlign: 'center' }}>
-            Set up your profile for accurate TDEE
+            Complete your profile in Settings to see your daily target.
           </Text>
           <Text style={{ color: Colors.accentText, fontSize: 13, fontWeight: '600', marginTop: 6 }}>
-            Go to Profile
+            Go to Settings
           </Text>
         </TouchableOpacity>
       )}
@@ -247,8 +257,15 @@ const styles = StyleSheet.create({
   header: {
     marginBottom: 24,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
+  },
+  headerSide: {
+    width: 48,
+    alignItems: 'center',
+  },
+  headerCenter: {
+    flex: 1,
+    alignItems: 'center',
   },
   shareDayBtn: {
     padding: 8,
@@ -263,11 +280,13 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: 26,
     fontWeight: 'bold',
+    textAlign: 'center',
   },
   date: {
     color: Colors.secondaryText,
     fontSize: 14,
     marginTop: 4,
+    textAlign: 'center',
   },
   ringContainer: {
     alignItems: 'center',

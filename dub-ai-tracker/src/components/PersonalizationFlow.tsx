@@ -1,27 +1,39 @@
-// Express Onboarding: 2-screen flow (P0-08, P1-08, P1-14)
-// Screen 1: Name, DOB, Biological Sex, Pronouns, Consent (~30 seconds)
-// Screen 2: Main Goal → Dashboard immediately
-// All deferred setup (tags, calorie target, devices, reminders) handled by dashboard cards
+// Expanded Onboarding: 9-screen flow (F-07 remediation)
+// Screen 1: Consent + Name + Pronouns
+// Screen 2: Biological Sex
+// Screen 3: Date of Birth
+// Screen 4: Height (feet + inches, stored as total inches)
+// Screen 5: Weight (lbs, stored as lbs)
+// Screen 6: Activity Level
+// Screen 7: Primary Goal
+// Screen 8: What You Track (tags)
+// Screen 9: Zip Code
 
 import { useState, useCallback } from 'react';
 import {
   KeyboardAvoidingView,
+  LayoutAnimation,
   Platform,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
+  UIManager,
   View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Picker } from '@react-native-picker/picker';
 import { Colors } from '../constants/colors';
 import { ProgressBar } from './common/ProgressBar';
 import { Button } from './common/Button';
 import { Input } from './common/Input';
 import { DateTimePicker } from './common/DateTimePicker';
+import { TagPicker } from './onboarding/TagPicker';
 import {
   completeOnboarding,
   setUserSex,
+  setUserZip,
 } from '../services/onboardingService';
 import { storageSet, STORAGE_KEYS } from '../utils/storage';
 import { getDefaultTagsForTier } from '../constants/tags';
@@ -31,12 +43,59 @@ import type {
   Pronouns,
   MetabolicProfile,
   MainGoal,
+  ActivityLevel,
   ConsentRecord,
   UserProfile,
 } from '../types/profile';
 
-const TOTAL_STEPS = 2;
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android') {
+  UIManager.setLayoutAnimationEnabledExperimental?.(true);
+}
+
+const TOTAL_STEPS = 9;
 const CONSENT_VERSION = '1.0';
+
+// ── Activity Level Options ──
+
+const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string; subtitle: string }[] = [
+  { value: 'sedentary', label: 'Sedentary', subtitle: 'Little or no exercise' },
+  { value: 'lightly_active', label: 'Lightly Active', subtitle: '1-3 days/week' },
+  { value: 'moderately_active', label: 'Moderately Active', subtitle: '3-5 days/week' },
+  { value: 'very_active', label: 'Very Active', subtitle: '6-7 days/week' },
+  { value: 'extremely_active', label: 'Extremely Active', subtitle: 'Athlete / physical job' },
+];
+
+// ── Goal Options (remapped per F-05 spec) ──
+
+const GOAL_OPTIONS: { value: MainGoal; label: string; icon: string }[] = [
+  { value: 'get_healthier', label: 'Maintain Weight', icon: 'swap-horizontal-outline' },
+  { value: 'lose_weight', label: 'Lose Fat', icon: 'trending-down-outline' },
+  { value: 'gain_muscle', label: 'Build Muscle', icon: 'barbell-outline' },
+  { value: 'support_recovery', label: 'Improve Health', icon: 'heart-outline' },
+];
+
+// ── Sex Options ──
+
+const SEX_OPTIONS: { value: BiologicalSex; label: string; icon: string }[] = [
+  { value: 'female', label: 'Female', icon: 'female-outline' },
+  { value: 'male', label: 'Male', icon: 'male-outline' },
+  { value: 'intersex', label: 'Intersex', icon: 'person-outline' },
+];
+
+const METABOLIC_OPTIONS: { value: MetabolicProfile; label: string }[] = [
+  { value: 'female', label: 'Female metabolic profile' },
+  { value: 'male', label: 'Male metabolic profile' },
+];
+
+const PRONOUN_OPTIONS: { value: Pronouns; label: string }[] = [
+  { value: 'she_her', label: 'She/her' },
+  { value: 'he_him', label: 'He/him' },
+  { value: 'they_them', label: 'They/them' },
+  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
+];
+
+// ── Main Component ──
 
 interface PersonalizationFlowProps {
   onComplete: () => void;
@@ -46,20 +105,42 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
 
-  // Screen 1 fields
+  // Step 1: Consent + Name + Pronouns
   const [name, setName] = useState('');
-  const [dobDate, setDobDate] = useState<Date>(new Date(1990, 0, 1));
-  const [sex, setSex] = useState<BiologicalSex | null>(null);
-  const [metabolicProfile, setMetabolicProfile] = useState<MetabolicProfile | null>(null);
   const [pronouns, setPronouns] = useState<Pronouns | null>(null);
-
-  // Consent
   const [healthConsent, setHealthConsent] = useState(false);
   const [aiConsent, setAiConsent] = useState(false);
   const [ageConsent, setAgeConsent] = useState(false);
 
-  // Screen 2
+  // Step 2: Biological Sex
+  const [sex, setSex] = useState<BiologicalSex | null>(null);
+  const [metabolicProfile, setMetabolicProfile] = useState<MetabolicProfile | null>(null);
+
+  // Step 3: Date of Birth
+  const [dobDate, setDobDate] = useState<Date>(new Date(1990, 0, 1));
+
+  // Step 4: Height
+  const [heightFeet, setHeightFeet] = useState(5);
+  const [heightInches, setHeightInches] = useState(8);
+  const [heightUnitMetric, setHeightUnitMetric] = useState(false);
+  const [heightCm, setHeightCm] = useState(173); // default synced with 5'8"
+
+  // Step 5: Weight
+  const [weightLbs, setWeightLbs] = useState(160);
+  const [weightUnitMetric, setWeightUnitMetric] = useState(false);
+  const [weightKg, setWeightKg] = useState(73); // default synced with 160 lbs
+
+  // Step 6: Activity Level
+  const [activityLevel, setActivityLevel] = useState<ActivityLevel | null>(null);
+
+  // Step 7: Primary Goal
   const [mainGoal, setMainGoal] = useState<MainGoal | null>(null);
+
+  // Step 8: Tags
+  const [enabledTags, setEnabledTags] = useState<string[]>(() => getDefaultTagsForTier(DEFAULT_TIER));
+
+  // Step 9: Zip Code
+  const [zip, setZip] = useState('');
 
   // Validation
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -76,12 +157,27 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
     return age;
   }
 
-  function validateScreen1(): boolean {
+  function goForward() {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setStep((s) => Math.min(s + 1, TOTAL_STEPS));
+  }
+
+  function goBack() {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setStep((s) => Math.max(s - 1, 1));
+  }
+
+  // ── Step Validations ──
+
+  function validateStep1(): boolean {
     const newErrors: Record<string, string> = {};
     if (!name.trim()) newErrors.name = 'Name is required';
-    if (getAge(dobDate) < 18) {
-      newErrors.dob = 'DUB_AI Tracker is designed for adults 18 and older.';
-    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
+  function validateStep2(): boolean {
+    const newErrors: Record<string, string> = {};
     if (!sex) newErrors.sex = 'Please select your biological sex';
     if (sex === 'intersex' && !metabolicProfile) {
       newErrors.metabolic = 'Please select a metabolic profile for calorie calculations';
@@ -90,38 +186,99 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
     return Object.keys(newErrors).length === 0;
   }
 
-  function handleScreen1Continue() {
-    if (!validateScreen1()) return;
-    setStep(2);
+  function validateStep3(): boolean {
+    const newErrors: Record<string, string> = {};
+    if (getAge(dobDate) < 18) {
+      newErrors.dob = 'DUB_AI Tracker is designed for adults 18 and older.';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   }
 
+  function validateStep9(): boolean {
+    const newErrors: Record<string, string> = {};
+    if (zip.trim() && !/^\d{5}$/.test(zip.trim())) {
+      newErrors.zip = 'Please enter a valid 5-digit zip code';
+    }
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
+  function handleStepContinue() {
+    setErrors({});
+    switch (step) {
+      case 1:
+        if (validateStep1()) goForward();
+        break;
+      case 2:
+        if (validateStep2()) goForward();
+        break;
+      case 3:
+        if (validateStep3()) goForward();
+        break;
+      case 4: // Height — always valid (picker constrained)
+      case 5: // Weight — always valid (picker constrained)
+      case 6: // Activity — checked by disabled button
+      case 7: // Goal — checked by disabled button
+      case 8: // Tags — always valid
+        goForward();
+        break;
+      case 9:
+        if (validateStep9()) handleFinish();
+        break;
+    }
+  }
+
+  // ── Tag Toggle ──
+
+  function handleTagToggle(tagId: string) {
+    setEnabledTags((prev) =>
+      prev.includes(tagId)
+        ? prev.filter((id) => id !== tagId)
+        : [...prev, tagId],
+    );
+  }
+
+  // ── Finish & Persist ──
+
   const handleFinish = useCallback(async () => {
-    if (!mainGoal) return;
     setSaving(true);
     try {
       const dobString = `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, '0')}-${String(dobDate.getDate()).padStart(2, '0')}`;
 
-      // Map main goal to weight goal direction default
+      // Compute stored height in inches
+      const totalInches = heightUnitMetric
+        ? Math.round(heightCm / 2.54)
+        : heightFeet * 12 + heightInches;
+
+      // Compute stored weight in lbs
+      const totalLbs = weightUnitMetric
+        ? Math.round(weightKg * 2.20462)
+        : weightLbs;
+
+      // Map main goal to weight goal direction
       const goalDirection =
-        mainGoal === 'lose_weight' ? 'LOSE' as const :
-        mainGoal === 'gain_muscle' ? 'GAIN' as const :
-        'MAINTAIN' as const;
+        mainGoal === 'lose_weight' ? ('LOSE' as const) :
+        mainGoal === 'gain_muscle' ? ('GAIN' as const) :
+        ('MAINTAIN' as const);
 
       const profile: Partial<UserProfile> = {
         name: name.trim(),
         dob: dobString,
         units: 'imperial',
         sex: sex!,
-        pronouns: pronouns,
+        pronouns,
         metabolic_profile: sex === 'intersex' ? metabolicProfile : null,
         main_goal: mainGoal,
-        activity_level: 'moderately_active', // Default per spec
+        height_inches: totalInches,
+        weight_lbs: totalLbs,
+        activity_level: activityLevel,
         goal: {
           direction: goalDirection,
           target_weight: null,
           rate_lbs_per_week: goalDirection === 'LOSE' ? 1.0 : null,
           gain_type: goalDirection === 'GAIN' ? 'standard' : null,
-          surplus_calories: goalDirection === 'GAIN' ? 500 : null,
+          surplus_calories: goalDirection === 'GAIN' ? 300 : null,
         },
       };
 
@@ -133,18 +290,18 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
         age_verification: ageConsent,
       };
 
-      // Initialize deferred setup state
+      // Initialize deferred setup state (reduced — tags now in onboarding)
       const today = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-${String(new Date().getDate()).padStart(2, '0')}`;
       const defaultItem = { shown_count: 0, completed: false, dismissed_date: null };
       const deferredSetup = {
         onboarding_date: today,
-        tag_selection: { ...defaultItem },
-        calorie_target: { ...defaultItem },
+        tag_selection: { ...defaultItem, completed: true }, // done in onboarding now
+        calorie_target: { ...defaultItem, completed: true }, // done in onboarding now
         device_connect: { ...defaultItem },
         reminders: { ...defaultItem },
       };
 
-      await Promise.all([
+      const writes: Promise<void>[] = [
         storageSet(STORAGE_KEYS.PROFILE, profile),
         storageSet(STORAGE_KEYS.SETTINGS, {
           units: 'imperial',
@@ -152,21 +309,54 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
           notification_cadence: null,
           eod_questionnaire_time: null,
           privacy_screen_enabled: false,
+          hide_calories: false,
           consent_date: consent.consent_date,
           consent_version: consent.consent_version,
         }),
         storageSet(STORAGE_KEYS.TIER, DEFAULT_TIER),
-        storageSet(STORAGE_KEYS.TAGS_ENABLED, getDefaultTagsForTier(DEFAULT_TIER)),
+        storageSet(STORAGE_KEYS.TAGS_ENABLED, enabledTags),
         storageSet(STORAGE_KEYS.DEFERRED_SETUP, deferredSetup),
         setUserSex(sex!),
-      ]);
+      ];
 
+      // Save zip if provided
+      if (zip.trim() && /^\d{5}$/.test(zip.trim())) {
+        writes.push(setUserZip(zip.trim()));
+      }
+
+      await Promise.all(writes);
       await completeOnboarding();
       onComplete();
     } finally {
       setSaving(false);
     }
-  }, [name, dobDate, sex, metabolicProfile, pronouns, mainGoal, healthConsent, aiConsent, ageConsent, onComplete]);
+  }, [
+    name, dobDate, sex, metabolicProfile, pronouns, mainGoal,
+    healthConsent, aiConsent, ageConsent, onComplete,
+    heightFeet, heightInches, heightUnitMetric, heightCm,
+    weightLbs, weightUnitMetric, weightKg,
+    activityLevel, enabledTags, zip,
+  ]);
+
+  // ── Button state per step ──
+
+  function canContinue(): boolean {
+    switch (step) {
+      case 1: return allConsented && !!name.trim();
+      case 2: return !!sex && (sex !== 'intersex' || !!metabolicProfile);
+      case 3: return true; // DOB picker always has a value
+      case 4: return true; // Height picker always has a value
+      case 5: return true; // Weight picker always has a value
+      case 6: return !!activityLevel;
+      case 7: return !!mainGoal;
+      case 8: return true; // Tags can be empty (user chooses)
+      case 9: return true; // Zip is optional
+      default: return false;
+    }
+  }
+
+  const isLastStep = step === TOTAL_STEPS;
+  const buttonTitle = isLastStep ? 'Start Tracking' : 'Continue';
 
   return (
     <View style={styles.container}>
@@ -175,78 +365,122 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
       {step > 1 && (
         <TouchableOpacity
           style={styles.backArrow}
-          onPress={() => setStep(1)}
+          onPress={goBack}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
       )}
 
-      {step === 1 && (
-        <Screen1
-          name={name}
-          onNameChange={setName}
-          dobDate={dobDate}
-          onDobChange={setDobDate}
-          sex={sex}
-          onSexSelect={setSex}
-          metabolicProfile={metabolicProfile}
-          onMetabolicProfileSelect={setMetabolicProfile}
-          pronouns={pronouns}
-          onPronounsSelect={setPronouns}
-          healthConsent={healthConsent}
-          onHealthConsent={setHealthConsent}
-          aiConsent={aiConsent}
-          onAiConsent={setAiConsent}
-          ageConsent={ageConsent}
-          onAgeConsent={setAgeConsent}
-          allConsented={allConsented}
-          errors={errors}
-          onContinue={handleScreen1Continue}
-        />
-      )}
+      <View style={styles.screen}>
+        {step === 1 && (
+          <Step1Consent
+            name={name}
+            onNameChange={setName}
+            pronouns={pronouns}
+            onPronounsSelect={setPronouns}
+            healthConsent={healthConsent}
+            onHealthConsent={setHealthConsent}
+            aiConsent={aiConsent}
+            onAiConsent={setAiConsent}
+            ageConsent={ageConsent}
+            onAgeConsent={setAgeConsent}
+            allConsented={allConsented}
+            errors={errors}
+          />
+        )}
+        {step === 2 && (
+          <Step2Sex
+            sex={sex}
+            onSexSelect={setSex}
+            metabolicProfile={metabolicProfile}
+            onMetabolicProfileSelect={setMetabolicProfile}
+            errors={errors}
+          />
+        )}
+        {step === 3 && (
+          <Step3DOB
+            dobDate={dobDate}
+            onDobChange={setDobDate}
+            errors={errors}
+          />
+        )}
+        {step === 4 && (
+          <Step4Height
+            feet={heightFeet}
+            inches={heightInches}
+            onFeetChange={setHeightFeet}
+            onInchesChange={setHeightInches}
+            useMetric={heightUnitMetric}
+            onToggleMetric={setHeightUnitMetric}
+            cm={heightCm}
+            onCmChange={setHeightCm}
+          />
+        )}
+        {step === 5 && (
+          <Step5Weight
+            lbs={weightLbs}
+            onLbsChange={setWeightLbs}
+            useMetric={weightUnitMetric}
+            onToggleMetric={setWeightUnitMetric}
+            kg={weightKg}
+            onKgChange={setWeightKg}
+          />
+        )}
+        {step === 6 && (
+          <Step6Activity
+            selected={activityLevel}
+            onSelect={setActivityLevel}
+          />
+        )}
+        {step === 7 && (
+          <Step7Goal
+            selected={mainGoal}
+            onSelect={setMainGoal}
+          />
+        )}
+        {step === 8 && (
+          <Step8Tags
+            enabledTags={enabledTags}
+            onToggle={handleTagToggle}
+          />
+        )}
+        {step === 9 && (
+          <Step9Zip
+            zip={zip}
+            onZipChange={setZip}
+            errors={errors}
+          />
+        )}
+      </View>
 
-      {step === 2 && (
-        <Screen2
-          selected={mainGoal}
-          onSelect={setMainGoal}
-          onFinish={handleFinish}
-          saving={saving}
+      <View style={styles.footer}>
+        <Button
+          title={buttonTitle}
+          onPress={handleStepContinue}
+          disabled={!canContinue()}
+          loading={isLastStep && saving}
         />
-      )}
+      </View>
     </View>
   );
 }
 
-// ── Screen 1: Profile + Consent ──
+// ════════════════════════════════════════════════════
+// Step 1: Consent + Name + Pronouns
+// ════════════════════════════════════════════════════
 
-const SEX_OPTIONS: { value: BiologicalSex; label: string; icon: string }[] = [
-  { value: 'female', label: 'Female', icon: 'female-outline' },
-  { value: 'male', label: 'Male', icon: 'male-outline' },
-  { value: 'intersex', label: 'Intersex', icon: 'person-outline' },
-];
-
-const PRONOUN_OPTIONS: { value: Pronouns; label: string }[] = [
-  { value: 'she_her', label: 'She/her' },
-  { value: 'he_him', label: 'He/him' },
-  { value: 'they_them', label: 'They/them' },
-  { value: 'prefer_not_to_say', label: 'Prefer not to say' },
-];
-
-const METABOLIC_OPTIONS: { value: MetabolicProfile; label: string }[] = [
-  { value: 'female', label: 'Female metabolic profile' },
-  { value: 'male', label: 'Male metabolic profile' },
-];
-
-interface Screen1Props {
+function Step1Consent({
+  name, onNameChange,
+  pronouns, onPronounsSelect,
+  healthConsent, onHealthConsent,
+  aiConsent, onAiConsent,
+  ageConsent, onAgeConsent,
+  allConsented,
+  errors,
+}: {
   name: string;
   onNameChange: (v: string) => void;
-  dobDate: Date;
-  onDobChange: (d: Date) => void;
-  sex: BiologicalSex | null;
-  onSexSelect: (s: BiologicalSex) => void;
-  metabolicProfile: MetabolicProfile | null;
-  onMetabolicProfileSelect: (p: MetabolicProfile) => void;
   pronouns: Pronouns | null;
   onPronounsSelect: (p: Pronouns) => void;
   healthConsent: boolean;
@@ -257,27 +491,10 @@ interface Screen1Props {
   onAgeConsent: (v: boolean) => void;
   allConsented: boolean;
   errors: Record<string, string>;
-  onContinue: () => void;
-}
-
-function Screen1({
-  name, onNameChange,
-  dobDate, onDobChange,
-  sex, onSexSelect,
-  metabolicProfile, onMetabolicProfileSelect,
-  pronouns, onPronounsSelect,
-  healthConsent, onHealthConsent,
-  aiConsent, onAiConsent,
-  ageConsent, onAgeConsent,
-  allConsented,
-  errors,
-  onContinue,
-}: Screen1Props) {
-  const canContinue = allConsented && name.trim() && sex && (sex !== 'intersex' || metabolicProfile);
-
+}) {
   return (
     <KeyboardAvoidingView
-      style={styles.screen}
+      style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
@@ -287,7 +504,7 @@ function Screen1({
       >
         <Text style={styles.screenTitle}>Welcome to DUB_AI</Text>
         <Text style={styles.screenSubtitle}>
-          Let's get you started. This takes about 30 seconds.
+          Let's get you started. This takes about 2 minutes.
         </Text>
 
         {/* Consent */}
@@ -325,88 +542,15 @@ function Screen1({
             editable={allConsented}
           />
 
-          <DateTimePicker
-            label="Date of Birth"
-            mode="date"
-            value={dobDate}
-            onChange={onDobChange}
-            minimumDate={new Date(1920, 0, 1)}
-            maximumDate={new Date(new Date().getFullYear() - 13, new Date().getMonth(), new Date().getDate())}
-          />
-          {errors.dob ? <Text style={styles.errorText}>{errors.dob}</Text> : null}
-
-          {/* Biological Sex */}
-          <Text style={styles.label}>Biological Sex</Text>
-          <View style={styles.cardGroup}>
-            {SEX_OPTIONS.map((opt) => (
-              <TouchableOpacity
-                key={opt.value}
-                style={[styles.sexCard, sex === opt.value && styles.sexCardSelected]}
-                onPress={() => allConsented && onSexSelect(opt.value)}
-                disabled={!allConsented}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={opt.icon as any}
-                  size={24}
-                  color={sex === opt.value ? Colors.accent : Colors.secondaryText}
-                />
-                <Text style={[styles.sexLabel, sex === opt.value && styles.sexLabelSelected]}>
-                  {opt.label}
-                </Text>
-                {sex === opt.value && (
-                  <Ionicons name="checkmark-circle" size={20} color={Colors.accent} />
-                )}
-              </TouchableOpacity>
-            ))}
-          </View>
-          <Text style={styles.helperText}>
-            Used for calorie calculations only. Never shown on your profile or shared.
-          </Text>
-          {errors.sex ? <Text style={styles.errorText}>{errors.sex}</Text> : null}
-
-          {/* Metabolic profile (intersex only) */}
-          {sex === 'intersex' && (
-            <View style={styles.metabolicSection}>
-              <Text style={styles.label}>Metabolic Profile</Text>
-              <Text style={styles.helperText}>
-                Choose which formula to use for calorie calculations.
-              </Text>
-              <View style={styles.metabolicRow}>
-                {METABOLIC_OPTIONS.map((opt) => (
-                  <TouchableOpacity
-                    key={opt.value}
-                    style={[
-                      styles.metabolicCard,
-                      metabolicProfile === opt.value && styles.metabolicCardSelected,
-                    ]}
-                    onPress={() => onMetabolicProfileSelect(opt.value)}
-                    activeOpacity={0.7}
-                  >
-                    <Text
-                      style={[
-                        styles.metabolicLabel,
-                        metabolicProfile === opt.value && styles.metabolicLabelSelected,
-                      ]}
-                    >
-                      {opt.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              {errors.metabolic ? <Text style={styles.errorText}>{errors.metabolic}</Text> : null}
-            </View>
-          )}
-
           {/* Pronouns */}
           <Text style={styles.label}>Pronouns</Text>
-          <View style={styles.pronounRow}>
+          <View style={styles.chipRow}>
             {PRONOUN_OPTIONS.map((opt) => (
               <TouchableOpacity
                 key={opt.value}
                 style={[
-                  styles.pronounChip,
-                  pronouns === opt.value && styles.pronounChipSelected,
+                  styles.chip,
+                  pronouns === opt.value && styles.chipSelected,
                 ]}
                 onPress={() => allConsented && onPronounsSelect(opt.value)}
                 disabled={!allConsented}
@@ -414,8 +558,8 @@ function Screen1({
               >
                 <Text
                   style={[
-                    styles.pronounText,
-                    pronouns === opt.value && styles.pronounTextSelected,
+                    styles.chipText,
+                    pronouns === opt.value && styles.chipTextSelected,
                   ]}
                 >
                   {opt.label}
@@ -424,95 +568,505 @@ function Screen1({
             ))}
           </View>
         </View>
-
-        <View style={styles.footer}>
-          <Button
-            title="Continue"
-            onPress={onContinue}
-            disabled={!canContinue}
-          />
-        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// ── Screen 2: Main Goal ──
+// ════════════════════════════════════════════════════
+// Step 2: Biological Sex
+// ════════════════════════════════════════════════════
 
-const GOAL_OPTIONS: { value: MainGoal; label: string; icon: string }[] = [
-  { value: 'lose_weight', label: 'Lose weight', icon: 'trending-down-outline' },
-  { value: 'gain_muscle', label: 'Gain muscle', icon: 'barbell-outline' },
-  { value: 'get_healthier', label: 'Get healthier', icon: 'heart-outline' },
-  { value: 'track_condition', label: 'Track a condition', icon: 'clipboard-outline' },
-  { value: 'support_recovery', label: 'Support recovery', icon: 'medkit-outline' },
-];
-
-function Screen2({
-  selected,
-  onSelect,
-  onFinish,
-  saving,
+function Step2Sex({
+  sex, onSexSelect,
+  metabolicProfile, onMetabolicProfileSelect,
+  errors,
 }: {
-  selected: MainGoal | null;
-  onSelect: (g: MainGoal) => void;
-  onFinish: () => void;
-  saving: boolean;
+  sex: BiologicalSex | null;
+  onSexSelect: (s: BiologicalSex) => void;
+  metabolicProfile: MetabolicProfile | null;
+  onMetabolicProfileSelect: (p: MetabolicProfile) => void;
+  errors: Record<string, string>;
 }) {
   return (
-    <View style={styles.screen}>
-      <ScrollView
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        <Text style={styles.screenTitle}>What's your main goal?</Text>
-        <Text style={styles.screenSubtitle}>
-          You can change this anytime in Settings.
-        </Text>
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.screenTitle}>Biological Sex</Text>
+      <Text style={styles.screenSubtitle}>
+        Used for calorie calculations only. Never shown on your profile or shared.
+      </Text>
 
-        <View style={styles.goalGroup}>
-          {GOAL_OPTIONS.map((opt) => (
-            <TouchableOpacity
-              key={opt.value}
-              style={[styles.goalCard, selected === opt.value && styles.goalCardSelected]}
-              onPress={() => onSelect(opt.value)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={opt.icon as any}
-                size={28}
-                color={selected === opt.value ? Colors.accent : Colors.secondaryText}
-              />
-              <Text
-                style={[styles.goalLabel, selected === opt.value && styles.goalLabelSelected]}
-              >
-                {opt.label}
-              </Text>
-              {selected === opt.value && (
-                <Ionicons
-                  name="checkmark-circle"
-                  size={22}
-                  color={Colors.accent}
-                  style={{ marginLeft: 'auto' }}
-                />
-              )}
-            </TouchableOpacity>
-          ))}
-        </View>
-      </ScrollView>
-
-      <View style={styles.footer}>
-        <Button
-          title="Start Tracking"
-          onPress={onFinish}
-          disabled={!selected}
-          loading={saving}
-        />
+      <View style={styles.cardGroup}>
+        {SEX_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[styles.selectCard, sex === opt.value && styles.selectCardActive]}
+            onPress={() => onSexSelect(opt.value)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={opt.icon as any}
+              size={24}
+              color={sex === opt.value ? Colors.accent : Colors.secondaryText}
+            />
+            <Text style={[styles.selectCardLabel, sex === opt.value && styles.selectCardLabelActive]}>
+              {opt.label}
+            </Text>
+            {sex === opt.value && (
+              <Ionicons name="checkmark-circle" size={20} color={Colors.accent} />
+            )}
+          </TouchableOpacity>
+        ))}
       </View>
-    </View>
+      {errors.sex ? <Text style={styles.errorText}>{errors.sex}</Text> : null}
+
+      {/* Metabolic profile (intersex only) */}
+      {sex === 'intersex' && (
+        <View style={{ marginTop: 20 }}>
+          <Text style={styles.label}>Metabolic Profile</Text>
+          <Text style={styles.helperText}>
+            Choose which formula to use for calorie calculations.
+          </Text>
+          <View style={styles.metabolicRow}>
+            {METABOLIC_OPTIONS.map((opt) => (
+              <TouchableOpacity
+                key={opt.value}
+                style={[
+                  styles.metabolicCard,
+                  metabolicProfile === opt.value && styles.metabolicCardSelected,
+                ]}
+                onPress={() => onMetabolicProfileSelect(opt.value)}
+                activeOpacity={0.7}
+              >
+                <Text
+                  style={[
+                    styles.metabolicLabel,
+                    metabolicProfile === opt.value && styles.metabolicLabelSelected,
+                  ]}
+                >
+                  {opt.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          {errors.metabolic ? <Text style={styles.errorText}>{errors.metabolic}</Text> : null}
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
-// ── Inline Checkbox ──
+// ════════════════════════════════════════════════════
+// Step 3: Date of Birth
+// ════════════════════════════════════════════════════
+
+function Step3DOB({
+  dobDate, onDobChange, errors,
+}: {
+  dobDate: Date;
+  onDobChange: (d: Date) => void;
+  errors: Record<string, string>;
+}) {
+  return (
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.screenTitle}>Date of Birth</Text>
+      <Text style={styles.screenSubtitle}>
+        Your age is used to calculate your daily calorie target. We never share your birthdate.
+      </Text>
+
+      <DateTimePicker
+        label="Date of Birth"
+        mode="date"
+        value={dobDate}
+        onChange={onDobChange}
+        minimumDate={new Date(1920, 0, 1)}
+        maximumDate={new Date(new Date().getFullYear() - 13, new Date().getMonth(), new Date().getDate())}
+      />
+      {errors.dob ? <Text style={styles.errorText}>{errors.dob}</Text> : null}
+    </ScrollView>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// Step 4: Height
+// ════════════════════════════════════════════════════
+
+function Step4Height({
+  feet, inches, onFeetChange, onInchesChange,
+  useMetric, onToggleMetric,
+  cm, onCmChange,
+}: {
+  feet: number;
+  inches: number;
+  onFeetChange: (v: number) => void;
+  onInchesChange: (v: number) => void;
+  useMetric: boolean;
+  onToggleMetric: (v: boolean) => void;
+  cm: number;
+  onCmChange: (v: number) => void;
+}) {
+  return (
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.screenTitle}>Height</Text>
+      <Text style={styles.screenSubtitle}>
+        Used for your daily calorie calculation.
+      </Text>
+
+      {/* Unit toggle */}
+      <View style={styles.unitToggleRow}>
+        <TouchableOpacity
+          style={[styles.unitToggle, !useMetric && styles.unitToggleActive]}
+          onPress={() => {
+            if (useMetric) {
+              // Convert cm back to feet/inches
+              const totalIn = Math.round(cm / 2.54);
+              onFeetChange(Math.floor(totalIn / 12));
+              onInchesChange(totalIn % 12);
+            }
+            onToggleMetric(false);
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.unitToggleText, !useMetric && styles.unitToggleTextActive]}>ft / in</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.unitToggle, useMetric && styles.unitToggleActive]}
+          onPress={() => {
+            if (!useMetric) {
+              // Convert feet/inches to cm
+              onCmChange(Math.round((feet * 12 + inches) * 2.54));
+            }
+            onToggleMetric(true);
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.unitToggleText, useMetric && styles.unitToggleTextActive]}>cm</Text>
+        </TouchableOpacity>
+      </View>
+
+      {!useMetric ? (
+        <View style={styles.pickerRow}>
+          {/* Feet picker */}
+          <View style={styles.pickerColumn}>
+            <Text style={styles.pickerLabel}>Feet</Text>
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={feet}
+                onValueChange={onFeetChange}
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                {[3, 4, 5, 6, 7, 8].map((v) => (
+                  <Picker.Item key={v} label={`${v}`} value={v} color={Colors.text} />
+                ))}
+              </Picker>
+            </View>
+          </View>
+
+          {/* Inches picker */}
+          <View style={styles.pickerColumn}>
+            <Text style={styles.pickerLabel}>Inches</Text>
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={inches}
+                onValueChange={onInchesChange}
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                {Array.from({ length: 12 }, (_, i) => (
+                  <Picker.Item key={i} label={`${i}`} value={i} color={Colors.text} />
+                ))}
+              </Picker>
+            </View>
+          </View>
+        </View>
+      ) : (
+        <View style={styles.pickerRow}>
+          <View style={[styles.pickerColumn, { flex: 1 }]}>
+            <Text style={styles.pickerLabel}>Centimeters</Text>
+            <View style={styles.pickerWrapper}>
+              <Picker
+                selectedValue={cm}
+                onValueChange={onCmChange}
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                {Array.from({ length: 121 }, (_, i) => i + 100).map((v) => (
+                  <Picker.Item key={v} label={`${v} cm`} value={v} color={Colors.text} />
+                ))}
+              </Picker>
+            </View>
+          </View>
+        </View>
+      )}
+    </ScrollView>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// Step 5: Weight
+// ════════════════════════════════════════════════════
+
+function Step5Weight({
+  lbs, onLbsChange,
+  useMetric, onToggleMetric,
+  kg, onKgChange,
+}: {
+  lbs: number;
+  onLbsChange: (v: number) => void;
+  useMetric: boolean;
+  onToggleMetric: (v: boolean) => void;
+  kg: number;
+  onKgChange: (v: number) => void;
+}) {
+  return (
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.screenTitle}>Weight</Text>
+      <Text style={styles.screenSubtitle}>
+        Used for your daily calorie calculation. You can update this anytime.
+      </Text>
+
+      {/* Unit toggle */}
+      <View style={styles.unitToggleRow}>
+        <TouchableOpacity
+          style={[styles.unitToggle, !useMetric && styles.unitToggleActive]}
+          onPress={() => {
+            if (useMetric) {
+              onLbsChange(Math.round(kg * 2.20462));
+            }
+            onToggleMetric(false);
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.unitToggleText, !useMetric && styles.unitToggleTextActive]}>lbs</Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.unitToggle, useMetric && styles.unitToggleActive]}
+          onPress={() => {
+            if (!useMetric) {
+              onKgChange(Math.round(lbs / 2.20462));
+            }
+            onToggleMetric(true);
+          }}
+          activeOpacity={0.7}
+        >
+          <Text style={[styles.unitToggleText, useMetric && styles.unitToggleTextActive]}>kg</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.pickerRow}>
+        <View style={[styles.pickerColumn, { flex: 1 }]}>
+          <Text style={styles.pickerLabel}>{useMetric ? 'Kilograms' : 'Pounds'}</Text>
+          <View style={styles.pickerWrapper}>
+            {!useMetric ? (
+              <Picker
+                selectedValue={lbs}
+                onValueChange={onLbsChange}
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                {Array.from({ length: 451 }, (_, i) => i + 50).map((v) => (
+                  <Picker.Item key={v} label={`${v} lbs`} value={v} color={Colors.text} />
+                ))}
+              </Picker>
+            ) : (
+              <Picker
+                selectedValue={kg}
+                onValueChange={onKgChange}
+                style={styles.picker}
+                itemStyle={styles.pickerItem}
+              >
+                {Array.from({ length: 201 }, (_, i) => i + 25).map((v) => (
+                  <Picker.Item key={v} label={`${v} kg`} value={v} color={Colors.text} />
+                ))}
+              </Picker>
+            )}
+          </View>
+        </View>
+      </View>
+    </ScrollView>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// Step 6: Activity Level
+// ════════════════════════════════════════════════════
+
+function Step6Activity({
+  selected, onSelect,
+}: {
+  selected: ActivityLevel | null;
+  onSelect: (a: ActivityLevel) => void;
+}) {
+  return (
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.screenTitle}>Activity Level</Text>
+      <Text style={styles.screenSubtitle}>
+        How active are you on a typical week? This helps calculate your daily calorie target.
+      </Text>
+
+      <View style={styles.cardGroup}>
+        {ACTIVITY_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[styles.selectCard, selected === opt.value && styles.selectCardActive]}
+            onPress={() => onSelect(opt.value)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.selectCardLabel, selected === opt.value && styles.selectCardLabelActive]}>
+                {opt.label}
+              </Text>
+              <Text style={styles.selectCardSubtitle}>{opt.subtitle}</Text>
+            </View>
+            {selected === opt.value && (
+              <Ionicons name="checkmark-circle" size={22} color={Colors.accent} />
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// Step 7: Primary Goal
+// ════════════════════════════════════════════════════
+
+function Step7Goal({
+  selected, onSelect,
+}: {
+  selected: MainGoal | null;
+  onSelect: (g: MainGoal) => void;
+}) {
+  return (
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.screenTitle}>What's your main goal?</Text>
+      <Text style={styles.screenSubtitle}>
+        You can change this anytime in Settings.
+      </Text>
+
+      <View style={styles.cardGroup}>
+        {GOAL_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.value}
+            style={[styles.selectCard, selected === opt.value && styles.selectCardActive]}
+            onPress={() => onSelect(opt.value)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={opt.icon as any}
+              size={28}
+              color={selected === opt.value ? Colors.accent : Colors.secondaryText}
+            />
+            <Text
+              style={[styles.selectCardLabel, selected === opt.value && styles.selectCardLabelActive, { flex: 1 }]}
+            >
+              {opt.label}
+            </Text>
+            {selected === opt.value && (
+              <Ionicons
+                name="checkmark-circle"
+                size={22}
+                color={Colors.accent}
+              />
+            )}
+          </TouchableOpacity>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// Step 8: What You Track (Tags)
+// ════════════════════════════════════════════════════
+
+function Step8Tags({
+  enabledTags, onToggle,
+}: {
+  enabledTags: string[];
+  onToggle: (tagId: string) => void;
+}) {
+  return (
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.screenTitle}>What do you want to track?</Text>
+      <Text style={styles.screenSubtitle}>
+        Pick the categories that matter to you. You can change these anytime in Settings.
+      </Text>
+
+      <TagPicker enabledTags={enabledTags} onToggle={onToggle} />
+    </ScrollView>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// Step 9: Zip Code
+// ════════════════════════════════════════════════════
+
+function Step9Zip({
+  zip, onZipChange, errors,
+}: {
+  zip: string;
+  onZipChange: (v: string) => void;
+  errors: Record<string, string>;
+}) {
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <Text style={styles.screenTitle}>Zip Code</Text>
+        <Text style={styles.screenSubtitle}>
+          Optional. Used for local weather context in your daily summary.
+        </Text>
+
+        <Input
+          label="Zip Code"
+          value={zip}
+          onChangeText={(text) => onZipChange(text.replace(/[^0-9]/g, '').slice(0, 5))}
+          placeholder="e.g. 90210"
+          keyboardType="number-pad"
+          maxLength={5}
+          error={errors.zip}
+        />
+
+        <Text style={styles.helperText}>
+          You can skip this and add it later in Settings.
+        </Text>
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// Inline Checkbox
+// ════════════════════════════════════════════════════
 
 function Checkbox({
   checked,
@@ -526,14 +1080,16 @@ function Checkbox({
   return (
     <TouchableOpacity style={styles.checkboxRow} onPress={onToggle} activeOpacity={0.7}>
       <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
-        {checked && <Text style={styles.checkmark}>✓</Text>}
+        {checked && <Text style={styles.checkmark}>&#10003;</Text>}
       </View>
       <Text style={styles.checkboxLabel}>{label}</Text>
     </TouchableOpacity>
   );
 }
 
-// ── Styles ──
+// ════════════════════════════════════════════════════
+// Styles
+// ════════════════════════════════════════════════════
 
 const styles = StyleSheet.create({
   container: {
@@ -556,6 +1112,13 @@ const styles = StyleSheet.create({
     paddingTop: 16,
     paddingBottom: 40,
   },
+  footer: {
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    paddingTop: 16,
+  },
+
+  // Typography
   screenTitle: {
     color: Colors.accentText,
     fontSize: 26,
@@ -601,46 +1164,48 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
   errorText: {
-    color: Colors.danger,
+    color: Colors.dangerText,
     fontSize: 12,
     marginTop: 4,
   },
 
-  // Sex cards
+  // Selection cards (sex, activity, goal)
   cardGroup: {
-    gap: 8,
+    gap: 10,
+    marginTop: 8,
   },
-  sexCard: {
+  selectCard: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: Colors.cardBackground,
-    borderRadius: 10,
-    padding: 14,
+    borderRadius: 12,
+    padding: 16,
     borderWidth: 2,
     borderColor: 'transparent',
-    gap: 12,
+    gap: 14,
   },
-  sexCardSelected: {
+  selectCardActive: {
     borderColor: Colors.accent,
   },
-  sexLabel: {
+  selectCardLabel: {
     color: Colors.text,
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '500',
-    flex: 1,
   },
-  sexLabelSelected: {
+  selectCardLabelActive: {
     color: Colors.accentText,
   },
-
-  // Metabolic profile
-  metabolicSection: {
-    marginTop: 4,
+  selectCardSubtitle: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    marginTop: 2,
   },
+
+  // Metabolic profile cards
   metabolicRow: {
     flexDirection: 'row',
     gap: 10,
-    marginTop: 4,
+    marginTop: 8,
   },
   metabolicCard: {
     flex: 1,
@@ -664,13 +1229,13 @@ const styles = StyleSheet.create({
     color: Colors.accentText,
   },
 
-  // Pronoun chips
-  pronounRow: {
+  // Chip row (pronouns)
+  chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 8,
   },
-  pronounChip: {
+  chip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
@@ -678,44 +1243,16 @@ const styles = StyleSheet.create({
     borderColor: Colors.divider,
     backgroundColor: Colors.inputBackground,
   },
-  pronounChipSelected: {
+  chipSelected: {
     borderColor: Colors.accent,
     backgroundColor: Colors.cardBackground,
   },
-  pronounText: {
+  chipText: {
     color: Colors.secondaryText,
     fontSize: 13,
     fontWeight: '500',
   },
-  pronounTextSelected: {
-    color: Colors.accentText,
-  },
-
-  // Goal cards
-  goalGroup: {
-    gap: 10,
-    marginTop: 8,
-  },
-  goalCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
-    padding: 18,
-    borderWidth: 2,
-    borderColor: 'transparent',
-    gap: 14,
-  },
-  goalCardSelected: {
-    borderColor: Colors.accent,
-  },
-  goalLabel: {
-    color: Colors.text,
-    fontSize: 17,
-    fontWeight: '500',
-    flex: 1,
-  },
-  goalLabelSelected: {
+  chipTextSelected: {
     color: Colors.accentText,
   },
 
@@ -752,9 +1289,61 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  footer: {
-    paddingHorizontal: 24,
-    paddingBottom: 40,
-    paddingTop: 16,
+  // Unit toggle
+  unitToggleRow: {
+    flexDirection: 'row',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    padding: 4,
+    marginBottom: 20,
+  },
+  unitToggle: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 8,
+  },
+  unitToggleActive: {
+    backgroundColor: Colors.accent,
+  },
+  unitToggleText: {
+    color: Colors.secondaryText,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  unitToggleTextActive: {
+    color: Colors.primaryBackground,
+  },
+
+  // Picker (height, weight)
+  pickerRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  pickerColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  pickerLabel: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  pickerWrapper: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    overflow: 'hidden',
+    width: '100%',
+  },
+  picker: {
+    width: '100%',
+    height: 180,
+  },
+  pickerItem: {
+    color: Colors.text,
+    fontSize: 20,
+    height: 180,
   },
 });

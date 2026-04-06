@@ -1,8 +1,12 @@
 // Manual food entry form
 // Phase 6: Food Logging -- Core
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
+  ActionSheetIOS,
+  Alert,
+  Image,
+  Platform,
   StyleSheet,
   Text,
   View,
@@ -10,8 +14,9 @@ import {
   TouchableOpacity,
   TextInput,
   KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Button } from '../common/Button';
 import type { FoodItem, FoodEntry, MealType, NutritionInfo } from '../../types/food';
@@ -43,6 +48,50 @@ export function FoodEntryForm({ food, mealType, onSave, onCancel }: FoodEntryFor
   const [sugar, setSugar] = useState(food?.nutrition_per_100g.sugar_g != null ? String(Math.round(food.nutrition_per_100g.sugar_g)) : '');
   const [sodium, setSodium] = useState(food?.nutrition_per_100g.sodium_mg != null ? String(Math.round(food.nutrition_per_100g.sodium_mg)) : '');
   const [notes, setNotes] = useState('');
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+
+  const handleAddPhoto = useCallback(async () => {
+    const options = ['Take Photo', 'Choose from Library', 'Cancel'];
+    const cancelIndex = 2;
+
+    function handleChoice(index: number) {
+      if (index === 0) {
+        ImagePicker.requestCameraPermissionsAsync().then(({ status }) => {
+          if (status !== 'granted') {
+            Alert.alert('Permission Required', 'Camera access is needed to photograph food.');
+            return;
+          }
+          ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.7 }).then((result) => {
+            if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
+          });
+        });
+      } else if (index === 1) {
+        ImagePicker.requestMediaLibraryPermissionsAsync().then(({ status }) => {
+          if (status !== 'granted') {
+            Alert.alert('Permission Required', 'Photo library access is needed.');
+            return;
+          }
+          ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 }).then((result) => {
+            if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
+          });
+        });
+      }
+    }
+
+    if (Platform.OS === 'ios') {
+      ActionSheetIOS.showActionSheetWithOptions(
+        { options, cancelButtonIndex: cancelIndex },
+        handleChoice,
+      );
+    } else {
+      Alert.alert('Add Photo', '', [
+        { text: options[0], onPress: () => handleChoice(0) },
+        { text: options[1], onPress: () => handleChoice(1) },
+        { text: 'Cancel', style: 'cancel' },
+      ]);
+    }
+  }, []);
+
   const [servingDesc, setServingDesc] = useState(food?.serving_sizes[food.default_serving_index]?.description ?? '1 serving (100g)');
   const [servingGrams, setServingGrams] = useState(
     food?.serving_sizes[food.default_serving_index]?.gram_weight != null
@@ -112,7 +161,7 @@ export function FoodEntryForm({ food, mealType, onSave, onCancel }: FoodEntryFor
       quantity: 1,
       computed_nutrition: nutrition,
       source: 'manual',
-      photo_uri: null,
+      photo_uri: photoUri,
       photo_confidence: null,
       flagged_ingredients: [],
       notes: notes.trim() || null,
@@ -152,6 +201,25 @@ export function FoodEntryForm({ food, mealType, onSave, onCancel }: FoodEntryFor
             </TouchableOpacity>
           ))}
         </View>
+
+        {/* F-04: Photo attachment */}
+        {photoUri ? (
+          <View style={styles.photoPreviewRow}>
+            <Image source={{ uri: photoUri }} style={styles.photoThumb} />
+            <TouchableOpacity
+              style={styles.photoRemoveBtn}
+              onPress={() => setPhotoUri(null)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle" size={22} color={Colors.danger} />
+            </TouchableOpacity>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.photoBtn} onPress={handleAddPhoto} activeOpacity={0.7}>
+            <Ionicons name="camera-outline" size={20} color={Colors.accent} />
+            <Text style={styles.photoBtnText}>Add Photo</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Food name */}
         <FieldInput label="Food Name *" value={name} onChangeText={setName} placeholder="e.g., Chicken Breast" />
@@ -332,5 +400,38 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginTop: 20,
+  },
+  photoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    borderStyle: 'dashed',
+    paddingVertical: 14,
+    marginBottom: 16,
+  },
+  photoBtnText: {
+    color: Colors.accent,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  photoPreviewRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  photoThumb: {
+    width: 100,
+    height: 100,
+    borderRadius: 10,
+    backgroundColor: Colors.inputBackground,
+  },
+  photoRemoveBtn: {
+    marginLeft: -12,
+    marginTop: -6,
   },
 });

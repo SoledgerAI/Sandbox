@@ -3,7 +3,7 @@
 // Phase 19: NLP text entry and photo food entry integration
 
 import { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, View, SafeAreaView } from 'react-native';
+import { StyleSheet, View, Text, SafeAreaView } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
 import { storageGet, storageSet, STORAGE_KEYS, dateKey } from '../../src/utils/storage';
@@ -16,14 +16,15 @@ import { BarcodeScanner } from '../../src/components/logging/BarcodeScanner';
 import { NLPFoodEntry } from '../../src/components/logging/NLPFoodEntry';
 import { PhotoFoodEntry } from '../../src/components/logging/PhotoFoodEntry';
 import { Button } from '../../src/components/common/Button';
+import { TimestampPicker } from '../../src/components/common/TimestampPicker';
 import { RepeatLastEntry } from '../../src/components/logging/RepeatLastEntry';
 import { useLastEntry } from '../../src/hooks/useLastEntry';
 import { loadIngredientFlags, detectFlaggedIngredients } from '../../src/utils/ingredients';
-import type { FoodItem, FoodEntry, MealType, IngredientFlag } from '../../src/types/food';
+import type { FoodItem, FoodEntry, MealType, IngredientFlag, RecentFoodInfo } from '../../src/types/food';
 import { todayDateString } from '../../src/utils/dayBoundary';
 import type { AppSettings } from '../../src/types/profile';
 
-type Screen = 'search' | 'configure' | 'manual' | 'quicklog' | 'barcode' | 'nlp' | 'photo';
+type Screen = 'search' | 'configure' | 'manual' | 'quicklog' | 'barcode' | 'nlp' | 'photo' | 'quickconfirm';
 
 
 function guessMealType(hour: number, settings?: AppSettings | null): MealType {
@@ -48,6 +49,7 @@ function guessMealType(hour: number, settings?: AppSettings | null): MealType {
 }
 
 export default function FoodLogScreen() {
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [screen, setScreen] = useState<Screen>('search');
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
   const [servingIndex, setServingIndex] = useState(0);
@@ -55,6 +57,7 @@ export default function FoodLogScreen() {
   const [customWeightGrams, setCustomWeightGrams] = useState<number | null>(null);
   const [mealType, setMealType] = useState<MealType>(() => guessMealType(new Date().getHours()));
   const [ingredientFlags, setIngredientFlags] = useState<IngredientFlag[]>([]);
+  const [quickConfirmEntry, setQuickConfirmEntry] = useState<RecentFoodInfo | null>(null);
   const { lastEntry: lastFoodEntry, saveAsLast: saveLastFood } = useLastEntry<FoodEntry>('nutrition.food');
 
   useEffect(() => {
@@ -76,14 +79,26 @@ export default function FoodLogScreen() {
       const entry: FoodEntry = {
         ...partial,
         id: `food_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        timestamp: new Date().toISOString(),
+        timestamp: entryTimestamp.toISOString(),
       };
 
       await storageSet(key, [...existing, entry]);
       await saveLastFood(entry);
+
+      // F-03: Update recent foods with enriched serving info
+      const recentList = (await storageGet<RecentFoodInfo[]>(STORAGE_KEYS.FOOD_RECENT)) ?? [];
+      const recentEntry: RecentFoodInfo = {
+        food_item: { ...partial.food_item, last_accessed: new Date().toISOString() },
+        serving: partial.serving,
+        quantity: partial.quantity,
+        calories: Math.round(partial.computed_nutrition.calories),
+      };
+      const filteredRecent = recentList.filter((r) => r.food_item.source_id !== partial.food_item.source_id);
+      await storageSet(STORAGE_KEYS.FOOD_RECENT, [recentEntry, ...filteredRecent].slice(0, 50));
+
       router.back();
     },
-    [saveLastFood],
+    [saveLastFood, entryTimestamp],
   );
 
   const handleBarcodeFound = useCallback((food: FoodItem) => {
@@ -109,6 +124,30 @@ export default function FoodLogScreen() {
     setCustomWeightGrams(null);
     setScreen('configure');
   }, [lastFoodEntry]);
+
+  // F-03: Quick confirm for recent food (2-tap flow)
+  const handleRecentTap = useCallback((entry: RecentFoodInfo) => {
+    setQuickConfirmEntry(entry);
+    setScreen('quickconfirm');
+  }, []);
+
+  const handleQuickConfirm = useCallback(() => {
+    if (!quickConfirmEntry) return;
+    const { food_item, serving, quantity: qty } = quickConfirmEntry;
+    const computed = scaleNutrition(food_item.nutrition_per_100g, serving, qty);
+    saveEntry({
+      meal_type: mealType,
+      food_item,
+      serving,
+      quantity: qty,
+      computed_nutrition: computed,
+      source: food_item.source,
+      photo_uri: null,
+      photo_confidence: null,
+      flagged_ingredients: [],
+      notes: null,
+    });
+  }, [quickConfirmEntry, mealType, saveEntry]);
 
   const handleFoodSelected = useCallback((food: FoodItem) => {
     setSelectedFood(food);
@@ -153,7 +192,7 @@ export default function FoodLogScreen() {
         const existing = (await storageGet<FoodEntry[]>(key)) ?? [];
         const newEntries: FoodEntry[] = items.map((item) => ({
           id: `food_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          timestamp: new Date().toISOString(),
+          timestamp: entryTimestamp.toISOString(),
           meal_type: mealType,
           food_item: {
             source: 'nlp' as const,
@@ -213,7 +252,7 @@ export default function FoodLogScreen() {
         router.back();
       })();
     },
-    [mealType],
+    [mealType, entryTimestamp],
   );
 
   const handlePhotoConfirm = useCallback(
@@ -225,7 +264,7 @@ export default function FoodLogScreen() {
         const existing = (await storageGet<FoodEntry[]>(key)) ?? [];
         const newEntries: FoodEntry[] = items.map((item) => ({
           id: `food_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          timestamp: new Date().toISOString(),
+          timestamp: entryTimestamp.toISOString(),
           meal_type: mealType,
           food_item: {
             source: 'ai_photo' as const,
@@ -285,12 +324,13 @@ export default function FoodLogScreen() {
         router.back();
       })();
     },
-    [mealType],
+    [mealType, entryTimestamp],
   );
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
+        <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
         {screen === 'search' && (
           <>
           <RepeatLastEntry
@@ -306,6 +346,7 @@ export default function FoodLogScreen() {
             onBarcodeScan={() => setScreen('barcode')}
             onNLPEntry={() => setScreen('nlp')}
             onPhotoEntry={() => setScreen('photo')}
+            onRecentTap={handleRecentTap}
           />
           </>
         )}
@@ -379,6 +420,44 @@ export default function FoodLogScreen() {
             onCancel={() => setScreen('search')}
           />
         )}
+
+        {/* F-03: Quick confirm for recent food (2-tap flow) */}
+        {screen === 'quickconfirm' && quickConfirmEntry && (
+          <View style={styles.quickConfirmContainer}>
+            <View style={styles.quickConfirmCard}>
+              <Text style={styles.quickConfirmName}>{quickConfirmEntry.food_item.name}</Text>
+              <Text style={styles.quickConfirmServing}>
+                {quickConfirmEntry.serving?.description ?? 'Default serving'}
+                {quickConfirmEntry.quantity > 1 ? ` x${quickConfirmEntry.quantity}` : ''}
+              </Text>
+              <Text style={styles.quickConfirmCal}>
+                {quickConfirmEntry.calories} cal
+              </Text>
+            </View>
+            <View style={styles.configureActions}>
+              <View style={styles.flex1}>
+                <Button
+                  title="Change"
+                  variant="secondary"
+                  onPress={() => {
+                    // Go to full configure mode
+                    setSelectedFood(quickConfirmEntry.food_item);
+                    const idx = quickConfirmEntry.food_item.serving_sizes.findIndex(
+                      (s) => s.description === quickConfirmEntry.serving?.description,
+                    );
+                    setServingIndex(idx >= 0 ? idx : quickConfirmEntry.food_item.default_serving_index);
+                    setQuantity(quickConfirmEntry.quantity);
+                    setCustomWeightGrams(null);
+                    setScreen('configure');
+                  }}
+                />
+              </View>
+              <View style={styles.flex2}>
+                <Button title="Log" onPress={handleQuickConfirm} />
+              </View>
+            </View>
+          </View>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -405,5 +484,37 @@ const styles = StyleSheet.create({
   },
   flex1: {
     flex: 1,
+  },
+  flex2: {
+    flex: 2,
+  },
+  quickConfirmContainer: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  quickConfirmCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 16,
+    padding: 28,
+    alignItems: 'center',
+    gap: 8,
+  },
+  quickConfirmName: {
+    color: Colors.text,
+    fontSize: 22,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  quickConfirmServing: {
+    color: Colors.secondaryText,
+    fontSize: 15,
+    textAlign: 'center',
+  },
+  quickConfirmCal: {
+    color: Colors.accentText,
+    fontSize: 32,
+    fontWeight: 'bold',
+    fontVariant: ['tabular-nums' as const],
+    marginTop: 8,
   },
 });

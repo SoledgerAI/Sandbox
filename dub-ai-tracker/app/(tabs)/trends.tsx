@@ -3,6 +3,7 @@
 // Per spec: FlatList with getItemLayout, sparkline thumbnails, tap to open detail
 
 import { useState, useCallback, useMemo } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   StyleSheet,
   Text,
@@ -261,9 +262,18 @@ export default function TrendsScreen() {
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('All');
   const { data: enabledTags } = useStorage<string[]>(STORAGE_KEYS.TAGS_ENABLED, []);
-  const { data, loading } = useTrendsData(timeRange, enabledTags ?? []);
-  const { calorieTarget, summary: dailySummary } = useDailySummary();
-  const { summaries: bloodworkSummaries } = useBloodworkSummaries();
+  const { data, loading, reload: reloadTrends } = useTrendsData(timeRange, enabledTags ?? []);
+  const { calorieTarget, summary: dailySummary, refresh: refreshSummary } = useDailySummary();
+  const { summaries: bloodworkSummaries, reload: reloadBloodwork } = useBloodworkSummaries();
+
+  // F-02: Refresh all data when tab gains focus
+  useFocusEffect(
+    useCallback(() => {
+      reloadTrends();
+      refreshSummary();
+      reloadBloodwork();
+    }, [reloadTrends, refreshSummary, reloadBloodwork]),
+  );
   const { width: screenWidth } = useWindowDimensions();
   const sparkWidth = Math.floor(screenWidth * SPARKLINE_WIDTH_RATIO);
 

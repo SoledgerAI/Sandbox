@@ -24,6 +24,7 @@ import {
 import type { BloodPressureEntry, BPPosition, BPArm, BPTiming } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 
 
@@ -109,6 +110,7 @@ interface BloodPressureLoggerProps {
 export function BloodPressureLogger({ onEntryLogged }: BloodPressureLoggerProps) {
   const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<BloodPressureEntry>('blood.pressure');
   const [entries, setEntries] = useState<BloodPressureEntry[]>([]);
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [systolic, setSystolic] = useState('');
   const [diastolic, setDiastolic] = useState('');
   const [pulse, setPulse] = useState('');
@@ -149,7 +151,7 @@ export function BloodPressureLogger({ onEntryLogged }: BloodPressureLoggerProps)
 
     const entry: BloodPressureEntry = {
       id: `bp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       systolic: sysNum,
       diastolic: diaNum,
       pulse_bpm: pulseNum != null && !isNaN(pulseNum) && pulseNum > 0 ? pulseNum : null,
@@ -201,6 +203,9 @@ export function BloodPressureLogger({ onEntryLogged }: BloodPressureLoggerProps)
         visible={!lastLoading && lastEntry != null}
         onRepeat={handleRepeatLast}
       />
+
+      <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
+
       {/* Systolic / Diastolic inputs */}
       <Text style={styles.sectionTitle}>Blood Pressure (mmHg)</Text>
       <View style={styles.bpRow}>
