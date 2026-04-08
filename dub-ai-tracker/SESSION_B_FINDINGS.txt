@@ -1,550 +1,1156 @@
 ================================================================
-SESSION: B
-DATE: 2026-04-01
-EXPERTS COMPLETED: 7-12
-TOTAL FINDINGS: 78
-P0 COUNT: 5
-P1 COUNT: 22
-P2 COUNT: 34
-P3 COUNT: 17
-CROSS-REFERENCES TO SESSION A: A-09, A-31, A-32, A-33, A-38, A-40, A-44, A-46, A-50, A-52, A-56, A-67, A-68, A-70, A-75
+DUB_AI TRACKER — SESSION B FINDINGS
+SCREENS 41-77
+Auditor: Claude Code (Opus 4.6)
+Date: 2026-04-08
 ================================================================
+
+Session A loaded: 54 findings (0 P0s, 5 P1, 24 P2, 25 P3).
+Continuing audit from Screen 41.
 
 
 ================================================================
-EXPERT 7: SENIOR iOS DEVELOPER (BILLION-DOLLAR APP STANDARD)
+SCREEN EXISTENCE CHECK (Screens 41-77)
 ================================================================
 
-[B-01] EXPERT 7: iOS DEV | SEVERITY: P0
-FILE: app.json
-FINDING: No privacy policy URL (privacyPolicyURL) configured in app.json. Apple requires this field for health data apps and will reject without it.
-RECOMMENDATION: Add "privacyPolicyURL" in the ios config pointing to a hosted privacy policy document. See also [A-31].
-RATIONALE: App Store Review Guideline 5.1.1(v) requires a privacy policy link for apps collecting health data. Automatic rejection without it.
-
-[B-02] EXPERT 7: iOS DEV | SEVERITY: P0
-FILE: app.json:41-47
-FINDING: expo-camera and expo-notifications are in package.json dependencies but NOT in the plugins array in app.json. Without plugin registration, native modules may not be configured in EAS builds.
-RECOMMENDATION: Add "expo-camera" and "expo-notifications" to the plugins array. For expo-camera, configure barcode scanning permissions. For expo-notifications, configure push notification entitlements.
-RATIONALE: Missing plugin registration causes native module initialization failures in production builds. The app may crash when opening barcode scanner or configuring notifications.
-
-[B-03] EXPERT 7: iOS DEV | SEVERITY: P1
-FILE: app.json:17
-FINDING: supportsTablet is set to true, but the app has no tablet-adaptive layouts. All components use phone-sized fixed layouts (e.g., SCREEN_WIDTH - 48 in Celebration.tsx). On iPad, the app will look stretched and unprofessional.
-RECOMMENDATION: Either set supportsTablet to false (iPhone-only for v1.1) or add responsive layout breakpoints. For a health tracker, iPhone-only is acceptable for v1.1.
-RATIONALE: A stretched phone layout on iPad is an App Store feature rejection risk and creates a poor first impression for iPad users.
-
-[B-04] EXPERT 7: iOS DEV | SEVERITY: P1
-FILE: eas.json:13-14
-FINDING: Production build profile is completely empty ({}). No signing config, no environment variable handling, no build-time security hardening. See also [A-44].
-RECOMMENDATION: Configure production profile with: distribution "store", autoIncrement for buildNumber, env for API keys, and releaseChannel. Pin iOS deployment target.
-RATIONALE: Empty production config risks shipping debug-enabled builds. Build numbers must auto-increment for App Store submission.
-
-[B-05] EXPERT 7: iOS DEV | SEVERITY: P1
-FILE: app.json
-FINDING: No HealthKit background modes or entitlements declared. The expo plugins array does not include any HealthKit plugin. NSHealthShareUsageDescription and NSHealthUpdateUsageDescription are in infoPlist but without the HealthKit entitlement, they are informational only. See also [A-33].
-RECOMMENDATION: Add the react-native-health config plugin to the plugins array or configure HealthKit entitlements via app.json ios.entitlements. Verify HealthKit capability is enabled in the Apple Developer portal.
-RATIONALE: HealthKit API calls will crash at runtime without the entitlement. Apple will reject if HealthKit descriptions are present but the entitlement is missing.
-
-[B-06] EXPERT 7: iOS DEV | SEVERITY: P1
-FILE: src/components/common/Celebration.tsx:57
-FINDING: Celebration uses Dimensions.get('window').width at module scope (line 57). This value is computed once at import time and never updates. On iPad multitasking or screen rotation, the shimmer width is wrong.
-RECOMMENDATION: Use useWindowDimensions() hook inside the component instead of the static Dimensions.get() call.
-RATIONALE: Module-scope dimension calculations are a known React Native bug source. The celebration card will be incorrectly sized on any device where window dimensions change after initial load.
-
-[B-07] EXPERT 7: iOS DEV | SEVERITY: P2
-FILE: app/(tabs)/_layout.tsx:43-48
-FINDING: Tab bar labels only render when the tab is focused (line 44: focused ? <Text>... : null). When unfocused, tab icons have no visible text label. This is functional but below billion-dollar app standard where all tabs show labels.
-RECOMMENDATION: Always render tab labels for all 5 tabs. Use different font weights or opacity to indicate active vs inactive state.
-RATIONALE: Missing unfocused tab labels force users to memorize icon meanings. Apple HIG recommends always-visible tab labels.
-
-[B-08] EXPERT 7: iOS DEV | SEVERITY: P2
-FILE: src/components/logging/BarcodeScanner.tsx:98
-FINDING: BarcodeScanner overlay uses a hardcoded paddingTop of 56 (line 98) instead of using SafeAreaView or useSafeAreaInsets. On devices with different notch sizes (Dynamic Island vs standard notch), the top bar will overlap system UI.
-RECOMMENDATION: Use useSafeAreaInsets() from react-native-safe-area-context and apply insets.top as the top padding.
-RATIONALE: Hardcoded top padding breaks on any device where the safe area differs from iPhone 14 assumptions. This includes all Dynamic Island devices and older notchless models.
-
-[B-09] EXPERT 7: iOS DEV | SEVERITY: P2
-FILE: src/components/common/Celebration.tsx:60-99
-FINDING: Celebration animation uses old Animated API (from react-native) instead of react-native-reanimated which is already a dependency. The old API runs animations on the JS thread, causing potential jank when combined with other UI operations.
-RECOMMENDATION: Migrate Celebration to use react-native-reanimated's useSharedValue, withTiming, and withSpring for smoother animations on the UI thread.
-RATIONALE: JS-thread animations compete with Coach API calls and storage reads. On lower-end devices (iPhone SE), this causes visible frame drops.
-
-[B-10] EXPERT 7: iOS DEV | SEVERITY: P2
-FILE: app/(tabs)/index.tsx:91-100
-FINDING: Dashboard "Set up your profile" card uses inline styles (line 91: style={{ backgroundColor: ... }}) instead of StyleSheet. Multiple inline style objects are created on every render.
-RECOMMENDATION: Extract inline styles to a StyleSheet.create() block. This prevents unnecessary object allocations on re-render.
-RATIONALE: Inline styles on frequently-rendered screens create garbage collection pressure. Minor on modern devices but a code quality issue.
-
-[B-11] EXPERT 7: iOS DEV | SEVERITY: P2
-FILE: src/components/AuthGate.tsx
-FINDING: AuthGate tracks app background/foreground via AppState. Need to verify that the task switcher blur (privacy screen) is implemented to hide sensitive health data in the app switcher. See also [A-27].
-RECOMMENDATION: On AppState change to 'inactive' or 'background', overlay a blur view or solid-color screen to prevent health data from being visible in the task switcher.
-RATIONALE: iOS task switcher screenshots the current screen. Users logging substances, sexual activity, or therapy would have this data visible to anyone who sees their task switcher.
-
-[B-12] EXPERT 7: iOS DEV | SEVERITY: P3
-FILE: src/components/charts/ScoreRing.tsx
-FINDING: ScoreRing animation (800ms easing) does not check for reduced motion preference (AccessibilityInfo.isReduceMotionEnabled). Users with vestibular disorders may find the ring animation disorienting.
-RECOMMENDATION: Check isReduceMotionEnabled and set animation duration to 0 when reduced motion is preferred.
-RATIONALE: Apple accessibility guideline. Not a rejection risk but affects App Store feature eligibility.
-
-[B-13] EXPERT 7: iOS DEV | SEVERITY: P3
-FILE: package.json:49-50
-FINDING: react-native-aes-crypto (^3.3.0) and react-native-health (^1.18.0) use caret version ranges. These are community native packages excluded from Expo's directory check. See also [A-52].
-RECOMMENDATION: Pin to exact versions (remove ^) for both packages. Verify both build successfully with EAS production profile before release.
-RATIONALE: Caret ranges can pull in breaking changes in community native modules, causing EAS build failures that are difficult to diagnose.
-
-[B-14] EXPERT 7: iOS DEV | SEVERITY: P3
-FILE: app.json:7
-FINDING: App icon path is "./assets/icon.png". No verification that the icon meets Apple's required 1024x1024 resolution and has no alpha channel. App Store will reject icons with transparency.
-RECOMMENDATION: Verify icon.png is exactly 1024x1024 with no alpha channel. Verify splash-icon.png dimensions are appropriate for the splash screen.
-RATIONALE: Incorrect icon dimensions or alpha channel presence is a common App Store rejection reason.
+  41. Supplement detail/edit .... PARTIAL — SupplementChecklist.tsx has time edit + UL warnings, but no dosage/name edit post-logging
+  42. Supplement interview ...... PARTIAL — Demographic suggestions exist but no dedicated interview flow; triggered on-demand via "Edit My Supplements"
+  43. Medication checklist ...... PARTIAL — Medications use same SupplementEntry type with category='medication'; no dedicated checklist, reminders, or adherence tracking
+  44. Medication detail/edit .... PARTIAL — Time editable, side effects tracker exists; no name/dosage edit, no refill reminders, no interaction warnings
+  45. Sleep logging ............. EXISTS — SleepLogger.tsx with bedtime/wake/quality/bathroom/alarm/duration
+  46. Sleep history ............. NOT FOUND — No sleep history screen, no trend chart, no past nights list
+  47. Mood logging .............. EXISTS — MoodPicker.tsx with 3-axis system (mood/energy/anxiety), 1-5 scale each
+  48. Stress logging ............ EXISTS — StressLogger.tsx with 1-10 scale, trigger tags, color coding
+  49. Gratitude entry ........... EXISTS — GratitudeLogger.tsx with 3 text inputs, today's entries list
+  50. Meditation logging ........ EXISTS — MeditationLogger.tsx with 4 types, preset durations
+  51. Alcohol logging ........... EXISTS — SubstanceLogger.tsx alcohol tab with type/quantity/standard drinks/sobriety goals
+  52. Cannabis logging .......... EXISTS — SubstanceLogger.tsx cannabis tab with method/THC/CBD
+  53. Tobacco logging ........... EXISTS — SubstanceLogger.tsx tobacco tab with count/notes
+  54. Caffeine (substances) ..... EXISTS — Separate CaffeineLogger.tsx (not in substances); clean data separation, no duplication
+  55. Women's health/cycle ...... EXISTS — CycleLogger.tsx with period tracking/phase display/symptoms/fertility disclaimer
+  56. Digestive/Bristol ......... EXISTS — BristolScale.tsx with 7-type scale, color coding, accessibility labels
+  57. Sexual activity ........... EXISTS — app/log/sexual.tsx with duration/intensity/MET calories
+  58. Injury/pain logging ....... EXISTS — InjuryLogger.tsx with 32 body locations, 1-10 severity, acute/chronic/recurring
+  59. Therapy session ........... EXISTS — TherapyLogger.tsx with exemplary privacy protection
+  60. Personal care ............. EXISTS — PersonalCareChecklist.tsx with 9-item checklist + handwashing counter
+  61. Settings: Profile ......... EXISTS — app/settings/profile.tsx with all onboarding fields editable
+  62. Settings: Tier ............ EXISTS — app/settings/tier.tsx with 3 tiers, descriptions, Coach acknowledgment
+  63. Settings: Tag mgmt ........ EXISTS — app/settings/tags.tsx with grouped categories, reorder, sensitivity warnings
+  64. Settings: Devices ......... EXISTS — app/settings/devices.tsx with HealthKit/Health Connect, Strava "Coming Soon"
+  65. Settings: Notifications ... EXISTS — app/settings/notifications.tsx with per-type toggles, tier cadence
+  66. Settings: Data export ..... EXISTS — app/settings/export.tsx with JSON/CSV, share sheet, loading state
+  67. Settings: API key ......... EXISTS — app/settings/apikey.tsx + APIKeySetupWizard.tsx with full validation
+  68. Settings: Taste profile ... EXISTS — app/settings/taste.tsx with allergies/restrictions/cuisine
+  69. Settings: Health report ... EXISTS — app/settings/healthreport.tsx with 11 sections, therapy NEVER included
+  70. Settings: Units ........... PARTIAL — Integrated into Profile screen (not standalone), imperial/metric toggle works
+  71. Settings: About/legal ..... EXISTS — app/settings/about.tsx with version, contact, licenses
+  72. Settings: Privacy policy .. PARTIAL — Alert dialog only, no dedicated scrollable screen
+  73. Settings: App lock ........ EXISTS — settings.tsx security section with lock toggle, PIN change, biometric detection
+  74. End-of-day questionnaire .. PARTIAL — EODQuestionnaire.tsx with swipeable cards + smart filtering, but missing key specs
+  75. Marketplace browse ........ EXISTS — app/marketplace/index.tsx with categories, affiliate disclosure, contextual triggers
+  76. Marketplace product detail  EXISTS — app/marketplace/product.tsx with name/price/affiliate/FTC disclosure
+  77. Grocery/Instacart ......... PARTIAL — Instacart deep link from recipe cards only; no meal plan connection, no Amazon Fresh
 
 
 ================================================================
-EXPERT 8: COMPUTER ENGINEERING / SYSTEMS EXPERT
+AUDIT SCREENS 41-44 (SUPPLEMENTS + MEDICATIONS)
 ================================================================
 
-[B-15] EXPERT 8: SYSTEMS | SEVERITY: P0
-FILE: src/utils/storage.ts:136-148
-FINDING: storageSet() has no byte-size monitoring. Any value of any size can be written to AsyncStorage without warning or blocking. The Android CursorWindow 2MB limit is not enforced. See also [A-46].
-RECOMMENDATION: Add JSON.stringify(value).length check before writing. Warn at 1MB, throw StorageError at 1.5MB. Add data compaction strategy for large values.
-RATIONALE: Without size monitoring, food cache (500 items x ~2KB each = ~1MB) or coach history can silently exceed the Android CursorWindow limit, causing an unrecoverable crash.
 
-[B-16] EXPERT 8: SYSTEMS | SEVERITY: P1
-FILE: src/utils/recovery.ts:91-98
-FINDING: computeRecoveryScore reads workout and substance data for the SAME date passed in, but spec says training load should use YESTERDAY's workout data. The function loads today's date data, not yesterday's. See also [A-16].
-RECOMMENDATION: Add a separate load for yesterday's workout data: storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, yesterdayDate)). Keep today's sleep/body/substance data.
-RATIONALE: Recovery measures recovery FROM yesterday's training. Loading today's workout data is logically incorrect -- a morning recovery score should not include today's workout.
+SCREEN 41: Supplement detail / edit
 
-[B-17] EXPERT 8: SYSTEMS | SEVERITY: P1
-FILE: src/utils/recovery.ts:79-85
-FINDING: scoreAlcohol uses a linear formula (100 - drinkCount * 25) producing: 0=100, 1=75, 2=50, 3=25, 4+=0. Spec requires step function: 0=100, 1=80, 2=50, 3+=20. Discrepancies at 1 drink (75 vs 80) and 3+ drinks (25/0 vs 20). See also [A-15].
-RECOMMENDATION: Replace linear formula with explicit step function matching spec values: switch(drinkCount) { case 0: return 100; case 1: return 80; case 2: return 50; default: return 20; }.
-RATIONALE: Recovery score is displayed on Dashboard. Formula divergence from documented spec reduces auditability and produces slightly different scores than users would expect from documentation.
+Finding 41-1:
+  Severity: P2
+  File: src/components/logging/SupplementChecklist.tsx (entire component)
+  What: No edit-in-place capability for supplement dosage or name after
+    logging. Users can only delete and re-add an entry. Time override
+    exists (lines 744-767 via DateTimePicker), but dosage amount cannot
+    be corrected without deleting the entry and re-entering. This is a
+    common "fat finger" scenario -- user logs 5000mg instead of 500mg
+    and must delete + re-enter instead of tapping to edit.
+  Benchmark: MyFitnessPal allows tap-to-edit on any logged food entry.
+    Apple Health allows editing any logged supplement value.
+  Fix: Add an edit mode when tapping a logged supplement entry that
+    opens a modal with pre-filled name, dosage, and unit fields. Save
+    should update the existing entry in-place rather than requiring
+    delete + re-add.
+  Evidence: [CODE]
 
-[B-18] EXPERT 8: SYSTEMS | SEVERITY: P1
-FILE: src/utils/recovery.ts:36-42
-FINDING: scoreSleepDuration uses linear interpolation with ranges 5-7h and 9-11h, and hard 0 below 5h or above 11h. Spec requires: Below 6h = 0-30, 6-7h = 30-60, 7-9h = 60-100, above 9h = 80-90. The implementation ranges and curve shape differ significantly from spec.
-RECOMMENDATION: Rewrite scoreSleepDuration to match spec: <6h maps to 0-30 linearly, 6-7h maps to 30-60, 7-9h maps to 60-100, >9h maps to 80-90 (slight penalty for oversleeping but not harsh).
-RATIONALE: Current code gives 0 for <5h and linearly ramps 0-100 from 5-7h. Spec has a more nuanced curve. A user sleeping 5.5h gets 25 in code but should get ~15 per spec.
+Finding 41-2:
+  Severity: P3
+  File: src/components/logging/SupplementChecklist.tsx:619-642
+  What: "Why this supplement" explanation (reason field) is only visible
+    during the selection/edit mode. Once a supplement is added to the
+    user's list and they return to the daily checklist view, the reason
+    disappears. Users forget why a supplement was recommended and have
+    no way to rediscover the rationale without re-entering edit mode.
+  Benchmark: Examine.com shows the reason/evidence for each supplement
+    on its detail page at all times.
+  Fix: Add a small info icon (information-circle-outline) next to each
+    supplement in the checklist view. Tapping it should show the
+    recommendation reason in a tooltip or expandable row.
+  Evidence: [CODE]
 
-[B-19] EXPERT 8: SYSTEMS | SEVERITY: P1
-FILE: src/utils/recovery.ts:48-52
-FINDING: scoreHrv uses absolute thresholds (20-100ms linear scale) instead of personal baseline comparison. Spec requires scoring against 7-day rolling average. See also [A-17].
-RECOMMENDATION: Accept a baseline parameter (7-day HRV average) and score today's HRV relative to it. Above baseline = higher score, below = lower.
-RATIONALE: An elite athlete with baseline HRV of 85ms scoring 70ms is underrecovering, but absolute scoring rates this as 62/100 ("good"), missing the decline signal entirely.
+Finding 41-3:
+  Severity: P3
+  File: src/components/logging/SupplementChecklist.tsx (entire component)
+  What: No Amazon affiliate link or marketplace cross-reference on any
+    supplement. The supplement checklist and the marketplace product
+    catalog (src/constants/productData.ts) are completely disconnected.
+    Users logging "Vitamin D" in supplements have no way to discover
+    that a recommended Vitamin D product exists in the marketplace.
+  Benchmark: Amazon's "Subscribe & Save" links supplements to purchase.
+    Thorne's app links supplement tracking to their store.
+  Fix: Add a "Buy" or "Find on Marketplace" link on supplement entries
+    where a matching product exists in productData.ts. Match by
+    supplement name to product category/tags.
+  Evidence: [CODE]
 
-[B-20] EXPERT 8: SYSTEMS | SEVERITY: P1
-FILE: src/utils/recovery.ts:58-62
-FINDING: scoreRestingHr uses absolute thresholds (40-80 bpm) instead of personal baseline. Spec requires scoring against 7-day RHR average. See also [A-18].
-RECOMMENDATION: Accept a baseline parameter (7-day RHR average) and score today's RHR relative to it. Lower than baseline = higher score.
-RATIONALE: A user with naturally high RHR (75 bpm) who improves to 70 bpm gets only 25/100, while the relative improvement signal (positive trend) is lost.
-
-[B-21] EXPERT 8: SYSTEMS | SEVERITY: P1
-FILE: src/utils/calories.ts:261-270
-FINDING: computeAge uses local timezone Date() for both birth date and reference date parsing. If DOB is stored as "1990-02-28" (no timezone), new Date("1990-02-28") is parsed as UTC midnight, but ref date uses local time. This can produce off-by-one age errors near midnight or across timezone boundaries.
-RECOMMENDATION: Parse DOB explicitly with timezone handling: new Date(dob + 'T00:00:00') to force local interpretation, or use UTC-only comparison.
-RATIONALE: An age error of 1 year changes BMR by ~5 kcal/day (4.92 coefficient). More importantly, it could cause an under-18 user to bypass the age >= 18 guard if their birthday is tomorrow in UTC but today locally.
-
-[B-22] EXPERT 8: SYSTEMS | SEVERITY: P1
-FILE: src/utils/storage.ts (entire file)
-FINDING: No read-modify-write atomicity. Multiple rapid operations on the same key (e.g., two quick food log entries) both read, append, and write independently. The second write can clobber the first's addition.
-RECOMMENDATION: Implement an optimistic locking pattern or in-memory write queue that serializes writes to the same key. Alternatively, use a mutex per key prefix.
-RATIONALE: Real-world scenario: user quickly logs "eggs" then "toast" within 1 second. Both read dub.log.food.2026-04-01 = [existing], append their entry, and write back. Second write overwrites the first entry. Data loss.
-
-[B-23] EXPERT 8: SYSTEMS | SEVERITY: P2
-FILE: src/utils/servingmath.ts:38-39
-FINDING: computeMultiplier divides by 100 (line 39: serving.gram_weight * quantity / 100). If gram_weight is 0 (which is possible from malformed API data), the result is 0, producing all-zero nutrition. No guard against zero gram_weight.
-RECOMMENDATION: Add guard: if (serving.gram_weight <= 0) throw new Error('Invalid serving size: gram_weight must be positive');
-RATIONALE: A zero-calorie food entry from a malformed serving size would confuse users and corrupt daily calorie totals.
-
-[B-24] EXPERT 8: SYSTEMS | SEVERITY: P2
-FILE: src/ai/pattern_engine.ts:24-28
-FINDING: pastDateString() uses local timezone via new Date().setDate(). If a user changes timezone mid-day (e.g., traveling), the date string can shift, potentially loading wrong day's data or creating gaps.
-RECOMMENDATION: Use a consistent timezone approach. Either always use UTC or capture the user's timezone at app start and use it consistently.
-RATIONALE: Timezone inconsistency in date keys causes data fragmentation. A user crossing a timezone boundary mid-day could see duplicate or missing entries.
-
-[B-25] EXPERT 8: SYSTEMS | SEVERITY: P2
-FILE: src/services/usda.ts:9
-FINDING: USDA API key is hardcoded as 'DEMO_KEY'. The demo key has severe rate limits (30 requests/hour, 50/day). In production, any user doing more than a few food searches will hit rate limits.
-RECOMMENDATION: Register for a USDA FoodData Central API key and store it as a build-time environment variable. DEMO_KEY is for development only.
-RATIONALE: A single user doing 5-6 food searches will exhaust the daily DEMO_KEY limit. The food search waterfall would then skip USDA entirely, reducing food match quality.
-
-[B-26] EXPERT 8: SYSTEMS | SEVERITY: P2
-FILE: src/services/fatsecret.ts:9-10
-FINDING: FatSecret client credentials (CLIENT_ID, CLIENT_SECRET) are hardcoded as placeholder strings. These need to be real credentials for the FatSecret API to work.
-RECOMMENDATION: Register for FatSecret API credentials and inject them via environment variables at build time. Never commit real API secrets to source code.
-RATIONALE: With placeholder credentials, the entire FatSecret barcode and text search path returns errors, falling through to less comprehensive USDA and OFF sources.
-
-[B-27] EXPERT 8: SYSTEMS | SEVERITY: P2
-FILE: src/services/fatsecret.ts:191-214
-FINDING: fatsecretSearch makes a search call, then iterates through ALL results and makes individual fatsecretGetFood calls sequentially (line 204-208). For 25 results, this is 26 API calls in series (1 search + 25 detail fetches).
-RECOMMENDATION: Return partial data from the search response (food_description parsing) and only fetch full details when the user selects a specific food item. This reduces 26 calls to 1 + 1.
-RATIONALE: 26 sequential API calls take 5-10 seconds on mobile networks. Users will see a long spinner and may think the app is frozen.
-
-[B-28] EXPERT 8: SYSTEMS | SEVERITY: P2
-FILE: src/ai/pattern_engine.ts:110-117
-FINDING: Pattern engine loads 60 days of data using sequential loadDayData() calls in a for loop (line 113-116). Each loadDayData makes 7 parallel storageGet calls. Total: 60 iterations * 7 reads = 420 reads, executed sequentially by day. See also [A-70].
-RECOMMENDATION: Pre-compute all 420 keys, use storageGetMultiple() in a single batch call, then parse results. This reduces 420 serial reads to 1-2 batch operations.
-RATIONALE: At ~5ms per read on Android, 420 sequential reads take ~2 seconds. This runs on every app open, causing visible UI lag.
-
-[B-29] EXPERT 8: SYSTEMS | SEVERITY: P2
-FILE: src/components/logging/WaterLogger.tsx:106-113
-FINDING: logCustom() validates that amount > 0 but has no upper bound. A user can enter 99999 oz of water, which would corrupt daily hydration data and produce absurd progress percentages.
-RECOMMENDATION: Add an upper bound validation (e.g., max 256 oz per entry, which is 2 gallons -- a reasonable maximum single serving). Display error for values above the limit.
-RATIONALE: Unbounded numeric inputs are a data integrity risk. Accidental entry of "1600" instead of "16" would show 2500% progress and corrupt pattern engine analysis.
-
-[B-30] EXPERT 8: SYSTEMS | SEVERITY: P2
-FILE: src/utils/calories.ts:72-76
-FINDING: calculateBmr throws Error for age < 18 (line 73-75). This is the only validation. No guard for negative weight, zero height, or implausibly extreme values (e.g., 1000 kg weight).
-RECOMMENDATION: Add validation guards: weightKg > 0 && weightKg < 500, heightCm > 50 && heightCm < 300, ageYears >= 18 && ageYears < 120. Throw descriptive errors.
-RATIONALE: A weight of 0 would produce a BMR of negative value (from the constant term), leading to negative TDEE and calorie targets. No crash, but corrupted data.
-
-[B-31] EXPERT 8: SYSTEMS | SEVERITY: P3
-FILE: src/utils/calories.ts:88-93
-FINDING: "Prefer Not to Say" sex correctly averages male and female BMR (line 91-93). This is a reasonable approximation.
-RECOMMENDATION: No action required. The averaging approach is documented and defensible.
-RATIONALE: Confirming correct handling of the non-binary sex input edge case.
-
-[B-32] EXPERT 8: SYSTEMS | SEVERITY: P3
-FILE: src/constants/formulas.ts:74-79
-FINDING: Recovery weights sum to exactly 1.0 (0.25 + 0.20 + 0.20 + 0.15 + 0.15 + 0.05 = 1.00). Verified.
-RECOMMENDATION: No action required. Weight constants are correct.
-RATIONALE: Confirming that the recovery score foundation is mathematically sound.
-
-[B-33] EXPERT 8: SYSTEMS | SEVERITY: P3
-FILE: src/utils/storage.ts:231-245
-FINDING: storageClearAll correctly deletes all dub.* keys but does not include expo-secure-store keys (API key, PIN hash). See also [A-39].
-RECOMMENDATION: Import deleteItemAsync from expo-secure-store and delete API key and PIN hash as part of the "Delete My Data" flow.
-RATIONALE: CCPA right-to-delete requires removal of ALL user data, including encrypted credentials.
+SCREEN 41: CLEAN on UL warning. DosageValidator.tsx (lines 73-90)
+  displays NIH Tolerable Upper Intake Level with alert confirmation
+  before logging. Correct implementation.
 
 
-================================================================
-EXPERT 9: DATA SCIENTIST / ANALYTICS EXPERT
-================================================================
+SCREEN 42: Supplement interview / setup
 
-[B-34] EXPERT 9: DATA SCIENTIST | SEVERITY: P1
-FILE: src/ai/pattern_engine.ts:125-147
-FINDING: Hydration-mood pattern (Pattern 1) splits on water_oz >= 64 vs < 32, ignoring the 32-64 range entirely. This creates a biased comparison by excluding moderate hydration days. Additionally, only 3 days per group required is statistically weak for a group comparison.
-RECOMMENDATION: Either use continuous Spearman correlation (Tier 3) for water-mood when enough data exists, or use tertile splits (top 33% vs bottom 33%) instead of arbitrary 64/32 thresholds.
-RATIONALE: Arbitrary thresholds and small group sizes (3 days) produce unstable results. A user with 4 high-water days and 3 low-water days across 14 days would get a "pattern" from essentially random variation.
+Finding 42-1:
+  Severity: P2
+  File: src/components/logging/SupplementChecklist.tsx:89-119
+  What: Supplement recommendations are generated based on sex, age, and
+    activity level from the user's profile -- but this is NOT a dedicated
+    interview flow. The recommendations appear inline when the user taps
+    "Edit My Supplements" (line 734). There is no onboarding-style
+    walkthrough that explains why each supplement is suggested, asks
+    about existing supplement use, or guides the user through setup.
+    Users discover the recommendation system only if they find the edit
+    button.
+  Benchmark: Care/of runs a 5-minute supplement quiz that explains each
+    recommendation with evidence. Persona asks about health goals,
+    diet, and medications before suggesting supplements.
+  Fix: Create a SupplementInterview component triggered on first visit
+    to the supplements screen (check if user has any supplements saved).
+    Walk through: current supplements -> health goals -> profile-based
+    recommendations -> opt-in/opt-out per suggestion.
+  Evidence: [CODE]
 
-[B-35] EXPERT 9: DATA SCIENTIST | SEVERITY: P1
-FILE: src/ai/pattern_engine.ts:192-209
-FINDING: Substance-performance pattern (Pattern 3) uses TOTAL CALORIES as a proxy for workout performance (line 195-196). This compares daily calorie intake, not exercise performance metrics. The observation text says "workout performance" but the data being compared is food calories consumed.
-RECOMMENDATION: Either use workout-specific metrics (duration, calories_burned from workout entries) as the performance proxy, or change the observation text to accurately describe what's being measured ("your calorie intake on workout days").
-RATIONALE: This is a false claim in the pattern output. The code measures calorie intake differences, not workout performance. Users would receive misleading insights.
-
-[B-36] EXPERT 9: DATA SCIENTIST | SEVERITY: P1
-FILE: src/ai/correlation.ts:59-68
-FINDING: isSignificant() uses a sparse critical t-value lookup table with only 6 breakpoints (df 5, 10, 15, 20, 30). For df between breakpoints (e.g., df=12), it falls through to the next lower breakpoint (df=10, criticalT=2.228), which is MORE conservative. This is technically safe but imprecise.
-RECOMMENDATION: Use the complete Student's t critical value formula or a more comprehensive lookup table. For a health app, being overly conservative means missing real patterns, which reduces app value.
-RATIONALE: A correlation with df=25 uses the df>=20 critical value (2.086) instead of the actual value (~2.060). This marginally increases false negative rate for moderate sample sizes.
-
-[B-37] EXPERT 9: DATA SCIENTIST | SEVERITY: P1
-FILE: src/ai/pattern_engine.ts:214-247
-FINDING: Consistency-weight pattern (Pattern 4) measures weightChange as "first weight - last weight" per week (line 222). But days array is sorted newest-first, so slice(0,7) gets the most recent week. weightWeights[0] - weightWeights[weightWeights.length - 1] is newest - oldest = negative if losing weight. Then Math.abs is applied, losing directionality. The pattern compares |change| without considering whether the change is TOWARD the goal.
-RECOMMENDATION: Load user's goal direction and only report this pattern when the weight change direction aligns with the goal. A user gaining 2 lbs/week while trying to lose weight should not see this reported as "moving toward goal."
-RATIONALE: Without goal-direction awareness, the pattern could reinforce the wrong behavior. "During high-logging weeks, your weight moves toward goal at 2 lbs/week" is meaningless if we don't know which direction is "toward."
-
-[B-38] EXPERT 9: DATA SCIENTIST | SEVERITY: P2
-FILE: src/ai/pattern_engine.ts:338-348
-FINDING: Duplicate pattern suppression uses exact category string matching (line 339: existingCategories.has(p.category)). Once a pattern category like "hydration-mood" is detected, it will NEVER be re-detected even if the data changes significantly. There is no expiration or refresh mechanism.
-RECOMMENDATION: Add a detected_at timestamp check. Allow pattern re-detection if the existing pattern was detected more than 30 days ago. This lets patterns update as user behavior changes.
-RATIONALE: A user who improves their hydration habits should eventually see an updated pattern, not be stuck with the original finding forever.
-
-[B-39] EXPERT 9: DATA SCIENTIST | SEVERITY: P2
-FILE: src/ai/pattern_engine.ts:98-108
-FINDING: statisticalTier() function determines tier by sample size (30+ = Tier 3, 14+ = Tier 2, else Tier 1), but the actual analysis used varies by pattern. Pattern 1 (hydration-mood) with 30+ data points still uses group comparison (Tier 2 method), not Spearman correlation (Tier 3).
-RECOMMENDATION: When sample size qualifies for Tier 3, actually use spearmanCorrelation() for continuous variables (water_oz vs mood). Only fall back to group comparison when the data is inherently categorical.
-RATIONALE: The tier label says "Tier 3 (correlation)" but the analysis method is Tier 2 (group means). This is misleading to users who see the confidence label.
-
-[B-40] EXPERT 9: DATA SCIENTIST | SEVERITY: P2
-FILE: src/ai/correlation.ts:86-89
-FINDING: groupComparison diffPct calculation uses max(abs(avg1), abs(avg2), 1) as baseline (line 88). For mood scores (1-5 scale), this means the baseline is always the larger average (e.g., 3.5), making a difference of 0.5 only ~14% -- below the 15% threshold. This makes it very hard to detect mood differences on a narrow 1-5 scale.
-RECOMMENDATION: For bounded scales (mood 1-5, stress 1-10), use the scale range as the baseline instead of the mean. A 0.5 difference on a 1-5 scale is 12.5% of the range, which is more meaningful.
-RATIONALE: The 15% threshold is reasonable for unbounded values (calories) but is too strict for bounded scales. Real mood differences of 0.5 points (10% of range) would be clinically meaningful but are filtered out.
-
-[B-41] EXPERT 9: DATA SCIENTIST | SEVERITY: P2
-FILE: src/ai/pattern_engine.ts:306-336
-FINDING: Sustained low calorie safety pattern (Pattern 7) checks for consecutive days below calorie floor from the most recent day. But it counts days where calories > 0 AND < floor. A user who logs 0 calories (forgot to log) breaks the streak. This means the safety alert only triggers when a user consistently logs low -- not when they stop logging (which could also indicate ED risk).
-RECOMMENDATION: Consider days with 0 logged calories as neutral (don't break or extend the streak). The safety pattern should focus on positively-logged low-calorie days.
-RATIONALE: An ED behavior pattern might include days of not logging at all interspersed with low-calorie days. The current implementation only catches the "logs everything honestly" scenario.
-
-[B-42] EXPERT 9: DATA SCIENTIST | SEVERITY: P2
-FILE: src/ai/pattern_engine.ts:272-303
-FINDING: Ingredient flag frequency (Pattern 6) re-loads food entries for 7 days that were already loaded in the DayData loop (lines 50-58). The DayData already contains food calories and protein, but not flagged_ingredients. See also [A-77].
-RECOMMENDATION: Add flagged_ingredients to DayData interface and populate during initial data load. Eliminate the duplicate reads.
-RATIONALE: 7 redundant AsyncStorage reads per pattern engine run, adding to the existing 420-read performance problem.
-
-[B-43] EXPERT 9: DATA SCIENTIST | SEVERITY: P3
-FILE: src/ai/correlation.ts:10-33
-FINDING: Spearman rank correlation implementation is correct. Rank computation handles ties via average rank method (lines 42-56). The rho formula (line 26) and t-test approximation (line 63) are standard.
-RECOMMENDATION: No action required. Statistical implementation is sound.
-RATIONALE: Confirming that the core statistical engine is correctly implemented.
-
-[B-44] EXPERT 9: DATA SCIENTIST | SEVERITY: P3
-FILE: src/utils/calories.ts
-FINDING: BMR coefficients verified: 9.99 (weight) and 4.92 (age) match Mifflin-St Jeor source paper. Test case: Male 80kg 178cm 30y = 9.99*80 + 6.25*178 - 4.92*30 + 5 = 799.2 + 1112.5 - 147.6 + 5 = 1769.1 kcal. Correct.
-RECOMMENDATION: No action required. BMR formula implementation is verified.
-RATIONALE: Confirming core calorie engine accuracy.
-
-[B-45] EXPERT 9: DATA SCIENTIST | SEVERITY: P3
-FILE: src/ai/pattern_engine.ts:119
-FINDING: Minimum data requirement of 7 days (line 119: if days.length < 7 return []) is correct for Tier 1 threshold counting. Individual pattern types enforce higher minimums (14 for Patterns 1-3, 28 for Pattern 4, 21 for Pattern 5).
-RECOMMENDATION: No action required. Minimum data thresholds are appropriately tiered.
-RATIONALE: Confirming that the pattern engine does not produce insights from insufficient data.
+Finding 42-2:
+  Severity: P2
+  File: src/constants/supplementSuggestions.ts:10,27-28
+  What: The supplementSuggestions.ts file defines a priority field
+    (high/medium/low) for each suggestion, but the priority is NEVER
+    displayed in the SupplementChecklist UI. All recommendations
+    appear in a flat list with no visual hierarchy. A user seeing
+    "Vitamin D (high priority)" and "Biotin (low priority)" should
+    understand which ones matter most.
+  Benchmark: Care/of labels supplements as "Essential" vs "Nice to
+    have." Thorne uses "Core" vs "Targeted" tiers.
+  Fix: Sort recommendations by priority (high first) and add a visual
+    badge: gold border for high, standard for medium, muted for low.
+    Display priority label next to each recommendation.
+  Evidence: [CODE]
 
 
-*** CHECKPOINT: EXPERTS 7-9 COMPLETE (45 findings) ***
-*** Continuing with Experts 10-12 ***
+SCREEN 43: Medication checklist
+
+Finding 43-1:
+  Severity: P1
+  File: src/components/logging/SupplementChecklist.tsx:47,616,680
+  What: Medications are structurally second-class citizens. They share
+    the SupplementEntry data type with a category='medication' field,
+    but the recommendation engine excludes them (line 616: category !==
+    'medication'), the selection grid excludes them (line 680), and
+    there is no dedicated medication checklist view. Users must
+    manually add each medication via the custom entry form (lines
+    780-811). There are no time-based reminders, no adherence tracking,
+    no missed dose alerts, and no critical priority visual distinction
+    vs supplements. For users on multiple daily medications, this is
+    a trust-breaking gap -- medication management is a safety-critical
+    feature and the current implementation treats medications like
+    optional vitamins.
+  Benchmark: Medisafe has dedicated medication screens with adherence
+    %, missed dose tracking, refill reminders, and visual priority.
+    Apple Health separates medications from supplements entirely.
+    MyChart tracks medication adherence with compliance scores.
+  Fix: Create a dedicated MedicationChecklist component (separate from
+    SupplementChecklist) with: time-of-day grouping (morning/noon/
+    evening/bedtime), adherence percentage per medication, missed dose
+    visual indicator, critical medication badge (red border for
+    medications the user marks as critical), and integration with
+    the notification system for time-based reminders.
+  Evidence: [CODE]
+
+
+SCREEN 44: Medication detail / edit
+
+Finding 44-1:
+  Severity: P2
+  File: src/components/logging/SupplementChecklist.tsx:744-767,780-811
+  What: Medication name and dosage cannot be edited after logging -- only
+    time override and deletion are available. No refill reminder system
+    exists. No drug interaction warnings exist (only supplement UL
+    warnings via DosageValidator, which are nutrition-specific, not
+    pharmacological). The side effects tracker (lines 845-916) exists
+    for medications but is an isolated feature with no reporting or
+    trend analysis.
+  Benchmark: Medisafe allows full edit of medication details. GoodRx
+    provides interaction checking. Apple Health connects medication
+    tracking to interaction databases.
+  Fix: At minimum, add edit capability for name/dosage/frequency on
+    medication entries. Refill reminders and interaction warnings are
+    larger features that should be scoped separately.
+  Evidence: [CODE]
+
+SCREEN 44: CLEAN on side effects tracking. Chip-based UI (lines
+  871-890) with custom text field (lines 892-899) for medication
+  side effects. Warning icon appears when side effects logged.
 
 
 ================================================================
-EXPERT 10: FOOD TECHNOLOGY / DATABASE SPECIALIST
+AUDIT SCREENS 45-46 (SLEEP)
 ================================================================
 
-[B-46] EXPERT 10: FOOD TECH | SEVERITY: P1
-FILE: src/utils/foodwaterfall.ts
-FINDING: The barcode waterfall only implements 3 of 8 spec-required steps: FatSecret barcode, OFF barcode, USDA text search fallback. Missing: USDA branded barcode search (separate from text search), AI estimation step, and the text waterfall is missing the NLP/AI estimation step (line 100-101 is a stub comment).
-RECOMMENDATION: Complete the waterfall: add USDA branded food search specifically for barcodes (using gtinUpc field), and integrate the NLP estimation flow from NLPFoodEntry as a fallback before manual entry.
-RATIONALE: The incomplete waterfall means many barcodes return empty results when they could be found through additional API paths. This directly impacts food logging success rate.
 
-[B-47] EXPERT 10: FOOD TECH | SEVERITY: P1
-FILE: src/services/fatsecret.ts:179-186
-FINDING: FatSecret barcode lookup response does not populate the barcode field on the returned FoodItem (line 179: barcode: null). The barcode used for lookup is lost after the detail fetch.
-RECOMMENDATION: Pass the barcode from fatsecretBarcodeLookup into mapFsDetailToItem and set it on the FoodItem. This enables cache deduplication by barcode.
-RATIONALE: Without preserving the barcode, re-scanning the same product creates duplicate cache entries instead of updating the existing one. Also breaks barcode-based recent food matching.
+SCREEN 45: Sleep logging
 
-[B-48] EXPERT 10: FOOD TECH | SEVERITY: P1
-FILE: src/components/logging/FoodSearch.tsx:82-89
-FINDING: Food cache LRU eviction is not properly implemented. The code does [...newItems, ...existing].slice(0, 500) (line 88), which just prepends new items and truncates. There is no lastAccessed timestamp update for existing items that match again, and no 30-day TTL eviction.
-RECOMMENDATION: Update lastAccessed on cache hits. Sort by lastAccessed before truncating. Add TTL check: filter out items where lastAccessed is older than 30 days before adding new items.
-RATIONALE: Without proper LRU, the cache fills with stale one-time lookups while frequently used foods get evicted. The 500-item cache becomes a FIFO buffer instead of an LRU cache.
+Finding 45-1:
+  Severity: P2
+  File: src/components/logging/SleepLogger.tsx:246-317
+  What: Bedtime and wake time pickers use manual TextInput fields for
+    HH:MM with separate AM/PM toggle buttons -- NOT scroll-wheel
+    pickers. This is error-prone (users can type "25:00" or "1A:00"),
+    slower than wheel pickers, and inconsistent with the onboarding
+    screens which use DateTimePicker with spinner mode. The app already
+    has a DateTimePicker component at src/components/common/
+    DateTimePicker.tsx that supports iOS spinner mode (line 79).
+  Benchmark: Apple Health uses scroll-wheel time pickers for sleep.
+    Sleep Cycle uses drag-to-set circular clock. Every major sleep
+    app uses wheel or clock-face pickers, never raw text inputs.
+  Fix: Replace the TextInput-based time entry (lines 246-317) with two
+    DateTimePicker components in "time" mode using the existing common
+    DateTimePicker.tsx component. This provides native scroll-wheel
+    on iOS and avoids all input validation issues.
+  Evidence: [CODE]
 
-[B-49] EXPERT 10: FOOD TECH | SEVERITY: P1
-FILE: src/services/openfoodfacts.ts:61-62
-FINDING: Open Food Facts sodium conversion multiplies by 1000 (line 61: sodium_100g * 1000). OFF returns sodium in grams per 100g, and our type expects sodium_mg. The conversion is correct (g to mg = * 1000). However, some OFF products report sodium in mg already. There is no check for unit.
-RECOMMENDATION: Check if sodium_100g value is implausibly large (> 100g sodium per 100g food is impossible). If > 50, assume the value is already in mg and skip the * 1000 multiplication.
-RATIONALE: A product that already reports sodium in mg would be multiplied by 1000, showing 50,000mg sodium for a food with 50mg. This corrupts the ingredient flag system and daily sodium totals.
+Finding 45-2:
+  Severity: P3
+  File: src/components/logging/SleepLogger.tsx:114
+  What: No watch/device sync indicator. The device_data field exists
+    in the data model (line 114) but is always set to null (manual
+    source only). When HealthKit or Health Connect sync is enabled
+    in Settings > Devices, there is no visual indicator on the sleep
+    screen showing whether tonight's sleep was auto-imported from a
+    wearable or manually entered.
+  Benchmark: Oura shows "Ring" vs "Manual" source badges on sleep
+    entries. Apple Health shows the source device for each entry.
+    Whoop shows "Strain Coach" source labels.
+  Fix: Add a source badge below the sleep entry showing the data
+    source (manual, Apple Watch, Fitbit, etc.) when device sync
+    is enabled. Read from the device_data field if populated by
+    the health service sync.
+  Evidence: [CODE]
 
-[B-50] EXPERT 10: FOOD TECH | SEVERITY: P2
-FILE: src/services/usda.ts:195 + src/services/fatsecret.ts:185
-FINDING: Both USDA and FatSecret mappers set ingredients to null (USDA: line 194 on search results; FatSecret: line 185 on all results). Only USDA detail fetch (mapDetailFoodToItem) and Open Food Facts populate the ingredients field. This means ingredient flag detection only works for OFF foods and USDA detail lookups.
-RECOMMENDATION: For FatSecret, check if the food detail response includes an ingredients field and pass it through. For USDA search results, consider making a follow-up detail request for the selected food to retrieve ingredients.
-RATIONALE: If the user's food comes from FatSecret (primary barcode source), ingredient flags will never fire because the ingredients string is always null. The entire ingredient flag system is silently disabled for FatSecret foods.
+SCREEN 45: CLEAN on quality rating (1-5 scale, labeled: Terrible/
+  Poor/Fair/Good/Excellent). Proper visual feedback.
+SCREEN 45: CLEAN on bathroom count (TextInput, optional, stored as
+  null if empty).
+SCREEN 45: CLEAN on alarm toggle (Switch component, boolean).
+SCREEN 45: CLEAN on total duration calc (computeDurationHours()
+  function, 1-decimal precision).
 
-[B-51] EXPERT 10: FOOD TECH | SEVERITY: P2
-FILE: src/utils/servingmath.ts:96-98
-FINDING: QUANTITY_STEPS goes from 0.25 to 10 but the increments are not uniform: 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2, 2.5, 3, 4, 5, 6, 7, 8, 9, 10. Spec says "0.25x to 10x in 0.25 increments, plus custom decimal." The implementation skips many 0.25 increments above 2 (missing 2.25, 2.75, 3.25, 3.5, etc.).
-RECOMMENDATION: This is a reasonable UX simplification. The gap is covered by the custom weight input added in ServingSizeSelector. No code change needed, but document the intentional deviation from spec.
-RATIONALE: 37 quantity buttons (0.25 to 10 in 0.25 steps) would be an unusable UI. The current 17-step approach with custom input is better UX.
 
-[B-52] EXPERT 10: FOOD TECH | SEVERITY: P2
-FILE: src/components/logging/BarcodeScanner.tsx:91
-FINDING: Barcode types configured: ean13, ean8, upc_a, upc_e (line 91). This covers standard US and international food barcodes. Missing: code128, code39, and databar which are used in some warehouse/wholesale food products.
-RECOMMENDATION: Add 'code128' and 'databar' to barcodeTypes for broader coverage. These are less common but appear on Costco/Sam's Club bulk items.
-RATIONALE: Users shopping at warehouse stores will encounter code128 barcodes that the scanner silently ignores. They won't understand why scanning doesn't work for some products.
+SCREEN 46: Sleep detail / history
 
-[B-53] EXPERT 10: FOOD TECH | SEVERITY: P2
-FILE: src/components/logging/PhotoFoodEntry.tsx:46-59
-FINDING: Photo estimation prompt does not include fiber_g, sugar_g, sodium_mg in the required output format. The PhotoFoodItem type (line 26-35) omits these fields entirely. But FoodEntry.computed_nutrition requires them.
-RECOMMENDATION: Add fiber_g, sugar_g, sodium_mg fields (nullable) to PhotoFoodItem and include them in the PHOTO_SYSTEM_PROMPT. Also add the +/- 30% disclaimer per spec.
-RATIONALE: Photo-estimated foods will have null fiber/sugar/sodium, creating gaps in daily nutrient totals and ingredient flag analysis. The spec explicitly requires the +/- 30% accuracy disclaimer.
-
-[B-54] EXPERT 10: FOOD TECH | SEVERITY: P2
-FILE: src/components/logging/FoodSearch.tsx:42-46
-FINDING: Recent foods are loaded using a ref pattern with synchronous state check (line 41-46: if (!recentLoadedRef.current)). This runs the async load in the component body outside useEffect, which is an anti-pattern that could cause state updates after unmount.
-RECOMMENDATION: Move recent food loading into a useEffect with cleanup. Use an AbortController or mounted flag to prevent state updates after unmount.
-RATIONALE: If the user navigates away from the food search before the async load completes, setRecentFoods will attempt to update an unmounted component, causing a React warning.
-
-[B-55] EXPERT 10: FOOD TECH | SEVERITY: P3
-FILE: src/utils/ingredients.ts
-FINDING: All 11 default ingredient flags from spec are present (Added Sugars, HFCS, Hydrogenated Oils, Sodium Nitrate/Nitrite, Artificial Colors, Artificial Sweeteners, Carrageenan, MSG, BHA/BHT, Sodium Benzoate, Potassium Bromate). Keywords are comprehensive.
-RECOMMENDATION: No action required. Ingredient flag system is correctly implemented.
-RATIONALE: Confirming completeness of the ingredient flag defaults against spec.
-
-[B-56] EXPERT 10: FOOD TECH | SEVERITY: P3
-FILE: src/types/food.ts
-FINDING: FoodItem type includes all required fields: source, source_id (composite dedup key), nutrition_per_100g, serving_sizes, ingredients, last_accessed, barcode. NutritionInfo has 15 nutrient fields. Well-typed.
-RECOMMENDATION: No action required. Type system supports the full food intelligence pipeline.
-RATIONALE: Confirming that the food data model is comprehensive and correct.
-
-[B-57] EXPERT 10: FOOD TECH | SEVERITY: P3
-FILE: src/components/logging/ServingSizeSelector.tsx
-FINDING: ServingSizeSelector correctly shows both base serving and adjusted nutrition values. Custom weight input with g/oz toggle is implemented. Quantity steps are functional.
-RECOMMENDATION: No action required. Serving size UI is well-implemented.
-RATIONALE: Confirming that the serving size selector meets spec requirements for user-facing nutrition display.
-
-[B-58] EXPERT 10: FOOD TECH | SEVERITY: P2
-FILE: src/services/fatsecret.ts:121-142
-FINDING: fsServingToNutritionPer100g converts FatSecret serving data to per-100g by dividing by metric_serving_amount. But if metric_serving_amount is missing (line 122: defaults to '100'), the scale factor is 1. Many FatSecret foods report nutrition per "1 cup" without metric_serving_amount. These will be incorrectly treated as per-100g when they're actually per-serving.
-RECOMMENDATION: When metric_serving_amount is missing, log a warning and use the serving as-is (not normalize to per-100g). Alternatively, fall back to a conservative estimate.
-RATIONALE: Incorrect per-100g normalization means a "1 cup (240g)" serving's nutrition is stored as per-100g when it's actually per-240g. The user would see 2.4x the actual nutrition for a 1-cup serving.
+Finding 46-1:
+  Severity: P1
+  File: (no file exists)
+  What: Sleep history screen is completely unimplemented. There is no
+    past nights list, no trend chart, no average duration calculation,
+    and no quality trend visualization. Sleep data IS being stored
+    (via SleepLogger), but users have no way to view historical sleep
+    patterns. The Trends hub (app/(tabs)/trends.tsx) does not include
+    sleep as a chartable metric. This makes sleep tracking feel
+    pointless -- users log every night but can never see their patterns
+    or progress.
+  Benchmark: Oura shows a 7/30/90-day sleep score trend with avg
+    duration, efficiency, and quality breakdown. Apple Health shows
+    sleep duration charts. Fitbit shows sleep stages over time.
+    Sleep Cycle shows detailed nightly history with trends.
+  Fix: Create app/trends/sleep.tsx (or integrate into trends/detail.tsx)
+    with: past 7/30/90-day sleep duration chart, average duration
+    and quality scores, nightly log list with quality badges, and
+    bedroom routine consistency (bedtime variance).
+  Evidence: [CODE] -- grep for "sleep.*history", "SleepHistory",
+    "sleep.*trend" returns zero results in component/screen files.
 
 
 ================================================================
-EXPERT 11: FITNESS INFLUENCER / CONTENT CREATOR
+AUDIT SCREENS 47-50 (MENTAL WELLNESS)
 ================================================================
 
-[B-59] EXPERT 11: INFLUENCER | SEVERITY: P1
-FILE: app/(tabs)/index.tsx:50-54
-FINDING: Daily Score is calculated as simple percentage of calorie target consumed, capped at 100 (line 52-54). A user who eats 100% of their calorie target gets a "100" score regardless of macro balance, water intake, workout completion, or any other factor. This makes the score ring meaningless -- it's just a calorie progress bar with extra steps.
-RECOMMENDATION: Implement the tier-specific weighted scoring from spec: Precision tier = Cal 40%, Macro 25%, Tag 20%, Consistency 15%. At minimum, incorporate 2-3 factors beyond raw calorie percentage.
-RATIONALE: The Daily Score ring is the first thing users see. If it just mirrors the calorie progress bar below it, it's redundant and fails to motivate multi-factor behavior. Users who hit calories but have terrible macros get 100. Users who hit perfect macros but eat 90% of calories get 90.
 
-[B-60] EXPERT 11: INFLUENCER | SEVERITY: P1
-FILE: app/(tabs)/index.tsx (entire screen)
-FINDING: Dashboard uses ScrollView (line 62) instead of FlatList. With all cards, sparklines, recovery score, and tag cards rendered simultaneously, this means ALL dashboard content is rendered even if off-screen. On data-heavy days with 20+ enabled tags, this creates unnecessary re-render load.
-RECOMMENDATION: For the main content area, use FlatList or SectionList with renderItem callbacks. This lazy-renders cards as they scroll into view, improving initial load time.
-RATIONALE: A user with 20 tags enabled will have 20+ cards rendering on initial load. On iPhone SE (2nd gen), this causes a visible 500ms+ blank screen before content appears.
+SCREEN 47: Mood logging
 
-[B-61] EXPERT 11: INFLUENCER | SEVERITY: P2
-FILE: src/components/dashboard/CalorieSummary.tsx
-FINDING: Calorie summary shows BMR and TDEE in the left column. Regular users do not know what BMR and TDEE mean. These are expert-level metrics that add visual noise without adding value for most users.
-RECOMMENDATION: For Mindful and Flexible tiers, hide BMR/TDEE and only show Target/Consumed/Remaining. For Precision tier, show the full breakdown. This is tier-adaptive density.
-RATIONALE: Bloomberg-meets-wellness means showing the RIGHT data density for each user. A mindful user seeing "BMR: 1,769 | TDEE: 2,437" is confused, not empowered. A precision user wants this data.
+Finding 47-1:
+  Severity: P2
+  File: src/components/logging/MoodPicker.tsx:98-116
+  What: No emoji or icon indicators per mood level. The specification
+    calls for emoji/icon per level but the implementation uses only
+    numbered buttons (1-5) with text labels. Users must read text
+    labels ("Very low", "Low", "Neutral", "Good", "Great") to
+    understand the scale. Emoji provide instant visual comprehension
+    and emotional resonance -- text-only mood scales feel clinical
+    and slow.
+  Benchmark: Daylio uses large emoji for each mood level. Pixels Year
+    in Color uses color + emoji. Apple Health Mood uses gradient
+    emoji. Every top mood app uses visual indicators, not just text.
+  Fix: Add emoji to each scale level in the AXES definition. For mood:
+    Very low, Low, Neutral, Good, Great. Display emoji above or
+    alongside the text label in each scale button.
+  Evidence: [CODE]
 
-[B-62] EXPERT 11: INFLUENCER | SEVERITY: P2
-FILE: app/(tabs)/_layout.tsx
-FINDING: No haptic feedback on tab bar taps. Billion-dollar apps (Instagram, TikTok, Whoop) all use light haptics on tab switching. This subtle feedback creates a premium feel.
-RECOMMENDATION: Add expo-haptics and trigger Haptics.impactAsync(ImpactFeedbackStyle.Light) on tab press. Also add haptics on celebration dismissal, food log save, and workout log save.
-RATIONALE: Haptic feedback is the invisible differentiator between "app" and "premium app." It costs nearly zero performance but dramatically changes perceived quality.
+Finding 47-2:
+  Severity: P3
+  File: src/components/logging/MoodPicker.tsx:41-81
+  What: The mood screen uses a 3-axis system (mood, energy, anxiety)
+    instead of a single mood scale. While more data-rich, this adds
+    complexity to what should be a sub-5-second interaction. Users
+    must make 3 selections instead of 1. The spec says "speed (under
+    5 seconds)" -- three 5-point scales with labels require at minimum
+    3 taps + visual scanning, pushing entry time well beyond 5 seconds.
+  Benchmark: Daylio captures mood in a single tap. Apple Health Mood
+    is one selection. Most mood apps prioritize speed with a single
+    primary scale and optional secondary axes.
+  Fix: Consider making energy and anxiety collapsible/optional
+    ("+ Add more detail") with mood as the primary single-tap
+    interaction. Default collapsed state would achieve sub-5-second
+    entry for most users.
+  Evidence: [CODE]
 
-[B-63] EXPERT 11: INFLUENCER | SEVERITY: P2
-FILE: src/components/charts/SparkLine.tsx
-FINDING: SparkLine has no tap interaction. Users see a tiny chart but can't tap it to see values or navigate to the trends detail. The sparkline is essentially a static decoration.
-RECOMMENDATION: Add an onPress prop that navigates to the relevant Trends detail screen. Show a tooltip with the latest value on tap.
-RATIONALE: Tappable sparklines create a "data is alive" feeling. Static sparklines waste Dashboard real estate. Every visual element should either inform or invite interaction.
-
-[B-64] EXPERT 11: INFLUENCER | SEVERITY: P2
-FILE: src/constants/colors.ts
-FINDING: Card background (#2A3370) on primary background (#1E2761) has low contrast: both are dark navy with only a subtle blue shift. On budget phone screens and in bright sunlight, cards are nearly invisible against the background.
-RECOMMENDATION: Increase cardBackground lightness: try #2E3A7D or #303B80 for more visible card separation. Alternatively, add a subtle card border (1px of #3A4580).
-RATIONALE: Visual hierarchy requires clear card boundaries. In Apple Store demo conditions (bright lighting), the current card/background contrast would make the app look flat and unfinished.
-
-[B-65] EXPERT 11: INFLUENCER | SEVERITY: P2
-FILE: src/components/logging/MoodPicker.tsx:219
-FINDING: Mood buttons use flex: 1 in a row of 5 (line 219). On narrow devices (iPhone SE, 4.7" screen), each button is ~60px wide. With paddingVertical: 12 and a 28px emoji + 10px label, the effective touch area is about 60x62. This passes the 44pt minimum but feels cramped.
-RECOMMENDATION: On narrow screens, consider using a horizontal ScrollView for mood buttons, or reducing the emoji size to 24px to give more breathing room.
-RATIONALE: Five mood buttons in a row on iPhone SE leaves almost no gap between them. Users with larger fingers will frequently miss their intended target.
-
-[B-66] EXPERT 11: INFLUENCER | SEVERITY: P3
-FILE: src/components/common/Celebration.tsx
-FINDING: Celebration gold shimmer animation is subtle and premium. Uses a repeating shimmer sweep with 2-second pauses. Gold accent bar at top. No confetti, no party emojis. This is exactly right for the brand.
-RECOMMENDATION: No action required. Celebration animation is correctly on-brand.
-RATIONALE: Confirming that the celebration component follows the "data-driven, not gamification ego" design principle.
-
-[B-67] EXPERT 11: INFLUENCER | SEVERITY: P3
-FILE: src/components/charts/ScoreRing.tsx:106
-FINDING: Score ring uses tabular-nums font variant (line 106), which prevents layout shift when the score animates from 0 to the target value. This is a premium detail.
-RECOMMENDATION: No action required. Well-implemented detail.
-RATIONALE: Confirming that the ScoreRing avoids the common "number jitter" problem that makes apps feel cheap.
-
-[B-68] EXPERT 11: INFLUENCER | SEVERITY: P3
-FILE: src/components/logging/WaterLogger.tsx:300-304
-FINDING: Water logger uses tabular-nums for the total amount display (line 304). Consistent with ScoreRing. Good attention to numeric display detail.
-RECOMMENDATION: Audit all numeric displays across the app to ensure tabular-nums is used consistently wherever numbers change frequently.
-RATIONALE: Inconsistent number rendering (some tabular, some proportional) creates a visually jarring experience.
+SCREEN 47: CLEAN on optional note (TextInput, null if empty).
+SCREEN 47: CLEAN on non-clinical language (labels use "Very low",
+  "Good", "Great" -- not DSM terminology).
 
 
-================================================================
-EXPERT 12: ACCESSIBILITY / WCAG SPECIALIST
-================================================================
+SCREEN 48: Stress logging
 
-[B-69] EXPERT 12: ACCESSIBILITY | SEVERITY: P0
-FILE: src/constants/colors.ts:4
-FINDING: Secondary text (#B0B0B0) on navy background (#1E2761) contrast ratio is approximately 4.3:1. This FAILS WCAG 2.1 AA for normal text (requires 4.5:1). The secondary text color is used extensively throughout the app for labels, hints, and supplementary information.
-RECOMMENDATION: Lighten secondaryText to #BFBFBF (4.7:1 ratio) or #C0C0C0 (4.8:1) to meet AA. Alternatively, use #B8B8B8 (4.5:1 exactly).
-RATIONALE: Secondary text is used on almost every screen for labels like "of 64 oz goal," "Struggling/Low/Neutral/Good/Great," "Today's Average," date displays, and hint text. Failing contrast affects readability for the 4.5% of users with visual impairments.
+SCREEN 48: CLEAN, no findings. 1-10 scale with color coding
+  (green/yellow/red), 6 trigger tags (work/relationships/health/
+  finance/family/other), optional selection. Strong implementation.
 
-[B-70] EXPERT 12: ACCESSIBILITY | SEVERITY: P0
-FILE: src/constants/colors.ts:3
-FINDING: Gold accent (#D4A843) on navy background (#1E2761) contrast ratio is approximately 3.7:1. This FAILS WCAG 2.1 AA for normal text (requires 4.5:1). Gold text is used for calorie target value, water total, accent labels, and tab bar active text.
-RECOMMENDATION: For text use, darken to #C69A3A (4.5:1) or use gold only for decorative elements (borders, icons) and white (#FFFFFF) for text values. Keep gold for non-text UI (buttons, progress bars, borders) where 3:1 is sufficient.
-RATIONALE: Gold-on-navy is the app's signature combination, but it fails AA for text. This affects calorie target display, water total, streak counter, and other data the user needs to read accurately.
 
-[B-71] EXPERT 12: ACCESSIBILITY | SEVERITY: P0
-FILE: src/constants/colors.ts:5
-FINDING: Success green (#4CAF50) on navy background (#1E2761) contrast ratio is approximately 3.6:1. This FAILS WCAG 2.1 AA for normal text (4.5:1 required). Success green is used for the "Remaining" calorie value when positive, recovery score colors, and Bristol scale "Normal" indicator.
-RECOMMENDATION: Lighten success green to #66BB6A (4.2:1) or #7BC67F (4.6:1) for text use. Keep #4CAF50 for non-text indicators (progress bars, icons).
-RATIONALE: The "Remaining" calorie value is a critical data point users check daily. If they can't read it clearly, the core calorie tracking experience is compromised.
+SCREEN 49: Gratitude entry
 
-[B-72] EXPERT 12: ACCESSIBILITY | SEVERITY: P1
-FILE: src/components/logging/MoodPicker.tsx:240
-FINDING: Mood label text ("Struggling," "Low," "Neutral," "Good," "Great") uses fontSize 10 (line 240). Text at 10pt is extremely small and falls below Apple HIG minimum of 11pt for body text. Combined with the secondary text color contrast issue (B-69), these labels may be unreadable for users with mild visual impairments.
-RECOMMENDATION: Increase mood label font size to minimum 12pt. Consider using the mood emoji as the primary identifier and the text label as supplementary.
-RATIONALE: 10pt text on a mobile screen is only 3.5mm tall. Users over 40 (a significant portion of health app users) will struggle to read this without reading glasses.
+Finding 49-1:
+  Severity: P3
+  File: src/components/logging/GratitudeLogger.tsx:122,131,140
+  What: No maxLength (character limit) on gratitude text inputs. The
+    spec calls for a char limit. Without one, users could paste entire
+    paragraphs into a single gratitude field, which would break layout
+    on smaller screens and inflate storage. The three input fields
+    have no character constraint.
+  Benchmark: Five Minute Journal limits entries to ~200 characters.
+    Day One has visible character counts on quick entries.
+  Fix: Add maxLength={200} to each TextInput (lines 122, 131, 140).
+    Add a character counter display showing remaining characters
+    (e.g., "142/200") below each input.
+  Evidence: [CODE]
 
-[B-73] EXPERT 12: ACCESSIBILITY | SEVERITY: P1
-FILE: src/components/logging/BristolScale.tsx
-FINDING: Bristol Stool Scale renders 7 type options. Based on the component structure, each option likely uses a TouchableOpacity in a vertical list. Need to verify that each option has accessibilityLabel including the type number, description, and health indicator (e.g., "Type 4: Smooth, soft sausage. Ideal.").
-RECOMMENDATION: Add accessibilityLabel to each Bristol type option: `Type ${type}: ${description}. ${indicator}.` Add accessibilityRole="radio" for single-selection semantics.
-RATIONALE: Without labels, VoiceOver users would hear only the touch target sound with no context about what each stool type means. This is a health input where accuracy matters.
+Finding 49-2:
+  Severity: P3
+  File: src/components/logging/GratitudeLogger.tsx:111-115
+  What: Gratitude prompts are static -- only "What are you grateful for
+    today?" with "Write 1-3 things." No rotating prompts, no
+    contextual suggestions based on recent entries or time of day.
+    After a few weeks, the same prompt becomes invisible wallpaper.
+  Benchmark: Five Minute Journal rotates weekly prompts. Gratitude
+    apps like Presently show contextual prompts ("What made you
+    smile today?", "Who helped you recently?").
+  Fix: Add a GRATITUDE_PROMPTS array with 10-20 rotating prompts,
+    selected based on day-of-week or random seed. Display one prompt
+    per session above the input fields.
+  Evidence: [CODE]
 
-[B-74] EXPERT 12: ACCESSIBILITY | SEVERITY: P1
-FILE: src/components/logging/StressLogger.tsx
-FINDING: Stress logger uses a 1-10 scale. Fitting 10 touch targets in a single row on a phone screen means each target is approximately 32-35px wide, below the 44px minimum for WCAG 2.2 and Apple HIG.
-RECOMMENDATION: Use a 2-row layout (1-5 / 6-10) or a slider control for the 1-10 scale. Alternatively, use larger tap targets with a horizontal ScrollView.
-RATIONALE: 10 small tap targets in a row is the highest-density input in the app. Users with motor impairments will consistently hit the wrong target, leading to inaccurate stress data.
+SCREEN 49: CLEAN on history display. Today's entries shown in reverse
+  chronological order with timestamps and delete option.
 
-[B-75] EXPERT 12: ACCESSIBILITY | SEVERITY: P1
-FILE: src/components/charts/LineChart.tsx:84-87
-FINDING: LineChart has a good accessibilityLabel that describes the chart and latest values (line 84-87). It also has a "View as table" button (line 118-127) with proper accessibilityRole. This is a strong implementation.
-RECOMMENDATION: Verify that all other chart types (BarChart, DualAxis, Heatmap, ScatterPlot, StackedBar, WeightTrend) also have "View as table" fallbacks. LineChart's implementation should be the pattern for all charts.
-RATIONALE: LineChart is the gold standard for chart accessibility in this app. If other chart types don't match this level, there's an inconsistency gap.
 
-[B-76] EXPERT 12: ACCESSIBILITY | SEVERITY: P2
-FILE: src/components/common/Button.tsx
-FINDING: Button component has no accessibilityLabel or accessibilityHint. It relies solely on the visible text (title prop) for VoiceOver. For buttons with icon-only variants or loading state, VoiceOver users hear "activity indicator" instead of the button's purpose.
-RECOMMENDATION: Add accessibilityLabel={title} and accessibilityState={{ disabled }} to the TouchableOpacity. When loading, set accessibilityLabel to `${title}, loading`.
-RATIONALE: Loading state buttons announce "activity indicator" to VoiceOver, which tells the user nothing about what's loading or what button they're waiting on.
+SCREEN 50: Meditation logging
 
-[B-77] EXPERT 12: ACCESSIBILITY | SEVERITY: P2
-FILE: src/components/logging/MoodPicker.tsx:126-134
-FINDING: Note TextInput (line 126-134) has a placeholder but no accessibilityLabel. VoiceOver reads "What's on your mind, text field" which is acceptable from the placeholder, but best practice is to add an explicit label since placeholder text disappears after typing.
-RECOMMENDATION: Add accessibilityLabel="Optional mood note" to the TextInput.
-RATIONALE: Once the user starts typing, the placeholder disappears and VoiceOver has no label for the field. The user loses context about what they're entering.
-
-[B-78] EXPERT 12: ACCESSIBILITY | SEVERITY: P2
-FILE: src/components/common/Celebration.tsx
-FINDING: Celebration overlay has no accessibility announcement. When a celebration appears, VoiceOver users get no notification -- the modal appears silently. The dismiss button has no accessibilityLabel.
-RECOMMENDATION: Add accessibilityViewIsModal={true} to the overlay. Add accessibilityLabel to the dismiss button: "Dismiss celebration: {event.title}". Use AccessibilityInfo.announceForAccessibility() to announce the celebration when it appears.
-RATIONALE: VoiceOver users will not know a celebration appeared and may be confused by the modal backdrop intercepting their touches.
+SCREEN 50: CLEAN, no findings. 4 meditation types (guided/unguided/
+  breathing/body_scan -- exceeds spec's 3), preset duration buttons
+  (5/10/15/20/30 min), custom duration input, optional note. No
+  built-in timer, which spec marks as conditional ("if built").
+  Solid implementation.
 
 
 ================================================================
-END OF SESSION B FINDINGS
+AUDIT SCREENS 51-54 (SUBSTANCES)
 ================================================================
 
-SUMMARY:
-  Total Findings: 78
-  P0 Ship-Blockers: 5
-    B-01 (No privacy policy URL in app.json)
-    B-02 (expo-camera and expo-notifications missing from plugins array)
-    B-69 (Secondary text fails WCAG AA contrast -- #B0B0B0 on #1E2761)
-    B-70 (Gold accent text fails WCAG AA contrast -- #D4A843 on #1E2761)
-    B-71 (Success green text fails WCAG AA contrast -- #4CAF50 on #1E2761)
-  P1 Fix Before v1.2: 22
-  P2 Improvements: 34
-  P3 Nice-to-Have: 17
 
-TOP CROSS-CUTTING ISSUES:
-  1. Color contrast failures: 3 of 5 text colors fail WCAG AA on navy.
-     Gold, secondary gray, and success green all need adjustment.
-     Affects every screen in the app. (B-69, B-70, B-71)
-  2. Recovery score formula mismatches: Sleep duration curve, alcohol
-     step function, HRV/RHR absolute vs relative scoring all diverge
-     from spec. (B-17, B-18, B-19, B-20, see also A-15, A-17, A-18)
-  3. Food API infrastructure gaps: Placeholder credentials (USDA demo
-     key, FatSecret placeholders), incomplete waterfall, FatSecret
-     N+1 query problem. (B-25, B-26, B-27, B-46)
-  4. Pattern engine statistical quality: Misleading performance proxy,
-     arbitrary thresholds, no pattern refresh mechanism, bounded-scale
-     sensitivity issue. (B-34, B-35, B-37, B-38, B-39, B-40)
-  5. AsyncStorage atomicity gap: No read-modify-write protection for
-     concurrent writes to same key. Data loss risk on rapid logging.
-     (B-22)
+SCREEN 51: Alcohol logging
 
-Session B complete. 78 findings across 6 experts.
-5 ship-blockers identified. File saved.
+SCREEN 51: CLEAN, no findings. Beverage type picker with 4 types
+  (beer/wine/liquor/cocktail) including calorie estimates. Quantity
+  stepper with 0.5 increments. Standard drink calculation. Sobriety
+  goal tracking via SobrietyGoals component. Neutral copy throughout
+  ("Log Drink", "Your data, your terms"). Zero judgment in UI copy.
+  Strong implementation.
+
+
+SCREEN 52: Cannabis logging
+
+SCREEN 52: CLEAN, no findings. 5 methods (smoked/vaped/edible/topical/
+  beverage -- exceeds spec's 4). Optional THC/CBD mg inputs. Neutral
+  copy ("Log Session"). Clean section flow.
+
+
+SCREEN 53: Tobacco logging
+
+Finding 53-1:
+  Severity: P3
+  File: src/components/logging/SubstanceLogger.tsx:374-407
+  What: No tobacco type selector. The tobacco tab only has a quantity
+    counter (cigarettes) and optional notes. Users tracking cigars,
+    pipe tobacco, chewing tobacco, or nicotine pouches must describe
+    the type in the free-text notes field. The spec calls for a type
+    picker.
+  Benchmark: QuitNow has a tobacco type selector (cigarettes/cigars/
+    pipe/vape/chewing). Smoke Free tracks type-specific metrics.
+  Fix: Add a TOBACCO_TYPES array (cigarette/cigar/pipe/vape/
+    chewing_tobacco/nicotine_pouch) with a touch grid selector above
+    the quantity counter, matching the alcohol and cannabis patterns.
+  Evidence: [CODE]
+
+SCREEN 53: CLEAN on neutral copy ("Log Usage"), quit goal tracking
+  via SobrietyGoals component.
+
+
+SCREEN 54: Caffeine (substances view)
+
+SCREEN 54: CLEAN, no findings. Caffeine is a SEPARATE screen
+  (app/log/caffeine.tsx + CaffeineLogger.tsx), NOT duplicated in
+  the substances logger. Data stored in separate storage key
+  (dub.log.caffeine vs dub.log.substances). No data duplication.
+  Clean separation. Presets (Coffee 95mg/Espresso 63mg/Tea 47mg/
+  Soda 34mg/Energy Drink 160mg), custom input, FDA 400mg threshold
+  with progress bar. Consistent UX with substances logger pattern.
+
+
+================================================================
+AUDIT SCREENS 55-59 (HEALTH TRACKING)
+================================================================
+
+
+SCREEN 55: Women's health / cycle
+
+Finding 55-1:
+  Severity: P2
+  File: src/components/logging/CycleLogger.tsx (entire component)
+  What: No visibility filtering based on user sex. The cycle logging
+    screen is always accessible regardless of whether the user
+    selected sex=male during onboarding. The spec requires this screen
+    to be hidden or filtered when the user's sex is male. The tag
+    management system (Settings > Tags) allows disabling the cycle
+    category, but a male user who hasn't disabled it will see "Women's
+    Health" in their log hub with no explanation.
+  Benchmark: Apple Health hides menstrual cycle tracking unless the
+    user explicitly enables it. Flo asks about cycle tracking
+    relevance during setup.
+  Fix: Add a profile sex check at the route level (app/log/cycle.tsx)
+    or in CycleLogger. If sex=male and tag is enabled, show a brief
+    explanation: "This category tracks menstrual cycles. You can
+    disable it in Settings > Tags." Or auto-disable the cycle tag
+    for male profiles during onboarding.
+  Evidence: [CODE] -- grep for "cycle.*hidden", "sex.*male.*cycle",
+    "gender.*filter" returns zero results.
+
+SCREEN 55: CLEAN on period start/end logging, cycle phase display
+  (menstrual/follicular/ovulation/luteal with colors), symptom
+  tracking (5 symptom options), fertility disclaimer.
+SCREEN 55: CLEAN on sensitive copy ("Period day" -- clinical, not
+  euphemistic, with disclaimer: "not a medical fertility assessment,
+  should not be used as contraception").
+
+
+SCREEN 56: Digestive health (Bristol Scale)
+
+SCREEN 56: CLEAN, no findings. Bristol Scale 1-7 with text descriptors
+  and color coding. Quick tap selection. Accessibility labels present
+  (radiogroup pattern). History section with reverse-chronological
+  entries. Strong implementation.
+
+
+SCREEN 57: Sexual activity
+
+Finding 57-1:
+  Severity: P2
+  File: app/log/sexual.tsx:29-40
+  What: No protected/unprotected field. The spec explicitly requires
+    tracking protection status, but the implementation only logs
+    duration, intensity (light/moderate/vigorous), and MET-based
+    calorie burn. The scientific fitness framing is appropriate and
+    tasteful, but the missing protection field was a stated
+    requirement for health tracking completeness.
+  Benchmark: Clue includes protection tracking in sexual activity.
+    Flo tracks protection method. This is standard in reproductive
+    health tracking.
+  Fix: Add an optional "Protection" toggle or selector below intensity
+    (protected/unprotected/N/A) with matching data model field.
+    Keep the existing fitness framing -- the protection field should
+    be presented neutrally alongside the other health metrics.
+  Evidence: [CODE]
+
+SCREEN 57: CLEAN on discreet/tasteful design (clinical "Sexual
+  Activity" title, fitness-focused framing, MET values). CLEAN on
+  quick log (duration + intensity + single "Log Activity" button).
+  CLEAN on no awkward copy.
+
+
+SCREEN 58: Injury / pain logging
+
+Finding 58-1:
+  Severity: P3
+  File: src/components/logging/InjuryLogger.tsx:264-303
+  What: Injury duration is not computed or displayed in the UI. The
+    data model has onset_date and resolved_date fields, and a
+    resolveEntry() function (lines 115-126) marks injuries as resolved,
+    but the entry list view does not show "X days since injury" or
+    total injury duration. Users must mentally calculate how long
+    an injury has persisted.
+  Benchmark: Strava shows injury duration in days on active injuries.
+    Recovery apps show "Day X of recovery" prominently.
+  Fix: Add a computed duration display to the entry row (lines
+    264-303): "Day {daysSinceOnset}" for active injuries and
+    "{totalDays} days" for resolved injuries. Calculate from
+    onset_date to today (active) or resolved_date (resolved).
+  Evidence: [CODE]
+
+Finding 58-2:
+  Severity: P3
+  File: src/components/logging/InjuryLogger.tsx (entire component)
+  What: No recovery score integration. The spec mentions recovery score
+    integration, but injuries are tracked independently with no
+    connection to the Recovery Score system (src/utils/recovery.ts).
+    An active severe injury should impact the user's daily recovery
+    score, but currently does not.
+  Benchmark: Whoop factors injury/illness into recovery scores.
+    OURA adjusts readiness score during injury periods.
+  Fix: Add injury severity as an input to the recovery score formula
+    in src/utils/recovery.ts. Active injuries with severity > 5
+    should reduce recovery score proportionally.
+  Evidence: [INFERRED]
+
+SCREEN 58: CLEAN on body location selector (32 locations, expandable
+  grid). CLEAN on severity scale (1-10, color coded green/yellow/red).
+  CLEAN on type selector (acute/chronic/recurring).
+
+
+SCREEN 59: Therapy session logging
+
+Finding 59-1:
+  Severity: P3
+  File: src/components/logging/TherapyLogger.tsx:47,164
+  What: No session duration field. The therapy logger records a
+    timestamp but not how long the session lasted. Duration is useful
+    for tracking therapy engagement over time (are sessions getting
+    shorter or longer?) without storing any content.
+  Benchmark: Talkspace shows session duration. BetterHelp tracks
+    session length for engagement analytics.
+  Fix: Add an optional duration_minutes numeric input (15/30/45/60/
+    90 minute presets + custom) after the timestamp picker. This
+    maintains privacy (no content stored) while adding engagement
+    tracking value.
+  Evidence: [CODE]
+
+Finding 59-2:
+  Severity: P3
+  File: src/components/logging/TherapyLogger.tsx (entire component)
+  What: No action items tracking. The spec mentions action items from
+    therapy sessions, but no such field exists. This could be valuable
+    for users who want to remember homework/assignments from their
+    therapist without storing session content.
+  Benchmark: Therapy apps like Talkspace have post-session action
+    items. CBT Thought Diary tracks between-session exercises.
+  Fix: Add an optional "Action Items" section with 1-3 short text
+    inputs for therapy homework. These should inherit the same
+    privacy protections as therapy notes (never exported, never
+    sent to Coach).
+  Evidence: [CODE]
+
+SCREEN 59: CLEAN on privacy protection. EXEMPLARY implementation:
+  - Line 3: "CRITICAL: Therapy notes are NEVER exported, NEVER sent
+    to Coach"
+  - Line 54: "DO NOT prefill notes -- they are MAXIMALLY PRIVATE"
+  - Line 128-135: Privacy card displayed BEFORE form with lock icon
+    and explicit reassurance
+  - Line 149-155: Privacy notice repeated when logger opens
+  Best-in-class privacy UX. No findings needed.
+
+
+SCREEN 60: Personal care checklist
+
+SCREEN 60: CLEAN, no findings. 9-item checklist (brush teeth AM/PM,
+  floss, mouthwash, shower, skincare AM/PM, sunscreen, grooming)
+  with single-tap toggle. Progress counter (X/9 tasks completed).
+  Optional detail fields for skincare and grooming notes. Handwashing
+  counter with +/- stepper. Auto-save on blur. Clean daily checklist
+  format.
+
+
+================================================================
+AUDIT SCREENS 61-73 (SETTINGS)
+================================================================
+
+
+SCREEN 61: Profile / personalization
+
+Finding 61-1:
+  Severity: P3
+  File: app/settings/profile.tsx:216-235
+  What: Photo placeholder exists with camera icon and initials display,
+    but tapping it shows an Alert placeholder ("Profile photo feature
+    coming soon") rather than opening the camera/gallery. The photo
+    field is purely decorative with no functionality.
+  Benchmark: Every settings profile screen (Instagram, Twitter, Strava)
+    opens camera/gallery on avatar tap.
+  Fix: Low priority -- acceptable for v1.1 if explicitly marked as
+    "coming soon" in the roadmap.
+  Evidence: [CODE]
+
+SCREEN 61: CLEAN on field editability (all onboarding fields present
+  and editable). CLEAN on save behavior (validates age 18+, saves to
+  AsyncStorage). CLEAN on field grouping (Demographics, Measurements,
+  Activity sections).
+
+
+SCREEN 62: Engagement tier
+
+SCREEN 62: CLEAN, no findings. 3 tiers with full descriptions, current
+  tier highlighted with checkmark + "Current" badge, clear per-tier
+  differences (Adherence/Notifications/Tone shown), Coach acknowledgment
+  via Alert ("Coach DUB will adjust its tone and tracking"). Strong
+  implementation.
+
+
+SCREEN 63: Tag management
+
+SCREEN 63: CLEAN, no findings. Tags grouped by "Health & Fitness" and
+  "Personal & Private" with sensitivity warnings on private tags.
+  Checkboxes for enable/disable. Reorder via up/down chevrons in
+  Dashboard Card Order section. Ingredient Flags section included.
+  Not overwhelming.
+
+
+SCREEN 64: Device connections
+
+Finding 64-1:
+  Severity: P2
+  File: app/settings/devices.tsx:48-52
+  What: Strava integration is listed as "Coming Soon" with no active
+    OAuth flow. The spec requires Strava OAuth connection. Users who
+    rely on Strava for workout data see the option but cannot connect.
+    No indication of timeline or workaround.
+  Benchmark: Apps with "Coming Soon" features either hide them entirely
+    or show an email signup for notification when available.
+  Fix: Either implement Strava OAuth or add a "Notify me when available"
+    email capture. If keeping "Coming Soon," add a subtitle with
+    expected timeline.
+  Evidence: [CODE]
+
+Finding 64-2:
+  Severity: P2
+  File: app/settings/devices.tsx:303-307
+  What: Info box states "Device data is stored on your device" but
+    also mentions "transmitted to Anthropic for processing." This
+    creates confusion about when transmission occurs. Users may
+    interpret this as "my health device data is always sent to
+    Anthropic" when in reality it's only transmitted during Coach
+    interactions.
+  Benchmark: Apple Health's data sharing screen clearly separates
+    "stored on device" from "shared with [specific app] when you
+    use [specific feature]."
+  Fix: Rewrite to: "Device data is stored on your device. When you
+    use Coach DUB, a summary of today's data is sent to Anthropic
+    for processing. Raw device data is never transmitted."
+  Evidence: [CODE]
+
+SCREEN 64: CLEAN on HealthKit/Health Connect connection status
+  (Connected/Not connected with last sync timestamp). CLEAN on auth
+  failure handling (Alert with error message). CLEAN on "what will
+  sync" explanation (subtitle describes synced data types).
+
+
+SCREEN 65: Notification settings
+
+SCREEN 65: CLEAN, no findings. Master toggle, per-type toggles (EOD,
+  Reminders, Weight/Streak/PR celebrations), time config, tier-based
+  cadence preview, standard Switch components. Well organized.
+
+
+SCREEN 66: Data export
+
+Finding 66-1:
+  Severity: P2
+  File: app/settings/export.tsx:288-305
+  What: No date range filtering on data export. The export function
+    exports ALL data with no temporal control. Users who want to
+    export "last 30 days for my doctor" must export everything and
+    manually filter. For users with months of data, this produces
+    unnecessarily large files and includes data they may not want
+    to share.
+  Benchmark: Apple Health export allows date range selection.
+    MyFitnessPal export allows "Last 30/60/90 days" presets.
+    Cronometer has date range pickers for export.
+  Fix: Add a DateRangePicker (the app already has this component
+    from Prompt 12D) above the export button. Default to "All Time"
+    but offer presets: Last 7 days, Last 30 days, Last 90 days,
+    Custom range.
+  Evidence: [CODE]
+
+SCREEN 66: CLEAN on format options (JSON/CSV toggles with
+  descriptions). CLEAN on share sheet (Share.share() + shareAsync()).
+  CLEAN on loading state (ActivityIndicator during export).
+
+
+SCREEN 67: API key setup
+
+SCREEN 67: CLEAN, no findings. Excellent implementation:
+  - 3-step wizard with clear instructions
+  - Link to console.anthropic.com
+  - Key format validation (sk-ant-api03- prefix)
+  - OAuth token detection with warning
+  - Test button to verify key
+  - Cost transparency ("$0.01-0.05 per conversation", "$2-5/month")
+  - SecureStore storage (not AsyncStorage)
+  - Delete option with confirmation
+  Best-in-class BYOK setup flow.
+
+
+SCREEN 68: Taste profile
+
+SCREEN 68: CLEAN, no findings. Contains allergies, dietary
+  restrictions, and cuisine preferences. Connection to Coach
+  behavior clearly stated ("Coach DUB will use these when
+  recommending recipes"). Functional implementation.
+
+
+SCREEN 69: Health report generator
+
+SCREEN 69: CLEAN, no findings. 11 selectable sections with
+  checkboxes. Generate + loading state. Share sheet integration.
+  CRITICAL: Therapy notes enforced as NEVER included (code comment:
+  "NOT EVEN AS OPTION"). Privacy notice ("data stays on device")
+  visible. Excellent implementation.
+
+
+SCREEN 70: Units
+
+Finding 70-1:
+  Severity: P3
+  File: app/settings/profile.tsx:258-276
+  What: Units toggle (imperial/metric) is embedded within the Profile
+    settings screen rather than being a standalone settings item. This
+    is functionally fine but makes it harder to find. Users looking
+    for "Units" in the settings hub will not see a dedicated entry --
+    they must navigate to Profile and scroll to find it.
+  Benchmark: Strava has a dedicated "Units of Measurement" settings
+    entry. MyFitnessPal has "Units" as a top-level settings item.
+  Fix: Either add a dedicated "Units" row in the settings hub that
+    deep-links to the units section of the profile screen, or keep
+    as-is and ensure the settings hub search (if built) surfaces it.
+  Evidence: [CODE]
+
+SCREEN 70: CLEAN on imperial/metric toggle functionality. Units
+  sync to AppSettings and all screens respect the choice.
+
+
+SCREEN 71: About / legal
+
+Finding 71-1:
+  Severity: P3
+  File: app/settings/about.tsx:122
+  What: App version shown ("Version 1.1.0") but no build number
+    displayed. Build numbers help support teams identify exact
+    builds when debugging user-reported issues.
+  Benchmark: Every production app shows both version and build number
+    (e.g., "Version 1.1.0 (42)"). Apple requires build numbers in
+    App Store submissions.
+  Fix: Import Constants from expo-constants and display
+    Constants.expoConfig?.extra?.buildNumber or
+    Constants.manifest?.version alongside the version string.
+  Evidence: [CODE]
+
+Finding 71-2:
+  Severity: P3
+  File: app/settings/about.tsx:193-198
+  What: "Open Source Licenses" link shows a placeholder Alert instead
+    of actual license attributions. The app uses expo, react-native,
+    and dozens of npm packages -- license attribution is legally
+    required for many open source licenses (MIT, Apache 2.0).
+  Benchmark: iOS Settings > General > About > Legal shows all
+    attributions. Professional apps generate license pages from
+    package.json dependencies.
+  Fix: Use expo-licenses or react-native-oss-license to auto-generate
+    a licenses screen from package.json dependencies. Display as a
+    scrollable list of package name + license type + license text.
+  Evidence: [CODE]
+
+
+SCREEN 72: Privacy policy
+
+Finding 72-1:
+  Severity: P1
+  File: app/settings/about.tsx:165-171
+  What: The privacy policy is NOT a screen -- it's an Alert dialog with
+    a single sentence: "Privacy policy will be available at launch.
+    Your data is stored locally on your device. When using Coach DUB,
+    your health data and messages are transmitted to Anthropic, PBC
+    for processing." This is legally insufficient for any app
+    collecting health data. GDPR, CCPA, HIPAA (if applicable), and
+    Apple App Store Review Guidelines all require a comprehensive,
+    accessible privacy policy. An Alert dialog with placeholder text
+    is a ship-blocker for App Store submission.
+  Benchmark: Apple requires a privacy policy URL in the App Store
+    listing. Google Play requires a privacy policy link accessible
+    within the app. Every health app (Apple Health, Fitbit, Oura)
+    has a multi-section scrollable privacy policy.
+  Fix: Create a dedicated PrivacyPolicy screen (app/settings/
+    privacy.tsx) with formatted sections: What data we collect, How
+    data is stored (on-device), When data is transmitted (Coach only),
+    Third-party processors (Anthropic), User rights (export/delete),
+    Contact information. This must be completed before App Store
+    submission.
+  Evidence: [CODE]
+
+
+SCREEN 73: App lock / biometric settings
+
+Finding 73-1:
+  Severity: P2
+  File: app/(tabs)/settings.tsx:433-522
+  What: No lock timeout / grace period configuration. Once app lock
+    is enabled, the app re-locks immediately every time it goes to
+    background -- even for a 2-second app switch to check a text
+    message. There is no grace period setting (e.g., "Lock after
+    1 minute", "Lock after 5 minutes", "Lock immediately"). This
+    creates excessive friction for users who multitask.
+  Benchmark: 1Password has configurable lock timeout (1/5/15/30
+    minutes). Banking apps typically have 2-5 minute grace periods.
+    iOS screen lock has configurable auto-lock timing.
+  Fix: Add a "Lock After" picker in the security section with
+    options: Immediately, After 1 minute, After 5 minutes, After
+    15 minutes. Store the timeout value in authService and check
+    elapsed time since last background event before triggering the
+    lock screen.
+  Evidence: [CODE] -- grep for "lock_timeout", "timeout.*lock",
+    "grace.*period" returns zero results.
+
+
+================================================================
+AUDIT SCREENS 74-77 (STANDALONE)
+================================================================
+
+
+SCREEN 74: End-of-day questionnaire
+
+Finding 74-1:
+  Severity: P1
+  File: src/components/dashboard/EODQuestionnaire.tsx:117
+  What: No 7-card cap on the questionnaire. The code calculates
+    totalCards = unloggedTags.length + 1 (for AI summary card) with
+    no upper limit. A user with 15 enabled but unlogged tags will
+    see 16 cards in the EOD questionnaire -- an overwhelming,
+    tedious experience that will train users to dismiss the EOD
+    notification entirely. The spec explicitly requires a 7-card
+    maximum with priority ordering.
+  Benchmark: Headspace's daily check-in is capped at 3-5 screens.
+    Duolingo daily reviews are capped at 5 questions. Long
+    questionnaires have exponential abandonment curves.
+  Fix: Change line 117 to:
+    const totalCards = Math.min(7, unloggedTags.length) + 1;
+    And sort unloggedTags by priority before slicing: sleep > mood >
+    nutrition > fitness > body > other.
+  Evidence: [CODE]
+
+Finding 74-2:
+  Severity: P2
+  File: src/services/notifications.ts:143-162
+  What: No priority ordering for unlogged tags. getUnloggedTags()
+    returns tags in their enabled order (as stored in settings), not
+    weighted by health importance. The spec requires priority ordering:
+    sleep > mood > nutrition > fitness. Without this, a user who
+    forgot to log sleep might see 7 cards about supplements and
+    personal care before ever being asked about sleep.
+  Benchmark: Apple Health prioritizes sleep and activity in its
+    daily summary. Oura leads with readiness/sleep.
+  Fix: Add a PRIORITY_ORDER constant mapping tag categories to
+    numeric weights (sleep=1, mood=2, nutrition=3, fitness=4,
+    body=5, other=6). Sort getUnloggedTags() result by this
+    priority before returning.
+  Evidence: [CODE]
+
+Finding 74-3:
+  Severity: P2
+  File: src/components/dashboard/EODQuestionnaire.tsx (entire component)
+  What: No "Log Tomorrow" escape hatch. The spec requires that after
+    5 cards, users are offered a "Log Tomorrow" option to exit the
+    questionnaire without completing all cards. Currently users can
+    only dismiss the entire questionnaire or swipe through every
+    card. This forces an all-or-nothing interaction.
+  Benchmark: Headspace offers "Skip for today" after 2-3 prompts.
+    Noom allows "Remind me later" on daily check-ins.
+  Fix: After the 5th card, insert a special "escape" card with:
+    "Want to finish up? You can log these tomorrow." with two CTAs:
+    "Continue" and "Done for today." Selecting "Done" should close
+    the questionnaire and mark remaining tags as skipped.
+  Evidence: [CODE]
+
+Finding 74-4:
+  Severity: P2
+  File: src/components/dashboard/EODQuestionnaire.tsx:108
+  What: No adaptive suppression for repeatedly skipped tags.
+    skippedTags state exists (line 108) within the component, but
+    skip counts are NOT persisted across sessions. The spec requires
+    that after 10+ skips of the same tag across different days, that
+    tag stops appearing in the EOD questionnaire. Currently every
+    tag reappears every night regardless of how many times the user
+    has skipped it.
+  Benchmark: Smart notification systems (YouTube, Instagram) suppress
+    content the user repeatedly ignores. This is anti-annoyance 101.
+  Fix: Store per-tag skip counts in AsyncStorage (e.g.,
+    STORAGE_KEYS.EOD_SKIP_COUNTS). Increment on skip, reset on log.
+    Filter out tags with skipCount >= 10 in getUnloggedTags().
+  Evidence: [CODE]
+
+SCREEN 74: CLEAN on swipeable cards (PanResponder gestures, left/right
+  swipe, 25% screen width threshold).
+SCREEN 74: CLEAN on smart filtering (getUnloggedTags checks enabled
+  tags against today's data).
+SCREEN 74: CLEAN on AI summary final card (template-based fallback
+  when no API key, Claude AI when available).
+
+
+SCREEN 75: Marketplace browse
+
+Finding 75-1:
+  Severity: P2
+  File: src/constants/productData.ts (entire file)
+  What: Only 24 products in the catalog. The spec calls for 1,000+
+    SKUs navigable. The current catalog is stub/sample data, not a
+    production-ready product database. 24 products across 16
+    categories means most categories have 1-2 products, which makes
+    browsing feel empty and the marketplace feel like an afterthought.
+  Benchmark: Amazon Health has thousands of curated products.
+    Thorne's store has 100+ supplements alone. Even small marketplace
+    integrations (Headspace recommendations) have 50+ items.
+  Fix: This is a content/data task, not a code task. Need to populate
+    productData.ts with production catalog or integrate with an
+    external product API (Amazon Product Advertising API). Mark as
+    pre-launch blocker for marketplace feature.
+  Evidence: [CODE]
+
+Finding 75-2:
+  Severity: P2
+  File: app/marketplace/index.tsx (browse tab)
+  What: No search functionality in the marketplace browse view. Users
+    can filter by category but cannot search by keyword (product name,
+    brand, ingredient). With 24 products this is manageable, but with
+    the target 1,000+ SKUs, no search would make the marketplace
+    unusable.
+  Benchmark: Every e-commerce experience has search. Amazon, Apple
+    Store, Thorne -- all have prominent search bars.
+  Fix: Add a TextInput search bar at the top of the browse tab that
+    filters products by name, category, and description. Use the
+    same fuzzy search pattern as the food search (FoodSearch.tsx).
+  Evidence: [CODE]
+
+SCREEN 75: CLEAN on category organization (16 categories in grid
+  with product counts). CLEAN on affiliate disclosure (banner +
+  mini banner after dismiss). CLEAN on contextual vs browse entry
+  points (For You tab vs Browse tab). CLEAN on not pushy ("No
+  Recommendations Yet" when no triggers). CLEAN on time-delay
+  (7-day delay before contextual triggers surface).
+
+
+SCREEN 76: Marketplace product detail
+
+SCREEN 76: CLEAN, no findings. Product name/image/description
+  displayed. Price shown (handles null gracefully). "Why am I seeing
+  this?" expandable panel with trigger reason. Amazon deep link via
+  Linking.openURL(affiliate_url). FTC disclosure component rendered
+  FIRST (before product info, per MASTER-07 rule). Back navigation
+  via router.back(). Solid implementation.
+
+
+SCREEN 77: Grocery / Instacart
+
+Finding 77-1:
+  Severity: P2
+  File: src/services/instacart.ts:82-102
+  What: The Instacart integration only uses the FIRST ingredient
+    from a recipe as a search term -- it does not populate a full
+    shopping cart. The function openInstacartWithIngredients()
+    (line 82-102) checks if Instacart is installed, opens the app
+    scheme, but only passes the first ingredient name to search.
+    Users expecting "Add all ingredients to cart" get a search for
+    one item (e.g., just "chicken breast" from a 10-ingredient
+    recipe).
+  Benchmark: Mealime populates full Instacart carts with all recipe
+    ingredients. Yummly adds complete ingredient lists to shopping
+    carts. Paprika exports full shopping lists.
+  Fix: Use Instacart's Connect API (if available) to add multiple
+    items to cart. Alternatively, generate a formatted shopping list
+    text with all ingredients and copy to clipboard (the clipboard
+    fallback at RecipeCard.tsx line 43 already does this for the
+    error case -- make it the primary flow for multi-item recipes).
+  Evidence: [CODE]
+
+Finding 77-2:
+  Severity: P3
+  File: src/services/instacart.ts (entire file)
+  What: No Amazon Fresh alternative. The spec calls for Amazon Fresh
+    as an alternative to Instacart, but only Instacart is implemented.
+    No other grocery delivery service is supported. Users who don't
+    use Instacart have no grocery integration at all.
+  Benchmark: Recipe apps like Mealime support multiple grocery
+    delivery services (Instacart, Walmart+, Amazon Fresh, Kroger).
+  Fix: Add an amazonFresh.ts service with similar deep-linking
+    pattern. Add a store preference setting in Settings so users
+    can choose their preferred grocery service.
+  Evidence: [CODE]
+
+Finding 77-3:
+  Severity: P2
+  File: (no standalone grocery screen exists)
+  What: No meal plan to grocery connection. Instacart integration
+    only exists on individual RecipeCard components within the Coach
+    chat. There is no standalone grocery screen that aggregates
+    ingredients across multiple recipes or meal plans into a
+    shopping list. Users who get a 7-day meal plan from Coach
+    must tap "Add to Instacart" on each recipe individually.
+  Benchmark: Mealime generates a unified weekly shopping list from
+    all planned meals. Eat This Much creates consolidated grocery
+    lists. Yummly aggregates ingredients across saved recipes.
+  Fix: Create an app/grocery.tsx screen (or add to marketplace)
+    that: aggregates ingredients from Coach meal plan recipes,
+    deduplicates and combines quantities (e.g., "2 cups chicken
+    breast" from 3 recipes -> "6 cups chicken breast"), and offers
+    one-tap export to Instacart/clipboard.
+  Evidence: [CODE]
+
+
+================================================================
+SESSION B SUMMARY
+================================================================
+
+Screens audited this session: 41-77
+Screens found: 36 (of 37 numbered)
+  Full EXISTS: 25
+  PARTIAL: 10 (41, 42, 43, 44, 70, 72, 74, 77)
+  NOT FOUND: 1 (46 -- Sleep history)
+
+New findings this session: 35
+  P0: 0
+  P1: 4
+    43-1: Medications structurally second-class (no checklist/reminders/adherence)
+    46-1: Sleep history screen completely missing
+    72-1: Privacy policy is an Alert dialog, not a real screen (ship blocker)
+    74-1: No 7-card cap on EOD questionnaire
+  P2: 18
+    41-1: No supplement dosage edit after logging
+    42-1: No dedicated supplement interview flow
+    42-2: Priority field defined but never displayed
+    44-1: No medication name/dosage edit, no refill reminders
+    45-1: Sleep time pickers use TextInput instead of scroll-wheel
+    47-1: No emoji/icon per mood level
+    55-1: No cycle visibility filtering by sex
+    57-1: No protected/unprotected field for sexual activity
+    64-1: Strava integration "Coming Soon" with no active OAuth
+    64-2: Confusing data transmission messaging on devices screen
+    66-1: No date range filtering on data export
+    73-1: No lock timeout/grace period configuration
+    74-2: No priority ordering for EOD tags
+    74-3: No "Log Tomorrow" escape hatch after 5 cards
+    74-4: No adaptive suppression for skipped tags
+    75-1: Only 24 products (spec requires 1000+)
+    75-2: No marketplace search functionality
+    77-1: Instacart only sends first ingredient, not full cart
+  P3: 13
+    41-2: Supplement reason hidden after selection
+    41-3: No supplement-to-marketplace cross-reference
+    45-2: No watch/device sync indicator on sleep
+    47-2: 3-axis mood system adds complexity vs single scale
+    49-1: No character limit on gratitude inputs
+    49-2: Static gratitude prompts (no rotation)
+    53-1: No tobacco type selector
+    58-1: Injury duration not computed/displayed
+    58-2: No recovery score integration for injuries
+    59-1: No therapy session duration field
+    59-2: No therapy action items tracking
+    61-1: Profile photo placeholder (non-functional)
+    70-1: Units toggle buried in Profile screen
+  Plus:
+    71-1: No build number displayed (P3)
+    71-2: Open Source Licenses is a placeholder (P3)
+    77-2: No Amazon Fresh alternative (P3)
+    77-3: No meal plan to grocery aggregation (P2)
+
+  CORRECTED FINAL COUNTS:
+  P0: 0
+  P1: 4
+  P2: 19
+  P3: 16
+
+  Total new findings this session: 39
+
+Cumulative findings (A + B): 93
+  Session A: 54 (0 P0, 5 P1, 24 P2, 25 P3)
+  Session B: 39 (0 P0, 4 P1, 19 P2, 16 P3)
+Cumulative P0s: 0
+Cumulative P1s: 9
+
+Emerging cross-cutting patterns:
+  1. NO HAPTIC FEEDBACK ANYWHERE -- Confirmed again in Session B.
+     Zero haptic usage across all 77 screens audited. PIN keypad,
+     supplement logging, mood selection, substance logging -- all
+     silent. This is a systemic quality deficit.
+
+  2. NO EDIT-IN-PLACE PATTERN -- Supplements, medications, sleep,
+     and other logged entries cannot be edited after creation.
+     Delete + re-add is the only correction path everywhere.
+
+  3. PLACEHOLDER ALERTS FOR REAL SCREENS -- Privacy Policy, Open
+     Source Licenses, Terms of Service, and Profile Photo all
+     show Alert dialogs instead of real screens. These are
+     pre-launch blockers.
+
+  4. MISSING HISTORICAL VIEWS -- Sleep has no history. Injury
+     duration is not computed. Mood/stress trends exist but are
+     basic. The app is strong on daily logging but weak on
+     showing users their data over time.
+
+  5. PRIORITY SYSTEMS DEFINED BUT UNUSED -- Supplement priority
+     field exists in data but never rendered. EOD tag priority
+     ordering defined in spec but not implemented. Priority is
+     a pattern the codebase partially supports but does not
+     surface to users.
+
+  6. MEDICATIONS TREATED AS SUPPLEMENTS -- Medications share
+     SupplementEntry type and are excluded from recommendation
+     engine, selection grid, and dedicated workflows. This is
+     architecturally problematic for a health app.
+
+  7. PRIVACY EXEMPLARY WHERE IMPLEMENTED -- Therapy privacy is
+     best-in-class. Health report excludes therapy. Coach never
+     receives therapy notes. But the Privacy Policy itself is
+     a placeholder, undermining the strong technical privacy.
+
+  8. NEUTRAL/NON-JUDGMENTAL TONE CONSISTENT -- Substances,
+     sexual activity, therapy, and cycle tracking all use
+     respectful, clinical, zero-judgment copy. This is a
+     strength across the entire app.
+
+================================================================
+END OF SESSION B
+================================================================
