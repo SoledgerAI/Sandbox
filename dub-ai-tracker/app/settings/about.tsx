@@ -166,9 +166,7 @@ export default function AboutScreen() {
         icon="document-text-outline"
         label="Privacy Policy"
         subtitle="How we handle your data"
-        onPress={() => {
-          Alert.alert('Privacy Policy', 'Privacy policy will be available at launch. Your data is stored locally on your device. When using Coach DUB, your health data and messages are transmitted to Anthropic, PBC for processing.');
-        }}
+        onPress={() => router.push('/settings/privacy')}
       />
       <LinkRow
         icon="shield-outline"
@@ -193,9 +191,7 @@ export default function AboutScreen() {
         icon="document-outline"
         label="Open Source Licenses"
         subtitle="Third-party library licenses"
-        onPress={() => {
-          Alert.alert('Open Source Licenses', 'Open source license details will be available at launch.');
-        }}
+        onPress={() => router.push('/settings/licenses')}
       />
 
       {/* Support */}

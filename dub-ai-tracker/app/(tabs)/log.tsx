@@ -103,7 +103,6 @@ const CATEGORY_SECTIONS: CategorySection[] = [
     items: [
       { label: 'Workout', icon: 'fitness-outline', route: '/log/workout', searchTerms: 'workout exercise cardio run' },
       { label: 'Strength', icon: 'barbell-outline', route: '/log/strength', searchTerms: 'strength weight lifting gym' },
-      { label: 'Steps', icon: 'walk-outline', route: '/log/steps', searchTerms: 'steps walking pedometer' },
     ],
   },
   {

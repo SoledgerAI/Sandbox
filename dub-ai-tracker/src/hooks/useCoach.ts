@@ -24,7 +24,9 @@ interface UseCoachResult {
   apiKeyConfigured: boolean;
   error: string | null;
   tagsLogged: string[];
+  lastUserMessage: string | null;
   sendUserMessage: (text: string) => Promise<void>;
+  retry: () => Promise<void>;
   clearHistory: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -36,6 +38,7 @@ export function useCoach(): UseCoachResult {
   const [apiKeyConfigured, setApiKeyConfigured] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tagsLogged, setTagsLogged] = useState<string[]>([]);
+  const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
 
   // Keep ref in sync
@@ -71,6 +74,7 @@ export function useCoach(): UseCoachResult {
 
     setError(null);
     setSending(true);
+    setLastUserMessage(trimmed);
 
     // Add user message
     const userMsg: ChatMessage = {
@@ -137,6 +141,8 @@ export function useCoach(): UseCoachResult {
       setMessages(finalMessages);
       messagesRef.current = finalMessages;
 
+      setLastUserMessage(null);
+
       // Persist
       await storageSet(STORAGE_KEYS.COACH_HISTORY, finalMessages);
     } catch (e) {
@@ -149,6 +155,18 @@ export function useCoach(): UseCoachResult {
       setSending(false);
     }
   }, []);
+
+  const retry = useCallback(async () => {
+    if (!lastUserMessage) return;
+    // Remove the failed user message before re-sending
+    const cleaned = [...messagesRef.current];
+    if (cleaned.length > 0 && cleaned[cleaned.length - 1].role === 'user' && cleaned[cleaned.length - 1].content === lastUserMessage) {
+      cleaned.pop();
+      setMessages(cleaned);
+      messagesRef.current = cleaned;
+    }
+    await sendUserMessage(lastUserMessage);
+  }, [lastUserMessage, sendUserMessage]);
 
   const clearHistory = useCallback(async () => {
     setMessages([]);
@@ -168,7 +186,9 @@ export function useCoach(): UseCoachResult {
     apiKeyConfigured,
     error,
     tagsLogged,
+    lastUserMessage,
     sendUserMessage,
+    retry,
     clearHistory,
     refresh,
   };

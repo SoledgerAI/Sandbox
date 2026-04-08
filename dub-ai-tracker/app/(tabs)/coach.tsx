@@ -37,7 +37,9 @@ export default function CoachScreen() {
     apiKeyConfigured,
     error,
     tagsLogged,
+    lastUserMessage,
     sendUserMessage,
+    retry,
     refresh,
   } = useCoach();
 
@@ -291,9 +293,25 @@ export default function CoachScreen() {
       )}
 
       {error && (
-        <View style={styles.errorRow}>
-          <Ionicons name="alert-circle-outline" size={16} color={Colors.danger} />
-          <Text style={styles.errorText}>{error}</Text>
+        <View style={styles.errorCard}>
+          <Ionicons name="alert-circle-outline" size={24} color={Colors.dangerText} />
+          <Text style={styles.errorCardText}>
+            Something went wrong. Your message wasn't lost.
+          </Text>
+          {lastUserMessage && (
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={retry}
+              disabled={sending}
+              activeOpacity={0.7}
+            >
+              {sending ? (
+                <ActivityIndicator size="small" color={Colors.primaryBackground} />
+              ) : (
+                <Text style={styles.retryButtonText}>Tap to Retry</Text>
+              )}
+            </TouchableOpacity>
+          )}
         </View>
       )}
 
@@ -402,18 +420,35 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontStyle: 'italic',
   },
-  errorRow: {
-    flexDirection: 'row',
+  errorCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginHorizontal: 16,
+    marginVertical: 8,
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    gap: 6,
-    backgroundColor: Colors.inputBackground,
+    gap: 8,
   },
-  errorText: {
-    color: Colors.danger,
-    fontSize: 13,
-    flex: 1,
+  errorCardText: {
+    color: Colors.dangerText,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  retryButton: {
+    backgroundColor: Colors.accent,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 4,
+  },
+  retryButtonText: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
   },
   inputRow: {
     flexDirection: 'row',
