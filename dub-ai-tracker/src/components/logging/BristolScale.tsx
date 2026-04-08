@@ -23,6 +23,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 interface BristolTypeInfo {
@@ -57,7 +58,7 @@ export function BristolScale() {
   }, [lastEntry]);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_DIGESTIVE, today);
     const stored = await storageGet<DigestiveEntry[]>(key);
     setEntries(stored ?? []);
@@ -68,7 +69,7 @@ export function BristolScale() {
   }, [loadData]);
 
   const logEntry = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_DIGESTIVE, today);
 
     const entry: DigestiveEntry = {
@@ -87,7 +88,7 @@ export function BristolScale() {
 
   const deleteEntry = useCallback(
     async (id: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_DIGESTIVE, today);
       const updated = entries.filter((e) => e.id !== id);
       await storageSet(key, updated);

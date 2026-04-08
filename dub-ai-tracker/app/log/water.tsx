@@ -5,6 +5,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { WaterLogger } from '../../src/components/logging/WaterLogger';
 
 export default function WaterScreen() {
@@ -23,6 +24,7 @@ export default function WaterScreen() {
         <View style={styles.backBtn} />
       </View>
 
+      <DateContextBanner />
       <WaterLogger />
     </View>
   );

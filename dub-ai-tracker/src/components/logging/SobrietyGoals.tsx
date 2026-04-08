@@ -16,6 +16,7 @@ import { Colors } from '../../constants/colors';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../utils/storage';
 import type { SobrietyGoal, SobrietyGoalType } from '../../types/profile';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 type SubstanceKey = 'alcohol' | 'cannabis' | 'tobacco';
 
@@ -62,7 +63,7 @@ export function SobrietyGoals() {
   const setGoalForSubstance = useCallback(
     (substance: SubstanceKey, goalType: SobrietyGoalType) => {
       const existing = goals[substance];
-      const today = todayDateString();
+      const today = getActiveDate();
 
       const updated: Record<string, SobrietyGoal> = {
         ...goals,

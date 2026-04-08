@@ -5,6 +5,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { CaffeineLogger } from '../../src/components/logging/CaffeineLogger';
 
 export default function CaffeineScreen() {
@@ -23,6 +24,7 @@ export default function CaffeineScreen() {
         <View style={styles.backBtn} />
       </View>
 
+      <DateContextBanner />
       <CaffeineLogger />
     </View>
   );

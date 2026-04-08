@@ -24,6 +24,8 @@ import { useLastEntry } from '../../src/hooks/useLastEntry';
 import { RepeatLastEntry } from '../../src/components/logging/RepeatLastEntry';
 import { TimestampPicker } from '../../src/components/common/TimestampPicker';
 import { todayDateString } from '../../src/utils/dayBoundary';
+import { getActiveDate } from '../../src/services/dateContextService';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 
 
 // MET values from 2024 Compendium, Heading 14
@@ -54,7 +56,7 @@ export default function SexualScreen() {
   }, [lastEntry]);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_SEXUAL, today);
     const stored = await storageGet<SexualEntry[]>(key);
     setEntries(stored ?? []);
@@ -75,7 +77,7 @@ export default function SexualScreen() {
   const logEntry = useCallback(async () => {
     if (durationMin <= 0) return;
 
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_SEXUAL, today);
 
     const entry: SexualEntry = {
@@ -97,7 +99,7 @@ export default function SexualScreen() {
 
   const deleteEntry = useCallback(
     async (id: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_SEXUAL, today);
       const updated = entries.filter((e) => e.id !== id);
       await storageSet(key, updated);
@@ -121,6 +123,7 @@ export default function SexualScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
+        <DateContextBanner />
         <RepeatLastEntry
           tagLabel="activity"
           subtitle={lastEntry ? `${lastEntry.duration_minutes} min` : undefined}

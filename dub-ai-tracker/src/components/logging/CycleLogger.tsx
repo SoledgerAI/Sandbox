@@ -23,6 +23,7 @@ import type { CycleEntry, FlowLevel, PeriodSymptom, CyclePhase } from '../../typ
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 const FLOW_OPTIONS: { value: FlowLevel; label: string; color: string }[] = [
@@ -71,7 +72,7 @@ export function CycleLogger() {
   const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<CycleEntry>('womens.health');
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_CYCLE, today);
     const stored = await storageGet<CycleEntry>(key);
     if (stored) {
@@ -107,7 +108,7 @@ export function CycleLogger() {
   }, [loadData]);
 
   const saveEntry = useCallback(async (updated: CycleEntry) => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_CYCLE, today);
     await storageSet(key, updated);
     setEntry(updated);
@@ -129,7 +130,7 @@ export function CycleLogger() {
     const newVal = !isPeriodDay;
     setIsPeriodDay(newVal);
     if (newVal) {
-      const today = todayDateString();
+      const today = getActiveDate();
       const updated = {
         ...entry,
         period_start: lastPeriodStart ?? today,
@@ -147,7 +148,7 @@ export function CycleLogger() {
   };
 
   const markPeriodStart = () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const updated = {
       ...entry,
       period_start: today,

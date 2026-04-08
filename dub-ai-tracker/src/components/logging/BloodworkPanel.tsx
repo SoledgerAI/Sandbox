@@ -25,6 +25,7 @@ import type { BloodworkEntry, BloodworkMarker } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 interface MarkerTemplate {
@@ -133,7 +134,7 @@ export function BloodworkPanel() {
   const [savedEntry, setSavedEntry] = useState<BloodworkEntry | null>(null);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_BLOODWORK, today);
     const stored = await storageGet<BloodworkEntry>(key);
     if (stored) {
@@ -153,7 +154,7 @@ export function BloodworkPanel() {
   }, [loadData]);
 
   const savePanel = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_BLOODWORK, today);
 
     const markers: BloodworkMarker[] = [];

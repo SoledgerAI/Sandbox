@@ -5,6 +5,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { ActivityLogger } from '../../src/components/logging/ActivityLogger';
 
 export default function WorkoutScreen() {
@@ -22,6 +23,7 @@ export default function WorkoutScreen() {
         <View style={styles.backBtn} />
       </View>
 
+      <DateContextBanner />
       <ActivityLogger />
     </View>
   );

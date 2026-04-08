@@ -18,6 +18,7 @@ import { sendMessage, hasApiKey } from '../../services/anthropic';
 import { buildCoachContext } from '../../ai/context_builder';
 import { buildSystemPrompt } from '../../ai/coach_system_prompt';
 import { storageGet, STORAGE_KEYS, dateKey } from '../../utils/storage';
+import { getActiveDate } from '../../services/dateContextService';
 import type { FoodEntry, WaterEntry } from '../../types';
 import type { WorkoutEntry } from '../../types/workout';
 import { calculateBmr, calculateTdee, calculateCalorieTarget, computeAge, lbsToKg, inchesToCm } from '../../utils/calories';
@@ -27,8 +28,8 @@ const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
 
 // MASTER-58: Generate a template-based EOD summary without AI
-async function generateTemplateSummary(): Promise<string> {
-  const today = formatDate(new Date());
+async function generateTemplateSummary(dateOverride?: string): Promise<string> {
+  const today = dateOverride ?? formatDate(new Date());
 
   const [foods, waters, workouts, profile] = await Promise.all([
     storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, today)),
@@ -100,9 +101,10 @@ interface EODQuestionnaireProps {
   unloggedTags: string[];
   onDismiss: () => void;
   onRefresh: () => Promise<void>;
+  date?: string; // YYYY-MM-DD — defaults to active date (supports backfill)
 }
 
-export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh }: EODQuestionnaireProps) {
+export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh, date }: EODQuestionnaireProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [completedTags, setCompletedTags] = useState<Set<string>>(new Set());
   const [skippedTags, setSkippedTags] = useState<Set<string>>(new Set());
@@ -111,7 +113,7 @@ export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh }: EODQues
   const [showingSummary, setShowingSummary] = useState(false);
   const translateX = useRef(new Animated.Value(0)).current;
 
-  const todayStr = formatDate(new Date());
+  const todayStr = date ?? getActiveDate();
 
   // Total cards = unlogged tags + 1 summary card
   const totalCards = unloggedTags.length + 1;

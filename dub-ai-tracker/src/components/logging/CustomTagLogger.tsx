@@ -26,6 +26,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 type CustomDataType = 'checkbox' | 'numeric' | 'scale_1_5' | 'scale_1_10' | 'text' | 'duration';
@@ -76,7 +77,7 @@ export function CustomTagLogger() {
   }, [lastEntry]);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const [storedTags, storedEntries] = await Promise.all([
       storageGet<CustomTagDef[]>(STORAGE_KEYS.TAGS_ENABLED + '.custom'),
       storageGet<CustomEntry[]>(dateKey(STORAGE_KEYS.LOG_CUSTOM, today)),
@@ -132,7 +133,7 @@ export function CustomTagLogger() {
 
   const logEntry = useCallback(
     async (tag: CustomTagDef) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_CUSTOM, today);
       const raw = inputValues[tag.id] ?? '';
 
@@ -174,7 +175,7 @@ export function CustomTagLogger() {
 
   const deleteEntry = useCallback(
     async (id: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_CUSTOM, today);
       const updated = entries.filter((e) => e.id !== id);
       await storageSet(key, updated);

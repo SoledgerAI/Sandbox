@@ -25,6 +25,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 const TRIGGER_OPTIONS: { value: StressTrigger; label: string; icon: string }[] = [
@@ -61,7 +62,7 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
   }, [lastEntry]);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_STRESS, today);
     const stored = await storageGet<StressEntry[]>(key);
     setEntries(stored ?? []);
@@ -78,7 +79,7 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
   };
 
   const logStress = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_STRESS, today);
 
     // Store one entry per trigger (or one with null if no triggers)
@@ -102,7 +103,7 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
 
   const deleteEntry = useCallback(
     async (id: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_STRESS, today);
       const updated = entries.filter((e) => e.id !== id);
       await storageSet(key, updated);

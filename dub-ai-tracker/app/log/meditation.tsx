@@ -5,6 +5,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { MeditationLogger } from '../../src/components/logging/MeditationLogger';
 
 export default function MeditationScreen() {
@@ -22,6 +23,7 @@ export default function MeditationScreen() {
         <View style={styles.backBtn} />
       </View>
 
+      <DateContextBanner />
       <MeditationLogger />
     </View>
   );

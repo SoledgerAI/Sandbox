@@ -31,6 +31,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 const RECENT_ACTIVITIES_KEY = STORAGE_KEYS.RECENT_ACTIVITIES;
 const MAX_RECENT = 5;
@@ -74,7 +75,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
   }, [lastEntry]);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_WORKOUT, today);
     const stored = await storageGet<WorkoutEntry[]>(key);
     setEntries(stored ?? []);
@@ -181,7 +182,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
       source: 'manual',
     };
 
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_WORKOUT, today);
     const updated = [...entries, entry];
     await storageSet(key, updated);
@@ -207,7 +208,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
 
   const deleteEntry = useCallback(
     async (id: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_WORKOUT, today);
       const updated = entries.filter((e) => e.id !== id);
       await storageSet(key, updated);

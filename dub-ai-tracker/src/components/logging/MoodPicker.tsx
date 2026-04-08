@@ -26,6 +26,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 // -- Axis definitions --
@@ -153,7 +154,7 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
   }, [lastEntry]);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_MOOD, today);
     const stored = await storageGet<MoodEntry[]>(key);
     setEntries(stored ?? []);
@@ -164,7 +165,7 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
   }, [loadData]);
 
   const logMood = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_MOOD, today);
 
     const entry: MoodEntry = {
@@ -186,7 +187,7 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
 
   const deleteEntry = useCallback(
     async (id: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_MOOD, today);
       const updated = entries.filter((e) => e.id !== id);
       await storageSet(key, updated);

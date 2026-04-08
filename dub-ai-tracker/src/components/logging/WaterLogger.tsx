@@ -27,6 +27,7 @@ import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import type { WaterEntry, BeverageType } from '../../types';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 const QUICK_ADD_OPTIONS = [
   { label: '8 oz', amount: 8 },
@@ -63,7 +64,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
   const { lastEntry: lastWater, saveAsLast: saveLastWater } = useLastEntry<WaterEntry>('hydration.water');
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_WATER, today);
     const stored = await storageGet<WaterEntry[]>(key);
     setEntries(stored ?? []);
@@ -91,7 +92,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
 
   const logHydration = useCallback(
     async (amount: number) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_WATER, today);
 
       const entry: WaterEntry = {
@@ -123,7 +124,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
 
   const deleteEntry = useCallback(
     async (id: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_WATER, today);
       const updated = entries.filter((e) => e.id !== id);
       await storageSet(key, updated);

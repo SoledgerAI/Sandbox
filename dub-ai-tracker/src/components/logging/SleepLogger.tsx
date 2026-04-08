@@ -26,6 +26,7 @@ import type { SleepEntry } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 const QUALITY_LABELS: Record<number, string> = {
@@ -58,7 +59,7 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
   const [notes, setNotes] = useState('');
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_SLEEP, today);
     const stored = await storageGet<SleepEntry>(key);
     if (stored) {
@@ -115,7 +116,7 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
       source: 'manual',
     };
 
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_SLEEP, today);
     await storageSet(key, newEntry);
     await saveAsLast(newEntry);
@@ -124,7 +125,7 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
   }, [bedHour, bedMinute, bedAmPm, wakeHour, wakeMinute, wakeAmPm, quality, bathroomTrips, alarmUsed, timeToFallAsleep, notes, onEntryLogged, saveAsLast]);
 
   const clearEntry = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_SLEEP, today);
     await storageSet(key, null);
     setEntry(null);

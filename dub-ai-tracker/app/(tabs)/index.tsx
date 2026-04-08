@@ -24,6 +24,7 @@ import { BodyCard } from '../../src/components/dashboard/BodyCard';
 import { RecoveryCard } from '../../src/components/dashboard/RecoveryCard';
 import { TagCardWithData } from '../../src/components/dashboard/TagCardWithData';
 import { shareDailySummary } from '../../src/components/sharing/DailySummaryCard';
+import { MissedDayCard } from '../../src/components/dashboard/MissedDayCard';
 import type { DeferredSetupKey } from '../../src/hooks/useDeferredSetup';
 
 export default function DashboardScreen() {
@@ -218,6 +219,9 @@ export default function DashboardScreen() {
       {milestone && (
         <MilestoneCard milestone={milestone} onAcknowledge={acknowledgeMilestone} />
       )}
+
+      {/* Missed Day Backfill Nudge — Prompt 14 */}
+      <MissedDayCard />
 
       {/* Body Card */}
       <BodyCard />

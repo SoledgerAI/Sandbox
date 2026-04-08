@@ -5,6 +5,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { SupplementChecklist } from '../../src/components/logging/SupplementChecklist';
 
 export default function SupplementsScreen() {
@@ -22,6 +23,7 @@ export default function SupplementsScreen() {
         <View style={styles.backBtn} />
       </View>
 
+      <DateContextBanner />
       <SupplementChecklist />
     </View>
   );

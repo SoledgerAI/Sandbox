@@ -5,6 +5,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { CycleLogger } from '../../src/components/logging/CycleLogger';
 
 export default function CycleScreen() {
@@ -22,6 +23,7 @@ export default function CycleScreen() {
         <View style={styles.backBtn} />
       </View>
 
+      <DateContextBanner />
       <CycleLogger />
     </View>
   );

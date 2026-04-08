@@ -26,6 +26,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 const TIMING_OPTIONS: { value: BPTiming; label: string }[] = [
@@ -120,7 +121,7 @@ export function BloodPressureLogger({ onEntryLogged }: BloodPressureLoggerProps)
   const [notes, setNotes] = useState('');
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const stored = await storageGet<BloodPressureEntry[]>(dateKey(STORAGE_KEYS.LOG_BP, today));
     setEntries(stored ?? []);
   }, []);
@@ -146,7 +147,7 @@ export function BloodPressureLogger({ onEntryLogged }: BloodPressureLoggerProps)
   const logBP = useCallback(async () => {
     if (!isValidReading) return;
 
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_BP, today);
 
     const entry: BloodPressureEntry = {
@@ -174,7 +175,7 @@ export function BloodPressureLogger({ onEntryLogged }: BloodPressureLoggerProps)
 
   const deleteEntry = useCallback(
     async (id: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_BP, today);
       const updated = entries.filter((e) => e.id !== id);
       await storageSet(key, updated);

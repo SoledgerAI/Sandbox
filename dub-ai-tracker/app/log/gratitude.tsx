@@ -5,6 +5,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { GratitudeLogger } from '../../src/components/logging/GratitudeLogger';
 
 export default function GratitudeScreen() {
@@ -22,6 +23,7 @@ export default function GratitudeScreen() {
         <View style={styles.backBtn} />
       </View>
 
+      <DateContextBanner />
       <GratitudeLogger />
     </View>
   );

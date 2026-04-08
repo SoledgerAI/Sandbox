@@ -30,6 +30,7 @@ import { DosageWarningBanner, checkDosageWarning } from './DosageValidator';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 import type { UserProfile, ActivityLevel } from '../../types/profile';
 
 // MASTER-52: Supplement stack preset type
@@ -85,7 +86,7 @@ export function SupplementChecklist() {
     useLastEntry<SupplementEntry[]>('supplements.daily');
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, today);
     const [stored, savedStacks, savedMySupps, profile] = await Promise.all([
       storageGet<SupplementEntry[]>(key),
@@ -130,7 +131,7 @@ export function SupplementChecklist() {
       const keys = await storageList(STORAGE_KEYS.LOG_SUPPLEMENTS);
       // Sort descending to find most recent day first
       const sortedKeys = keys
-        .filter((k) => k !== dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, todayDateString()))
+        .filter((k) => k !== dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, getActiveDate()))
         .sort()
         .reverse();
 
@@ -153,7 +154,7 @@ export function SupplementChecklist() {
   }, []);
 
   const saveEntries = useCallback(async (updated: SupplementEntry[]) => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, today);
     await storageSet(key, updated);
     setEntries(updated);

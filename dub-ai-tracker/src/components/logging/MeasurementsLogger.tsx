@@ -27,6 +27,7 @@ import type { BodyEntry, BodyMeasurements } from '../../types';
 import type { UserProfile } from '../../types/profile';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 type MeasurementField = keyof BodyMeasurements;
@@ -74,7 +75,7 @@ export function MeasurementsLogger({ onEntryLogged }: MeasurementsLoggerProps) {
   const [todayMeasurements, setTodayMeasurements] = useState<BodyMeasurements | null>(null);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_BODY, today);
     const stored = await storageGet<BodyEntry>(key);
     setTodayMeasurements(stored?.measurements ?? null);
@@ -118,7 +119,7 @@ export function MeasurementsLogger({ onEntryLogged }: MeasurementsLoggerProps) {
       return;
     }
 
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_BODY, today);
     const existing = await storageGet<BodyEntry>(key);
 

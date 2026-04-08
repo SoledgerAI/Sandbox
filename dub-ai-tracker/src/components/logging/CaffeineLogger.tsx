@@ -26,6 +26,7 @@ import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import type { CaffeineEntry } from '../../types';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 const CAFFEINE_PRESETS = [
   { label: 'Coffee', source: 'coffee', mg: 95, icon: 'cafe-outline' as const },
@@ -51,7 +52,7 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
   const { lastEntry: lastCaffeine, saveAsLast: saveLastCaffeine } = useLastEntry<CaffeineEntry>('hydration.caffeine');
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_CAFFEINE, today);
     const stored = await storageGet<CaffeineEntry[]>(key);
     setEntries(stored ?? []);
@@ -65,7 +66,7 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
 
   const logCaffeine = useCallback(
     async (amount_mg: number, source: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_CAFFEINE, today);
 
       const entry: CaffeineEntry = {
@@ -104,7 +105,7 @@ export function CaffeineLogger({ onEntryLogged }: CaffeineLoggerProps) {
 
   const deleteEntry = useCallback(
     async (id: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_CAFFEINE, today);
       const updated = entries.filter((e) => e.id !== id);
       await storageSet(key, updated);

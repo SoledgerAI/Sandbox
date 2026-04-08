@@ -31,6 +31,7 @@ import type {
   StrengthLogMode,
 } from '../../types/strength';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 // -- Common exercises for quick selection --
 
@@ -149,7 +150,7 @@ export function StrengthLogger() {
     (async () => {
       const [pref, today] = await Promise.all([
         storageGet<StrengthLogMode>(MODE_PREF_KEY),
-        storageGet<StrengthEntry[]>(dateKey(STORAGE_KEYS.LOG_STRENGTH, todayDateString())),
+        storageGet<StrengthEntry[]>(dateKey(STORAGE_KEYS.LOG_STRENGTH, getActiveDate())),
       ]);
       if (pref) setMode(pref);
       setEntries(today ?? []);
@@ -273,7 +274,7 @@ export function StrengthLogger() {
       notes: null,
     };
 
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_STRENGTH, today);
     const updated = [...entries, entry];
     await storageSet(key, updated);

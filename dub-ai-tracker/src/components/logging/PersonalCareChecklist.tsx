@@ -22,6 +22,7 @@ import type { PersonalCareEntry } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 const DEFAULT_ENTRY: PersonalCareEntry = {
@@ -68,7 +69,7 @@ export function PersonalCareChecklist() {
   const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<PersonalCareEntry>('personal.care');
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_PERSONALCARE, today);
     const stored = await storageGet<PersonalCareEntry>(key);
     if (stored) {
@@ -84,7 +85,7 @@ export function PersonalCareChecklist() {
   }, [loadData]);
 
   const saveEntry = useCallback(async (updated: PersonalCareEntry) => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_PERSONALCARE, today);
     await storageSet(key, updated);
     setEntry(updated);

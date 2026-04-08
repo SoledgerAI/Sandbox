@@ -26,6 +26,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 const THERAPY_TYPES: { value: TherapyType; label: string }[] = [
@@ -55,7 +56,7 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
   }, [lastEntry]);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_THERAPY, today);
     const stored = await storageGet<TherapyEntry>(key);
     if (stored) setEntry(stored);
@@ -74,7 +75,7 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
       timestamp: timestamp.toISOString(),
     };
 
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_THERAPY, today);
     await storageSet(key, newEntry);
     setEntry(newEntry);
@@ -83,7 +84,7 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
   }, [therapistName, selectedType, notes, onEntryLogged, saveAsLast, timestamp]);
 
   const clearEntry = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_THERAPY, today);
     await storageSet(key, null);
     setEntry(null);

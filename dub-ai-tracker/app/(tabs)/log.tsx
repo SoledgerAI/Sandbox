@@ -35,6 +35,8 @@ import type {
 } from '../../src/types/food';
 import { scaleNutrition } from '../../src/utils/servingmath';
 import { todayDateString } from '../../src/utils/dayBoundary';
+import { getActiveDate, setActiveDate as setContextDate, resetToToday, isBackfilling } from '../../src/services/dateContextService';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 
 // ============================================================
 // Date Helpers
@@ -162,9 +164,18 @@ export default function LogScreen() {
   // Deep-link: accept ?date=YYYY-MM-DD from trends tooltip
   const { date: paramDate } = useLocalSearchParams<{ date?: string }>();
 
-  // Date selector state
-  const [selectedDate, setSelectedDate] = useState(paramDate ?? todayDateString());
+  // Date selector state — syncs with dateContextService
+  const [selectedDate, setSelectedDateLocal] = useState(paramDate ?? getActiveDate());
   const isToday = selectedDate === todayDateString();
+
+  // Wrapper that syncs both local state and dateContextService
+  const setSelectedDate = useCallback((dateOrUpdater: string | ((prev: string) => string)) => {
+    setSelectedDateLocal((prev) => {
+      const next = typeof dateOrUpdater === 'function' ? dateOrUpdater(prev) : dateOrUpdater;
+      setContextDate(next);
+      return next;
+    });
+  }, []);
 
   // Sync date when navigating from trends tooltip
   useEffect(() => {
@@ -172,6 +183,16 @@ export default function LogScreen() {
       setSelectedDate(paramDate);
     }
   }, [paramDate]);
+
+  // Sync from dateContextService when tab gains focus (e.g., from Dashboard missed-day card)
+  useFocusEffect(
+    useCallback(() => {
+      const contextDate = getActiveDate();
+      if (contextDate !== selectedDate) {
+        setSelectedDateLocal(contextDate);
+      }
+    }, []),
+  );
 
   // Search
   const [searchQuery, setSearchQuery] = useState('');
@@ -308,7 +329,8 @@ export default function LogScreen() {
   }, []);
 
   const goToday = useCallback(() => {
-    setSelectedDate(todayDateString());
+    resetToToday();
+    setSelectedDateLocal(todayDateString());
   }, []);
 
   // ---- Search filtering ----
@@ -533,6 +555,9 @@ export default function LogScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Log</Text>
       </View>
+
+      {/* Backfill Banner — Prompt 14 */}
+      <DateContextBanner />
 
       {/* ========== DATE SELECTOR ========== */}
       <View style={styles.dateSelector}>

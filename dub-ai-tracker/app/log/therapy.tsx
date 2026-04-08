@@ -5,6 +5,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { TherapyLogger } from '../../src/components/logging/TherapyLogger';
 
 export default function TherapyScreen() {
@@ -22,6 +23,7 @@ export default function TherapyScreen() {
         <View style={styles.backBtn} />
       </View>
 
+      <DateContextBanner />
       <TherapyLogger />
     </View>
   );

@@ -26,6 +26,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 const TIMING_OPTIONS: { value: GlucoseTiming; label: string }[] = [
@@ -79,7 +80,7 @@ export function GlucoseLogger({ onEntryLogged }: GlucoseLoggerProps) {
   const [showFoodPicker, setShowFoodPicker] = useState(false);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const [stored, foods] = await Promise.all([
       storageGet<GlucoseEntry[]>(dateKey(STORAGE_KEYS.LOG_GLUCOSE, today)),
       storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, today)),
@@ -100,7 +101,7 @@ export function GlucoseLogger({ onEntryLogged }: GlucoseLoggerProps) {
   const logGlucose = useCallback(async () => {
     if (!isValidReading) return;
 
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_GLUCOSE, today);
 
     const entry: GlucoseEntry = {
@@ -124,7 +125,7 @@ export function GlucoseLogger({ onEntryLogged }: GlucoseLoggerProps) {
 
   const deleteEntry = useCallback(
     async (id: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_GLUCOSE, today);
       const updated = entries.filter((e) => e.id !== id);
       await storageSet(key, updated);

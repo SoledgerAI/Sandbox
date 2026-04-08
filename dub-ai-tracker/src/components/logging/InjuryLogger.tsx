@@ -25,6 +25,7 @@ import type { InjuryEntry } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 const BODY_LOCATIONS = [
@@ -61,7 +62,7 @@ export function InjuryLogger() {
   const [showLocationPicker, setShowLocationPicker] = useState(false);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_INJURY, today);
     const stored = await storageGet<InjuryEntry[]>(key);
     setEntries(stored ?? []);
@@ -77,7 +78,7 @@ export function InjuryLogger() {
       return;
     }
 
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_INJURY, today);
 
     const entry: InjuryEntry = {
@@ -103,7 +104,7 @@ export function InjuryLogger() {
 
   const deleteEntry = useCallback(
     async (id: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_INJURY, today);
       const updated = entries.filter((e) => e.id !== id);
       await storageSet(key, updated);
@@ -114,7 +115,7 @@ export function InjuryLogger() {
 
   const resolveEntry = useCallback(
     async (id: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_INJURY, today);
       const updated = entries.map((e) =>
         e.id === id ? { ...e, resolved_date: today } : e,

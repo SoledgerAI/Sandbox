@@ -26,6 +26,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 type MeditationType = MeditationEntry['type'];
@@ -58,7 +59,7 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
   }, [lastEntry]);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_MEDITATION, today);
     const stored = await storageGet<MeditationEntry>(key);
     if (stored) setEntry(stored);
@@ -82,7 +83,7 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
       notes: notes.trim() || null,
     };
 
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_MEDITATION, today);
     await storageSet(key, newEntry);
     setEntry(newEntry);
@@ -91,7 +92,7 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
   }, [duration, selectedType, notes, onEntryLogged, saveAsLast, timestamp]);
 
   const clearEntry = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_MEDITATION, today);
     await storageSet(key, null);
     setEntry(null);

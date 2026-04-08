@@ -24,6 +24,7 @@ import {
 import type { BodyEntry } from '../../types';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 interface BpCategory {
@@ -64,7 +65,7 @@ export function VitalsLogger({ onEntryLogged }: VitalsLoggerProps) {
   const [todayEntry, setTodayEntry] = useState<BodyEntry | null>(null);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_BODY, today);
     const stored = await storageGet<BodyEntry>(key);
     setTodayEntry(stored);
@@ -113,7 +114,7 @@ export function VitalsLogger({ onEntryLogged }: VitalsLoggerProps) {
       return;
     }
 
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_BODY, today);
     const existing = await storageGet<BodyEntry>(key);
 

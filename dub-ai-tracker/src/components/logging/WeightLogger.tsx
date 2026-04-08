@@ -25,6 +25,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
+import { getActiveDate } from '../../services/dateContextService';
 
 
 interface WeightLoggerProps {
@@ -39,7 +40,7 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
   const [todayEntry, setTodayEntry] = useState<BodyEntry | null>(null);
 
   const loadData = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_BODY, today);
     const stored = await storageGet<BodyEntry>(key);
     setTodayEntry(stored);
@@ -71,7 +72,7 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
 
     const weightLbs = units === 'metric' ? value * LBS_PER_KG : value;
 
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_BODY, today);
     const existing = await storageGet<BodyEntry>(key);
 
@@ -96,7 +97,7 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
   }, [weightInput, units, unitLabel, onEntryLogged, saveAsLast]);
 
   const clearWeight = useCallback(async () => {
-    const today = todayDateString();
+    const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_BODY, today);
     const existing = await storageGet<BodyEntry>(key);
     if (!existing) return;

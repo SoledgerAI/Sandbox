@@ -6,6 +6,7 @@ import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-nati
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { WeightLogger } from '../../src/components/logging/WeightLogger';
 import { BodyFatLogger } from '../../src/components/logging/BodyFatLogger';
 import { MeasurementsLogger } from '../../src/components/logging/MeasurementsLogger';
@@ -43,6 +44,8 @@ export default function BodyScreen() {
         <Text style={styles.title}>Body Metrics</Text>
         <View style={styles.backBtn} />
       </View>
+
+      <DateContextBanner />
 
       {/* Tab bar */}
       <View style={styles.tabBar}>

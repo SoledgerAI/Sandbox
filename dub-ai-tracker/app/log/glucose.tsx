@@ -4,6 +4,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { GlucoseLogger } from '../../src/components/logging/GlucoseLogger';
 
 export default function GlucoseScreen() {
@@ -21,6 +22,7 @@ export default function GlucoseScreen() {
         <View style={styles.backBtn} />
       </View>
 
+      <DateContextBanner />
       <GlucoseLogger />
     </View>
   );

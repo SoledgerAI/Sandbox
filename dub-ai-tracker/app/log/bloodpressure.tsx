@@ -4,6 +4,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { BloodPressureLogger } from '../../src/components/logging/BloodPressureLogger';
 
 export default function BloodPressureScreen() {
@@ -21,6 +22,7 @@ export default function BloodPressureScreen() {
         <View style={styles.backBtn} />
       </View>
 
+      <DateContextBanner />
       <BloodPressureLogger />
     </View>
   );

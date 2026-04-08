@@ -6,6 +6,7 @@ import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { SubstanceLogger } from '../../src/components/logging/SubstanceLogger';
 import { SobrietyGoals } from '../../src/components/logging/SobrietyGoals';
 
@@ -38,6 +39,8 @@ export default function SubstancesScreen() {
           />
         </TouchableOpacity>
       </View>
+
+      <DateContextBanner />
 
       {/* Mode toggle label */}
       <View style={styles.modeBar}>

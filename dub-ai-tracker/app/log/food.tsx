@@ -22,6 +22,8 @@ import { useLastEntry } from '../../src/hooks/useLastEntry';
 import { loadIngredientFlags, detectFlaggedIngredients } from '../../src/utils/ingredients';
 import type { FoodItem, FoodEntry, MealType, IngredientFlag, RecentFoodInfo } from '../../src/types/food';
 import { todayDateString } from '../../src/utils/dayBoundary';
+import { getActiveDate } from '../../src/services/dateContextService';
+import { DateContextBanner } from '../../src/components/DateContextBanner';
 import type { AppSettings } from '../../src/types/profile';
 
 type Screen = 'search' | 'configure' | 'manual' | 'quicklog' | 'barcode' | 'nlp' | 'photo' | 'quickconfirm';
@@ -72,7 +74,7 @@ export default function FoodLogScreen() {
 
   const saveEntry = useCallback(
     async (partial: Omit<FoodEntry, 'id' | 'timestamp'>) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_FOOD, today);
       const existing = (await storageGet<FoodEntry[]>(key)) ?? [];
 
@@ -185,7 +187,7 @@ export default function FoodLogScreen() {
 
   const handleNLPConfirm = useCallback(
     (items: Array<{ name: string; portion: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; fiber_g?: number | null; sugar_g?: number | null; sodium_mg?: number | null }>) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_FOOD, today);
 
       (async () => {
@@ -257,7 +259,7 @@ export default function FoodLogScreen() {
 
   const handlePhotoConfirm = useCallback(
     (items: Array<{ name: string; portion: string; calories: number; protein_g: number; carbs_g: number; fat_g: number; confidence: 'high' | 'medium' | 'low'; note: string | null }>, photoUri: string) => {
-      const today = todayDateString();
+      const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_FOOD, today);
 
       (async () => {
@@ -330,6 +332,7 @@ export default function FoodLogScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
+        <DateContextBanner />
         <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
         {screen === 'search' && (
           <>
