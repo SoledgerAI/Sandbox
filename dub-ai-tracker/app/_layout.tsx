@@ -53,7 +53,9 @@ export default function RootLayout() {
       if (nextState === 'active') {
         setPrivacyOverlay(false);
         // MASTER-62: Process offline queue when app returns to foreground
-        processQueue().catch(() => {});
+        processQueue().catch((error) => {
+          console.warn('Queue sync failed:', error);
+        });
       } else if (nextState === 'inactive' || nextState === 'background') {
         if (privacyEnabledRef.current) {
           setPrivacyOverlay(true);
@@ -64,7 +66,9 @@ export default function RootLayout() {
     const subscription = AppState.addEventListener('change', handleAppStateChange);
 
     // MASTER-62: Also process queue on initial launch
-    processQueue().catch(() => {});
+    processQueue().catch((error) => {
+      console.warn('Queue sync failed:', error);
+    });
 
 
     return () => subscription.remove();
@@ -116,11 +120,8 @@ export default function RootLayout() {
     return () => { cancelled = true; };
   }, [navigationState?.key]);
 
-  // Hide splash screen immediately on mount — prevents Hermes timer deadlock
-  // where native splash covering the RN view stops RAF/setTimeout from firing.
-  useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {});
-  }, []);
+  // Fix 15: Removed immediate hideAsync — splash stays until init completes
+  // (allows branded splash screen to display properly)
 
   // Hard deadline: force past init after 5 seconds, no matter what.
   // Uses BOTH setTimeout AND RAF for redundancy.
@@ -194,6 +195,7 @@ export default function RootLayout() {
                 justifyContent: 'center',
               }}
             >
+              <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '600', marginBottom: 16 }}>DUB</Text>
               <LoadingIndicator size="large" />
             </View>
           )}

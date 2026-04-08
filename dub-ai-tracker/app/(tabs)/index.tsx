@@ -45,6 +45,7 @@ export default function DashboardScreen() {
     enabledTags,
     tagOrder,
     dailyScore,
+    lastRefresh,
     refresh,
   } = useDailySummary();
 
@@ -67,6 +68,27 @@ export default function DashboardScreen() {
 
   const [hideCalories, setHideCalories] = useState(false);
   const [showScoreInfo, setShowScoreInfo] = useState(false);
+
+  // Fix 1: Determine if dashboard is empty (no data logged today)
+  const isDashboardEmpty =
+    summary.calories_consumed === 0 &&
+    summary.water_oz === 0 &&
+    summary.tags_logged.length === 0 &&
+    summary.active_minutes === 0 &&
+    summary.sleep_hours == null;
+
+  // Fix 8: Stale data time-ago formatter
+  const getTimeAgo = (): { text: string; isStale: boolean } => {
+    if (!lastRefresh) return { text: '', isStale: false };
+    const diffMs = Date.now() - lastRefresh.getTime();
+    const diffMin = Math.floor(diffMs / 60000);
+    const diffHr = Math.floor(diffMin / 60);
+    if (diffMin < 1) return { text: 'Updated just now', isStale: false };
+    if (diffMin < 60) return { text: `Updated ${diffMin} min ago`, isStale: false };
+    if (diffHr < 24) return { text: `Updated ${diffHr} hr ago`, isStale: diffHr >= 1 };
+    return { text: 'Updated yesterday', isStale: true };
+  };
+  const timeAgo = getTimeAgo();
 
   // Fix 3: Scroll-to-top on tab re-tap
   const scrollRef = useRef<ScrollView>(null);
@@ -147,6 +169,44 @@ export default function DashboardScreen() {
           showVeteransLine={showVeteransLine}
           onDismiss={dismissMoodResource}
         />
+      )}
+
+      {/* Fix 1: Profile incomplete banner */}
+      {!profileComplete && (
+        <TouchableOpacity
+          style={styles.profileBanner}
+          onPress={() => router.push('/settings/profile')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="person-circle-outline" size={24} color={Colors.accentText} />
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.profileBannerTitle}>Complete Your Profile</Text>
+            <Text style={styles.profileBannerSubtitle}>Set up your stats to unlock calorie targets and daily scores</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color={Colors.accentText} />
+        </TouchableOpacity>
+      )}
+
+      {/* Fix 1: Empty state hero card */}
+      {isDashboardEmpty && (
+        <View style={styles.heroCard}>
+          <Text style={styles.heroTitle}>Welcome to DUB!</Text>
+          <Text style={styles.heroSubtitle}>Start by logging something — here are the quickest ways:</Text>
+          <View style={styles.heroCtaRow}>
+            <TouchableOpacity style={styles.heroCta} onPress={() => router.push('/log/food')} activeOpacity={0.7}>
+              <Ionicons name="restaurant-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.heroCtaText}>Log Food</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.heroCta} onPress={() => router.push('/log/water')} activeOpacity={0.7}>
+              <Ionicons name="water-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.heroCtaText}>Log Water</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.heroCta} onPress={() => router.push('/log/body')} activeOpacity={0.7}>
+              <Ionicons name="scale-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.heroCtaText}>Log Weight</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       )}
 
       {/* Score Ring */}
@@ -238,7 +298,13 @@ export default function DashboardScreen() {
       {/* Recovery Score */}
       <RecoveryCard />
 
+      {/* Fix 8: Stale data indicator */}
+      {timeAgo.text ? (
+        <Text style={[styles.timeAgo, timeAgo.isStale && styles.timeAgoStale]}>{timeAgo.text}</Text>
+      ) : null}
+
       {/* MASTER-53: Tag Cards — no sex-based filtering (P0-08) */}
+      <View style={!profileComplete ? { opacity: 0.4 } : undefined}>
       {orderedTags.map((tagId) => {
         const tagDef = ALL_DEFAULT_TAGS.find((t) => t.id === tagId);
         if (tagDef == null) return null;
@@ -247,6 +313,7 @@ export default function DashboardScreen() {
           <TagCardWithData key={tagId} tagId={tagId} tagDef={tagDef} />
         );
       })}
+      </View>
     </ScrollView>
   );
 }
@@ -333,5 +400,75 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     fontSize: 12,
     lineHeight: 18,
+  },
+  // Fix 1: Profile banner
+  profileBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+  },
+  profileBannerTitle: {
+    color: Colors.accentText,
+    fontSize: 15,
+    fontWeight: FontWeight.semibold,
+  },
+  profileBannerSubtitle: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  // Fix 1: Hero card
+  heroCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 20,
+    marginBottom: Spacing.lg,
+    alignItems: 'center',
+  },
+  heroTitle: {
+    color: Colors.text,
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
+    marginBottom: 8,
+  },
+  heroSubtitle: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  heroCtaRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  heroCta: {
+    flex: 1,
+    backgroundColor: Colors.accent,
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    minHeight: 48,
+  },
+  heroCtaText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: FontWeight.semibold,
+  },
+  // Fix 8: Time ago
+  timeAgo: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    textAlign: 'center',
+    marginBottom: Spacing.sm,
+  },
+  timeAgoStale: {
+    color: Colors.dangerText,
   },
 });

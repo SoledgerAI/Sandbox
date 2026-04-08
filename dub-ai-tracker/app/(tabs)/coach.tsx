@@ -216,10 +216,13 @@ export default function CoachScreen() {
     return (
       <View style={styles.emptyContainer}>
         <Ionicons name="chatbubbles-outline" size={48} color={Colors.divider} />
-        <Text style={styles.emptyTitle}>Coach DUB</Text>
+        <Text style={styles.emptyTitle}>Hi! I'm Coach DUB</Text>
+        <Text style={styles.greetingSubtitle}>Your AI wellness companion.</Text>
         <Text style={styles.emptySubtitle}>
-          Your AI wellness coach. Ask about your nutrition, workouts, sleep, or any health topic.
+          I can help with meal plans, analyze your trends, and answer health questions based on your data.
         </Text>
+        <Text style={styles.greetingPromptHint}>Pick a prompt below or type your own question.</Text>
+        <SuggestedPrompts onSelect={handleSuggestedPrompt} visible />
       </View>
     );
   };
@@ -284,10 +287,7 @@ export default function CoachScreen() {
         }}
       />
 
-      <SuggestedPrompts
-        onSelect={handleSuggestedPrompt}
-        visible={messages.length === 0 && apiKeyConfigured}
-      />
+      {/* SuggestedPrompts moved into empty state greeting (Fix 2) */}
 
       {sending && (
         <View style={styles.typingRow}>
@@ -323,13 +323,13 @@ export default function CoachScreen() {
         <View style={styles.inputRow}>
           <TextInput
             style={styles.input}
-            placeholder="Ask Coach DUB..."
+            placeholder={isOffline ? 'Reconnect to chat with Coach DUB' : 'Ask Coach DUB...'}
             placeholderTextColor={Colors.secondaryText}
             value={inputText}
             onChangeText={setInputText}
             multiline
             maxLength={2000}
-            editable={!sending}
+            editable={!sending && !isOffline}
             returnKeyType="send"
             onSubmitEditing={handleSend}
             blurOnSubmit
@@ -388,6 +388,20 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+  },
+  greetingSubtitle: {
+    color: Colors.secondaryText,
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  greetingPromptHint: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 4,
+    fontStyle: 'italic',
   },
   setupButton: {
     flexDirection: 'row',

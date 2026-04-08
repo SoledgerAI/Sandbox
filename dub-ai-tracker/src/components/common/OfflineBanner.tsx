@@ -39,7 +39,7 @@ export function OfflineBanner() {
       pointerEvents={offline ? 'auto' : 'none'}
     >
       <Ionicons name="cloud-offline-outline" size={14} color={Colors.text} />
-      <Text style={styles.text}>You're offline — data saved locally</Text>
+      <Text style={styles.text}>You're offline — data saved locally. AI Coach unavailable until reconnected.</Text>
     </Animated.View>
   );
 }

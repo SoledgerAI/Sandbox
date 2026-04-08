@@ -12,6 +12,7 @@ import {
   ScrollView,
   Alert,
   KeyboardAvoidingView,
+  Modal,
   Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -82,6 +83,12 @@ export function SupplementChecklist() {
   const [mySupplements, setMySupplements] = useState<string[] | null>(null); // null = not loaded yet
   const [editingSelection, setEditingSelection] = useState(false);
   const [recommendations, setRecommendations] = useState<{ name: string; reason: string }[]>([]);
+
+  // Fix 6: Edit-in-place modal state
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<{ name: string; category: SupplementCategory } | null>(null);
+  const [editDosage, setEditDosage] = useState('');
+  const [editUnit, setEditUnit] = useState('mg');
 
   const { lastEntry: lastSupplements, saveAsLast: saveLastSupplements } =
     useLastEntry<SupplementEntry[]>('supplements.daily');
@@ -493,6 +500,40 @@ export function SupplementChecklist() {
     setSideEffectOther('');
   }, [editingSideEffectsId, sideEffectSelections, sideEffectOther, entries, saveEntries]);
 
+  // Fix 6: Open edit modal on long-press
+  const openEditModal = useCallback((name: string, cat: SupplementCategory) => {
+    const matching = entries.filter((e) => e.name === name && e.category === cat && e.taken);
+    if (matching.length === 0) return;
+    const latest = matching[matching.length - 1];
+    setEditingEntry({ name, category: cat });
+    setEditDosage(latest.dosage > 0 ? String(latest.dosage) : '');
+    setEditUnit(latest.unit);
+    setEditModalVisible(true);
+  }, [entries]);
+
+  const saveEditModal = useCallback(async () => {
+    if (!editingEntry) return;
+    const dosageVal = parseFloat(editDosage) || 0;
+    const updated = entries.map((e) =>
+      e.name === editingEntry.name && e.category === editingEntry.category && e.taken
+        ? { ...e, dosage: dosageVal, unit: editUnit }
+        : e,
+    );
+    await saveEntries(updated);
+    setEditModalVisible(false);
+    setEditingEntry(null);
+  }, [editingEntry, editDosage, editUnit, entries, saveEntries]);
+
+  const deleteFromEditModal = useCallback(async () => {
+    if (!editingEntry) return;
+    const updated = entries.filter(
+      (e) => !(e.name === editingEntry.name && e.category === editingEntry.category && e.taken),
+    );
+    await saveEntries(updated);
+    setEditModalVisible(false);
+    setEditingEntry(null);
+  }, [editingEntry, entries, saveEntries]);
+
   const takenCount = entries.filter((e) => e.taken).length;
   const categoryEntries = entries.filter((e) => e.category === category && e.taken);
 
@@ -700,7 +741,7 @@ export function SupplementChecklist() {
                 key={name}
                 style={styles.checkRow}
                 onPress={() => toggleItem(name, category)}
-                onLongPress={() => taken && removeAllForItem(name, category)}
+                onLongPress={() => taken && openEditModal(name, category)}
                 activeOpacity={0.7}
               >
                 <Ionicons
@@ -922,6 +963,50 @@ export function SupplementChecklist() {
         </>
       )}
     </ScrollView>
+
+      {/* Fix 6: Edit-in-place modal */}
+      <Modal
+        visible={editModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.editModalOverlay}>
+          <View style={styles.editModalContent}>
+            <Text style={styles.editModalTitle}>
+              {editingEntry?.name ?? 'Edit Supplement'}
+            </Text>
+            <Text style={styles.editModalLabel}>Dosage</Text>
+            <View style={{ flexDirection: 'row', gap: 8, marginBottom: 16 }}>
+              <TextInput
+                style={[styles.editModalInput, { flex: 1 }]}
+                value={editDosage}
+                onChangeText={setEditDosage}
+                placeholder="Amount"
+                placeholderTextColor={Colors.secondaryText}
+                keyboardType="decimal-pad"
+              />
+              <TextInput
+                style={[styles.editModalInput, { width: 70 }]}
+                value={editUnit}
+                onChangeText={setEditUnit}
+                placeholder="Unit"
+                placeholderTextColor={Colors.secondaryText}
+              />
+            </View>
+            <TouchableOpacity style={styles.editModalSaveBtn} onPress={saveEditModal}>
+              <Text style={styles.editModalSaveBtnText}>Save</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.editModalDeleteBtn} onPress={deleteFromEditModal}>
+              <Ionicons name="trash-outline" size={16} color={Colors.danger} />
+              <Text style={styles.editModalDeleteBtnText}>Delete All Doses</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.editModalCancelBtn} onPress={() => setEditModalVisible(false)}>
+              <Text style={styles.editModalCancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -1210,5 +1295,75 @@ const styles = StyleSheet.create({
     color: Colors.accent,
     fontSize: 14,
     fontWeight: '500',
+  },
+  // Fix 6: Edit modal styles
+  editModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  editModalContent: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+  },
+  editModalTitle: {
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  editModalLabel: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    marginBottom: 6,
+  },
+  editModalInput: {
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    color: Colors.text,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  editModalSaveBtn: {
+    backgroundColor: Colors.accent,
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  editModalSaveBtnText: {
+    color: Colors.primaryBackground,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  editModalDeleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    marginBottom: 6,
+  },
+  editModalDeleteBtnText: {
+    color: Colors.danger,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  editModalCancelBtn: {
+    alignItems: 'center',
+    paddingVertical: 10,
+  },
+  editModalCancelBtnText: {
+    color: Colors.secondaryText,
+    fontSize: 14,
   },
 });

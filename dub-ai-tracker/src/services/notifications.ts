@@ -137,8 +137,30 @@ const TAG_STORAGE_MAP: Record<string, string> = {
   'custom.tag': STORAGE_KEYS.LOG_CUSTOM,
 };
 
+/** Priority ordering for EOD questionnaire categories */
+const PRIORITY_ORDER: Record<string, number> = {
+  'sleep.tracking': 1,
+  'mental.wellness': 2,
+  'nutrition.food': 3,
+  'hydration.water': 3,
+  'fitness.workout': 4,
+  'strength.training': 4,
+  'body.measurements': 5,
+  'recovery.score': 5,
+  'supplements.daily': 6,
+  'health.markers': 6,
+  'substances.tracking': 6,
+  'sexual.activity': 6,
+  'digestive.health': 6,
+  'personal.care': 6,
+  'womens.health': 6,
+  'injury.pain': 6,
+  'custom.tag': 6,
+};
+
 /**
  * Get tags the user has enabled but hasn't logged today.
+ * Sorted by category priority (sleep first, misc last).
  */
 export async function getUnloggedTags(todayStr: string): Promise<string[]> {
   const enabledTags = await storageGet<string[]>(STORAGE_KEYS.TAGS_ENABLED);
@@ -157,6 +179,9 @@ export async function getUnloggedTags(todayStr: string): Promise<string[]> {
       unlogged.push(tagId);
     }
   }
+
+  // Sort by priority: sleep=1, mood=2, nutrition=3, fitness=4, body=5, other=6
+  unlogged.sort((a, b) => (PRIORITY_ORDER[a] ?? 6) - (PRIORITY_ORDER[b] ?? 6));
 
   return unlogged;
 }

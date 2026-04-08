@@ -40,6 +40,7 @@ import { scaleNutrition } from '../../src/utils/servingmath';
 import { todayDateString } from '../../src/utils/dayBoundary';
 import { getActiveDate, setActiveDate as setContextDate, resetToToday, isBackfilling } from '../../src/services/dateContextService';
 import { DateContextBanner } from '../../src/components/DateContextBanner';
+import { useToast } from '../../src/contexts/ToastContext';
 
 // ============================================================
 // Date Helpers
@@ -166,6 +167,8 @@ export default function LogScreen() {
   // Fix 3: Scroll-to-top on tab re-tap
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
+  const { showToast } = useToast();
+  const undoRef = useRef<{ entry: FoodEntry; timer: ReturnType<typeof setTimeout> } | null>(null);
   // Deep-link: accept ?date=YYYY-MM-DD from trends tooltip
   const { date: paramDate } = useLocalSearchParams<{ date?: string }>();
 
@@ -374,12 +377,23 @@ export default function LogScreen() {
 
   const deleteEntry = useCallback(
     async (id: string) => {
+      const deletedEntry = foodEntries.find((e) => e.id === id);
       const key = dateKey(STORAGE_KEYS.LOG_FOOD, selectedDate);
       const updated = foodEntries.filter((e) => e.id !== id);
       await storageSet(key, updated);
       setFoodEntries(updated);
+
+      if (deletedEntry) {
+        // Clear any previous undo timer
+        if (undoRef.current?.timer) clearTimeout(undoRef.current.timer);
+        undoRef.current = {
+          entry: deletedEntry,
+          timer: setTimeout(() => { undoRef.current = null; }, 3000),
+        };
+        showToast('Entry deleted. Tap to undo.', 'info');
+      }
     },
-    [foodEntries, selectedDate],
+    [foodEntries, selectedDate, showToast],
   );
 
   const addToFavorites = useCallback(

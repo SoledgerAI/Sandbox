@@ -51,6 +51,7 @@ export function AuthGate({ children }: AuthGateProps) {
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const lockEnabledRef = useRef(false);
+  const autoTriggeredRef = useRef(false);
 
   // Check lock state on mount
   useEffect(() => {
@@ -179,6 +180,17 @@ export function AuthGate({ children }: AuthGateProps) {
       setState('unlocked');
     }
   }, []);
+
+  // Fix 14: Auto-trigger biometric auth when lock screen appears
+  useEffect(() => {
+    if (state === 'locked' && lockView === 'biometric' && !autoTriggeredRef.current) {
+      autoTriggeredRef.current = true;
+      handleBiometric();
+    }
+    if (state !== 'locked') {
+      autoTriggeredRef.current = false;
+    }
+  }, [state, lockView, handleBiometric]);
 
   const handlePinDigit = useCallback(
     (digit: string) => {

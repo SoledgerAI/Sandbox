@@ -32,6 +32,7 @@ interface DailySummaryResult {
   tagOrder: string[];
   tier: EngagementTier | null;
   dailyScore: DailyScoreBreakdown;
+  lastRefresh: Date | null;
   refresh: () => Promise<void>;
 }
 
@@ -83,6 +84,7 @@ export function useDailySummary(): DailySummaryResult {
   const [tdee, setTdee] = useState(0);
   const [calorieTarget, setCalorieTarget] = useState(0);
   const [profileComplete, setProfileComplete] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [dailyScore, setDailyScore] = useState<DailyScoreBreakdown>({
     total: 0, calorieAccuracy: 0, macroAccuracy: 0, tagCompletion: 0,
     consistency: 0, trendAlignment: 0, loggingConsistency: 0,
@@ -308,6 +310,7 @@ export function useDailySummary(): DailySummaryResult {
         goalWeight: p?.goal?.target_weight ?? null,
       });
       setDailyScore(score);
+      setLastRefresh(new Date());
     } finally {
       setLoading(false);
     }
@@ -341,6 +344,7 @@ export function useDailySummary(): DailySummaryResult {
     tagOrder,
     tier,
     dailyScore,
+    lastRefresh,
     refresh: load,
   };
 }

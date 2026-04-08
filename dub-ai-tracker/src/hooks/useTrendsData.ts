@@ -107,9 +107,11 @@ function monthlyToChartPoint(s: MonthlySummary, field: keyof MonthlySummary): Ch
 export function useTrendsData(timeRange: TimeRange, _enabledTags: string[]) {
   const [data, setData] = useState<TrendDataSet>(EMPTY_DATASET);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       if (timeRange === '7d' || timeRange === '30d') {
         await loadDailyData(timeRange, setData);
@@ -119,7 +121,7 @@ export function useTrendsData(timeRange: TimeRange, _enabledTags: string[]) {
         await loadMonthlyData(setData);
       }
     } catch {
-      // Fail silently -- charts show empty state
+      setError('Unable to load trends. Check your connection.');
     } finally {
       setLoading(false);
     }
@@ -129,7 +131,7 @@ export function useTrendsData(timeRange: TimeRange, _enabledTags: string[]) {
     loadData();
   }, [loadData]);
 
-  return { data, loading, reload: loadData };
+  return { data, loading, error, reload: loadData };
 }
 
 async function loadDailyData(

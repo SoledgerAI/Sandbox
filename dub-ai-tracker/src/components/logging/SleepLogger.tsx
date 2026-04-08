@@ -25,6 +25,7 @@ import {
 import type { SleepEntry } from '../../types';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
+import { DateTimePicker } from '../common/DateTimePicker';
 import { todayDateString } from '../../utils/dayBoundary';
 import { getActiveDate } from '../../services/dateContextService';
 
@@ -45,13 +46,13 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
   const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<SleepEntry>('sleep.tracking');
   const [entry, setEntry] = useState<SleepEntry | null>(null);
 
-  // Form state
-  const [bedHour, setBedHour] = useState('');
-  const [bedMinute, setBedMinute] = useState('');
-  const [bedAmPm, setBedAmPm] = useState<'AM' | 'PM'>('PM');
-  const [wakeHour, setWakeHour] = useState('');
-  const [wakeMinute, setWakeMinute] = useState('');
-  const [wakeAmPm, setWakeAmPm] = useState<'AM' | 'PM'>('AM');
+  // Form state — DateTimePicker replaces manual HH:MM inputs
+  const defaultBedtime = (() => { const d = new Date(); d.setDate(d.getDate() - 1); d.setHours(22, 0, 0, 0); return d; })();
+  const defaultWake = (() => { const d = new Date(); d.setHours(7, 0, 0, 0); return d; })();
+  const [bedtime, setBedtime] = useState<Date>(defaultBedtime);
+  const [wakeTime, setWakeTime] = useState<Date>(defaultWake);
+  const [bedtimeTouched, setBedtimeTouched] = useState(false);
+  const [wakeTouched, setWakeTouched] = useState(false);
   const [quality, setQuality] = useState<number>(3);
   const [bathroomTrips, setBathroomTrips] = useState('');
   const [alarmUsed, setAlarmUsed] = useState(false);
@@ -94,19 +95,14 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
   }
 
   const logSleep = useCallback(async () => {
-    // Bedtime is previous night (day offset -1 for PM times, 0 for AM times)
-    const bedDayOffset = bedAmPm === 'PM' ? -1 : 0;
-    const bedtime = buildISOTime(bedHour, bedMinute, bedAmPm, bedDayOffset);
-    const wakeTime = buildISOTime(wakeHour, wakeMinute, wakeAmPm, 0);
-
-    if (!bedtime || !wakeTime) {
-      Alert.alert('Invalid Time', 'Please enter valid bedtime and wake time.');
+    if (!bedtimeTouched || !wakeTouched) {
+      Alert.alert('Select Times', 'Please select both bedtime and wake time.');
       return;
     }
 
     const newEntry: SleepEntry = {
-      bedtime,
-      wake_time: wakeTime,
+      bedtime: bedtime.toISOString(),
+      wake_time: wakeTime.toISOString(),
       quality,
       bathroom_trips: bathroomTrips ? parseInt(bathroomTrips, 10) : null,
       alarm_used: alarmUsed,
@@ -122,17 +118,15 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
     await saveAsLast(newEntry);
     setEntry(newEntry);
     onEntryLogged?.();
-  }, [bedHour, bedMinute, bedAmPm, wakeHour, wakeMinute, wakeAmPm, quality, bathroomTrips, alarmUsed, timeToFallAsleep, notes, onEntryLogged, saveAsLast]);
+  }, [bedtime, wakeTime, bedtimeTouched, wakeTouched, quality, bathroomTrips, alarmUsed, timeToFallAsleep, notes, onEntryLogged, saveAsLast]);
 
   const clearEntry = useCallback(async () => {
     const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_SLEEP, today);
     await storageSet(key, null);
     setEntry(null);
-    setBedHour('');
-    setBedMinute('');
-    setWakeHour('');
-    setWakeMinute('');
+    setBedtimeTouched(false);
+    setWakeTouched(false);
     setQuality(3);
     setBathroomTrips('');
     setAlarmUsed(false);
@@ -144,21 +138,19 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
     if (!lastEntry) return;
     if (lastEntry.bedtime) {
       const bed = new Date(lastEntry.bedtime);
-      const bH = bed.getHours();
-      const bM = bed.getMinutes();
-      const display12H = bH === 0 ? 12 : bH > 12 ? bH - 12 : bH;
-      setBedHour(String(display12H));
-      setBedMinute(String(bM).padStart(2, '0'));
-      setBedAmPm(bH >= 12 ? 'PM' : 'AM');
+      // Shift to last night (same time, yesterday)
+      const newBed = new Date();
+      newBed.setDate(newBed.getDate() - 1);
+      newBed.setHours(bed.getHours(), bed.getMinutes(), 0, 0);
+      setBedtime(newBed);
+      setBedtimeTouched(true);
     }
     if (lastEntry.wake_time) {
       const wake = new Date(lastEntry.wake_time);
-      const wH = wake.getHours();
-      const wM = wake.getMinutes();
-      const display12H = wH === 0 ? 12 : wH > 12 ? wH - 12 : wH;
-      setWakeHour(String(display12H));
-      setWakeMinute(String(wM).padStart(2, '0'));
-      setWakeAmPm(wH >= 12 ? 'PM' : 'AM');
+      const newWake = new Date();
+      newWake.setHours(wake.getHours(), wake.getMinutes(), 0, 0);
+      setWakeTime(newWake);
+      setWakeTouched(true);
     }
     if (lastEntry.quality) setQuality(lastEntry.quality);
   }, [lastEntry]);
@@ -241,81 +233,30 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
         visible={!lastLoading && lastEntry != null}
         onRepeat={handleRepeatLast}
       />
-      {/* Bedtime */}
-      <Text style={styles.sectionTitle}>Bedtime (last night)</Text>
-      <View style={styles.timeRow}>
-        <TextInput
-          style={styles.timeInput}
-          value={bedHour}
-          onChangeText={setBedHour}
-          placeholder="HH"
-          placeholderTextColor={Colors.secondaryText}
-          keyboardType="number-pad"
-          maxLength={2}
-        />
-        <Text style={styles.timeSeparator}>:</Text>
-        <TextInput
-          style={styles.timeInput}
-          value={bedMinute}
-          onChangeText={setBedMinute}
-          placeholder="MM"
-          placeholderTextColor={Colors.secondaryText}
-          keyboardType="number-pad"
-          maxLength={2}
-        />
-        <View style={styles.amPmToggle}>
-          <TouchableOpacity
-            style={[styles.amPmBtn, bedAmPm === 'AM' && styles.amPmBtnActive]}
-            onPress={() => setBedAmPm('AM')}
-          >
-            <Text style={[styles.amPmText, bedAmPm === 'AM' && styles.amPmTextActive]}>AM</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.amPmBtn, bedAmPm === 'PM' && styles.amPmBtnActive]}
-            onPress={() => setBedAmPm('PM')}
-          >
-            <Text style={[styles.amPmText, bedAmPm === 'PM' && styles.amPmTextActive]}>PM</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+      {/* Bedtime — DateTimePicker in time mode */}
+      <DateTimePicker
+        mode="time"
+        label="Bedtime (last night)"
+        value={bedtime}
+        onChange={(d) => { setBedtime(d); setBedtimeTouched(true); }}
+      />
 
-      {/* Wake time */}
-      <Text style={styles.sectionTitle}>Wake Time (this morning)</Text>
-      <View style={styles.timeRow}>
-        <TextInput
-          style={styles.timeInput}
-          value={wakeHour}
-          onChangeText={setWakeHour}
-          placeholder="HH"
-          placeholderTextColor={Colors.secondaryText}
-          keyboardType="number-pad"
-          maxLength={2}
-        />
-        <Text style={styles.timeSeparator}>:</Text>
-        <TextInput
-          style={styles.timeInput}
-          value={wakeMinute}
-          onChangeText={setWakeMinute}
-          placeholder="MM"
-          placeholderTextColor={Colors.secondaryText}
-          keyboardType="number-pad"
-          maxLength={2}
-        />
-        <View style={styles.amPmToggle}>
-          <TouchableOpacity
-            style={[styles.amPmBtn, wakeAmPm === 'AM' && styles.amPmBtnActive]}
-            onPress={() => setWakeAmPm('AM')}
-          >
-            <Text style={[styles.amPmText, wakeAmPm === 'AM' && styles.amPmTextActive]}>AM</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.amPmBtn, wakeAmPm === 'PM' && styles.amPmBtnActive]}
-            onPress={() => setWakeAmPm('PM')}
-          >
-            <Text style={[styles.amPmText, wakeAmPm === 'PM' && styles.amPmTextActive]}>PM</Text>
-          </TouchableOpacity>
+      {/* Wake time — DateTimePicker in time mode */}
+      <DateTimePicker
+        mode="time"
+        label="Wake Time (this morning)"
+        value={wakeTime}
+        onChange={(d) => { setWakeTime(d); setWakeTouched(true); }}
+      />
+
+      {/* Duration preview */}
+      {bedtimeTouched && wakeTouched && (
+        <View style={{ alignItems: 'center', marginBottom: 12 }}>
+          <Text style={{ color: Colors.accentText, fontSize: 16, fontWeight: '600' }}>
+            {computeDurationHours(bedtime.toISOString(), wakeTime.toISOString())}h sleep
+          </Text>
         </View>
-      </View>
+      )}
 
       {/* Quality */}
       <Text style={styles.sectionTitle}>Sleep Quality</Text>
@@ -392,9 +333,9 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
 
       {/* Log button */}
       <TouchableOpacity
-        style={[styles.logBtn, (!bedHour || !wakeHour) && styles.logBtnDisabled]}
+        style={[styles.logBtn, (!bedtimeTouched || !wakeTouched) && styles.logBtnDisabled]}
         onPress={logSleep}
-        disabled={!bedHour || !wakeHour}
+        disabled={!bedtimeTouched || !wakeTouched}
         activeOpacity={0.7}
       >
         <Ionicons name="checkmark-circle" size={20} color={Colors.primaryBackground} />

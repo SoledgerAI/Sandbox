@@ -7,6 +7,7 @@ import { useFocusEffect } from 'expo-router';
 import {
   StyleSheet,
   Text,
+  TouchableOpacity,
   View,
   FlatList,
   Pressable,
@@ -266,7 +267,7 @@ export default function TrendsScreen() {
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('All');
   const { data: enabledTags } = useStorage<string[]>(STORAGE_KEYS.TAGS_ENABLED, []);
-  const { data, loading, reload: reloadTrends } = useTrendsData(timeRange, enabledTags ?? []);
+  const { data, loading, error: trendsError, reload: reloadTrends } = useTrendsData(timeRange, enabledTags ?? []);
   const { calorieTarget, summary: dailySummary, refresh: refreshSummary } = useDailySummary();
   const { summaries: bloodworkSummaries, reload: reloadBloodwork } = useBloodworkSummaries();
 
@@ -446,15 +447,10 @@ export default function TrendsScreen() {
         />
       </View>
 
-      {/* Year-over-Year indicator */}
+      {/* Year-over-Year indicator — only shown when data exists */}
       {data.hasYoYData && (
         <View style={styles.yoyBadge}>
           <Text style={styles.yoyText}>Year-over-year overlay available</Text>
-        </View>
-      )}
-      {!data.hasYoYData && (
-        <View style={styles.yoyBadge}>
-          <Text style={styles.yoyTextMuted}>YoY overlay available after 12 months</Text>
         </View>
       )}
 
@@ -465,10 +461,35 @@ export default function TrendsScreen() {
         </View>
       )}
 
-      {/* P1-05: All empty state */}
+      {/* Fix 13: Error banner */}
+      {trendsError && (
+        <View style={styles.errorBanner}>
+          <Text style={styles.errorBannerText}>{trendsError}</Text>
+        </View>
+      )}
+
+      {/* Fix 10: Improved empty state */}
       {!loading && chartItems.length === 0 && (
         <View style={styles.allEmptyContainer}>
-          <Text style={styles.allEmptyText}>Start logging to see your trends</Text>
+          {data.calories.length === 0 ? (
+            <>
+              <Text style={styles.allEmptyText}>Log your first entry to start building trends.</Text>
+              <TouchableOpacity
+                style={styles.emptyCtaBtn}
+                onPress={() => router.push('/log' as any)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.emptyCtaBtnText}>Start Logging</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.allEmptyText}>Keep logging! Charts appear after 7 days of data.</Text>
+              <Text style={styles.emptyProgressText}>
+                Day {Math.min(data.calories.length, 7)} of 7
+              </Text>
+            </>
+          )}
         </View>
       )}
 
@@ -742,10 +763,43 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 80,
+    paddingHorizontal: 32,
   },
   allEmptyText: {
     color: Colors.secondaryText,
     fontSize: 16,
+    textAlign: 'center',
+  },
+  emptyCtaBtn: {
+    backgroundColor: Colors.accent,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    marginTop: 16,
+  },
+  emptyCtaBtnText: {
+    color: Colors.primaryBackground,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  emptyProgressText: {
+    color: Colors.accentText,
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 12,
+  },
+  errorBanner: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 8,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: Colors.danger,
+  },
+  errorBannerText: {
+    color: Colors.dangerText,
+    fontSize: 13,
     textAlign: 'center',
   },
   bloodworkSection: {

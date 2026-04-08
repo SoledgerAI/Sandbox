@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { DashboardCard } from './DashboardCard';
 import { SparkLine } from '../charts/SparkLine';
+import { SkeletonLoader } from '../common/SkeletonLoader';
 import { useTagCardData } from '../../hooks/useTagCardData';
 import { storageGet, STORAGE_KEYS } from '../../utils/storage';
 import {
@@ -94,7 +95,7 @@ export function TagCardWithData({ tagId, tagDef }: TagCardWithDataProps) {
         <View style={styles.content}>
           <View style={styles.textCol}>
             {loading ? (
-              <Text style={styles.loadingText}>Loading...</Text>
+              <SkeletonLoader width="80%" height={18} borderRadius={6} />
             ) : hasDataToday && todaySummary ? (
               <>
                 <Text style={styles.summaryValue}>{todaySummary}</Text>

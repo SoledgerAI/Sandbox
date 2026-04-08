@@ -2,7 +2,7 @@
 // Phase 14: AI Coach
 // Rotates daily based on day-of-year
 
-import { ScrollView, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Colors } from '../../constants/colors';
 
 const ALL_PROMPTS = [
@@ -41,11 +41,7 @@ export function SuggestedPrompts({ onSelect, visible }: SuggestedPromptsProps) {
   const prompts = getDailyPrompts();
 
   return (
-    <ScrollView
-      horizontal
-      showsHorizontalScrollIndicator={false}
-      contentContainerStyle={styles.container}
-    >
+    <View style={styles.container}>
       {prompts.map((prompt) => (
         <TouchableOpacity
           key={prompt}
@@ -56,21 +52,24 @@ export function SuggestedPrompts({ onSelect, visible }: SuggestedPromptsProps) {
           <Text style={styles.chipText}>{prompt}</Text>
         </TouchableOpacity>
       ))}
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     paddingHorizontal: 12,
     paddingVertical: 8,
     gap: 8,
   },
   chip: {
+    width: '47%',
     backgroundColor: Colors.cardBackground,
     borderRadius: 16,
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderWidth: 1,
     borderColor: Colors.divider,
   },

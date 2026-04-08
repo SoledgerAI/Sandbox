@@ -8,9 +8,9 @@ import {
   Text,
   View,
   TouchableOpacity,
-  TextInput,
   Alert,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import {
@@ -36,7 +36,7 @@ interface WeightLoggerProps {
 export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
   const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<BodyEntry>('body.measurements');
   const [entryTimestamp, setEntryTimestamp] = useState(new Date());
-  const [weightInput, setWeightInput] = useState('');
+  const [selectedWeight, setSelectedWeight] = useState<number>(150);
   const [units, setUnits] = useState<'imperial' | 'metric'>('imperial');
   const [todayEntry, setTodayEntry] = useState<BodyEntry | null>(null);
 
@@ -49,6 +49,18 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
     const profile = await storageGet<Partial<UserProfile>>(STORAGE_KEYS.PROFILE);
     if (profile?.units) {
       setUnits(profile.units);
+    }
+    // Default picker to last logged weight or profile weight
+    if (stored?.weight_lbs) {
+      const displayVal = profile?.units === 'metric'
+        ? Math.round(stored.weight_lbs / LBS_PER_KG * 2) / 2
+        : Math.round(stored.weight_lbs);
+      setSelectedWeight(displayVal);
+    } else if (profile?.weight_lbs) {
+      const displayVal = profile?.units === 'metric'
+        ? Math.round(profile.weight_lbs / LBS_PER_KG * 2) / 2
+        : Math.round(profile.weight_lbs);
+      setSelectedWeight(displayVal);
     }
   }, []);
 
@@ -65,9 +77,9 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
   const unitLabel = units === 'metric' ? 'kg' : 'lbs';
 
   const logWeight = useCallback(async () => {
-    const value = parseFloat(weightInput);
-    if (isNaN(value) || value <= 0) {
-      Alert.alert('Invalid Weight', `Please enter a valid weight in ${unitLabel}.`);
+    const value = selectedWeight;
+    if (value <= 0) {
+      Alert.alert('Invalid Weight', `Please select a valid weight in ${unitLabel}.`);
       return;
     }
 
@@ -93,10 +105,9 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
     await storageSet(key, entry);
     await saveAsLast(entry);
     setTodayEntry(entry);
-    setWeightInput('');
     hapticSuccess();
     onEntryLogged?.();
-  }, [weightInput, units, unitLabel, onEntryLogged, saveAsLast]);
+  }, [selectedWeight, units, unitLabel, onEntryLogged, saveAsLast, entryTimestamp]);
 
   const clearWeight = useCallback(async () => {
     const today = getActiveDate();
@@ -112,9 +123,9 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
   const handleRepeatLast = useCallback(() => {
     if (!lastEntry?.weight_lbs) return;
     const displayVal = units === 'metric'
-      ? (lastEntry.weight_lbs / LBS_PER_KG).toFixed(1)
-      : lastEntry.weight_lbs.toFixed(1);
-    setWeightInput(displayVal);
+      ? Math.round(lastEntry.weight_lbs / LBS_PER_KG * 2) / 2
+      : Math.round(lastEntry.weight_lbs);
+    setSelectedWeight(displayVal);
   }, [lastEntry, units]);
 
   const repeatSubtitle = lastEntry?.weight_lbs != null
@@ -151,30 +162,32 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
         </View>
       )}
 
-      {/* Weight input */}
+      {/* Weight picker */}
       <Text style={styles.sectionTitle}>
         {displayWeight != null ? 'Update Weight' : 'Log Weight'}
       </Text>
-      <View style={styles.inputRow}>
-        <TextInput
-          style={styles.input}
-          value={weightInput}
-          onChangeText={setWeightInput}
-          placeholder={unitLabel}
-          placeholderTextColor={Colors.secondaryText}
-          keyboardType="decimal-pad"
-          returnKeyType="done"
-          onSubmitEditing={logWeight}
-        />
-        <TouchableOpacity
-          style={[styles.logBtn, !weightInput && styles.logBtnDisabled]}
-          onPress={logWeight}
-          disabled={!weightInput}
-          activeOpacity={0.7}
+      <View style={styles.pickerContainer}>
+        <Picker
+          selectedValue={selectedWeight}
+          onValueChange={(v) => setSelectedWeight(v as number)}
+          style={styles.picker}
+          itemStyle={styles.pickerItem}
         >
-          <Text style={styles.logBtnText}>Log</Text>
-        </TouchableOpacity>
+          {(units === 'metric'
+            ? Array.from({ length: 401 }, (_, i) => 25 + i * 0.5)
+            : Array.from({ length: 451 }, (_, i) => 50 + i)
+          ).map((val) => (
+            <Picker.Item key={val} label={`${val} ${unitLabel}`} value={val} />
+          ))}
+        </Picker>
       </View>
+      <TouchableOpacity
+        style={styles.logBtn}
+        onPress={logWeight}
+        activeOpacity={0.7}
+      >
+        <Text style={styles.logBtnText}>Log</Text>
+      </TouchableOpacity>
 
       {/* Unit toggle */}
       <View style={styles.unitToggle}>
@@ -236,31 +249,29 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginBottom: 10,
   },
-  inputRow: {
-    flexDirection: 'row',
-    gap: 10,
+  pickerContainer: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
     marginBottom: 16,
+    overflow: 'hidden',
   },
-  input: {
-    flex: 1,
-    backgroundColor: Colors.inputBackground,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  picker: {
     color: Colors.text,
-    fontSize: 16,
-    borderWidth: 1,
-    borderColor: Colors.divider,
+    height: 180,
+  },
+  pickerItem: {
+    color: Colors.text,
+    fontSize: 20,
+    fontWeight: '600',
   },
   logBtn: {
     backgroundColor: Colors.accent,
     borderRadius: 10,
-    paddingHorizontal: 24,
+    paddingVertical: 14,
+    alignItems: 'center',
     justifyContent: 'center',
     minHeight: 48,
-  },
-  logBtnDisabled: {
-    opacity: 0.4,
+    marginBottom: 16,
   },
   logBtnText: {
     color: Colors.primaryBackground,

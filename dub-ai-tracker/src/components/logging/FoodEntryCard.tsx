@@ -2,10 +2,12 @@
 // Phase 6: Food Logging -- Core
 // Phase 19: Ingredient flag icons on flagged foods
 
-import React from 'react';
-import { Alert, Image, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import React, { useCallback, useRef } from 'react';
+import { Alert, Animated, Image, StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { Swipeable } from 'react-native-gesture-handler';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { hapticWarning } from '../../utils/haptics';
 import type { FoodEntry } from '../../types/food';
 import { formatNutrient } from '../../utils/servingmath';
 
@@ -35,8 +37,22 @@ export const FoodEntryCard = React.memo(function FoodEntryCard({ entry, onPress,
       ? `${quantity}x ${serving.description}`
       : serving.description;
   const hasFlaggedIngredients = flagged_ingredients && flagged_ingredients.length > 0;
+  const swipeableRef = useRef<Swipeable>(null);
 
-  return (
+  const handleSwipeDelete = useCallback(() => {
+    hapticWarning();
+    swipeableRef.current?.close();
+    onDelete?.();
+  }, [onDelete]);
+
+  const renderRightActions = useCallback((_progress: Animated.AnimatedInterpolation<number>, _dragX: Animated.AnimatedInterpolation<number>) => (
+    <TouchableOpacity style={styles.swipeDeleteAction} onPress={handleSwipeDelete} activeOpacity={0.8}>
+      <Ionicons name="trash-outline" size={24} color="#FFFFFF" />
+      <Text style={styles.swipeDeleteText}>Delete</Text>
+    </TouchableOpacity>
+  ), [handleSwipeDelete]);
+
+  const cardContent = (
     <TouchableOpacity
       style={styles.card}
       onPress={onPress}
@@ -81,15 +97,20 @@ export const FoodEntryCard = React.memo(function FoodEntryCard({ entry, onPress,
               <Ionicons name="heart-outline" size={18} color={Colors.secondaryText} />
             </TouchableOpacity>
           )}
-          {onDelete != null && (
-            <TouchableOpacity onPress={onDelete} hitSlop={8} style={styles.actionBtn}>
-              <Ionicons name="trash-outline" size={18} color={Colors.danger} />
-            </TouchableOpacity>
-          )}
         </View>
       </View>
     </TouchableOpacity>
   );
+
+  if (onDelete) {
+    return (
+      <Swipeable ref={swipeableRef} renderRightActions={renderRightActions} overshootRight={false}>
+        {cardContent}
+      </Swipeable>
+    );
+  }
+
+  return cardContent;
 });
 
 function FlagBadge({ ingredients }: { ingredients: string[] }) {
@@ -235,5 +256,20 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  swipeDeleteAction: {
+    backgroundColor: Colors.danger,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    borderRadius: 12,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  swipeDeleteText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+    marginTop: 4,
   },
 });
