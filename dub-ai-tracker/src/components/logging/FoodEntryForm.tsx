@@ -2,6 +2,7 @@
 // Phase 6: Food Logging -- Core
 
 import { useState, useCallback } from 'react';
+import { hapticSuccess } from '../../utils/haptics';
 import {
   ActionSheetIOS,
   Alert,
@@ -154,6 +155,7 @@ export function FoodEntryForm({ food, mealType, onSave, onCancel }: FoodEntryFor
 
     const serving = foodItem.serving_sizes[foodItem.default_serving_index];
 
+    hapticSuccess();
     onSave({
       meal_type: meal,
       food_item: foodItem,

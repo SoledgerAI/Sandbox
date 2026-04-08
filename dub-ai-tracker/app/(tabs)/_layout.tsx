@@ -1,7 +1,8 @@
-import { Text } from 'react-native';
+import { Text, TouchableOpacity } from 'react-native';
 import { Tabs } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { hapticLight } from '../../src/utils/haptics';
 
 type TabIcon = React.ComponentProps<typeof Ionicons>['name'];
 
@@ -20,6 +21,15 @@ export default function TabLayout() {
         headerShown: false,
         tabBarActiveTintColor: Colors.accent,
         tabBarInactiveTintColor: Colors.secondaryText,
+        tabBarButton: (props) => {
+          const { onPress, ...rest } = props as any;
+          return (
+            <TouchableOpacity
+              {...rest}
+              onPress={(e) => { hapticLight(); onPress?.(e); }}
+            />
+          );
+        },
         tabBarStyle: {
           backgroundColor: Colors.primaryBackground,
           borderTopColor: Colors.divider,

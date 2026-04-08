@@ -3,6 +3,7 @@
 // Redesign: P1 3-axis quick-tap (Expert 3 clinical psych recommendation)
 
 import { useState, useEffect, useCallback } from 'react';
+import { hapticSelection } from '../../utils/haptics';
 import {
   StyleSheet,
   Text,
@@ -100,7 +101,7 @@ function AxisRow({ axis, value, onSelect }: AxisRowProps) {
           <TouchableOpacity
             key={score}
             style={[styles.tapTarget, value === score && styles.tapTargetActive]}
-            onPress={() => onSelect(score)}
+            onPress={() => { hapticSelection(); onSelect(score); }}
             accessibilityLabel={`${axis.title}: ${axis.labels[score]}, ${score} out of 5`}
             accessibilityRole="radio"
           >

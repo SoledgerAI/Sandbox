@@ -2,6 +2,7 @@
 // Phase 15: EOD Questionnaire and Notifications
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { hapticLight } from '../../utils/haptics';
 import {
   Animated,
   Dimensions,
@@ -17,7 +18,7 @@ import { NotificationCard, SummaryCard } from './NotificationCard';
 import { sendMessage, hasApiKey } from '../../services/anthropic';
 import { buildCoachContext } from '../../ai/context_builder';
 import { buildSystemPrompt } from '../../ai/coach_system_prompt';
-import { storageGet, STORAGE_KEYS, dateKey } from '../../utils/storage';
+import { storageGet, storageSet, STORAGE_KEYS, dateKey } from '../../utils/storage';
 import { getActiveDate } from '../../services/dateContextService';
 import type { FoodEntry, WaterEntry } from '../../types';
 import type { WorkoutEntry } from '../../types/workout';
@@ -26,6 +27,48 @@ import type { UserProfile } from '../../types/profile';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.25;
+
+const MAX_EOD_CARDS = 7;
+const SKIP_SUPPRESS_THRESHOLD = 10;
+const ESCAPE_CARD_INDEX = 5; // Show after card 5 (0-indexed)
+
+// Priority ordering for EOD tag categories
+const TAG_PRIORITY: Record<string, number> = {
+  sleep: 1,
+  mood: 2,
+  food: 3, water: 3, caffeine: 3,
+  workout: 4, strength: 4,
+  weight: 5, body: 5, measurements: 5,
+  supplements: 6,
+};
+
+function getTagPriority(tagId: string): number {
+  const lower = tagId.toLowerCase();
+  for (const [key, priority] of Object.entries(TAG_PRIORITY)) {
+    if (lower.includes(key)) return priority;
+  }
+  return 7; // default — "other"
+}
+
+function sortByPriority(tags: string[]): string[] {
+  return [...tags].sort((a, b) => getTagPriority(a) - getTagPriority(b));
+}
+
+async function getSkipCounts(): Promise<Record<string, number>> {
+  return (await storageGet<Record<string, number>>(STORAGE_KEYS.EOD_SKIP_COUNTS)) ?? {};
+}
+
+async function incrementSkipCount(tagId: string): Promise<void> {
+  const counts = await getSkipCounts();
+  counts[tagId] = (counts[tagId] ?? 0) + 1;
+  await storageSet(STORAGE_KEYS.EOD_SKIP_COUNTS, counts);
+}
+
+async function resetSkipCount(tagId: string): Promise<void> {
+  const counts = await getSkipCounts();
+  counts[tagId] = 0;
+  await storageSet(STORAGE_KEYS.EOD_SKIP_COUNTS, counts);
+}
 
 // MASTER-58: Generate a template-based EOD summary without AI
 async function generateTemplateSummary(dateOverride?: string): Promise<string> {
@@ -111,12 +154,26 @@ export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh, date }: E
   const [summary, setSummary] = useState<string | null>(null);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [showingSummary, setShowingSummary] = useState(false);
+  const [showEscape, setShowEscape] = useState(false);
+  const [cappedTags, setCappedTags] = useState<string[]>([]);
   const translateX = useRef(new Animated.Value(0)).current;
 
   const todayStr = date ?? getActiveDate();
 
-  // Total cards = unlogged tags + 1 summary card
-  const totalCards = unloggedTags.length + 1;
+  // Filter suppressed tags, sort by priority, cap to MAX_EOD_CARDS
+  useEffect(() => {
+    (async () => {
+      const skipCounts = await getSkipCounts();
+      const filtered = unloggedTags.filter(
+        (tag) => (skipCounts[tag] ?? 0) < SKIP_SUPPRESS_THRESHOLD,
+      );
+      const sorted = sortByPriority(filtered);
+      setCappedTags(sorted.slice(0, MAX_EOD_CARDS));
+    })();
+  }, [unloggedTags]);
+
+  // Total cards = capped tags + 1 summary card
+  const totalCards = cappedTags.length + 1;
 
   // Animate card transition
   const animateToNext = useCallback(() => {
@@ -128,13 +185,18 @@ export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh, date }: E
       translateX.setValue(0);
       setCurrentIndex((prev) => {
         const next = prev + 1;
-        if (next >= unloggedTags.length) {
+        // Show escape card after the 5th tag (index 4 -> 5)
+        if (next === ESCAPE_CARD_INDEX && cappedTags.length > ESCAPE_CARD_INDEX) {
+          setShowEscape(true);
+          return prev; // Don't advance yet — show escape card first
+        }
+        if (next >= cappedTags.length) {
           setShowingSummary(true);
         }
         return next;
       });
     });
-  }, [translateX, unloggedTags.length]);
+  }, [translateX, cappedTags.length]);
 
   const animateToPrev = useCallback(() => {
     if (currentIndex <= 0) return;
@@ -162,6 +224,7 @@ export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh, date }: E
       onPanResponderRelease: (_, gesture) => {
         if (gesture.dx < -SWIPE_THRESHOLD) {
           // Swipe left -> next
+          hapticLight();
           animateToNext();
         } else if (gesture.dx > SWIPE_THRESHOLD && currentIndex > 0) {
           // Swipe right -> prev
@@ -237,6 +300,7 @@ export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh, date }: E
   const handleComplete = useCallback(
     (tagId: string) => {
       setCompletedTags((prev) => new Set(prev).add(tagId));
+      resetSkipCount(tagId);
       onRefresh();
       // Auto-advance after a brief pause
       setTimeout(() => animateToNext(), 300);
@@ -247,10 +311,27 @@ export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh, date }: E
   const handleSkip = useCallback(
     (tagId: string) => {
       setSkippedTags((prev) => new Set(prev).add(tagId));
+      incrementSkipCount(tagId);
       animateToNext();
     },
     [animateToNext],
   );
+
+  // Escape card: "Done for Today" — skip all remaining tags
+  const handleDoneForToday = useCallback(() => {
+    const remaining = cappedTags.slice(currentIndex);
+    for (const tag of remaining) {
+      incrementSkipCount(tag);
+    }
+    onRefresh();
+    onDismiss();
+  }, [cappedTags, currentIndex, onRefresh, onDismiss]);
+
+  // Escape card: "Continue" — dismiss escape and proceed
+  const handleContinuePastEscape = useCallback(() => {
+    setShowEscape(false);
+    setCurrentIndex((prev) => prev + 1);
+  }, []);
 
   const handleDismiss = useCallback(() => {
     onRefresh();
@@ -282,7 +363,27 @@ export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh, date }: E
         style={[styles.cardArea, { transform: [{ translateX }] }]}
         {...panResponder.panHandlers}
       >
-        {showingSummary || currentIndex >= unloggedTags.length ? (
+        {showEscape ? (
+          <View style={styles.escapeCard}>
+            <Ionicons name="moon-outline" size={40} color={Colors.accent} />
+            <Text style={styles.escapeTitle}>Want to wrap up?</Text>
+            <Text style={styles.escapeSubtitle}>You can log these tomorrow.</Text>
+            <View style={styles.escapeButtons}>
+              <TouchableOpacity
+                style={styles.escapeBtnSecondary}
+                onPress={handleContinuePastEscape}
+              >
+                <Text style={styles.escapeBtnSecondaryText}>Continue</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.escapeBtnPrimary}
+                onPress={handleDoneForToday}
+              >
+                <Text style={styles.escapeBtnPrimaryText}>Done for Today</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : showingSummary || currentIndex >= cappedTags.length ? (
           <SummaryCard
             summary={summary}
             loading={summaryLoading}
@@ -290,7 +391,7 @@ export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh, date }: E
           />
         ) : (
           <NotificationCard
-            tagId={unloggedTags[currentIndex]}
+            tagId={cappedTags[currentIndex]}
             todayStr={todayStr}
             onComplete={handleComplete}
             onSkip={handleSkip}
@@ -306,10 +407,10 @@ export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh, date }: E
             style={[
               styles.dot,
               i === currentIndex && styles.dotActive,
-              i < currentIndex && completedTags.has(unloggedTags[i])
+              i < currentIndex && completedTags.has(cappedTags[i])
                 ? styles.dotCompleted
                 : undefined,
-              i < currentIndex && skippedTags.has(unloggedTags[i])
+              i < currentIndex && skippedTags.has(cappedTags[i])
                 ? styles.dotSkipped
                 : undefined,
             ]}
@@ -318,7 +419,7 @@ export function EODQuestionnaire({ unloggedTags, onDismiss, onRefresh, date }: E
       </View>
 
       {/* Swipe hint */}
-      {currentIndex === 0 && unloggedTags.length > 1 && (
+      {currentIndex === 0 && cappedTags.length > 1 && (
         <Text style={styles.swipeHint}>Swipe left to skip, or use the buttons above</Text>
       )}
     </View>
@@ -399,5 +500,55 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     paddingBottom: 24,
+  },
+
+  // Escape card
+  escapeCard: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 32,
+    gap: 12,
+  },
+  escapeTitle: {
+    color: Colors.text,
+    fontSize: 20,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginTop: 8,
+  },
+  escapeSubtitle: {
+    color: Colors.secondaryText,
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  escapeButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  escapeBtnSecondary: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    alignItems: 'center',
+  },
+  escapeBtnSecondaryText: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '500',
+  },
+  escapeBtnPrimary: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 10,
+    backgroundColor: Colors.accent,
+    alignItems: 'center',
+  },
+  escapeBtnPrimaryText: {
+    color: Colors.primaryBackground,
+    fontSize: 15,
+    fontWeight: '600',
   },
 });

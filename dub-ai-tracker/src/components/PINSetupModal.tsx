@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
+import { hapticLight } from '../utils/haptics';
 import { setPIN } from '../services/authService';
 
 interface PINSetupModalProps {
@@ -60,6 +61,7 @@ export function PINSetupModal({
       if (error) return;
 
       const next = pin + digit;
+      hapticLight();
       setPin(next);
 
       if (next.length === 4) {

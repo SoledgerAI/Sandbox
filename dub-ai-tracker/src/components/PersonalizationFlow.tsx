@@ -53,7 +53,7 @@ if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 
-const TOTAL_STEPS = 9;
+const TOTAL_STEPS = 11; // +1 value prop, +1 summary
 const CONSENT_VERSION = '1.0';
 
 // ── Activity Level Options ──
@@ -169,14 +169,16 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
 
   // ── Step Validations ──
 
-  function validateStep1(): boolean {
+  // Step 2 validation (Consent + Name + Pronouns — was Step 1)
+  function validateStep2(): boolean {
     const newErrors: Record<string, string> = {};
     if (!name.trim()) newErrors.name = 'Name is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
 
-  function validateStep2(): boolean {
+  // Step 3 validation (Biological Sex — was Step 2)
+  function validateStep3(): boolean {
     const newErrors: Record<string, string> = {};
     if (!sex) newErrors.sex = 'Please select your biological sex';
     if (sex === 'intersex' && !metabolicProfile) {
@@ -186,7 +188,8 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
     return Object.keys(newErrors).length === 0;
   }
 
-  function validateStep3(): boolean {
+  // Step 4 validation (Date of Birth — was Step 3)
+  function validateStep4(): boolean {
     const newErrors: Record<string, string> = {};
     if (getAge(dobDate) < 18) {
       newErrors.dob = 'DUB_AI Tracker is designed for adults 18 and older.';
@@ -195,7 +198,8 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
     return Object.keys(newErrors).length === 0;
   }
 
-  function validateStep9(): boolean {
+  // Step 10 validation (Zip Code — was Step 9)
+  function validateStep10(): boolean {
     const newErrors: Record<string, string> = {};
     if (zip.trim() && !/^\d{5}$/.test(zip.trim())) {
       newErrors.zip = 'Please enter a valid 5-digit zip code';
@@ -207,24 +211,30 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
   function handleStepContinue() {
     setErrors({});
     switch (step) {
-      case 1:
-        if (validateStep1()) goForward();
-        break;
-      case 2:
-        if (validateStep2()) goForward();
-        break;
-      case 3:
-        if (validateStep3()) goForward();
-        break;
-      case 4: // Height — always valid (picker constrained)
-      case 5: // Weight — always valid (picker constrained)
-      case 6: // Activity — checked by disabled button
-      case 7: // Goal — checked by disabled button
-      case 8: // Tags — always valid
+      case 1: // Value prop — no validation
         goForward();
         break;
-      case 9:
-        if (validateStep9()) handleFinish();
+      case 2: // Consent + Name + Pronouns
+        if (validateStep2()) goForward();
+        break;
+      case 3: // Biological Sex
+        if (validateStep3()) goForward();
+        break;
+      case 4: // Date of Birth
+        if (validateStep4()) goForward();
+        break;
+      case 5: // Height — always valid (picker constrained)
+      case 6: // Weight — always valid (picker constrained)
+      case 7: // Activity — checked by disabled button
+      case 8: // Goal — checked by disabled button
+      case 9: // Tags — always valid
+        goForward();
+        break;
+      case 10: // Zip Code
+        if (validateStep10()) goForward();
+        break;
+      case 11: // Summary — finish
+        handleFinish();
         break;
     }
   }
@@ -342,21 +352,23 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
 
   function canContinue(): boolean {
     switch (step) {
-      case 1: return allConsented && !!name.trim();
-      case 2: return !!sex && (sex !== 'intersex' || !!metabolicProfile);
-      case 3: return true; // DOB picker always has a value
-      case 4: return true; // Height picker always has a value
-      case 5: return true; // Weight picker always has a value
-      case 6: return !!activityLevel;
-      case 7: return !!mainGoal;
-      case 8: return true; // Tags can be empty (user chooses)
-      case 9: return true; // Zip is optional
+      case 1: return true; // Value prop — always can proceed
+      case 2: return allConsented && !!name.trim();
+      case 3: return !!sex && (sex !== 'intersex' || !!metabolicProfile);
+      case 4: return true; // DOB picker always has a value
+      case 5: return true; // Height picker always has a value
+      case 6: return true; // Weight picker always has a value
+      case 7: return !!activityLevel;
+      case 8: return !!mainGoal;
+      case 9: return true; // Tags can be empty (user chooses)
+      case 10: return true; // Zip is optional
+      case 11: return true; // Summary — always can finish
       default: return false;
     }
   }
 
   const isLastStep = step === TOTAL_STEPS;
-  const buttonTitle = isLastStep ? 'Start Tracking' : 'Continue';
+  const buttonTitle = isLastStep ? 'Start Tracking' : step === 1 ? 'Get Started' : 'Continue';
 
   return (
     <View style={styles.container}>
@@ -374,6 +386,9 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
 
       <View style={styles.screen}>
         {step === 1 && (
+          <StepValueProp />
+        )}
+        {step === 2 && (
           <Step1Consent
             name={name}
             onNameChange={setName}
@@ -389,7 +404,7 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
             errors={errors}
           />
         )}
-        {step === 2 && (
+        {step === 3 && (
           <Step2Sex
             sex={sex}
             onSexSelect={setSex}
@@ -398,14 +413,14 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
             errors={errors}
           />
         )}
-        {step === 3 && (
+        {step === 4 && (
           <Step3DOB
             dobDate={dobDate}
             onDobChange={setDobDate}
             errors={errors}
           />
         )}
-        {step === 4 && (
+        {step === 5 && (
           <Step4Height
             feet={heightFeet}
             inches={heightInches}
@@ -417,7 +432,7 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
             onCmChange={setHeightCm}
           />
         )}
-        {step === 5 && (
+        {step === 6 && (
           <Step5Weight
             lbs={weightLbs}
             onLbsChange={setWeightLbs}
@@ -427,29 +442,53 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
             onKgChange={setWeightKg}
           />
         )}
-        {step === 6 && (
+        {step === 7 && (
           <Step6Activity
             selected={activityLevel}
             onSelect={setActivityLevel}
           />
         )}
-        {step === 7 && (
+        {step === 8 && (
           <Step7Goal
             selected={mainGoal}
             onSelect={setMainGoal}
           />
         )}
-        {step === 8 && (
+        {step === 9 && (
           <Step8Tags
             enabledTags={enabledTags}
             onToggle={handleTagToggle}
           />
         )}
-        {step === 9 && (
+        {step === 10 && (
           <Step9Zip
             zip={zip}
             onZipChange={setZip}
             errors={errors}
+          />
+        )}
+        {step === 11 && (
+          <StepSummary
+            name={name}
+            pronouns={pronouns}
+            sex={sex}
+            dobDate={dobDate}
+            heightFeet={heightFeet}
+            heightInches={heightInches}
+            heightUnitMetric={heightUnitMetric}
+            heightCm={heightCm}
+            weightLbs={weightLbs}
+            weightUnitMetric={weightUnitMetric}
+            weightKg={weightKg}
+            activityLevel={activityLevel}
+            mainGoal={mainGoal}
+            enabledTags={enabledTags}
+            zip={zip}
+            onEditStep={(s) => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setStep(s);
+            }}
+            getAge={getAge}
           />
         )}
       </View>
@@ -461,6 +500,44 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
           disabled={!canContinue()}
           loading={isLastStep && saving}
         />
+      </View>
+    </View>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// Value Prop Screen (Fix 3)
+// ════════════════════════════════════════════════════
+
+const VALUE_PROP_FEATURES: { icon: string; text: string }[] = [
+  { icon: 'analytics-outline', text: 'Track nutrition, fitness, sleep, and mood in one place' },
+  { icon: 'chatbubble-ellipses-outline', text: 'AI-powered insights from Coach DUB' },
+  { icon: 'shield-checkmark-outline', text: 'Your data stays on your device' },
+  { icon: 'timer-outline', text: 'About 2 minutes to set up' },
+];
+
+function StepValueProp() {
+  return (
+    <View style={[styles.scrollContent, { flex: 1, justifyContent: 'center' }]}>
+      <Text style={[styles.screenTitle, { fontSize: 32, textAlign: 'center' }]}>
+        Welcome to DUB
+      </Text>
+      <Text style={[styles.screenSubtitle, { textAlign: 'center', marginBottom: 32 }]}>
+        Your complete health dashboard
+      </Text>
+
+      <View style={{ gap: 16 }}>
+        {VALUE_PROP_FEATURES.map((feat) => (
+          <View key={feat.text} style={styles.valuePropRow}>
+            <Ionicons
+              name={feat.icon as any}
+              size={24}
+              color={Colors.accent}
+              style={{ marginRight: 14 }}
+            />
+            <Text style={styles.valuePropText}>{feat.text}</Text>
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -502,9 +579,9 @@ function Step1Consent({
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.screenTitle}>Welcome to DUB_AI</Text>
+        <Text style={styles.screenTitle}>Let's Set Up Your Profile</Text>
         <Text style={styles.screenSubtitle}>
-          Let's get you started. This takes about 2 minutes.
+          We need a few details to personalize your experience.
         </Text>
 
         {/* Consent */}
@@ -1065,6 +1142,88 @@ function Step9Zip({
 }
 
 // ════════════════════════════════════════════════════
+// Summary Screen (Fix 2)
+// ════════════════════════════════════════════════════
+
+function StepSummary({
+  name, pronouns, sex, dobDate,
+  heightFeet, heightInches, heightUnitMetric, heightCm,
+  weightLbs, weightUnitMetric, weightKg,
+  activityLevel, mainGoal, enabledTags, zip,
+  onEditStep, getAge,
+}: {
+  name: string;
+  pronouns: Pronouns | null;
+  sex: BiologicalSex | null;
+  dobDate: Date;
+  heightFeet: number;
+  heightInches: number;
+  heightUnitMetric: boolean;
+  heightCm: number;
+  weightLbs: number;
+  weightUnitMetric: boolean;
+  weightKg: number;
+  activityLevel: ActivityLevel | null;
+  mainGoal: MainGoal | null;
+  enabledTags: string[];
+  zip: string;
+  onEditStep: (step: number) => void;
+  getAge: (d: Date) => number;
+}) {
+  const pronounLabel = PRONOUN_OPTIONS.find((p) => p.value === pronouns)?.label ?? 'Not set';
+  const sexLabel = SEX_OPTIONS.find((s) => s.value === sex)?.label ?? 'Not set';
+  const age = getAge(dobDate);
+  const dobFormatted = `${dobDate.getMonth() + 1}/${dobDate.getDate()}/${dobDate.getFullYear()}`;
+  const heightDisplay = heightUnitMetric ? `${heightCm} cm` : `${heightFeet}'${heightInches}"`;
+  const weightDisplay = weightUnitMetric ? `${weightKg} kg` : `${weightLbs} lbs`;
+  const activityLabel = ACTIVITY_OPTIONS.find((a) => a.value === activityLevel)?.label ?? 'Not set';
+  const goalLabel = GOAL_OPTIONS.find((g) => g.value === mainGoal)?.label ?? 'Not set';
+  const tagCount = enabledTags.length;
+
+  const rows: { label: string; value: string; editStep: number }[] = [
+    { label: 'Name', value: name || 'Not set', editStep: 2 },
+    { label: 'Pronouns', value: pronounLabel, editStep: 2 },
+    { label: 'Biological Sex', value: sexLabel, editStep: 3 },
+    { label: 'Date of Birth', value: `${dobFormatted} (Age: ${age})`, editStep: 4 },
+    { label: 'Height', value: heightDisplay, editStep: 5 },
+    { label: 'Weight', value: weightDisplay, editStep: 6 },
+    { label: 'Activity Level', value: activityLabel, editStep: 7 },
+    { label: 'Goal', value: goalLabel, editStep: 8 },
+    { label: 'Tags', value: `${tagCount} categories enabled`, editStep: 9 },
+    { label: 'Zip Code', value: zip.trim() || 'Not provided', editStep: 10 },
+  ];
+
+  return (
+    <ScrollView
+      contentContainerStyle={styles.scrollContent}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.screenTitle}>Review Your Profile</Text>
+      <Text style={styles.screenSubtitle}>
+        You can change any of these later in Settings.
+      </Text>
+
+      <View style={{ gap: 2, marginTop: 8 }}>
+        {rows.map((row) => (
+          <TouchableOpacity
+            key={row.label}
+            style={styles.summaryRow}
+            onPress={() => onEditStep(row.editStep)}
+            activeOpacity={0.7}
+          >
+            <View style={{ flex: 1 }}>
+              <Text style={styles.summaryLabel}>{row.label}</Text>
+              <Text style={styles.summaryValue}>{row.value}</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+          </TouchableOpacity>
+        ))}
+      </View>
+    </ScrollView>
+  );
+}
+
+// ════════════════════════════════════════════════════
 // Inline Checkbox
 // ════════════════════════════════════════════════════
 
@@ -1345,5 +1504,40 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: 20,
     height: 180,
+  },
+
+  // Value Prop
+  valuePropRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  valuePropText: {
+    color: Colors.text,
+    fontSize: 16,
+    lineHeight: 22,
+    flex: 1,
+  },
+
+  // Summary
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    marginBottom: 2,
+  },
+  summaryValue: {
+    color: Colors.accentText,
+    fontSize: 15,
+    fontWeight: '500',
   },
 });

@@ -2,6 +2,7 @@
 // Phase 7: Food Logging -- Barcode and Additional APIs
 
 import { useState, useCallback } from 'react';
+import { hapticSuccess } from '../../utils/haptics';
 import {
   StyleSheet,
   Text,
@@ -38,6 +39,7 @@ export function BarcodeScanner({ onFoodFound, onNotFound, onCancel }: BarcodeSca
       try {
         const result = await barcodeLookup(data);
         if (result.items.length > 0) {
+          hapticSuccess();
           onFoodFound(result.items[0]);
         } else {
           onNotFound(data);

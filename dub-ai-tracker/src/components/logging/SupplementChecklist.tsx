@@ -2,6 +2,7 @@
 // Phase 13 + Task F: Prompt 07 v2
 
 import { useState, useEffect, useCallback } from 'react';
+import { hapticLight } from '../../utils/haptics';
 import {
   StyleSheet,
   Text,
@@ -168,6 +169,7 @@ export function SupplementChecklist() {
   // F2: Tap checked supplement = add another dose. Long-press = remove all.
   const toggleItem = useCallback(
     async (name: string, cat: SupplementCategory) => {
+      hapticLight();
       const matchingEntries = entries.filter(
         (e) => e.name === name && e.category === cat && e.taken,
       );

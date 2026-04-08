@@ -114,6 +114,9 @@ export const STORAGE_KEYS = {
 
   // Photos
   PHOTOS_PROGRESS: 'dub.photos.progress',
+
+  // EOD skip counts (adaptive suppression)
+  EOD_SKIP_COUNTS: 'dub.eod.skip_counts',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

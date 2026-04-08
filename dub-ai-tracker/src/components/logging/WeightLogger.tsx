@@ -2,6 +2,7 @@
 // Phase 9: Body Metrics and Weight Tracking
 
 import { useState, useEffect, useCallback } from 'react';
+import { hapticSuccess } from '../../utils/haptics';
 import {
   StyleSheet,
   Text,
@@ -93,6 +94,7 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
     await saveAsLast(entry);
     setTodayEntry(entry);
     setWeightInput('');
+    hapticSuccess();
     onEntryLogged?.();
   }, [weightInput, units, unitLabel, onEntryLogged, saveAsLast]);
 

@@ -2,6 +2,7 @@
 // Phase 10: Sleep and Mood Logging
 
 import { useState, useEffect, useCallback } from 'react';
+import { hapticSelection } from '../../utils/haptics';
 import {
   StyleSheet,
   Text,
@@ -140,7 +141,7 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
               styles.scaleBtn,
               score === n && { backgroundColor: stressColor(n), borderColor: stressColor(n) },
             ]}
-            onPress={() => setScore(n)}
+            onPress={() => { hapticSelection(); setScore(n); }}
             accessibilityLabel={`Stress level ${n} out of 10`}
             accessibilityRole="radio"
           >
@@ -156,7 +157,7 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
               styles.scaleBtn,
               score === n && { backgroundColor: stressColor(n), borderColor: stressColor(n) },
             ]}
-            onPress={() => setScore(n)}
+            onPress={() => { hapticSelection(); setScore(n); }}
             accessibilityLabel={`Stress level ${n} out of 10`}
             accessibilityRole="radio"
           >

@@ -5,6 +5,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Animated,
   AppState,
   AppStateStatus,
@@ -15,6 +16,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../constants/colors';
+import { hapticLight, hapticError, hapticSuccess, hapticWarning } from '../utils/haptics';
+import { PINSetupModal } from './PINSetupModal';
 import {
   isLockEnabled,
   getAuthMethod,
@@ -44,6 +47,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const [pinError, setPinError] = useState(false);
   const [failCount, setFailCount] = useState(0);
   const [lockoutRemaining, setLockoutRemaining] = useState(0);
+  const [showPinReset, setShowPinReset] = useState(false);
 
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const lockEnabledRef = useRef(false);
@@ -171,6 +175,7 @@ export function AuthGate({ children }: AuthGateProps) {
   const handleBiometric = useCallback(async () => {
     const success = await authenticateBiometric();
     if (success) {
+      hapticSuccess();
       setState('unlocked');
     }
   }, []);
@@ -181,6 +186,7 @@ export function AuthGate({ children }: AuthGateProps) {
       if (pinError) return;
 
       const next = pin + digit;
+      hapticLight();
       setPin(next);
 
       if (next.length === 4) {
@@ -192,6 +198,7 @@ export function AuthGate({ children }: AuthGateProps) {
             setPin('');
             setFailCount(0);
           } else {
+            hapticError();
             setPinError(true);
             triggerShake();
             const newCount = failCount + 1;
@@ -216,6 +223,39 @@ export function AuthGate({ children }: AuthGateProps) {
     if (pinError || lockoutRemaining > 0) return;
     setPin((prev) => prev.slice(0, -1));
   }, [pinError, lockoutRemaining]);
+
+  const handleForgotPIN = useCallback(async () => {
+    hapticWarning();
+    const bio = await isBiometricAvailable();
+    if (bio.available) {
+      Alert.alert(
+        `Reset PIN with ${bio.biometryType}?`,
+        `You can use ${bio.biometryType} to verify your identity and set a new PIN.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: `Use ${bio.biometryType}`,
+            onPress: async () => {
+              const success = await authenticateBiometric();
+              if (success) {
+                hapticSuccess();
+                setShowPinReset(true);
+              } else {
+                hapticError();
+                Alert.alert('Verification Failed', 'Biometric verification was not successful. Please try again.');
+              }
+            },
+          },
+        ],
+      );
+    } else {
+      Alert.alert(
+        'Cannot Reset PIN',
+        'Without Face ID or Touch ID, there is no way to verify your identity. If you cannot remember your PIN, you will need to delete and reinstall the app. Warning: all local data will be lost.',
+        [{ text: 'OK' }],
+      );
+    }
+  }, []);
 
   // ---- RENDER ----
   // FORENSIC FIX: Children ALWAYS render so the Stack/Expo Router can
@@ -308,6 +348,14 @@ export function AuthGate({ children }: AuthGateProps) {
                   <Text style={styles.switchText}>Use {biometryType} instead</Text>
                 </TouchableOpacity>
               )}
+
+              {/* Forgot PIN? */}
+              <TouchableOpacity
+                style={styles.forgotPinLink}
+                onPress={handleForgotPIN}
+              >
+                <Text style={styles.forgotPinText}>Forgot PIN?</Text>
+              </TouchableOpacity>
             </>
           )}
 
@@ -339,6 +387,19 @@ export function AuthGate({ children }: AuthGateProps) {
           )}
         </View>
       )}
+
+      {/* PIN Reset Modal — triggered by Forgot PIN? + biometric verification */}
+      <PINSetupModal
+        visible={showPinReset}
+        onClose={() => setShowPinReset(false)}
+        onSuccess={() => {
+          setShowPinReset(false);
+          setPin('');
+          setFailCount(0);
+          setLockoutRemaining(0);
+          Alert.alert('PIN Updated', 'Your new PIN has been set. Please enter it to unlock.');
+        }}
+      />
     </>
   );
 }
@@ -430,5 +491,16 @@ const styles = StyleSheet.create({
   switchText: {
     color: Colors.accentText,
     fontSize: 15,
+  },
+  forgotPinLink: {
+    marginTop: 16,
+    padding: 12,
+    minHeight: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  forgotPinText: {
+    color: Colors.secondaryText,
+    fontSize: 14,
   },
 });

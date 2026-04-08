@@ -2,6 +2,7 @@
 // Phase 8 + Task E: Prompt 07 v2
 
 import { useState, useEffect, useCallback } from 'react';
+import { hapticLight, hapticSuccess } from '../../utils/haptics';
 import {
   StyleSheet,
   Text,
@@ -107,9 +108,16 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
       await storageSet(key, updated);
       await saveLastWater(entry);
       setEntries(updated);
+      // Check if goal reached with this entry
+      const newTotal = updated.reduce((sum, e) => sum + e.amount_oz, 0);
+      if (newTotal >= waterGoal && totalOz < waterGoal) {
+        hapticSuccess();
+      } else {
+        hapticLight();
+      }
       onEntryLogged?.();
     },
-    [entries, onEntryLogged, selectedBeverage, saveLastWater, timestamp],
+    [entries, onEntryLogged, selectedBeverage, saveLastWater, timestamp, waterGoal, totalOz],
   );
 
   const logCustom = useCallback(() => {

@@ -18,6 +18,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { hapticSelection, hapticWarning } from '../../src/utils/haptics';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import type { AppSettings } from '../../src/types/profile';
 import { isApiKeySet as checkHasApiKey } from '../../src/services/apiKeyService';
@@ -277,6 +278,7 @@ export default function SettingsScreen() {
   }, []);
 
   const handleResetOnboarding = useCallback(() => {
+    hapticWarning();
     Alert.alert(
       'Reset Onboarding',
       'This will show the onboarding questionnaire again on next app launch. Continue?',
@@ -441,7 +443,7 @@ export default function SettingsScreen() {
                 </View>
                 <Switch
                   value={lockEnabled}
-                  onValueChange={handleToggleLock}
+                  onValueChange={(v) => { hapticSelection(); handleToggleLock(v); }}
                   trackColor={{ false: Colors.divider, true: Colors.accent }}
                   thumbColor="#FFFFFF"
                 />
@@ -638,7 +640,7 @@ export default function SettingsScreen() {
                 </View>
                 <Switch
                   value={fastingEnabled}
-                  onValueChange={handleFastingToggle}
+                  onValueChange={(v) => { hapticSelection(); handleFastingToggle(v); }}
                   trackColor={{ false: Colors.divider, true: Colors.accent }}
                   thumbColor={Colors.text}
                 />
@@ -720,7 +722,7 @@ export default function SettingsScreen() {
                 </View>
                 <Switch
                   value={showPopulationComparison}
-                  onValueChange={handlePopulationComparisonToggle}
+                  onValueChange={(v) => { hapticSelection(); handlePopulationComparisonToggle(v); }}
                   disabled={!hasProfileForComparison}
                   trackColor={{ false: Colors.divider, true: Colors.accent }}
                   thumbColor={Colors.text}

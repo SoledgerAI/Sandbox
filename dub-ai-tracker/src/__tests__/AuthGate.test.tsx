@@ -7,6 +7,11 @@ import { AuthGate } from '../components/AuthGate';
 import * as authService from '../services/authService';
 import { Text } from 'react-native';
 
+// Mock PINSetupModal to avoid Modal rendering issues in test
+jest.mock('../components/PINSetupModal', () => ({
+  PINSetupModal: () => null,
+}));
+
 // Mock authService
 jest.mock('../services/authService');
 

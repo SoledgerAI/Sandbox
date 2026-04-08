@@ -78,6 +78,17 @@ jest.mock('expo-crypto', () => ({
 }));
 
 // ============================================================
+// expo-haptics
+// ============================================================
+jest.mock('expo-haptics', () => ({
+  impactAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  ImpactFeedbackStyle: { Light: 'Light', Medium: 'Medium', Heavy: 'Heavy' },
+  NotificationFeedbackType: { Success: 'Success', Error: 'Error', Warning: 'Warning' },
+}));
+
+// ============================================================
 // expo-camera
 // ============================================================
 jest.mock('expo-camera', () => ({

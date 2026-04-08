@@ -2,6 +2,7 @@
 // Wave 2 P1: Workout Quick-Log + Same As Last Time
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { hapticMedium } from '../../utils/haptics';
 import {
   StyleSheet,
   Text,
@@ -342,6 +343,7 @@ export function StrengthLogger() {
 
   // Add/remove set in detailed mode
   const addDetailedSet = useCallback(() => {
+    hapticMedium();
     setDetailedForm((prev) => ({
       ...prev,
       sets: [...prev.sets, { weight: '', reps: '', rpe: '' }],
