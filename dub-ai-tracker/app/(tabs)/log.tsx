@@ -4,8 +4,9 @@
 // MASTER-49: Shows today's activity across ALL enabled tags, not just food
 // P1-02: Date selector, search, favorites, category grouping, repeat last entry
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useScrollToTop } from '@react-navigation/native';
 import {
   StyleSheet,
   Text,
@@ -20,6 +21,8 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { Spacing } from '../../src/constants/spacing';
+import { FontSize, FontWeight } from '../../src/constants/typography';
 import {
   storageGet,
   storageSet,
@@ -160,6 +163,9 @@ interface RecentEntry {
 // ============================================================
 
 export default function LogScreen() {
+  // Fix 3: Scroll-to-top on tab re-tap
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
   // Deep-link: accept ?date=YYYY-MM-DD from trends tooltip
   const { date: paramDate } = useLocalSearchParams<{ date?: string }>();
 
@@ -539,6 +545,7 @@ export default function LogScreen() {
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
@@ -843,17 +850,17 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryBackground,
   },
   content: {
-    padding: 16,
-    paddingTop: 60,
-    paddingBottom: 32,
+    padding: Spacing.lg,
+    paddingTop: Spacing.jumbo,
+    paddingBottom: Spacing.xxl,
   },
   header: {
-    marginBottom: 12,
+    marginBottom: Spacing.md,
   },
   title: {
     color: Colors.text,
-    fontSize: 26,
-    fontWeight: 'bold',
+    fontSize: FontSize['2xl'],
+    fontWeight: FontWeight.bold,
   },
 
   // Date Selector

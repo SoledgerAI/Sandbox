@@ -24,3 +24,29 @@ export const Colors = {
 } as const;
 
 export type ColorKey = keyof typeof Colors;
+
+export const HealthColors = {
+  // Blood pressure
+  bpNormal: '#4CAF50',
+  bpElevated: '#FFC107',
+  bpStage1: '#FF9800',
+  bpStage2: '#EF5350',
+
+  // Glucose
+  glucoseNormal: '#4CAF50',
+  glucosePreDiabetic: '#FFC107',
+  glucoseDiabetic: '#F44336',
+
+  // Bristol Scale
+  bristolType1: '#8D6E63',
+  bristolType2: '#A1887F',
+  bristolNormal: '#4CAF50',
+  bristolType6: '#FF9800',
+  bristolType7: '#F44336',
+
+  // Cycle phases
+  cycleMenstrual: '#E8A0A0',
+  cycleFollicular: '#E07070',
+  cycleOvulation: '#D04040',
+  cycleLuteal: '#7E57C2',
+} as const;

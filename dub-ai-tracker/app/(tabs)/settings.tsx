@@ -2,8 +2,9 @@
 // Phase 17: Settings and Profile Management
 // Per Phase 17 spec: navigation hub to sub-screens
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
+import { useScrollToTop } from '@react-navigation/native';
 import {
   Alert,
   ScrollView,
@@ -13,11 +14,13 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { Spacing } from '../../src/constants/spacing';
+import { FontSize, FontWeight } from '../../src/constants/typography';
+import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
 import { hapticSelection, hapticWarning } from '../../src/utils/haptics';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import type { AppSettings } from '../../src/types/profile';
@@ -58,6 +61,10 @@ interface SettingsItem {
 }
 
 export default function SettingsScreen() {
+  // Fix 3: Scroll-to-top on tab re-tap
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
+
   const [loading, setLoading] = useState(true);
   const [profileName, setProfileName] = useState('');
   const [tier, setTier] = useState<string>('');
@@ -403,11 +410,11 @@ export default function SettingsScreen() {
   ];
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content}>
       <Text style={styles.title}>Settings</Text>
 
       {loading ? (
-        <ActivityIndicator color={Colors.accent} style={styles.loader} />
+        <View style={styles.loader}><LoadingIndicator /></View>
       ) : (
         <>
           {/* Profile Card */}
@@ -834,12 +841,12 @@ function ZipInputRow({ currentZip, onSave }: { currentZip: string | null; onSave
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.primaryBackground },
-  content: { padding: 16, paddingTop: 60, paddingBottom: 40 },
+  content: { padding: Spacing.lg, paddingTop: Spacing.jumbo, paddingBottom: Spacing.xxxl },
   title: {
     color: Colors.text,
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 24,
+    fontSize: FontSize['3xl'],
+    fontWeight: FontWeight.bold,
+    marginBottom: Spacing.xl,
   },
   loader: { paddingVertical: 40 },
   profileCard: {
@@ -865,7 +872,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   profileInfo: { flex: 1 },
-  profileName: { color: Colors.text, fontSize: 17, fontWeight: '600' },
+  profileName: { color: Colors.text, fontSize: FontSize.md, fontWeight: FontWeight.semibold },
   profileTier: { color: Colors.secondaryText, fontSize: 13, marginTop: 2 },
   sectionGroup: { marginBottom: 20 },
   sectionHeader: {
@@ -882,11 +889,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.cardBackground,
     borderRadius: 10,
-    padding: 14,
-    gap: 12,
+    padding: Spacing.lg,
+    gap: Spacing.md,
   },
   settingInfo: { flex: 1 },
-  settingLabel: { color: Colors.text, fontSize: 15, fontWeight: '500' },
+  settingLabel: { color: Colors.text, fontSize: FontSize.base, fontWeight: FontWeight.medium },
   settingSubtitle: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
   badge: {
     backgroundColor: Colors.accent,

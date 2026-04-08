@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useToast } from '../../src/contexts/ToastContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { TasteProfile } from '../../src/components/coach/TasteProfile';
@@ -24,6 +25,7 @@ import {
 import type { TasteProfile as TasteProfileType } from '../../src/ai/recipe_engine';
 
 export default function TasteScreen() {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<TasteProfileType>(DEFAULT_TASTE_PROFILE);
@@ -53,9 +55,8 @@ export default function TasteScreen() {
     try {
       await saveTasteProfile(profile);
       setOriginal(profile);
-      Alert.alert('Saved', 'Your taste profile has been updated. Recipe recommendations will reflect your preferences.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+      showToast('Taste profile saved', 'success');
+      router.back();
     } catch {
       Alert.alert('Error', 'Failed to save taste profile. Please try again.');
     } finally {

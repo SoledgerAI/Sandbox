@@ -2,11 +2,15 @@
 // Phase 5: Dashboard Layout
 // P1-08: Deferred setup cards (Days 1-4 after onboarding)
 
-import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View, ScrollView, ActivityIndicator, TouchableOpacity, Pressable } from 'react-native';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Pressable } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
+import { useScrollToTop } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { Spacing } from '../../src/constants/spacing';
+import { FontSize, FontWeight } from '../../src/constants/typography';
+import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
 import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
 import type { AppSettings } from '../../src/types/profile';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
@@ -64,6 +68,10 @@ export default function DashboardScreen() {
   const [hideCalories, setHideCalories] = useState(false);
   const [showScoreInfo, setShowScoreInfo] = useState(false);
 
+  // Fix 3: Scroll-to-top on tab re-tap
+  const scrollRef = useRef<ScrollView>(null);
+  useScrollToTop(scrollRef);
+
   // F-02: Refresh all data when tab gains focus
   useFocusEffect(
     useCallback(() => {
@@ -85,7 +93,7 @@ export default function DashboardScreen() {
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator color={Colors.accent} size="large" />
+        <LoadingIndicator size="large" />
       </View>
     );
   }
@@ -100,6 +108,7 @@ export default function DashboardScreen() {
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
@@ -254,12 +263,12 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryBackground,
   },
   content: {
-    padding: 16,
-    paddingTop: 60,
-    paddingBottom: 32,
+    padding: Spacing.lg,
+    paddingTop: Spacing.jumbo,
+    paddingBottom: Spacing.xxl,
   },
   header: {
-    marginBottom: 24,
+    marginBottom: Spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
   },
@@ -282,8 +291,8 @@ const styles = StyleSheet.create({
   },
   greeting: {
     color: Colors.text,
-    fontSize: 26,
-    fontWeight: 'bold',
+    fontSize: FontSize['2xl'],
+    fontWeight: FontWeight.bold,
     textAlign: 'center',
   },
   date: {
@@ -294,7 +303,7 @@ const styles = StyleSheet.create({
   },
   ringContainer: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: Spacing.xl,
   },
   scoreInfoToggle: {
     flexDirection: 'row',

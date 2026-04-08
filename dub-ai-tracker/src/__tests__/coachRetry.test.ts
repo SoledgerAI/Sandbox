@@ -60,7 +60,7 @@ describe('Coach error card UI', () => {
       'utf-8',
     );
     expect(source).toContain('disabled={sending}');
-    // Shows ActivityIndicator when sending
-    expect(source).toContain('ActivityIndicator');
+    // Shows LoadingIndicator when sending
+    expect(source).toContain('LoadingIndicator');
   });
 });

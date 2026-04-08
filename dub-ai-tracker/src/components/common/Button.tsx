@@ -1,8 +1,9 @@
 // Reusable button component
 // Phase 3: Onboarding Flow
 
-import { StyleSheet, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity } from 'react-native';
 import { Colors } from '../../constants/colors';
+import { LoadingIndicator } from './LoadingIndicator';
 
 interface ButtonProps {
   title: string;
@@ -33,7 +34,7 @@ export function Button({
       activeOpacity={0.7}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'primary' ? Colors.primaryBackground : Colors.accent} />
+        <LoadingIndicator size="small" />
       ) : (
         <Text
           style={[

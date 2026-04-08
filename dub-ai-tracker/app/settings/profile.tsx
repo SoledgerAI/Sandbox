@@ -12,11 +12,12 @@ import {
   Text,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
+import { useToast } from '../../src/contexts/ToastContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
 import { DateTimePicker } from '../../src/components/common/DateTimePicker';
@@ -44,6 +45,7 @@ const SEX_OPTIONS: { value: BiologicalSex; label: string }[] = [
 ];
 
 export default function ProfileScreen() {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -184,15 +186,14 @@ export default function ProfileScreen() {
     }
 
     setSaving(false);
-    Alert.alert('Profile Updated', 'Your profile has been saved.', [
-      { text: 'OK', onPress: () => router.back() },
-    ]);
+    showToast('Profile saved', 'success');
+    router.back();
   }
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator color={Colors.accent} size="large" />
+        <LoadingIndicator size="large" />
       </View>
     );
   }
@@ -488,6 +489,6 @@ const styles = StyleSheet.create({
   toggleBtnActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   toggleBtnText: { color: Colors.secondaryText, fontSize: 13, fontWeight: '600' },
   toggleBtnTextActive: { color: Colors.primaryBackground },
-  errorText: { color: '#FF6B6B', fontSize: 13, marginTop: 4, marginBottom: 8 },
+  errorText: { color: Colors.dangerText, fontSize: 13, marginTop: 4, marginBottom: 8 },
   footer: { marginTop: 8, marginBottom: 32 },
 });

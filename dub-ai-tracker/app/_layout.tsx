@@ -6,7 +6,7 @@
 // - Single init effect: check onboarding, navigate if needed
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { ActivityIndicator, AppState, AppStateStatus, Text, View } from 'react-native';
+import { AppState, AppStateStatus, Text, View } from 'react-native';
 import { Stack, router, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -16,6 +16,8 @@ import { processQueue } from '../src/utils/offline';
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
 import { OfflineBanner } from '../src/components/common/OfflineBanner';
 import { AuthGate } from '../src/components/AuthGate';
+import { LoadingIndicator } from '../src/components/common/LoadingIndicator';
+import { ToastProvider } from '../src/contexts/ToastContext';
 import { isOnboardingComplete } from '../src/services/onboardingService';
 import type { AppSettings } from '../src/types/profile';
 
@@ -157,6 +159,7 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
+      <ToastProvider>
       <AuthGate>
         <StatusBar style="light" />
         <View style={{ flex: 1, backgroundColor: Colors.primaryBackground }}>
@@ -191,7 +194,7 @@ export default function RootLayout() {
                 justifyContent: 'center',
               }}
             >
-              <ActivityIndicator color={Colors.accent} size="large" />
+              <LoadingIndicator size="large" />
             </View>
           )}
 
@@ -218,6 +221,7 @@ export default function RootLayout() {
           )}
         </View>
       </AuthGate>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }

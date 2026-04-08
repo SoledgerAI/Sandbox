@@ -4,6 +4,7 @@
 // Add/remove tags, reorder dashboard cards
 
 import { useState, useEffect, useCallback } from 'react';
+import { useToast } from '../../src/contexts/ToastContext';
 import {
   Alert,
   SafeAreaView,
@@ -27,6 +28,7 @@ import { IngredientFlags } from '../../src/components/logging/IngredientFlags';
 
 export default function TagsScreen() {
   const [loading, setLoading] = useState(true);
+  const { showToast } = useToast();
   const [enabledTags, setEnabledTags] = useState<string[]>([]);
   const [tagOrder, setTagOrder] = useState<string[]>([]);
   const [showIngredientFlags, setShowIngredientFlags] = useState(false);
@@ -90,9 +92,8 @@ export default function TagsScreen() {
   async function handleSave() {
     await storageSet(STORAGE_KEYS.TAGS_ENABLED, enabledTags);
     await storageSet(STORAGE_KEYS.TAGS_ORDER, tagOrder);
-    Alert.alert('Preferences Updated', 'Your tracking preferences have been saved.', [
-      { text: 'OK', onPress: () => router.back() },
-    ]);
+    showToast('Tracking preferences saved', 'success');
+    router.back();
   }
 
   if (showIngredientFlags) {

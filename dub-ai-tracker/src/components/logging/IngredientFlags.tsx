@@ -10,9 +10,10 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useToast } from '../../contexts/ToastContext';
+import { LoadingIndicator } from '../common/LoadingIndicator';
 import { Colors } from '../../constants/colors';
 import {
   DEFAULT_INGREDIENT_FLAGS,
@@ -30,6 +31,7 @@ const DISCLAIMER =
   'Ingredient flags are informational only. DUB_AI does not make health claims about specific ingredients.';
 
 export function IngredientFlags({ onSave, onBack }: IngredientFlagsProps) {
+  const { showToast } = useToast();
   const [loading, setLoading] = useState(true);
   const [flags, setFlags] = useState<IngredientFlag[]>([]);
   const [customName, setCustomName] = useState('');
@@ -90,14 +92,14 @@ export function IngredientFlags({ onSave, onBack }: IngredientFlagsProps) {
 
   async function handleSave() {
     await saveIngredientFlags(flags);
-    Alert.alert('Saved', 'Ingredient flag preferences updated.');
+    showToast('Ingredient flag preferences saved', 'success');
     onSave?.();
   }
 
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator color={Colors.accent} size="large" />
+        <LoadingIndicator size="large" />
       </View>
     );
   }

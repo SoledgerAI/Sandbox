@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Pressable, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { LoadingIndicator } from '../common/LoadingIndicator';
 import { DashboardCard } from './DashboardCard';
 import { useRecovery } from '../../hooks/useRecovery';
 import { storageGet, STORAGE_KEYS } from '../../utils/storage';
@@ -125,7 +126,7 @@ export function RecoveryCard() {
   if (loading) {
     return (
       <DashboardCard title="Recovery">
-        <Text style={styles.loadingText}>Computing...</Text>
+        <LoadingIndicator size="small" label="Computing..." />
       </DashboardCard>
     );
   }

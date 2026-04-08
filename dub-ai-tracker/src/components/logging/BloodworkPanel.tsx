@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useToast } from '../../contexts/ToastContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import {
@@ -126,6 +127,7 @@ const PANEL_CATEGORIES: PanelCategory[] = [
 ];
 
 export function BloodworkPanel() {
+  const { showToast } = useToast();
   const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<BloodworkEntry>('health.markers');
   const [labName, setLabName] = useState('');
   const [notes, setNotes] = useState('');
@@ -197,7 +199,7 @@ export function BloodworkPanel() {
     await storageSet(key, entry);
     await saveAsLast(entry);
     setSavedEntry(entry);
-    Alert.alert('Saved', `${markers.length} marker(s) saved.`);
+    showToast(`${markers.length} marker(s) saved`, 'success');
   }, [markerValues, labName, notes, saveAsLast]);
 
   const setMarkerValue = (name: string, value: string) => {

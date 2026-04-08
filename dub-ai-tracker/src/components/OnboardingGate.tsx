@@ -3,8 +3,9 @@
 // Renders after AuthGate, before main app content
 
 import { useEffect, useState, useCallback } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { Colors } from '../constants/colors';
+import { LoadingIndicator } from './common/LoadingIndicator';
 import { isOnboardingComplete } from '../services/onboardingService';
 import { PersonalizationFlow } from './PersonalizationFlow';
 
@@ -58,7 +59,7 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
   if (checking) {
     return (
       <View style={styles.loading}>
-        <ActivityIndicator color={Colors.accent} size="large" />
+        <LoadingIndicator size="large" />
       </View>
     );
   }

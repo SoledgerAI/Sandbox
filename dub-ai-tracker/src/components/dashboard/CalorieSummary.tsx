@@ -2,8 +2,9 @@
 // Phase 5: Dashboard Layout
 // Redesign: P1 plain-language BMR/TDEE display
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, Pressable } from 'react-native';
+import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { CALORIE_FLOOR_FEMALE, CALORIE_FLOOR_MALE } from '../../constants/formulas';
@@ -56,6 +57,18 @@ export function CalorieSummary({
   const progressPct = calorieTarget > 0
     ? Math.min((consumed / calorieTarget) * 100, 100)
     : 0;
+
+  // Fix 10: Animated progress bar
+  const animatedWidth = useSharedValue(0);
+  useEffect(() => {
+    animatedWidth.value = withTiming(progressPct, {
+      duration: 600,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [progressPct, animatedWidth]);
+  const animatedBarStyle = useAnimatedStyle(() => ({
+    width: `${animatedWidth.value}%` as unknown as number,
+  }));
 
   // Plain-English goal explanation
   const goalExplanation =
@@ -124,7 +137,7 @@ export function CalorieSummary({
 
       {/* Progress bar */}
       {!hideCalories && <View style={styles.progressBarContainer}>
-        <View style={[styles.progressBar, { width: `${progressPct}%` }]} />
+        <Animated.View style={[styles.progressBar, animatedBarStyle]} />
       </View>}
 
       {/* Consumption data */}

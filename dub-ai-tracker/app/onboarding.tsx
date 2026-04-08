@@ -3,7 +3,7 @@
 // Root layout routes here if onboarding is not complete.
 
 import { useCallback, useEffect } from 'react';
-import { View, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { Colors } from '../src/constants/colors';
 import { isOnboardingComplete } from '../src/services/onboardingService';

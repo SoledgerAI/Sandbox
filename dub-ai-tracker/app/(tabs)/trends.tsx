@@ -2,7 +2,7 @@
 // Phase 16: Trends and Charts
 // Per spec: FlatList with getItemLayout, sparkline thumbnails, tap to open detail
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   StyleSheet,
@@ -11,10 +11,11 @@ import {
   FlatList,
   Pressable,
   useWindowDimensions,
-  ActivityIndicator,
 } from 'react-native';
+import { useScrollToTop } from '@react-navigation/native';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
+import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
 import { useTrendsData, TrendDataSet } from '../../src/hooks/useTrendsData';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { useBloodworkSummaries, type BloodworkMarkerSummary } from '../../src/hooks/useBloodworkTrends';
@@ -259,6 +260,9 @@ const TAG_TO_CATEGORY: Record<string, string> = {
 };
 
 export default function TrendsScreen() {
+  // Fix 3: Scroll-to-top on tab re-tap
+  const chartListRef = useRef<FlatList>(null);
+  useScrollToTop(chartListRef);
   const [timeRange, setTimeRange] = useState<TimeRange>('7d');
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>('All');
   const { data: enabledTags } = useStorage<string[]>(STORAGE_KEYS.TAGS_ENABLED, []);
@@ -412,7 +416,7 @@ export default function TrendsScreen() {
       </View>
 
       {/* MASTER-51: Category filter pills */}
-      <View style={styles.categoryFilterRow}>
+      <View style={[styles.categoryFilterRow, loading && { opacity: 0.4, pointerEvents: 'none' as const }]}>
         <FlatList
           horizontal
           data={CATEGORY_FILTERS as unknown as CategoryFilter[]}
@@ -457,7 +461,7 @@ export default function TrendsScreen() {
       {/* Loading */}
       {loading && (
         <View style={styles.loadingContainer}>
-          <ActivityIndicator color={Colors.accent} size="small" />
+          <LoadingIndicator size="small" />
         </View>
       )}
 
@@ -470,6 +474,7 @@ export default function TrendsScreen() {
 
       {/* Chart Grid */}
       <FlatList
+        ref={chartListRef}
         data={chartItems}
         renderItem={renderItem}
         keyExtractor={(item, i) =>

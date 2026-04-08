@@ -13,10 +13,12 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  ActivityIndicator,
 } from 'react-native';
+import { useScrollToTop } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import { FontSize, FontWeight } from '../../src/constants/typography';
+import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
 import { ChatBubble } from '../../src/components/coach/ChatBubble';
 import { SuggestedPrompts } from '../../src/components/coach/SuggestedPrompts';
 import { DataContextBanner } from '../../src/components/coach/DataContextBanner';
@@ -53,6 +55,8 @@ export default function CoachScreen() {
   const [showWizard, setShowWizard] = useState(false);
   const [patterns, setPatterns] = useState<PatternInsight[]>([]);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
+  // Fix 3: Scroll-to-top on tab re-tap
+  useScrollToTop(flatListRef);
   const { summary, calorieTarget } = useDailySummary();
 
   // Check if coach disclaimer and Anthropic consent have been acknowledged
@@ -135,7 +139,7 @@ export default function CoachScreen() {
     if (loading) {
       return (
         <View style={styles.emptyContainer}>
-          <ActivityIndicator color={Colors.accent} size="large" />
+          <LoadingIndicator size="large" />
         </View>
       );
     }
@@ -229,7 +233,7 @@ export default function CoachScreen() {
       <Modal
         visible={showDisclaimer && apiKeyConfigured}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={acknowledgeDisclaimer}
       >
         <View style={styles.modalOverlay}>
@@ -287,7 +291,7 @@ export default function CoachScreen() {
 
       {sending && (
         <View style={styles.typingRow}>
-          <ActivityIndicator size="small" color={Colors.accent} />
+          <LoadingIndicator size="small" />
           <Text style={styles.typingText}>Coach DUB is thinking...</Text>
         </View>
       )}
@@ -306,7 +310,7 @@ export default function CoachScreen() {
               activeOpacity={0.7}
             >
               {sending ? (
-                <ActivityIndicator size="small" color={Colors.primaryBackground} />
+                <LoadingIndicator size="small" />
               ) : (
                 <Text style={styles.retryButtonText}>Tap to Retry</Text>
               )}
@@ -376,8 +380,8 @@ const styles = StyleSheet.create({
   },
   emptyTitle: {
     color: Colors.text,
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: FontSize.xl,
+    fontWeight: FontWeight.bold,
   },
   emptySubtitle: {
     color: Colors.secondaryText,
@@ -447,8 +451,8 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: Colors.text,
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: FontSize.base,
+    fontWeight: FontWeight.semibold,
   },
   inputRow: {
     flexDirection: 'row',
@@ -467,7 +471,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    fontSize: 15,
+    fontSize: FontSize.base,
     maxHeight: 100,
   },
   sendButton: {

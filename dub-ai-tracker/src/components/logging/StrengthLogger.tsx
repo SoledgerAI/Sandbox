@@ -14,6 +14,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { useToast } from '../../contexts/ToastContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import {
@@ -131,6 +132,7 @@ function emptyDetailedForm(numSets: number = 4): DetailedExerciseForm {
 }
 
 export function StrengthLogger() {
+  const { showToast } = useToast();
   const [mode, setMode] = useState<StrengthLogMode>('quick');
   const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [entries, setEntries] = useState<StrengthEntry[]>([]);
@@ -285,7 +287,7 @@ export function StrengthLogger() {
     // Save as last entry for repeat-last
     await saveAsLast(entry);
 
-    Alert.alert('Saved', `${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} logged.`);
+    showToast(`${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} logged`, 'success');
   }, [exercises, entries, mode, saveAsLast]);
 
   // -- Repeat last full session --

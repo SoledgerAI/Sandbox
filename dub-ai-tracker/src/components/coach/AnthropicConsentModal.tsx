@@ -26,7 +26,7 @@ export function AnthropicConsentModal({ visible, onConsent }: AnthropicConsentMo
   const [checked, setChecked] = useState(false);
 
   return (
-    <Modal visible={visible} transparent animationType="fade">
+    <Modal visible={visible} transparent animationType="slide">
       <View style={styles.overlay}>
         <View style={styles.content}>
           <ScrollView showsVerticalScrollIndicator={false}>

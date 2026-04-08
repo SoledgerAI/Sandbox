@@ -12,6 +12,7 @@ import {
 import * as Clipboard from 'expo-clipboard';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
+import { useToast } from '../../contexts/ToastContext';
 import { FontSize } from '../../constants/typography';
 import { scaleRecipe } from '../../ai/recipe_engine';
 import type { Recipe } from '../../ai/recipe_engine';
@@ -23,6 +24,7 @@ interface RecipeCardProps {
 }
 
 export function RecipeCard({ recipe: initialRecipe, onDismiss }: RecipeCardProps) {
+  const { showToast } = useToast();
   const [servings, setServings] = useState(initialRecipe.servings);
   const [expanded, setExpanded] = useState(false);
 
@@ -38,7 +40,7 @@ export function RecipeCard({ recipe: initialRecipe, onDismiss }: RecipeCardProps
     try {
       await openInstacartWithIngredients(recipe.ingredients);
     } catch {
-      Alert.alert('Unable to Open', 'Could not open Instacart. The shopping list has been copied to your clipboard.');
+      showToast('Could not open Instacart. Shopping list copied to clipboard.', 'error');
       const text = buildShoppingListText(recipe.ingredients);
       await Clipboard.setStringAsync(text);
     }
@@ -47,7 +49,7 @@ export function RecipeCard({ recipe: initialRecipe, onDismiss }: RecipeCardProps
   const handleCopyList = useCallback(async () => {
     const text = buildShoppingListText(recipe.ingredients);
     await Clipboard.setStringAsync(text);
-    Alert.alert('Copied', 'Shopping list copied to clipboard.');
+    showToast('Shopping list copied to clipboard', 'success');
   }, [recipe.ingredients]);
 
   const n = recipe.total_nutrition;

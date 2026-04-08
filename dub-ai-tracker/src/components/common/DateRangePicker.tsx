@@ -104,7 +104,7 @@ export function DateRangePicker({
       <Modal
         visible={modalVisible}
         transparent
-        animationType="fade"
+        animationType="slide"
         onRequestClose={() => setModalVisible(false)}
       >
         <Pressable style={styles.overlay} onPress={() => setModalVisible(false)}>

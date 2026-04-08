@@ -1,3 +1,4 @@
+// MIGRATION: New code should use FontSize and FontWeight constants.
 // Typography scale for DUB_AI Tracker
 // Centralizes font size constants to prevent inline magic numbers
 // Based on audit of most common sizes across the codebase
@@ -17,3 +18,11 @@ export const FontSize = {
 } as const;
 
 export type FontSizeKey = keyof typeof FontSize;
+
+export const FontWeight = {
+  regular: '400' as const,
+  medium: '500' as const,
+  semibold: '600' as const,
+  bold: '700' as const,
+  extrabold: '800' as const,
+};
