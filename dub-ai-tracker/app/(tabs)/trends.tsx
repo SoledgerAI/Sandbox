@@ -706,10 +706,6 @@ const styles = StyleSheet.create({
     color: Colors.accentText,
     fontSize: 11,
   },
-  yoyTextMuted: {
-    color: Colors.secondaryText,
-    fontSize: 11,
-  },
   loadingContainer: {
     paddingVertical: 8,
     alignItems: 'center',

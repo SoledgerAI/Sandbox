@@ -29,6 +29,26 @@ import { todayDateString } from '../../utils/dayBoundary';
 import { getActiveDate } from '../../services/dateContextService';
 
 
+const GRATITUDE_PROMPTS = [
+  'What are you grateful for today?',
+  'What made you smile today?',
+  'Who helped you recently?',
+  "What's something small that brought you joy?",
+  "What's a challenge you're grateful you faced?",
+  'What part of your health are you thankful for?',
+  "What's a recent accomplishment you're proud of?",
+  'Who in your life makes it better?',
+  "What's something beautiful you noticed today?",
+  'What opportunity are you grateful for?',
+];
+
+function getDailyPrompt(): string {
+  const dayOfYear = Math.floor(
+    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000,
+  );
+  return GRATITUDE_PROMPTS[dayOfYear % GRATITUDE_PROMPTS.length];
+}
+
 interface GratitudeLoggerProps {
   onEntryLogged?: () => void;
 }
@@ -111,7 +131,7 @@ export function GratitudeLogger({ onEntryLogged }: GratitudeLoggerProps) {
       {/* Prompt */}
       <View style={styles.promptCard}>
         <Ionicons name="heart" size={28} color={Colors.accent} />
-        <Text style={styles.promptText}>What are you grateful for today?</Text>
+        <Text style={styles.promptText}>{getDailyPrompt()}</Text>
         <Text style={styles.promptSub}>Write 1-3 things</Text>
       </View>
 
@@ -119,33 +139,45 @@ export function GratitudeLogger({ onEntryLogged }: GratitudeLoggerProps) {
       <View style={styles.inputGroup}>
         <View style={styles.inputRow}>
           <Text style={styles.inputNum}>1.</Text>
-          <TextInput
-            style={styles.input}
-            value={item1}
-            onChangeText={setItem1}
-            placeholder="I'm grateful for..."
-            placeholderTextColor={Colors.secondaryText}
-          />
+          <View style={{ flex: 1 }}>
+            <TextInput
+              style={styles.input}
+              value={item1}
+              onChangeText={setItem1}
+              placeholder="I'm grateful for..."
+              placeholderTextColor={Colors.secondaryText}
+              maxLength={200}
+            />
+            <Text style={styles.charCount}>{200 - item1.length}/200</Text>
+          </View>
         </View>
         <View style={styles.inputRow}>
           <Text style={styles.inputNum}>2.</Text>
-          <TextInput
-            style={styles.input}
-            value={item2}
-            onChangeText={setItem2}
-            placeholder="I'm grateful for..."
-            placeholderTextColor={Colors.secondaryText}
-          />
+          <View style={{ flex: 1 }}>
+            <TextInput
+              style={styles.input}
+              value={item2}
+              onChangeText={setItem2}
+              placeholder="I'm grateful for..."
+              placeholderTextColor={Colors.secondaryText}
+              maxLength={200}
+            />
+            <Text style={styles.charCount}>{200 - item2.length}/200</Text>
+          </View>
         </View>
         <View style={styles.inputRow}>
           <Text style={styles.inputNum}>3.</Text>
-          <TextInput
-            style={styles.input}
-            value={item3}
-            onChangeText={setItem3}
-            placeholder="I'm grateful for..."
-            placeholderTextColor={Colors.secondaryText}
-          />
+          <View style={{ flex: 1 }}>
+            <TextInput
+              style={styles.input}
+              value={item3}
+              onChangeText={setItem3}
+              placeholder="I'm grateful for..."
+              placeholderTextColor={Colors.secondaryText}
+              maxLength={200}
+            />
+            <Text style={styles.charCount}>{200 - item3.length}/200</Text>
+          </View>
         </View>
       </View>
 
@@ -240,8 +272,13 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     width: 24,
   },
+  charCount: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    textAlign: 'right',
+    marginTop: 2,
+  },
   input: {
-    flex: 1,
     backgroundColor: Colors.inputBackground,
     borderRadius: 10,
     paddingHorizontal: 16,

@@ -208,8 +208,26 @@ export default function LogScreen() {
   // Favorites (pinned tag routes)
   const [favoriteTags, setFavoriteTags] = useState<string[]>([]);
 
-  // Sections
+  // Sections — expand all on first open, then persist per-section state
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Nutrition']));
+  const [sectionsInitialized, setSectionsInitialized] = useState(false);
+
+  useEffect(() => {
+    storageGet<boolean>('dub.log_sections_initialized' as any).then((initialized) => {
+      if (!initialized) {
+        // First open: expand all sections
+        const allTitles = CATEGORY_SECTIONS.map((s) => s.title);
+        setExpandedSections(new Set(allTitles));
+        storageSet('dub.log_sections_initialized' as any, true);
+      } else {
+        // Load persisted expansion state
+        storageGet<string[]>('dub.log_expanded_sections' as any).then((saved) => {
+          if (saved) setExpandedSections(new Set(saved));
+        });
+      }
+      setSectionsInitialized(true);
+    });
+  }, []);
 
   // ED-safe: hide calorie totals
   const [hideCalories, setHideCalories] = useState(false);
@@ -374,6 +392,14 @@ export default function LogScreen() {
     (sum, e) => sum + Math.round(e.computed_nutrition.protein_g),
     0,
   );
+  const totalCarbs = foodEntries.reduce(
+    (sum, e) => sum + Math.round(e.computed_nutrition.carbs_g ?? 0),
+    0,
+  );
+  const totalFat = foodEntries.reduce(
+    (sum, e) => sum + Math.round(e.computed_nutrition.fat_g ?? 0),
+    0,
+  );
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -527,6 +553,8 @@ export default function LogScreen() {
       } else {
         next.add(title);
       }
+      // B3: Persist section state after interaction
+      storageSet('dub.log_expanded_sections' as any, Array.from(next));
       return next;
     });
   }, []);
@@ -693,6 +721,16 @@ export default function LogScreen() {
               <View style={styles.totalItem}>
                 <Text style={styles.totalValue}>{totalProtein}g</Text>
                 <Text style={styles.totalLabel}>protein</Text>
+              </View>
+              <View style={styles.totalDivider} />
+              <View style={styles.totalItem}>
+                <Text style={styles.totalValue}>{totalCarbs}g</Text>
+                <Text style={styles.totalLabel}>carbs</Text>
+              </View>
+              <View style={styles.totalDivider} />
+              <View style={styles.totalItem}>
+                <Text style={styles.totalValue}>{totalFat}g</Text>
+                <Text style={styles.totalLabel}>fat</Text>
               </View>
               <View style={styles.totalDivider} />
               <View style={styles.totalItem}>

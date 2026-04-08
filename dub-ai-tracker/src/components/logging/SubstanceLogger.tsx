@@ -36,6 +36,16 @@ import { getActiveDate } from '../../services/dateContextService';
 
 type SubstanceTab = 'alcohol' | 'cannabis' | 'tobacco';
 
+const TOBACCO_TYPES = [
+  { value: 'cigarette', label: 'Cigarette', icon: 'flame-outline' },
+  { value: 'cigar', label: 'Cigar', icon: 'leaf-outline' },
+  { value: 'pipe', label: 'Pipe', icon: 'funnel-outline' },
+  { value: 'vape', label: 'Vape', icon: 'cloud-outline' },
+  { value: 'chewing_tobacco', label: 'Chewing', icon: 'ellipse-outline' },
+  { value: 'nicotine_pouch', label: 'Pouch', icon: 'square-outline' },
+] as const;
+type TobaccoType = typeof TOBACCO_TYPES[number]['value'];
+
 const ALCOHOL_TYPES: { label: string; type: AlcoholType; standardDrinks: number; calories: number; unit: string }[] = [
   { label: 'Beer (12 oz)', type: 'beer', standardDrinks: 1, calories: 153, unit: 'drinks' },
   { label: 'Wine (5 oz)', type: 'wine', standardDrinks: 1, calories: 125, unit: 'glasses' },
@@ -72,6 +82,7 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
   const [cbdMg, setCbdMg] = useState('');
 
   // Tobacco state
+  const [tobaccoType, setTobaccoType] = useState<TobaccoType>('cigarette');
   const [tobaccoCount, setTobaccoCount] = useState('1');
   const [tobaccoNotes, setTobaccoNotes] = useState('');
 
@@ -374,10 +385,32 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
 
   const renderTobaccoTab = () => (
     <>
+      {/* E3: Tobacco type selector */}
+      <Text style={styles.sectionTitle}>Type</Text>
+      <View style={styles.tobaccoTypeGrid}>
+        {TOBACCO_TYPES.map((t) => (
+          <TouchableOpacity
+            key={t.value}
+            style={[styles.tobaccoTypeItem, tobaccoType === t.value && styles.tobaccoTypeItemActive]}
+            onPress={() => setTobaccoType(t.value)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={t.icon as any}
+              size={20}
+              color={tobaccoType === t.value ? Colors.accent : Colors.secondaryText}
+            />
+            <Text style={[styles.tobaccoTypeLabel, tobaccoType === t.value && styles.tobaccoTypeLabelActive]}>
+              {t.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
       {/* Count */}
       <Text style={styles.sectionTitle}>Count</Text>
       <View style={styles.amountRow}>
-        <Text style={styles.amountLabel}>Cigarettes</Text>
+        <Text style={styles.amountLabel}>{TOBACCO_TYPES.find((t) => t.value === tobaccoType)?.label ?? 'Cigarettes'}</Text>
         <View style={styles.stepperRow}>
           <TouchableOpacity
             style={styles.stepperBtn}
@@ -514,6 +547,35 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 32,
+  },
+  // E3: Tobacco type grid
+  tobaccoTypeGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  tobaccoTypeItem: {
+    width: '30%',
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    gap: 4,
+  },
+  tobaccoTypeItemActive: {
+    backgroundColor: Colors.cardBackground,
+    borderColor: Colors.accent,
+  },
+  tobaccoTypeLabel: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    fontWeight: '500',
+  },
+  tobaccoTypeLabelActive: {
+    color: Colors.accent,
   },
   tabBar: {
     flexDirection: 'row',

@@ -46,6 +46,7 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
   const [selectedType, setSelectedType] = useState<TherapyType>('individual');
   const [notes, setNotes] = useState('');
   const [timestamp, setTimestamp] = useState(new Date());
+  const [durationMinutes, setDurationMinutes] = useState<number | null>(null);
   const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<TherapyEntry>('mental.wellness.therapy');
 
   const handleRepeatLast = useCallback(() => {
@@ -73,6 +74,7 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
       type: selectedType,
       notes: notes.trim() || null, // MAXIMALLY PRIVATE -- never exported, never sent to Coach
       timestamp: timestamp.toISOString(),
+      duration_minutes: durationMinutes,
     };
 
     const today = getActiveDate();
@@ -110,6 +112,12 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Therapist</Text>
               <Text style={styles.summaryValue}>{entry.therapist_name}</Text>
+            </View>
+          )}
+          {entry.duration_minutes != null && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Duration</Text>
+              <Text style={styles.summaryValue}>{entry.duration_minutes} min</Text>
             </View>
           )}
           {entry.notes && (
@@ -163,6 +171,32 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
       />
 
       <TimestampPicker value={timestamp} onChange={setTimestamp} />
+
+      {/* E5: Session duration */}
+      <Text style={styles.sectionTitle}>Duration (optional)</Text>
+      <View style={styles.typeRow}>
+        {[15, 30, 45, 60, 90].map((min) => (
+          <TouchableOpacity
+            key={min}
+            style={[styles.typeBtn, durationMinutes === min && styles.typeBtnActive]}
+            onPress={() => setDurationMinutes(durationMinutes === min ? null : min)}
+          >
+            <Text style={[styles.typeLabel, durationMinutes === min && styles.typeLabelActive]}>
+              {min} min
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      {durationMinutes != null && ![15, 30, 45, 60, 90].includes(durationMinutes) && (
+        <TextInput
+          style={styles.input}
+          value={String(durationMinutes)}
+          onChangeText={(v) => setDurationMinutes(parseInt(v, 10) || null)}
+          keyboardType="numeric"
+          placeholder="Custom minutes"
+          placeholderTextColor={Colors.secondaryText}
+        />
+      )}
 
       {/* Session type */}
       <Text style={styles.sectionTitle}>Session Type</Text>

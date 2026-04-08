@@ -123,6 +123,9 @@ export default function DashboardScreen() {
   // MASTER-48: Multi-factor daily score from tier-weighted computation
   const scoreValue = dailyScore.total;
 
+  // B1: Show first-use label below score ring for first 7 days
+  const isFirstWeek = streak != null && (streak.current_streak ?? 0) <= 7;
+
   // Order tags by configured order, falling back to enabled order
   const orderedTags = tagOrder.length > 0
     ? tagOrder.filter((id) => enabledTags.includes(id))
@@ -212,6 +215,11 @@ export default function DashboardScreen() {
       {/* Score Ring */}
       <View style={styles.ringContainer}>
         <ScoreRing score={scoreValue} />
+        {isFirstWeek && (
+          <Text style={styles.scoreFirstUseLabel}>
+            Your Daily Score — tracks how closely you hit your targets today.
+          </Text>
+        )}
         <Pressable
           style={styles.scoreInfoToggle}
           onPress={() => setShowScoreInfo(!showScoreInfo)}
@@ -371,6 +379,13 @@ const styles = StyleSheet.create({
   ringContainer: {
     alignItems: 'center',
     marginBottom: Spacing.xl,
+  },
+  scoreFirstUseLabel: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    textAlign: 'center',
+    marginTop: 8,
+    paddingHorizontal: 24,
   },
   scoreInfoToggle: {
     flexDirection: 'row',

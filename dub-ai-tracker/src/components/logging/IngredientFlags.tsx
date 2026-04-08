@@ -80,7 +80,7 @@ export function IngredientFlags({ onSave, onBack }: IngredientFlagsProps) {
   function removeCustomFlag(id: string) {
     const isDefault = DEFAULT_INGREDIENT_FLAGS.some((f) => f.id === id);
     if (isDefault) return;
-    Alert.alert('Remove Flag', 'Remove this custom ingredient flag?', [
+    Alert.alert('Remove Flag', 'This will remove the flag definition. Existing entries will not be affected.', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove',

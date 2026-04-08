@@ -2,7 +2,7 @@
 // Phase 9: Body Metrics and Weight Tracking
 
 import { useState } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ScrollView } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ScrollView, useWindowDimensions } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
@@ -25,6 +25,7 @@ const TABS: { key: BodyTab; label: string; icon: string }[] = [
 export default function BodyScreen() {
   const [activeTab, setActiveTab] = useState<BodyTab>('weight');
   const [refreshKey, setRefreshKey] = useState(0);
+  const { width: screenWidth } = useWindowDimensions();
 
   const handleEntryLogged = () => {
     setRefreshKey((k) => k + 1);
@@ -82,7 +83,7 @@ export default function BodyScreen() {
         {/* Weight trend chart (shown on weight tab) */}
         {activeTab === 'weight' && (
           <View style={styles.chartCard} key={`chart-${refreshKey}`}>
-            <WeightTrend width={340} height={200} />
+            <WeightTrend width={screenWidth - 64} height={200} />
           </View>
         )}
 

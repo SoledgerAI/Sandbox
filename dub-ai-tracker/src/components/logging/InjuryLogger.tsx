@@ -274,7 +274,17 @@ export function InjuryLogger() {
                 </View>
                 <View style={styles.entryInfo}>
                   <Text style={styles.entryLocation}>{entry.body_location}</Text>
-                  <Text style={styles.entryType}>{entry.type}</Text>
+                  <Text style={styles.entryType}>
+                    {entry.type}
+                    {entry.onset_date && !entry.resolved_date && (() => {
+                      const days = Math.floor((Date.now() - new Date(entry.onset_date).getTime()) / 86400000);
+                      return ` · Day ${Math.max(1, days)}`;
+                    })()}
+                    {entry.onset_date && entry.resolved_date && (() => {
+                      const days = Math.floor((new Date(entry.resolved_date).getTime() - new Date(entry.onset_date).getTime()) / 86400000);
+                      return ` · ${Math.max(1, days)} days`;
+                    })()}
+                  </Text>
                   {entry.description ? (
                     <Text style={styles.entryDesc} numberOfLines={2}>{entry.description}</Text>
                   ) : null}

@@ -121,6 +121,24 @@ export function lockApp(): void {
 }
 
 // ============================================================
+// Lock timeout configuration
+// ============================================================
+
+export type LockTimeout = 0 | 60 | 300 | 900; // seconds: immediately, 1min, 5min, 15min
+
+export async function getLockTimeout(): Promise<LockTimeout> {
+  const val = await getSecure('dub.lock_timeout' as any);
+  if (val === '60') return 60;
+  if (val === '300') return 300;
+  if (val === '900') return 900;
+  return 0; // default: immediately
+}
+
+export async function setLockTimeout(timeout: LockTimeout): Promise<void> {
+  await setSecure('dub.lock_timeout' as any, String(timeout));
+}
+
+// ============================================================
 // Clear all auth data (used when disabling lock)
 // ============================================================
 

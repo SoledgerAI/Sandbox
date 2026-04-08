@@ -11,6 +11,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import {
   storageGet,
@@ -20,6 +21,7 @@ import {
   dateKey,
 } from '../../utils/storage';
 import type { CycleEntry, FlowLevel, PeriodSymptom, CyclePhase } from '../../types';
+import type { UserProfile } from '../../types/profile';
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
@@ -57,6 +59,7 @@ function computeCyclePhase(cycleDay: number, menstrualLength: number = 5): Cycle
 }
 
 export function CycleLogger() {
+  const [userSex, setUserSex] = useState<string | null>(null);
   const [entry, setEntry] = useState<CycleEntry>({
     period_start: null,
     flow_level: null,
@@ -125,6 +128,32 @@ export function CycleLogger() {
     if (lastEntry.flow_level) setIsPeriodDay(true);
     saveEntry(updated);
   }, [lastEntry, entry, saveEntry]);
+
+  // F2: Load user sex for visibility check
+  useEffect(() => {
+    storageGet<UserProfile>(STORAGE_KEYS.PROFILE).then((p) => {
+      setUserSex(p?.sex ?? null);
+    });
+  }, []);
+
+  // F2: Show explanation card for male users
+  if (userSex === 'male') {
+    return (
+      <View style={styles.maleInfoCard}>
+        <Ionicons name="information-circle-outline" size={24} color={Colors.accent} />
+        <Text style={styles.maleInfoText}>
+          This category tracks menstrual cycles. You can disable it in Settings {'>'} Tags.
+        </Text>
+        <TouchableOpacity
+          style={styles.maleInfoBtn}
+          onPress={() => router.push('/settings/tags' as any)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.maleInfoBtnText}>Go to Tags</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   const togglePeriodDay = () => {
     const newVal = !isPeriodDay;
@@ -301,6 +330,33 @@ export function CycleLogger() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { padding: 16, paddingBottom: 32 },
+  // F2: Male info card
+  maleInfoCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 24,
+    margin: 16,
+    alignItems: 'center',
+    gap: 12,
+  },
+  maleInfoText: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  maleInfoBtn: {
+    backgroundColor: Colors.accent,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    marginTop: 4,
+  },
+  maleInfoBtnText: {
+    color: Colors.primaryBackground,
+    fontSize: 14,
+    fontWeight: '600',
+  },
   phaseCard: {
     backgroundColor: Colors.cardBackground,
     borderRadius: 12,

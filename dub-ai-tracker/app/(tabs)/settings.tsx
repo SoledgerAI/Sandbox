@@ -36,8 +36,10 @@ import {
   hasPIN,
   clearAuthData,
   lockApp,
+  getLockTimeout,
+  setLockTimeout,
 } from '../../src/services/authService';
-import type { AuthMethod } from '../../src/services/authService';
+import type { AuthMethod, LockTimeout } from '../../src/services/authService';
 import { PINSetupModal } from '../../src/components/PINSetupModal';
 import type { UserProfile, BiologicalSex, EngagementTier } from '../../src/types/profile';
 import {
@@ -78,6 +80,7 @@ export default function SettingsScreen() {
   const [hasPinSet, setHasPinSet] = useState(false);
   const [pinModalVisible, setPinModalVisible] = useState(false);
   const [pinModalRequireCurrent, setPinModalRequireCurrent] = useState(false);
+  const [lockTimeout, setLockTimeoutState] = useState<LockTimeout>(0);
 
   // Personalization state
   const [userSex, setUserSexState] = useState<BiologicalSex | null>(null);
@@ -134,6 +137,8 @@ export default function SettingsScreen() {
     setUserSexState(sex);
     setUserAgeRangeState(age);
     setUserZipState(zip);
+    const timeout = await getLockTimeout();
+    setLockTimeoutState(timeout);
     setLoading(false);
   }, []);
 
@@ -288,15 +293,27 @@ export default function SettingsScreen() {
     hapticWarning();
     Alert.alert(
       'Reset Onboarding',
-      'This will show the onboarding questionnaire again on next app launch. Continue?',
+      'The setup flow will appear again on next launch. Your profile, entries, and preferences will NOT be affected.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            await resetOnboarding();
-            Alert.alert('Done', 'Onboarding will appear on next app launch.');
+          text: 'Continue',
+          onPress: () => {
+            Alert.alert(
+              'Are you sure?',
+              '',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Reset',
+                  style: 'destructive',
+                  onPress: async () => {
+                    await resetOnboarding();
+                    Alert.alert('Done', 'Onboarding will appear on next app launch.');
+                  },
+                },
+              ],
+            );
           },
         },
       ],
@@ -517,6 +534,31 @@ export default function SettingsScreen() {
                 </View>
               </View>
 
+              {/* F1: Lock After timeout */}
+              {lockEnabled && (
+                <TouchableOpacity
+                  style={styles.settingRow}
+                  onPress={() => {
+                    const timeouts: LockTimeout[] = [0, 60, 300, 900];
+                    const labels = ['Immediately', 'After 1 minute', 'After 5 minutes', 'After 15 minutes'];
+                    const idx = timeouts.indexOf(lockTimeout);
+                    const next = timeouts[(idx + 1) % timeouts.length];
+                    setLockTimeout(next);
+                    setLockTimeoutState(next);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="time-outline" size={22} color={Colors.accent} />
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>Lock After</Text>
+                    <Text style={styles.settingSubtitle}>
+                      {lockTimeout === 0 ? 'Immediately' : lockTimeout === 60 ? 'After 1 minute' : lockTimeout === 300 ? 'After 5 minutes' : 'After 15 minutes'}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+                </TouchableOpacity>
+              )}
+
               {/* Lock App Now */}
               {lockEnabled && (
                 <TouchableOpacity
@@ -736,37 +778,6 @@ export default function SettingsScreen() {
                 />
               </View>
 
-              {/* Reset Onboarding */}
-              <TouchableOpacity
-                style={styles.settingRow}
-                onPress={handleResetOnboarding}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="refresh-outline" size={22} color={Colors.accent} />
-                <View style={styles.settingInfo}>
-                  <Text style={styles.settingLabel}>Reset Onboarding</Text>
-                  <Text style={styles.settingSubtitle}>
-                    Show personalization questionnaire again
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Sharing Section — placeholder */}
-          <View style={styles.sectionGroup}>
-            <Text style={styles.sectionHeader}>SHARING</Text>
-            <View style={styles.section}>
-              <View style={[styles.settingRow, { opacity: 0.5 }]}>
-                <Ionicons name="share-outline" size={22} color={Colors.secondaryText} />
-                <View style={styles.settingInfo}>
-                  <Text style={[styles.settingLabel, { color: Colors.secondaryText }]}>
-                    Share with healthcare provider
-                  </Text>
-                  <Text style={styles.settingSubtitle}>Coming soon</Text>
-                </View>
-              </View>
             </View>
           </View>
 
@@ -807,6 +818,27 @@ export default function SettingsScreen() {
               </View>
             </View>
           ))}
+
+          {/* D2: DANGER ZONE — destructive actions at bottom */}
+          <View style={styles.sectionGroup}>
+            <Text style={styles.sectionHeader}>DANGER ZONE</Text>
+            <View style={styles.section}>
+              <TouchableOpacity
+                style={styles.settingRow}
+                onPress={handleResetOnboarding}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="refresh-outline" size={22} color={Colors.dangerText} />
+                <View style={styles.settingInfo}>
+                  <Text style={[styles.settingLabel, { color: Colors.dangerText }]}>Reset Onboarding</Text>
+                  <Text style={styles.settingSubtitle}>
+                    Show personalization questionnaire again
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+              </TouchableOpacity>
+            </View>
+          </View>
         </>
       )}
     </ScrollView>

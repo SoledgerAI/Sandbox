@@ -68,7 +68,8 @@
       "Bash(bash /tmp/check_buttons.sh)",
       "Bash(find:*)",
       "Bash(sed 's/fontSize:\\\\s*//')",
-      "Bash(xargs basename:*)"
+      "Bash(xargs basename:*)",
+      "Bash(echo \"Exit code: $?\")"
     ]
   }
 }

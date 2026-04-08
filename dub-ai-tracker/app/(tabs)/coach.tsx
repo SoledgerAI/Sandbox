@@ -54,6 +54,7 @@ export default function CoachScreen() {
   const [consentGranted, setConsentGranted] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [patterns, setPatterns] = useState<PatternInsight[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
   // Fix 3: Scroll-to-top on tab re-tap
   useScrollToTop(flatListRef);
@@ -287,12 +288,19 @@ export default function CoachScreen() {
         }}
       />
 
-      {/* SuggestedPrompts moved into empty state greeting (Fix 2) */}
+      {/* C2: Persistent suggested prompts toggle */}
+      {apiKeyConfigured && messages.length > 0 && showSuggestions && (
+        <SuggestedPrompts onSelect={(p) => { setShowSuggestions(false); handleSuggestedPrompt(p); }} visible />
+      )}
 
       {sending && (
         <View style={styles.typingRow}>
           <LoadingIndicator size="small" />
-          <Text style={styles.typingText}>Coach DUB is thinking...</Text>
+          <Text style={styles.typingText}>
+            {messages.length > 0 && messages[messages.length - 1].role === 'user'
+              ? 'Coach DUB is thinking...'
+              : 'Sending...'}
+          </Text>
         </View>
       )}
 
@@ -317,6 +325,19 @@ export default function CoachScreen() {
             </TouchableOpacity>
           )}
         </View>
+      )}
+
+      {apiKeyConfigured && messages.length > 0 && !inputText.trim() && (
+        <TouchableOpacity
+          style={styles.suggestionsPill}
+          onPress={() => setShowSuggestions(!showSuggestions)}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="bulb-outline" size={14} color={Colors.accentText} />
+          <Text style={styles.suggestionsPillText}>
+            {showSuggestions ? 'Hide Suggestions' : 'Suggestions'}
+          </Text>
+        </TouchableOpacity>
       )}
 
       {apiKeyConfigured && (
@@ -368,6 +389,7 @@ const styles = StyleSheet.create({
   },
   messageList: {
     paddingVertical: 8,
+    paddingTop: 12,
   },
   emptyList: {
     flexGrow: 1,
@@ -537,6 +559,23 @@ const styles = StyleSheet.create({
     color: Colors.primaryBackground,
     fontSize: 16,
     fontWeight: '600',
+  },
+  // C2: Suggestions pill
+  suggestionsPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: Colors.cardBackground,
+    marginBottom: 4,
+  },
+  suggestionsPillText: {
+    color: Colors.accentText,
+    fontSize: 12,
+    fontWeight: '500',
   },
   // P1-22: Offline notice
   offlineNotice: {

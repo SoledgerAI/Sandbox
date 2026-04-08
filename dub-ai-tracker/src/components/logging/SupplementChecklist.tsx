@@ -378,7 +378,7 @@ export function SupplementChecklist() {
 
   const deleteStack = useCallback(
     (stackId: string) => {
-      Alert.alert('Delete Stack', 'Remove this supplement stack?', [
+      Alert.alert('Delete Supplement Bundle', 'This preset will be deleted. Your logged supplement entries will remain.', [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Delete',
@@ -848,6 +848,7 @@ export function SupplementChecklist() {
           }}
         >
           <Text style={styles.unitText}>{unit}</Text>
+          <Ionicons name="chevron-down" size={12} color={Colors.secondaryText} />
         </TouchableOpacity>
       </View>
       <TouchableOpacity style={styles.addBtn} onPress={addCustom} activeOpacity={0.7}>

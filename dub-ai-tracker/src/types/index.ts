@@ -159,6 +159,7 @@ export interface TherapyEntry {
   type: TherapyType | null;
   notes: string | null; // MAXIMALLY PRIVATE -- never exported, never sent to Coach
   timestamp: string; // ISO datetime
+  duration_minutes?: number | null;
 }
 
 // -- SUPPLEMENTS --

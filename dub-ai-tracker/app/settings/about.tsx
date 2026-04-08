@@ -18,8 +18,10 @@ import { Colors } from '../../src/constants/colors';
 import { storageClearAll, storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import { deleteSecure, SECURE_KEYS } from '../../src/services/secureStorageService';
 import { logAuditEvent } from '../../src/utils/audit';
+import Constants from 'expo-constants';
 
 const APP_VERSION = '1.1.0';
+const BUILD_NUMBER = Constants.expoConfig?.ios?.buildNumber ?? Constants.expoConfig?.extra?.buildNumber ?? '1';
 
 export default function AboutScreen() {
   const [deleting, setDeleting] = useState(false);
@@ -118,7 +120,7 @@ export default function AboutScreen() {
       {/* App Info */}
       <View style={styles.appCard}>
         <Text style={styles.appName}>DUB_AI Tracker</Text>
-        <Text style={styles.appVersion}>Version {APP_VERSION}</Text>
+        <Text style={styles.appVersion}>Version {APP_VERSION} (build {BUILD_NUMBER})</Text>
         <Text style={styles.appDesc}>
           Your personal health and wellness tracking companion, powered by AI.
         </Text>

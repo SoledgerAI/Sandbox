@@ -25,6 +25,7 @@ import {
   isBiometricAvailable,
   verifyPIN,
   onLockRequested,
+  getLockTimeout,
 } from '../services/authService';
 import type { AuthMethod } from '../services/authService';
 
@@ -52,6 +53,8 @@ export function AuthGate({ children }: AuthGateProps) {
   const shakeAnim = useRef(new Animated.Value(0)).current;
   const lockEnabledRef = useRef(false);
   const autoTriggeredRef = useRef(false);
+  const backgroundTimeRef = useRef<number>(0);
+  const lockTimeoutRef = useRef<number>(0); // seconds
 
   // Check lock state on mount
   useEffect(() => {
@@ -70,6 +73,10 @@ export function AuthGate({ children }: AuthGateProps) {
         const method = await getAuthMethod();
         if (cancelled) return;
         setAuthMethod(method);
+
+        const timeout = await getLockTimeout();
+        if (cancelled) return;
+        lockTimeoutRef.current = timeout;
 
         const bio = await isBiometricAvailable();
         if (cancelled) return;
@@ -123,19 +130,25 @@ export function AuthGate({ children }: AuthGateProps) {
     };
   }, []);
 
-  // Re-lock when app goes to background
+  // Re-lock when app goes to background (with grace period)
   useEffect(() => {
     function handleAppState(nextState: AppStateStatus) {
       if (nextState === 'background' && lockEnabledRef.current) {
-        setState('locked');
-        setPin('');
-        setPinError(false);
+        backgroundTimeRef.current = Date.now();
+      }
+      if (nextState === 'active' && lockEnabledRef.current && state === 'unlocked') {
+        const elapsed = (Date.now() - backgroundTimeRef.current) / 1000;
+        if (backgroundTimeRef.current > 0 && elapsed >= lockTimeoutRef.current) {
+          setState('locked');
+          setPin('');
+          setPinError(false);
+        }
       }
     }
 
     const sub = AppState.addEventListener('change', handleAppState);
     return () => sub.remove();
-  }, []);
+  }, [state]);
 
   // Listen for manual lock requests (e.g., "Lock App Now" button)
   useEffect(() => {
@@ -375,16 +388,19 @@ export function AuthGate({ children }: AuthGateProps) {
             <>
               <Text style={styles.appName}>DUB_AI</Text>
 
-              <TouchableOpacity style={styles.bioButton} onPress={handleBiometric}>
+              <Text style={styles.subtitle}>Tap to unlock</Text>
+              <TouchableOpacity
+                style={styles.bioButton}
+                onPress={handleBiometric}
+                accessibilityRole="button"
+                accessibilityLabel={`Unlock with ${biometryType || 'Biometrics'}`}
+              >
                 <Ionicons
                   name={biometryType === 'Face ID' ? 'scan-outline' : 'finger-print-outline'}
                   size={48}
                   color={Colors.accent}
                 />
               </TouchableOpacity>
-              <Text style={styles.subtitle}>
-                Tap to unlock with {biometryType || 'Biometrics'}
-              </Text>
 
               {/* Switch to PIN if method includes PIN */}
               {authMethod !== 'biometric' && (
@@ -477,7 +493,7 @@ const styles = StyleSheet.create({
   },
   keypad: {
     width: '100%',
-    maxWidth: 280,
+    maxWidth: 300,
     gap: 12,
   },
   keyRow: {
@@ -486,10 +502,10 @@ const styles = StyleSheet.create({
   },
   key: {
     width: 72,
-    height: 56,
+    height: 72,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 12,
+    borderRadius: 36,
   },
   keyText: {
     color: Colors.text,

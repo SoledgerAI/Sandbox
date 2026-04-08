@@ -81,6 +81,7 @@ const SEX_OPTIONS: { value: BiologicalSex; label: string; icon: string }[] = [
   { value: 'female', label: 'Female', icon: 'female-outline' },
   { value: 'male', label: 'Male', icon: 'male-outline' },
   { value: 'intersex', label: 'Intersex', icon: 'person-outline' },
+  { value: 'prefer_not_to_say', label: 'Prefer not to say', icon: 'help-circle-outline' },
 ];
 
 const METABOLIC_OPTIONS: { value: MetabolicProfile; label: string }[] = [
@@ -184,6 +185,7 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
     if (sex === 'intersex' && !metabolicProfile) {
       newErrors.metabolic = 'Please select a metabolic profile for calorie calculations';
     }
+    // prefer_not_to_say is valid without metabolic profile — uses average of male/female BMR
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   }
@@ -373,6 +375,7 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
   return (
     <View style={styles.container}>
       <ProgressBar currentStep={step} totalSteps={TOTAL_STEPS} />
+      <Text style={styles.stepCounter}>Step {step} of {TOTAL_STEPS}</Text>
 
       {step > 1 && (
         <TouchableOpacity
@@ -672,7 +675,7 @@ function Step2Sex({
     >
       <Text style={styles.screenTitle}>Biological Sex</Text>
       <Text style={styles.screenSubtitle}>
-        Used for calorie calculations only. Never shown on your profile or shared.
+        Used for calorie calculations only. Never shown on your profile or shared. You can change this later in Settings.
       </Text>
 
       <View style={styles.cardGroup}>
@@ -682,6 +685,7 @@ function Step2Sex({
             style={[styles.selectCard, sex === opt.value && styles.selectCardActive]}
             onPress={() => onSexSelect(opt.value)}
             activeOpacity={0.7}
+            accessibilityRole="button"
           >
             <Ionicons
               name={opt.icon as any}
@@ -762,7 +766,7 @@ function Step3DOB({
         value={dobDate}
         onChange={onDobChange}
         minimumDate={new Date(1920, 0, 1)}
-        maximumDate={new Date(new Date().getFullYear() - 13, new Date().getMonth(), new Date().getDate())}
+        maximumDate={new Date(new Date().getFullYear() - 18, new Date().getMonth(), new Date().getDate())}
       />
       {errors.dob ? <Text style={styles.errorText}>{errors.dob}</Text> : null}
     </ScrollView>
@@ -1237,7 +1241,13 @@ function Checkbox({
   label: string;
 }) {
   return (
-    <TouchableOpacity style={styles.checkboxRow} onPress={onToggle} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.checkboxRow}
+      onPress={onToggle}
+      activeOpacity={0.7}
+      accessibilityRole="checkbox"
+      accessibilityState={{ checked }}
+    >
       <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
         {checked && <Text style={styles.checkmark}>&#10003;</Text>}
       </View>
@@ -1275,6 +1285,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 40,
     paddingTop: 16,
+  },
+  stepCounter: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 4,
+    marginBottom: 4,
   },
 
   // Typography

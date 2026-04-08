@@ -20,6 +20,7 @@ import { cacheDirectory, writeAsStringAsync, EncodingType } from 'expo-file-syst
 import { shareAsync } from 'expo-sharing';
 import { Colors } from '../../src/constants/colors';
 import { logAuditEvent } from '../../src/utils/audit';
+import { DateRangePicker } from '../../src/components/common/DateRangePicker';
 
 type ExportFormat = 'json' | 'csv';
 
@@ -109,11 +110,37 @@ function flattenEntries(
   return [{ category, date, value: data }];
 }
 
+type DatePreset = 'all' | '7d' | '30d' | '90d' | 'custom';
+
+const DATE_PRESETS: { key: DatePreset; label: string }[] = [
+  { key: 'all', label: 'All Time' },
+  { key: '7d', label: 'Last 7 days' },
+  { key: '30d', label: 'Last 30 days' },
+  { key: '90d', label: 'Last 90 days' },
+  { key: 'custom', label: 'Custom range' },
+];
+
+function getPresetRange(preset: DatePreset): { start: Date; end: Date } | null {
+  const end = new Date();
+  if (preset === 'all') return null;
+  const days = preset === '7d' ? 7 : preset === '30d' ? 30 : preset === '90d' ? 90 : 30;
+  const start = new Date();
+  start.setDate(start.getDate() - days);
+  return { start, end };
+}
+
 export default function ExportScreen() {
   const [exporting, setExporting] = useState(false);
   const [format, setFormat] = useState<ExportFormat>('json');
+  const [datePreset, setDatePreset] = useState<DatePreset>('all');
+  const [customRange, setCustomRange] = useState<{ start: Date; end: Date }>({
+    start: new Date(Date.now() - 30 * 86400000),
+    end: new Date(),
+  });
 
   async function gatherExportData() {
+    const range = datePreset === 'custom' ? customRange : getPresetRange(datePreset);
+
     const allKeys = await AsyncStorage.getAllKeys();
     const dubKeys = allKeys.filter(
       (k) => k.startsWith('dub.') && !k.startsWith('dub.audit.'),
@@ -125,6 +152,15 @@ export default function ExportScreen() {
 
     for (const [key, value] of pairs) {
       if (value != null) {
+        // D6: Filter log keys by date range if set
+        if (range && key.match(/\.\d{4}-\d{2}-\d{2}$/)) {
+          const dateMatch = key.match(/(\d{4}-\d{2}-\d{2})$/);
+          if (dateMatch) {
+            const keyDate = new Date(dateMatch[1] + 'T12:00:00');
+            if (keyDate < range.start || keyDate > range.end) continue;
+          }
+        }
+
         try {
           const parsed = JSON.parse(value);
           exportData[key] = stripTherapyNotes(key, parsed);
@@ -302,6 +338,31 @@ export default function ExportScreen() {
         <DetailItem label="Therapy notes (privacy protection)" warning />
         <DetailItem label="Audit logs (retained for compliance)" warning />
         <DetailItem label="API keys (stored in secure enclave)" warning />
+      </View>
+
+      {/* D6: Date range selector */}
+      <View style={styles.detailCard}>
+        <Text style={styles.detailTitle}>Date Range</Text>
+        <View style={styles.formatRow}>
+          {DATE_PRESETS.map((p) => (
+            <TouchableOpacity
+              key={p.key}
+              style={[styles.formatBtn, datePreset === p.key && styles.formatBtnActive, { flex: 0, paddingHorizontal: 10, paddingVertical: 8 }]}
+              onPress={() => setDatePreset(p.key)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.formatBtnText, datePreset === p.key && styles.formatBtnTextActive, { fontSize: 12 }]}>
+                {p.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+        {datePreset === 'custom' && (
+          <DateRangePicker
+            currentRange={customRange}
+            onRangeChange={setCustomRange}
+          />
+        )}
       </View>
 
       <TouchableOpacity

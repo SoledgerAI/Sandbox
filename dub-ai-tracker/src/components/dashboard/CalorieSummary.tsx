@@ -54,9 +54,16 @@ export function CalorieSummary({
   const remainingColor =
     remaining >= 0 ? Colors.successText : Colors.dangerText;
 
-  const progressPct = calorieTarget > 0
-    ? Math.min((consumed / calorieTarget) * 100, 100)
-    : 0;
+  const progressRatio = calorieTarget > 0 ? (consumed / calorieTarget) * 100 : 0;
+  const progressPct = Math.min(progressRatio, 100);
+
+  // B5: Color-code progress bar based on percentage
+  const progressBarColor =
+    progressRatio > 100
+      ? Colors.dangerText
+      : progressRatio >= 80
+        ? Colors.accent
+        : Colors.success;
 
   // Fix 10: Animated progress bar
   const animatedWidth = useSharedValue(0);
@@ -137,7 +144,7 @@ export function CalorieSummary({
 
       {/* Progress bar */}
       {!hideCalories && <View style={styles.progressBarContainer}>
-        <Animated.View style={[styles.progressBar, animatedBarStyle]} />
+        <Animated.View style={[styles.progressBar, animatedBarStyle, { backgroundColor: progressBarColor }]} />
       </View>}
 
       {/* Consumption data */}

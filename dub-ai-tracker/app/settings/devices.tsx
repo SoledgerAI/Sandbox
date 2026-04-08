@@ -302,8 +302,9 @@ export default function DevicesScreen() {
       <View style={styles.infoBox}>
         <Ionicons name="information-circle-outline" size={18} color={Colors.accent} />
         <Text style={styles.infoText}>
-          Device data is stored on your device. No health data is uploaded to any server
-          except when you use the AI Coach feature (transmitted to Anthropic for processing).
+          Device data is stored on your device. When you use Coach DUB,
+          a summary of today's data is sent to Anthropic for processing.
+          Raw device data is never transmitted.
         </Text>
       </View>
     </ScrollView>

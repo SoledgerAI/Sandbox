@@ -296,8 +296,13 @@ export function BloodworkPanel() {
                   <View style={styles.markerInfo}>
                     <Text style={styles.markerName}>{template.name}</Text>
                     <Text style={styles.markerRange}>
-                      {template.defaultLow !== null ? template.defaultLow : ''}-
-                      {template.defaultHigh !== null ? template.defaultHigh : ''} {template.unit}
+                      {template.defaultLow !== null && template.defaultHigh !== null
+                        ? `${template.defaultLow}-${template.defaultHigh} ${template.unit}`
+                        : template.defaultLow !== null && template.defaultHigh === null
+                          ? `>${template.defaultLow} ${template.unit}`
+                          : template.defaultLow === null && template.defaultHigh !== null
+                            ? `<${template.defaultHigh} ${template.unit}`
+                            : template.unit}
                     </Text>
                   </View>
                   <View style={styles.markerInput}>

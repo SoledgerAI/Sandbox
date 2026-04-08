@@ -85,7 +85,7 @@ describe('AuthGate', () => {
     );
 
     await waitFor(() => {
-      expect(getByText('Tap to unlock with Face ID')).toBeTruthy();
+      expect(getByText('Tap to unlock')).toBeTruthy();
     });
   });
 
