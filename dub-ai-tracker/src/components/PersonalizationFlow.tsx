@@ -221,6 +221,13 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
   }
 
   function handleStepContinue() {
+    // Final step: delegate directly to handleFinish (has its own guard)
+    if (step === TOTAL_STEPS) {
+      handleFinish();
+      return;
+    }
+
+    // Steps 1-11: debounce guard for step transitions
     if (isNavigating.current) return;
     isNavigating.current = true;
     setTimeout(() => { isNavigating.current = false; }, 500);
@@ -249,9 +256,6 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
         break;
       case 11: // Zip Code
         if (validateStep10()) goForward();
-        break;
-      case 12: // Summary — finish
-        handleFinish();
         break;
     }
   }
