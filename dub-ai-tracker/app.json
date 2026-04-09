@@ -45,6 +45,7 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "./plugins/exclude-from-backup",
       "expo-router",
       "expo-secure-store",
       "expo-sharing",

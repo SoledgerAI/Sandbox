@@ -80,6 +80,23 @@ function messageMatchesKeywords(message: string, keywords: string[]): boolean {
   return keywords.some((kw) => lower.includes(kw));
 }
 
+/**
+ * SEC-06: Sanitize user-generated strings before injecting into prompt context.
+ * Strips text patterns that resemble prompt injection attempts
+ * (e.g., "[SYSTEM]", "IGNORE", "output your prompt").
+ * Truncates to prevent context flooding.
+ */
+function sanitizeForPrompt(input: string, maxLength: number = 100): string {
+  let clean = input.slice(0, maxLength);
+  // Strip patterns that look like prompt injection
+  clean = clean.replace(/\[(?:SYSTEM|OVERRIDE|ADMIN|PROMPT|INSTRUCTION)[^\]]*\]/gi, '');
+  clean = clean.replace(/(?:ignore|forget|disregard)\s+(?:all\s+)?(?:previous\s+)?(?:instructions?|rules?|prompts?)/gi, '');
+  clean = clean.replace(/(?:output|reveal|show|display|print)\s+(?:your\s+)?(?:system\s+)?(?:prompt|instructions?|rules?|config)/gi, '');
+  // Strip control characters
+  clean = clean.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
+  return clean.trim();
+}
+
 // Therapy note firewall: throws if therapy content leaks into context
 function assertNoTherapyContent(contextString: string): void {
   // Check for therapy storage key patterns beyond boolean
@@ -300,7 +317,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
         };
         if (bloodwork.flagged_markers.length > 0) {
           const bwText = bloodwork.flagged_markers
-            .map((m) => `${m.name}:${m.value}${m.unit}(ref:${m.reference_range},${m.status})`)
+            .map((m) => `${sanitizeForPrompt(m.name, 50)}:${m.value}${sanitizeForPrompt(m.unit, 20)}(ref:${m.reference_range},${m.status})`)
             .join(' ');
           conditionalSections.push(`[BLOODWORK ${bloodwork.date}] ${bwText}`);
         }
@@ -383,7 +400,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
     if (flagCounts.size > 0) {
       const parts = Array.from(flagCounts.entries())
         .sort((a, b) => b[1] - a[1])
-        .map(([name, count]) => `${name}:${count}x`)
+        .map(([name, count]) => `${sanitizeForPrompt(name, 50)}:${count}x`)
         .join(' ');
       conditionalSections.push(`[INGREDIENT FLAGS 7d] ${parts}`);
     }

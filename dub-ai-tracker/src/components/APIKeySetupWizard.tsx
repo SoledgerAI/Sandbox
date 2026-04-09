@@ -83,12 +83,20 @@ export function APIKeySetupWizard({ visible, onClose, onSuccess, isUpdate }: Pro
     if (result.valid) {
       await setApiKey(key);
       await logAuditEvent(isUpdate ? 'API_KEY_UPDATED' : 'API_KEY_CREATED', {});
+      // SEC-02: Clear key from React state and clipboard after successful save
+      setKeyInput('');
+      setShowKey(false);
+      await Clipboard.setStringAsync('');
       setValidationState('success');
-      setValidationMessage('Connected! Your AI Coach is ready.');
+      setValidationMessage('Key saved securely. You can close the Anthropic tab in Safari.');
     } else if (result.errorType === 'network') {
       // Save the key on network failure — verify later
       await setApiKey(key);
       await logAuditEvent(isUpdate ? 'API_KEY_UPDATED' : 'API_KEY_CREATED', {});
+      // SEC-02: Clear key from React state and clipboard
+      setKeyInput('');
+      setShowKey(false);
+      await Clipboard.setStringAsync('');
       setValidationState('success');
       setValidationMessage("Saved your key \u2014 we'll verify when you're back online.");
     } else if (result.errorType === 'no_funds') {
@@ -124,6 +132,9 @@ export function APIKeySetupWizard({ visible, onClose, onSuccess, isUpdate }: Pro
     setKeyInput(trimmed);
     const format = validateKeyFormat(trimmed);
     setFormatResult(format);
+
+    // SEC-01: Clear clipboard immediately after reading API key
+    await Clipboard.setStringAsync('');
 
     // Auto-validate if format looks good
     if (format.valid) {
@@ -213,6 +224,14 @@ export function APIKeySetupWizard({ visible, onClose, onSuccess, isUpdate }: Pro
                 <Text style={styles.stepBadgeText}>3</Text>
               </View>
               <Text style={styles.stepTitle}>Paste your key below</Text>
+            </View>
+
+            {/* SEC: Security advisory banner */}
+            <View style={styles.securityBanner}>
+              <Ionicons name="shield-checkmark-outline" size={14} color={Colors.accent} />
+              <Text style={styles.securityBannerText}>
+                After copying your key, close that browser tab. Your key is stored in encrypted device storage.
+              </Text>
             </View>
 
             <View style={styles.keyInputContainer}>
@@ -509,6 +528,25 @@ const styles = StyleSheet.create({
     color: Colors.primaryBackground,
     fontSize: 15,
     fontWeight: '700',
+  },
+
+  // Security banner
+  securityBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    marginLeft: 40,
+    marginBottom: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    backgroundColor: Colors.accent + '15',
+    borderRadius: 8,
+  },
+  securityBannerText: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    lineHeight: 16,
+    flex: 1,
   },
 
   // Key input

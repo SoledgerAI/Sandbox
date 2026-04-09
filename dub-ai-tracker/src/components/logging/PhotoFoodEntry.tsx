@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { getApiKey, AnthropicError } from '../../services/anthropic';
 import { COACH_MODEL_ID } from '../../constants/formulas';
+import { stripExifMetadata } from '../../utils/imagePrivacy';
 import type { MealType, PhotoConfidence } from '../../types/food';
 
 interface PhotoFoodItem {
@@ -78,7 +79,9 @@ export function PhotoFoodEntry({ mealType: _mealType, onConfirm, onCancel }: Pho
     });
 
     if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
+      // SEC: Strip EXIF before storing URI locally
+      const stripped = await stripExifMetadata(result.assets[0].uri, 0.7);
+      setPhotoUri(stripped);
       setParsedItems(null);
     }
   }, []);
@@ -97,7 +100,9 @@ export function PhotoFoodEntry({ mealType: _mealType, onConfirm, onCancel }: Pho
     });
 
     if (!result.canceled && result.assets[0]) {
-      setPhotoUri(result.assets[0].uri);
+      // SEC: Strip EXIF before storing URI locally
+      const stripped = await stripExifMetadata(result.assets[0].uri, 0.7);
+      setPhotoUri(stripped);
       setParsedItems(null);
     }
   }, []);
@@ -113,14 +118,16 @@ export function PhotoFoodEntry({ mealType: _mealType, onConfirm, onCancel }: Pho
 
     setLoading(true);
     try {
-      // Read photo as base64
-      const base64 = await readAsStringAsync(photoUri, {
+      // SEC: Strip EXIF metadata (GPS, device info) before sending to API
+      const strippedUri = await stripExifMetadata(photoUri, 0.7);
+
+      // Read stripped photo as base64
+      const base64 = await readAsStringAsync(strippedUri, {
         encoding: EncodingType.Base64,
       });
 
-      // Determine media type from URI
-      const ext = photoUri.split('.').pop()?.toLowerCase() ?? 'jpeg';
-      const mediaType = ext === 'png' ? 'image/png' : 'image/jpeg';
+      // Always JPEG after EXIF stripping (re-encoded)
+      const mediaType = 'image/jpeg';
 
       const response = await fetch(API_URL, {
         method: 'POST',

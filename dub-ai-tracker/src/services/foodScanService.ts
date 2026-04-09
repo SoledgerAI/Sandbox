@@ -204,7 +204,7 @@ function normalizeItem(parsed: Record<string, unknown>): FoodScanResult | null {
 
 /** Return a low-confidence placeholder so the user can enter values manually. */
 function makeFallbackItem(rawResponse?: string): FoodScanResult {
-  console.warn('[foodScanService] Could not parse scan result, returning fallback. Raw:', rawResponse?.slice(0, 300));
+  if (__DEV__) console.warn('[foodScanService] Could not parse scan result, returning fallback. Raw:', rawResponse?.slice(0, 300));
   return {
     foodName: 'Unknown Food',
     brand: null,

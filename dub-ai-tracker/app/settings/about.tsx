@@ -16,9 +16,10 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import ScreenWrapper from '../../src/components/common/ScreenWrapper';
-import { storageClearAll, storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
-import { deleteSecure, SECURE_KEYS } from '../../src/services/secureStorageService';
+import { storageClearAll, storageGet, storageSet, storageList, STORAGE_KEYS } from '../../src/utils/storage';
+import { deleteSecure, setSecure, SECURE_KEYS } from '../../src/services/secureStorageService';
 import { logAuditEvent } from '../../src/utils/audit';
+import { cacheDirectory, deleteAsync, readDirectoryAsync } from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
 
 const APP_VERSION = '1.1.0';
@@ -69,10 +70,36 @@ export default function AboutScreen() {
             try {
               await logAuditEvent('DATA_DELETION_INITIATED', {});
 
+              // SEC-10: Delete cached photo files before clearing references
+              try {
+                const foodKeys = await storageList('dub.log.food.');
+                for (const key of foodKeys) {
+                  const raw = await storageGet<Array<{ photo_uri?: string | null }>>(key);
+                  if (raw) {
+                    for (const entry of raw) {
+                      if (entry.photo_uri) {
+                        await deleteAsync(entry.photo_uri, { idempotent: true }).catch(() => {});
+                      }
+                    }
+                  }
+                }
+                // Clean cache and tmp directories
+                if (cacheDirectory) {
+                  const cacheFiles = await readDirectoryAsync(cacheDirectory).catch(() => [] as string[]);
+                  for (const file of cacheFiles) {
+                    if (file.match(/\.(jpg|jpeg|png|heic)$/i)) {
+                      await deleteAsync(cacheDirectory + file, { idempotent: true }).catch(() => {});
+                    }
+                  }
+                }
+              } catch {
+                // Best-effort photo cleanup
+              }
+
               // Clear all AsyncStorage dub.* keys
               await storageClearAll();
 
-              // Clear all secure store keys
+              // Clear all secure store keys (including lock timeout)
               try {
                 await deleteSecure(SECURE_KEYS.ANTHROPIC_API_KEY);
                 await deleteSecure(SECURE_KEYS.APP_LOCK_ENABLED);
@@ -81,15 +108,21 @@ export default function AboutScreen() {
                 await deleteSecure(SECURE_KEYS.USER_SEX);
                 await deleteSecure(SECURE_KEYS.ONBOARDING_COMPLETE);
                 await deleteSecure(SECURE_KEYS.CONSENT_RECORD);
+                // Lock timeout key (stored outside SECURE_KEYS constant)
+                await deleteSecure('dub.lock_timeout' as any);
               } catch {
                 // Keys may not exist
               }
 
               await logAuditEvent('DATA_DELETION_COMPLETED', {});
 
+              // CCPA: Store deletion confirmation timestamp (survives deletion)
+              const deletionTimestamp = new Date().toISOString();
+              await setSecure('dub_ai_deletion_confirmed' as any, deletionTimestamp);
+
               Alert.alert(
                 'Data Deleted',
-                'All your DUB_AI data has been permanently deleted. The app will restart at onboarding.',
+                `All your DUB_AI data has been permanently deleted on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}. The app will restart at onboarding.`,
                 [
                   {
                     text: 'OK',

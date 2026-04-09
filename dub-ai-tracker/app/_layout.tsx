@@ -37,8 +37,9 @@ export default function RootLayout() {
   const navigationState = useRootNavigationState();
 
   // D8-001: Privacy screen overlay driven by AppState + setting
+  // SEC: Default to true — protect app switcher screenshots until user explicitly opts out
   const [privacyOverlay, setPrivacyOverlay] = useState(false);
-  const privacyEnabledRef = useRef(false);
+  const privacyEnabledRef = useRef(true);
 
   // D8-002: Triple-tap quick-hide gesture
   const [quickHideActive, setQuickHideActive] = useState(false);
@@ -56,10 +57,10 @@ export default function RootLayout() {
   useEffect(() => {
     storageGet<AppSettings>(STORAGE_KEYS.SETTINGS)
       .then((settings) => {
-        privacyEnabledRef.current = settings?.privacy_screen_enabled ?? false;
+        privacyEnabledRef.current = settings?.privacy_screen_enabled ?? true;
       })
       .catch(() => {
-        privacyEnabledRef.current = false;
+        privacyEnabledRef.current = true;
       });
   }, []);
 
