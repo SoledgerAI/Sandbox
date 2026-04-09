@@ -87,8 +87,8 @@ describe('Summary screen (Fix 2)', () => {
       path.resolve(__dirname, '../components/PersonalizationFlow.tsx'),
       'utf-8',
     );
-    // Step 12 calls handleFinish
-    expect(source).toContain('case 12: // Summary — finish');
+    // Final step delegates directly to handleFinish (bypasses debounce guard)
+    expect(source).toContain('if (step === TOTAL_STEPS)');
     expect(source).toContain('handleFinish()');
   });
 });
