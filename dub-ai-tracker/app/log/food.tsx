@@ -31,7 +31,7 @@ import { BarcodeScanner } from '../../src/components/logging/BarcodeScanner';
 import { NLPFoodEntry } from '../../src/components/logging/NLPFoodEntry';
 import { PhotoFoodEntry } from '../../src/components/logging/PhotoFoodEntry';
 import { FoodScanResult, type LogEntry } from '../../src/components/logging/FoodScanResult';
-import { scanFood, type FoodScanResult as ScanResultData } from '../../src/services/foodScanService';
+import { scanFood, type FoodScanResult as ScanResultData, type MultiItemScanResult } from '../../src/services/foodScanService';
 import { getSavedFoods, incrementTimesLogged, type SavedFood } from '../../src/utils/foodLibrary';
 import { Button } from '../../src/components/common/Button';
 import { TimestampPicker } from '../../src/components/common/TimestampPicker';
@@ -90,8 +90,9 @@ export default function FoodLogScreen() {
   const [quickConfirmEntry, setQuickConfirmEntry] = useState<RecentFoodInfo | null>(null);
   const { lastEntry: lastFoodEntry, saveAsLast: saveLastFood } = useLastEntry<FoodEntry>('nutrition.food');
 
-  // Sprint 10: scan state
+  // Sprint 10: scan state (Sprint 14: multi-item support)
   const [scanResultData, setScanResultData] = useState<ScanResultData | null>(null);
+  const [multiScanResults, setMultiScanResults] = useState<ScanResultData[]>([]);
   const [scanPhotoUri, setScanPhotoUri] = useState<string | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
   const [myFoods, setMyFoods] = useState<SavedFood[]>([]);
@@ -175,8 +176,29 @@ export default function FoodLogScreen() {
         }
         const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpeg';
         const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-        const scanResult = await scanFood(base64, mimeType);
-        setScanResultData(scanResult);
+        const multiResult = await scanFood(base64, mimeType);
+
+        // Sprint 14: Handle low confidence (blurry/unreadable)
+        if (multiResult.items.length === 1 && multiResult.items[0].confidence === 'low' && multiResult.items[0].foodName === 'Unknown Food') {
+          Alert.alert(
+            "Couldn't identify this food",
+            'Try a clearer photo or enter manually.',
+            [
+              { text: 'Retake Photo', onPress: () => { setScreen('search'); handleScanCamera(); } },
+              { text: 'Enter Manually', onPress: () => setScreen('manual') },
+            ],
+          );
+          return;
+        }
+
+        // Sprint 14: Multi-item support
+        if (multiResult.isMultiItem) {
+          setMultiScanResults(multiResult.items);
+          setScanResultData(multiResult.items[0]);
+        } else {
+          setMultiScanResults([]);
+          setScanResultData(multiResult.items[0]);
+        }
         setScreen('scanresult');
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Failed to analyze photo';
@@ -217,8 +239,28 @@ export default function FoodLogScreen() {
         }
         const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpeg';
         const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
-        const scanResult = await scanFood(base64, mimeType);
-        setScanResultData(scanResult);
+        const multiResult = await scanFood(base64, mimeType);
+
+        // Sprint 14: Handle low confidence (blurry/unreadable)
+        if (multiResult.items.length === 1 && multiResult.items[0].confidence === 'low' && multiResult.items[0].foodName === 'Unknown Food') {
+          Alert.alert(
+            "Couldn't identify this food",
+            'Try a clearer photo or enter manually.',
+            [
+              { text: 'Retake Photo', onPress: () => { setScreen('search'); handleScanGallery(); } },
+              { text: 'Enter Manually', onPress: () => setScreen('manual') },
+            ],
+          );
+          return;
+        }
+
+        if (multiResult.isMultiItem) {
+          setMultiScanResults(multiResult.items);
+          setScanResultData(multiResult.items[0]);
+        } else {
+          setMultiScanResults([]);
+          setScanResultData(multiResult.items[0]);
+        }
         setScreen('scanresult');
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Failed to analyze photo';
@@ -307,7 +349,7 @@ export default function FoodLogScreen() {
     }
   }, [saveEntry]);
 
-  // Sprint 10: Log from My Foods
+  // Sprint 10: Log from My Foods (Sprint 14: photo thumbnail quick re-log)
   const handleMyFoodLog = useCallback((food: SavedFood) => {
     // Pre-populate scan result from saved food and show review screen
     const result: ScanResultData = {
@@ -320,6 +362,7 @@ export default function FoodLogScreen() {
       nutrition: { ...food.nutrition },
     };
     setScanResultData(result);
+    setMultiScanResults([]);
     setScanPhotoUri(food.photoUri ?? null);
     setScreen('scanresult');
     incrementTimesLogged(food.id);
@@ -599,6 +642,10 @@ export default function FoodLogScreen() {
                   onPress={() => handleMyFoodLog(food)}
                   activeOpacity={0.7}
                 >
+                  {/* Sprint 14: Photo thumbnail for saved foods */}
+                  {food.photoUri && (
+                    <Image source={{ uri: food.photoUri }} style={styles.myFoodThumb} />
+                  )}
                   <View style={styles.myFoodInfo}>
                     <Text style={styles.myFoodName} numberOfLines={1}>
                       {food.foodName}
@@ -659,16 +706,18 @@ export default function FoodLogScreen() {
           </View>
         )}
 
-        {/* Sprint 10: Scan result review */}
+        {/* Sprint 10/14: Scan result review (multi-item support) */}
         {screen === 'scanresult' && scanResultData && (
           <FoodScanResult
             result={scanResultData}
+            multiItems={multiScanResults.length > 1 ? multiScanResults : undefined}
             photoUri={scanPhotoUri}
             mealType={mealType}
             timestamp={entryTimestamp}
             onLog={handleScanLog}
             onCancel={() => {
               setScanResultData(null);
+              setMultiScanResults([]);
               setScanPhotoUri(null);
               setScreen('search');
             }}
@@ -836,6 +885,12 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 4,
     minHeight: 56,
+  },
+  myFoodThumb: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    marginRight: 10,
   },
   myFoodInfo: {
     flex: 1,

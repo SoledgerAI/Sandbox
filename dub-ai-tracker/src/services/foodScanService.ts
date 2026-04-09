@@ -26,13 +26,25 @@ export interface FoodScanResult {
   };
 }
 
+/** Multi-item scan result — wraps one or more FoodScanResult items */
+export interface MultiItemScanResult {
+  items: FoodScanResult[];
+  isMultiItem: boolean;
+}
+
 const SCAN_PROMPT = `Analyze this food image. You MUST respond with ONLY a JSON object, no other text, no markdown backticks.
 
 If this is a NUTRITION LABEL, extract the exact values.
 If this is a PHOTO OF FOOD (no label), identify the food and estimate nutrition per serving.
-If you cannot identify the food, still respond with your best guess and set confidence to "low".
+If the image shows MULTIPLE food items, list each one separately with individual nutrition estimates.
+If the image is blurry or unreadable, set confidence to "low" and provide your best guess.
+If you cannot identify the food at all, set confidence to "low" and foodName to "Unknown Food".
 
-Respond with this exact JSON structure:
+For restaurant or cultural foods you can identify but can't precisely estimate (e.g., lamb biryani, pad thai), provide your best estimate and note "Restaurant portions vary" in the foodName or use medium confidence.
+
+Respond with this exact JSON structure. If there are multiple items, return them in an "items" array:
+
+For SINGLE item:
 {
   "foodName": "name of the food item",
   "brand": "brand name if visible, otherwise null",
@@ -50,13 +62,21 @@ Respond with this exact JSON structure:
   }
 }
 
+For MULTIPLE items on a plate/tray:
+{
+  "items": [
+    { same structure as single item above },
+    { ... }
+  ]
+}
+
 Be conservative with estimates. If unsure, err on the higher calorie side. For restaurant food, assume generous portions with added oils/butter.
 For whole fruits and vegetables, estimate based on a medium-sized piece unless the image clearly shows otherwise.`;
 
 export async function scanFood(
   base64Image: string,
   mimeType: string = 'image/jpeg',
-): Promise<FoodScanResult> {
+): Promise<MultiItemScanResult> {
   const apiKey = await getApiKey();
   if (!apiKey) {
     throw new AnthropicError(
@@ -141,33 +161,49 @@ export async function scanFood(
   }
 
   try {
-    const parsed = JSON.parse(jsonStr) as FoodScanResult;
+    const parsed = JSON.parse(jsonStr);
 
-    // Validate required fields — if missing, return a fallback
-    if (!parsed.foodName || !parsed.nutrition) {
-      return makeFallbackResult(raw);
+    // Handle multi-item response: { items: [...] }
+    if (parsed.items && Array.isArray(parsed.items)) {
+      const items = parsed.items.map(normalizeItem).filter(Boolean) as FoodScanResult[];
+      if (items.length === 0) return { items: [makeFallbackItem(raw)], isMultiItem: false };
+      return { items, isMultiItem: items.length > 1 };
     }
 
-    // Ensure all nutrition fields are numbers (not null/undefined)
-    const n = parsed.nutrition;
-    parsed.nutrition = {
+    // Single item response
+    const item = normalizeItem(parsed);
+    if (!item) return { items: [makeFallbackItem(raw)], isMultiItem: false };
+    return { items: [item], isMultiItem: false };
+  } catch {
+    // If JSON parsing fails entirely, return a fallback instead of crashing
+    return { items: [makeFallbackItem(raw)], isMultiItem: false };
+  }
+}
+
+/** Normalize and validate a single parsed item */
+function normalizeItem(parsed: Record<string, unknown>): FoodScanResult | null {
+  if (!parsed.foodName || !parsed.nutrition) return null;
+  const n = parsed.nutrition as Record<string, unknown>;
+  return {
+    foodName: String(parsed.foodName),
+    brand: parsed.brand ? String(parsed.brand) : null,
+    servingSize: String(parsed.servingSize ?? '1 serving'),
+    servingsPerContainer: parsed.servingsPerContainer != null ? Number(parsed.servingsPerContainer) : null,
+    isEstimate: Boolean(parsed.isEstimate),
+    confidence: (['high', 'medium', 'low'].includes(String(parsed.confidence)) ? String(parsed.confidence) : 'low') as 'high' | 'medium' | 'low',
+    nutrition: {
       calories: Number(n.calories) || 0,
       protein: Number(n.protein) || 0,
       carbs: Number(n.carbs) || 0,
       fat: Number(n.fat) || 0,
       addedSugar: Number(n.addedSugar) || 0,
       fiber: Number(n.fiber) || 0,
-    };
-
-    return parsed;
-  } catch {
-    // If JSON parsing fails entirely, return a fallback instead of crashing
-    return makeFallbackResult(raw);
-  }
+    },
+  };
 }
 
 /** Return a low-confidence placeholder so the user can enter values manually. */
-function makeFallbackResult(rawResponse?: string): FoodScanResult {
+function makeFallbackItem(rawResponse?: string): FoodScanResult {
   console.warn('[foodScanService] Could not parse scan result, returning fallback. Raw:', rawResponse?.slice(0, 300));
   return {
     foodName: 'Unknown Food',

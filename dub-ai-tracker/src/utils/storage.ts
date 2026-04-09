@@ -94,6 +94,7 @@ export const STORAGE_KEYS = {
 
   // Settings
   INGREDIENT_FLAGS: 'dub.settings.ingredient_flags',
+  USER_MACROS: 'dub.settings.user_macros',
 
   // Activity Logger
   RECENT_ACTIVITIES: 'dub.recent_activities',
