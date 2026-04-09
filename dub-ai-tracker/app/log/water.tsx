@@ -1,4 +1,4 @@
-// Water logging screen
+// Drinks logging screen (renamed from Hydration in Sprint 11)
 // Phase 8: Hydration, Caffeine, and Substance Logging
 
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
@@ -22,7 +22,7 @@ export default function WaterScreen() {
         >
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Hydration</Text>
+        <Text style={styles.title}>Drinks</Text>
         <View style={styles.backBtn} />
       </View>
 

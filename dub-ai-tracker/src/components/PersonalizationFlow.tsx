@@ -38,6 +38,12 @@ import {
 import { storageSet, STORAGE_KEYS } from '../utils/storage';
 import { getDefaultTagsForTier } from '../constants/tags';
 import { DEFAULT_TIER } from '../constants/tiers';
+import {
+  SUPPLEMENT_LIBRARY,
+  GOAL_SUPPLEMENT_SUGGESTIONS,
+  timingEmoji,
+  getSupplementInfo,
+} from '../data/supplementLibrary';
 import type {
   BiologicalSex,
   Pronouns,
@@ -53,7 +59,7 @@ if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 
-const TOTAL_STEPS = 11; // +1 value prop, +1 summary
+const TOTAL_STEPS = 12; // +1 value prop, +1 supplements, +1 summary
 const CONSENT_VERSION = '1.0';
 
 // ── Activity Level Options ──
@@ -143,6 +149,9 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
 
   // Step 9: Zip Code
   const [zip, setZip] = useState('');
+
+  // Step 10: Supplements (Sprint 11)
+  const [selectedSupplements, setSelectedSupplements] = useState<string[]>([]);
 
   // Validation
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -235,12 +244,13 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
       case 7: // Activity — checked by disabled button
       case 8: // Goal — checked by disabled button
       case 9: // Tags — always valid
+      case 10: // Supplements — always valid (optional)
         goForward();
         break;
-      case 10: // Zip Code
+      case 11: // Zip Code
         if (validateStep10()) goForward();
         break;
-      case 11: // Summary — finish
+      case 12: // Summary — finish
         handleFinish();
         break;
     }
@@ -345,6 +355,11 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
         writes.push(setUserZip(zip.trim()));
       }
 
+      // Sprint 11: Save selected supplements from onboarding
+      if (selectedSupplements.length > 0) {
+        writes.push(storageSet(STORAGE_KEYS.MY_SUPPLEMENTS, selectedSupplements));
+      }
+
       await Promise.all(writes);
       await completeOnboarding();
       onComplete();
@@ -357,7 +372,7 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
     healthConsent, aiConsent, ageConsent, onComplete,
     heightFeet, heightInches, heightUnitMetric, heightCm,
     weightLbs, weightUnitMetric, weightKg,
-    activityLevel, enabledTags, zip,
+    activityLevel, enabledTags, zip, selectedSupplements,
   ]);
 
   // ── Button state per step ──
@@ -373,8 +388,9 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
       case 7: return !!activityLevel;
       case 8: return !!mainGoal;
       case 9: return true; // Tags can be empty (user chooses)
-      case 10: return true; // Zip is optional
-      case 11: return true; // Summary — always can finish
+      case 10: return true; // Supplements — optional
+      case 11: return true; // Zip is optional
+      case 12: return true; // Summary — always can finish
       default: return false;
     }
   }
@@ -480,6 +496,17 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
           />
         )}
         {step === 10 && (
+          <Step10Supplements
+            selected={selectedSupplements}
+            onToggle={(name: string) => {
+              setSelectedSupplements((prev) =>
+                prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name],
+              );
+            }}
+            goal={mainGoal}
+          />
+        )}
+        {step === 11 && (
           <Step9Zip
             zip={zip}
             onZipChange={setZip}
@@ -487,7 +514,7 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
             onSubmit={handleStepContinue}
           />
         )}
-        {step === 11 && (
+        {step === 12 && (
           <StepSummary
             name={name}
             pronouns={pronouns}
@@ -1129,6 +1156,100 @@ function Step8Tags({
 // Step 9: Zip Code
 // ════════════════════════════════════════════════════
 
+// ════════════════════════════════════════════════════
+// Step 10: Supplements (Sprint 11)
+// ════════════════════════════════════════════════════
+
+function Step10Supplements({
+  selected,
+  onToggle,
+  goal,
+}: {
+  selected: string[];
+  onToggle: (name: string) => void;
+  goal: MainGoal | null;
+}) {
+  const suggestions = goal ? GOAL_SUPPLEMENT_SUGGESTIONS[goal] ?? [] : [];
+  const suggestedNames = suggestions.map((s) => s.name);
+
+  return (
+    <ScrollView
+      contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.screenTitle}>Supplements</Text>
+      <Text style={styles.screenSubtitle}>
+        What supplements do you currently take? You can change this anytime.
+      </Text>
+
+      {suggestions.length > 0 && (
+        <>
+          <Text style={[styles.sectionLabel, { marginTop: 16, marginBottom: 8 }]}>
+            Suggested for your goal
+          </Text>
+          {suggestions.map((sug) => {
+            const info = getSupplementInfo(sug.name);
+            const isSelected = selected.includes(sug.name);
+            return (
+              <TouchableOpacity
+                key={sug.name}
+                style={[styles.optionRowCompact, isSelected && styles.optionRowCompactSelected]}
+                onPress={() => onToggle(sug.name)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={isSelected ? 'checkbox' : 'square-outline'}
+                  size={22}
+                  color={isSelected ? Colors.accent : Colors.secondaryText}
+                />
+                <View style={{ flex: 1, marginLeft: 10 }}>
+                  <Text style={[styles.optionLabelCompact, isSelected && { color: Colors.accent }]}>
+                    {info ? `${timingEmoji(info.timing)} ` : ''}{sug.name}
+                  </Text>
+                  {info && (
+                    <Text style={styles.optionSubCompact}>{info.commonDosage} · {info.timingNote}</Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </>
+      )}
+
+      <Text style={[styles.sectionLabel, { marginTop: 20, marginBottom: 8 }]}>
+        All supplements
+      </Text>
+      {SUPPLEMENT_LIBRARY.filter((s) => !suggestedNames.includes(s.name)).map((info) => {
+        const isSelected = selected.includes(info.name);
+        return (
+          <TouchableOpacity
+            key={info.name}
+            style={[styles.optionRowCompact, isSelected && styles.optionRowCompactSelected]}
+            onPress={() => onToggle(info.name)}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name={isSelected ? 'checkbox' : 'square-outline'}
+              size={22}
+              color={isSelected ? Colors.accent : Colors.secondaryText}
+            />
+            <View style={{ flex: 1, marginLeft: 10 }}>
+              <Text style={[styles.optionLabelCompact, isSelected && { color: Colors.accent }]}>
+                {timingEmoji(info.timing)} {info.name}
+              </Text>
+              <Text style={styles.optionSubCompact}>{info.commonDosage}</Text>
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// Step 9/11: Zip Code
+// ════════════════════════════════════════════════════
+
 function Step9Zip({
   zip, onZipChange, errors, onSubmit,
 }: {
@@ -1222,7 +1343,7 @@ function StepSummary({
     { label: 'Activity Level', value: activityLabel, editStep: 7 },
     { label: 'Goal', value: goalLabel, editStep: 8 },
     { label: 'Tags', value: `${tagCount} categories enabled`, editStep: 9 },
-    { label: 'Zip Code', value: zip.trim() || 'Not provided', editStep: 10 },
+    { label: 'Zip Code', value: zip.trim() || 'Not provided', editStep: 11 },
   ];
 
   return (
@@ -1596,5 +1717,35 @@ const styles = StyleSheet.create({
     color: Colors.accentText,
     fontSize: 15,
     fontWeight: '500',
+  },
+
+  // Sprint 11: Supplement onboarding step
+  sectionLabel: {
+    color: Colors.accent,
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
+  optionRowCompact: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 4,
+  },
+  optionRowCompactSelected: {
+    borderWidth: 1,
+    borderColor: Colors.accent,
+  },
+  optionLabelCompact: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  optionSubCompact: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    marginTop: 2,
   },
 });

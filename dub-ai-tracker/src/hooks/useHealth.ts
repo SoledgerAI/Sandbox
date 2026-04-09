@@ -1,5 +1,6 @@
 // Unified health device hook
 // Phase 18: Device Integrations
+// Sprint 11: Strava OAuth integration added
 // Provides a single interface for all health device integrations.
 // Platform-aware: Apple Health on iOS, Health Connect on Android.
 
@@ -21,6 +22,13 @@ import {
   syncFromHealthConnect,
   disconnectHealthConnect,
 } from '../services/healthconnect';
+
+import {
+  initiateStravaAuth,
+  syncFromStrava,
+  disconnectStrava,
+  isStravaConfigured,
+} from '../services/strava';
 
 import {
   fetchCurrentWeather,
@@ -71,13 +79,14 @@ export function useHealth(): UseHealthResult {
   const [loading, setLoading] = useState(true);
 
   // Load device states from storage
-  // Only functional integrations (Apple Health, Google Health Connect) read connected state.
-  // Strava, Garmin, Oura: Coming Soon — never report connected.
   const refreshDeviceStates = useCallback(async () => {
-    const [appleState, googleState] = await Promise.all([
+    const [appleState, googleState, stravaState] = await Promise.all([
       storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_APPLE),
       storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_GOOGLE),
+      storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_STRAVA),
     ]);
+
+    const stravaConfigured = isStravaConfigured();
 
     const statuses: DeviceStatus[] = [
       {
@@ -96,10 +105,10 @@ export function useHealth(): UseHealthResult {
       },
       {
         id: 'strava',
-        connected: false,
-        lastSync: null,
-        available: false,
-        comingSoon: true,
+        connected: stravaState?.connected === true,
+        lastSync: stravaState?.last_sync ?? null,
+        available: stravaConfigured,
+        comingSoon: !stravaConfigured,
       },
       {
         id: 'garmin',
@@ -127,7 +136,7 @@ export function useHealth(): UseHealthResult {
     })();
   }, [refreshDeviceStates]);
 
-  // Connect a device — only functional integrations
+  // Connect a device
   const connectDevice = useCallback(async (device: DeviceType): Promise<boolean> => {
     switch (device) {
       case 'apple': {
@@ -139,6 +148,17 @@ export function useHealth(): UseHealthResult {
         const ok = await requestHealthConnectPermissions();
         if (ok) await refreshDeviceStates();
         return ok;
+      }
+      case 'strava': {
+        try {
+          await initiateStravaAuth();
+          // The actual connection happens in handleStravaCallback
+          // triggered by the deep link. Return true to indicate
+          // the auth flow was initiated.
+          return true;
+        } catch {
+          return false;
+        }
       }
       default:
         return false;
@@ -154,12 +174,15 @@ export function useHealth(): UseHealthResult {
       case 'google':
         await disconnectHealthConnect();
         break;
+      case 'strava':
+        await disconnectStrava();
+        break;
     }
     await refreshDeviceStates();
   }, [refreshDeviceStates]);
 
   // Sync a single device
-  const syncDevice = useCallback(async (device: DeviceType, _userWeightLbs: number): Promise<SyncResult> => {
+  const syncDevice = useCallback(async (device: DeviceType, userWeightLbs: number): Promise<SyncResult> => {
     switch (device) {
       case 'apple': {
         const result = await syncFromHealthKit();
@@ -179,6 +202,16 @@ export function useHealth(): UseHealthResult {
           message: result.success
             ? `Synced ${result.dataTypes.join(', ')} from Health Connect`
             : 'Health Connect sync failed',
+        };
+      }
+      case 'strava': {
+        const result = await syncFromStrava(userWeightLbs);
+        return {
+          device: 'strava',
+          success: result.success,
+          message: result.success
+            ? `Synced ${result.activitiesImported} activit${result.activitiesImported === 1 ? 'y' : 'ies'} from Strava`
+            : 'Strava sync failed',
         };
       }
       default:

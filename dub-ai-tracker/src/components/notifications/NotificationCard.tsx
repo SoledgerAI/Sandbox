@@ -35,7 +35,7 @@ interface TagCardConfig {
 const TAG_CARD_CONFIGS: Record<string, TagCardConfig> = {
   'hydration.water': {
     tagId: 'hydration.water',
-    name: 'Hydration',
+    name: 'Drinks',
     icon: 'water-outline',
     inputType: 'water',
     storageKey: STORAGE_KEYS.LOG_WATER,

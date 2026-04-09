@@ -7,25 +7,34 @@ import { storageGet, storageSet, STORAGE_KEYS, dateKey } from '../utils/storage'
 import { logAuditEvent } from '../utils/audit';
 import type { DeviceSyncState } from '../types/profile';
 import type { WorkoutEntry } from '../types';
+import {
+  STRAVA_CLIENT_ID as CONFIG_CLIENT_ID,
+  STRAVA_CLIENT_SECRET as CONFIG_CLIENT_SECRET,
+  STRAVA_REDIRECT_URI,
+} from '../config/strava';
 
 // ============================================================
 // Strava API constants
 // ============================================================
 
-const STRAVA_AUTH_URL = 'https://www.strava.com/oauth/authorize';
+const STRAVA_AUTH_URL = 'https://www.strava.com/oauth/mobile/authorize';
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token';
 const STRAVA_ACTIVITIES_URL = 'https://www.strava.com/api/v3/athlete/activities';
 const STRAVA_SCOPES = 'read,activity:read_all';
-const REDIRECT_URI = 'dubai://strava/callback';
+const REDIRECT_URI = STRAVA_REDIRECT_URI;
 
-// These must be set by the user or via app config
-// In production, client_secret should be handled server-side
-let stravaClientId = '';
-let stravaClientSecret = '';
+// Use config values; allow runtime override for testing
+let stravaClientId = CONFIG_CLIENT_ID !== 'PLACEHOLDER' ? CONFIG_CLIENT_ID : '';
+let stravaClientSecret = CONFIG_CLIENT_SECRET !== 'PLACEHOLDER' ? CONFIG_CLIENT_SECRET : '';
 
 export function setStravaCredentials(clientId: string, clientSecret: string): void {
   stravaClientId = clientId;
   stravaClientSecret = clientSecret;
+}
+
+/** Check if Strava credentials are configured. */
+export function isStravaConfigured(): boolean {
+  return stravaClientId.length > 0 && stravaClientId !== 'PLACEHOLDER';
 }
 
 // ============================================================

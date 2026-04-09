@@ -38,7 +38,7 @@ export function NotificationStep({
         <View style={styles.toggleInfo}>
           <Text style={styles.toggleLabel}>Enable Push Notifications</Text>
           <Text style={styles.toggleDescription}>
-            Meal reminders, hydration nudges, and end-of-day check-ins
+            Meal reminders, drink nudges, and end-of-day check-ins
           </Text>
         </View>
         <Switch
@@ -61,7 +61,7 @@ export function NotificationStep({
         <View style={styles.previewDetails}>
           {tierDef.notificationsPerDay[0] >= 6 && (
             <>
-              <PreviewItem label="Hydration reminders" />
+              <PreviewItem label="Drink reminders" />
               <PreviewItem label="Meal window alerts" />
               <PreviewItem label="Macro check-ins" />
               <PreviewItem label="End-of-day review" />

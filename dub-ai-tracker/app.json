@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/dub_app_icon_1024.png",
     "userInterfaceStyle": "dark",
-    "scheme": "dub-ai-tracker",
+    "scheme": ["dub-ai-tracker", "dubaitracker"],
     "sdkVersion": "55.0.0",
     "splash": {
       "image": "./assets/dub_splash.png",

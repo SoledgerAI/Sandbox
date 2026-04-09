@@ -6,7 +6,7 @@
 // - Single init effect: check onboarding, navigate if needed
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Animated, AppState, AppStateStatus, Text, View } from 'react-native';
+import { Animated, AppState, AppStateStatus, Linking, Text, View } from 'react-native';
 import { Stack, router, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -19,6 +19,7 @@ import { AuthGate } from '../src/components/AuthGate';
 import { LoadingIndicator } from '../src/components/common/LoadingIndicator';
 import { ToastProvider } from '../src/contexts/ToastContext';
 import { isOnboardingComplete } from '../src/services/onboardingService';
+import { handleStravaCallback } from '../src/services/strava';
 import type { AppSettings } from '../src/types/profile';
 
 // Keep splash screen visible until initialization completes
@@ -86,6 +87,34 @@ export default function RootLayout() {
 
 
     return () => subscription.remove();
+  }, []);
+
+  // Sprint 11: Strava OAuth deep link handler
+  useEffect(() => {
+    function handleDeepLink(event: { url: string }) {
+      const url = event.url;
+      if (!url) return;
+
+      // Handle Strava callback: dubaitracker://strava-callback?code=...
+      if (url.includes('strava-callback') || url.includes('strava/callback')) {
+        const params = new URL(url).searchParams;
+        const code = params.get('code');
+        if (code) {
+          handleStravaCallback(code).catch(() => {
+            // Error handled inside service
+          });
+        }
+      }
+    }
+
+    const linkingSub = Linking.addEventListener('url', handleDeepLink);
+
+    // Check if app was opened via deep link
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => linkingSub.remove();
   }, []);
 
   // D8-002: Triple-tap handler

@@ -33,9 +33,9 @@ export const HEALTH_FITNESS_TAGS: TagDefault[] = [
   {
     id: 'hydration.water',
     category: TagCategory.HYDRATION,
-    name: 'Hydration',
+    name: 'Drinks',
     icon: 'water-outline',
-    description: 'Track daily water and caffeine intake',
+    description: 'Track daily drinks and hydration intake',
     sensitive: false,
     defaultEnabledForTiers: ['precision', 'structured', 'balanced', 'flexible', 'mindful'],
   },

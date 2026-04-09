@@ -1,5 +1,5 @@
-// Hydration logging component -- beverage types, quick-add, daily total, goal progress
-// Phase 8 + Task E: Prompt 07 v2
+// Drinks logging component -- beverage types, quick-add, daily total, goal progress
+// Sprint 11: Hydration → Drinks rename, new beverages, caffeine logic, quick-add fixes
 
 import { useState, useEffect, useCallback } from 'react';
 import { hapticLight, hapticSuccess } from '../../utils/haptics';
@@ -15,6 +15,7 @@ import {
   Platform,
   FlatList,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import {
@@ -27,17 +28,18 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import type { WaterEntry, BeverageType } from '../../types';
+import { NON_HYDRATING_BEVERAGES } from '../../types';
 import { todayDateString } from '../../utils/dayBoundary';
 import { getActiveDate } from '../../services/dateContextService';
 
 const QUICK_ADD_OPTIONS = [
   { label: '8 oz', amount: 8 },
+  { label: '10 oz', amount: 10 },
   { label: '12 oz', amount: 12 },
   { label: '16 oz', amount: 16 },
   { label: '20 oz', amount: 20 },
   { label: '24 oz', amount: 24 },
   { label: '32 oz', amount: 32 },
-  { label: '40 oz', amount: 40 },
 ];
 
 const BEVERAGE_OPTIONS: { value: BeverageType; label: string }[] = [
@@ -46,11 +48,19 @@ const BEVERAGE_OPTIONS: { value: BeverageType; label: string }[] = [
   { value: 'coffee', label: 'Coffee' },
   { value: 'juice', label: 'Juice' },
   { value: 'sparkling', label: 'Sparkling' },
+  { value: 'energy_drink', label: 'Energy Drink' },
+  { value: 'smoothie', label: 'Smoothie' },
+  { value: 'protein_shake', label: 'Protein Shake' },
+  { value: 'soda', label: 'Soda' },
+  { value: 'milk', label: 'Milk' },
   { value: 'other', label: 'Other' },
 ];
 
 const DEFAULT_WATER_GOAL_OZ = 64;
 
+function isHydrating(bev: BeverageType): boolean {
+  return !NON_HYDRATING_BEVERAGES.includes(bev);
+}
 
 interface WaterLoggerProps {
   onEntryLogged?: () => void;
@@ -81,7 +91,18 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
   }, [loadData]);
 
   const totalOz = entries.reduce((sum, e) => sum + e.amount_oz, 0);
-  const progressPct = Math.min(totalOz / waterGoal, 1);
+
+  // Hydrating total: only beverages that count toward the goal
+  const hydratingOz = entries
+    .filter((e) => isHydrating(e.beverage ?? 'water'))
+    .reduce((sum, e) => sum + e.amount_oz, 0);
+
+  // Caffeine subtotal: non-hydrating beverages
+  const caffeineOz = entries
+    .filter((e) => !isHydrating(e.beverage ?? 'water'))
+    .reduce((sum, e) => sum + e.amount_oz, 0);
+
+  const progressPct = Math.min(hydratingOz / waterGoal, 1);
 
   // Breakdown by beverage type
   const beverageBreakdown = entries.reduce<Record<string, number>>((acc, e) => {
@@ -91,7 +112,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
   }, {});
   const breakdownEntries = Object.entries(beverageBreakdown).filter(([, oz]) => oz > 0);
 
-  const logHydration = useCallback(
+  const logDrink = useCallback(
     async (amount: number) => {
       const today = getActiveDate();
       const key = dateKey(STORAGE_KEYS.LOG_WATER, today);
@@ -108,35 +129,61 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
       await storageSet(key, updated);
       await saveLastWater(entry);
       setEntries(updated);
-      // Check if goal reached with this entry
-      const newTotal = updated.reduce((sum, e) => sum + e.amount_oz, 0);
-      if (newTotal >= waterGoal && totalOz < waterGoal) {
-        hapticSuccess();
+
+      // Check if hydration goal reached with this entry (only for hydrating drinks)
+      if (isHydrating(selectedBeverage)) {
+        const newHydrating = updated
+          .filter((e) => isHydrating(e.beverage ?? 'water'))
+          .reduce((sum, e) => sum + e.amount_oz, 0);
+        if (newHydrating >= waterGoal && hydratingOz < waterGoal) {
+          hapticSuccess();
+        } else {
+          hapticLight();
+        }
       } else {
         hapticLight();
       }
       onEntryLogged?.();
     },
-    [entries, onEntryLogged, selectedBeverage, saveLastWater, timestamp, waterGoal, totalOz],
+    [entries, onEntryLogged, selectedBeverage, saveLastWater, timestamp, waterGoal, hydratingOz],
   );
 
   const logCustom = useCallback(() => {
-    const amount = parseFloat(customAmount);
+    const trimmed = customAmount.trim();
+    if (!trimmed) {
+      Alert.alert('Invalid Amount', 'Please enter a valid number of ounces.');
+      return;
+    }
+    const amount = parseFloat(trimmed);
     if (isNaN(amount) || amount <= 0) {
       Alert.alert('Invalid Amount', 'Please enter a valid number of ounces.');
       return;
     }
-    logHydration(amount);
+    logDrink(amount);
     setCustomAmount('');
-  }, [customAmount, logHydration]);
+  }, [customAmount, logDrink]);
 
-  const deleteEntry = useCallback(
-    async (id: string) => {
-      const today = getActiveDate();
-      const key = dateKey(STORAGE_KEYS.LOG_WATER, today);
-      const updated = entries.filter((e) => e.id !== id);
-      await storageSet(key, updated);
-      setEntries(updated);
+  const confirmDelete = useCallback(
+    (entry: WaterEntry) => {
+      const bev = beverageLabel(entry.beverage ?? 'water');
+      Alert.alert(
+        'Delete Entry?',
+        `Remove this ${entry.amount_oz} oz ${bev} entry?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              const today = getActiveDate();
+              const key = dateKey(STORAGE_KEYS.LOG_WATER, today);
+              const updated = entries.filter((e) => e.id !== entry.id);
+              await storageSet(key, updated);
+              setEntries(updated);
+            },
+          },
+        ],
+      );
     },
     [entries],
   );
@@ -151,6 +198,8 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
     return BEVERAGE_OPTIONS.find((b) => b.value === bev)?.label ?? bev;
   }
 
+  const selectedIsNonHydrating = !isHydrating(selectedBeverage);
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -159,7 +208,7 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
     >
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <RepeatLastEntry
-        tagLabel="water"
+        tagLabel="drinks"
         subtitle={lastWater ? `${lastWater.amount_oz} oz ${lastWater.beverage ?? 'water'}` : undefined}
         visible={lastWater != null}
         onRepeat={repeatLastWater}
@@ -172,12 +221,12 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
         <View style={styles.summaryRow}>
           <Ionicons name="water" size={28} color={Colors.accent} />
           <View style={styles.summaryText}>
-            <Text style={styles.totalAmount}>{totalOz} oz</Text>
-            <Text style={styles.goalText}>of {waterGoal} oz goal</Text>
+            <Text style={styles.totalAmount}>{hydratingOz} oz</Text>
+            <Text style={styles.goalText}>of {waterGoal} oz hydration goal</Text>
           </View>
         </View>
 
-        {/* Progress bar */}
+        {/* Progress bar — hydrating drinks only */}
         <View style={styles.progressTrack}>
           <View
             style={[
@@ -198,6 +247,15 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
           {Math.round(progressPct * 100)}% of daily goal
         </Text>
 
+        {/* Caffeine subtotal */}
+        {caffeineOz > 0 && (
+          <View style={styles.caffeineRow}>
+            <Text style={styles.caffeineText}>
+              ☕ Caffeine / Non-hydrating: {caffeineOz} oz
+            </Text>
+          </View>
+        )}
+
         {/* Beverage breakdown */}
         {breakdownEntries.length > 1 && (
           <Text style={styles.breakdownText}>
@@ -208,7 +266,11 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
 
       {/* Beverage type selector */}
       <Text style={styles.sectionTitle}>Beverage</Text>
-      <View style={styles.beverageRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={styles.beverageRow}
+      >
         {BEVERAGE_OPTIONS.map((opt) => (
           <TouchableOpacity
             key={opt.value}
@@ -229,27 +291,44 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
             </Text>
           </TouchableOpacity>
         ))}
-      </View>
+      </ScrollView>
 
-      {/* Quick-add buttons — horizontal scrollable pills */}
+      {/* Non-hydrating indicator */}
+      {selectedIsNonHydrating && (
+        <Text style={styles.nonHydratingNote}>
+          ☕ Doesn&apos;t count toward hydration goal
+        </Text>
+      )}
+
+      {/* Quick-add buttons — horizontal scrollable pills with fade edge */}
       <Text style={styles.sectionTitle}>Quick Add</Text>
-      <FlatList
-        horizontal
-        data={QUICK_ADD_OPTIONS}
-        keyExtractor={(item) => String(item.amount)}
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.quickAddRow}
-        renderItem={({ item: opt }) => (
-          <TouchableOpacity
-            style={styles.quickAddPill}
-            onPress={() => logHydration(opt.amount)}
-            activeOpacity={0.7}
-            accessibilityLabel={`Add ${opt.label} of ${selectedBeverage}`}
-          >
-            <Text style={styles.quickAddText}>{opt.label}</Text>
-          </TouchableOpacity>
-        )}
-      />
+      <View style={styles.quickAddWrapper}>
+        <FlatList
+          horizontal
+          data={QUICK_ADD_OPTIONS}
+          keyExtractor={(item) => String(item.amount)}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.quickAddRow}
+          renderItem={({ item: opt }) => (
+            <TouchableOpacity
+              style={styles.quickAddPill}
+              onPress={() => logDrink(opt.amount)}
+              activeOpacity={0.7}
+              accessibilityLabel={`Add ${opt.label} of ${beverageLabel(selectedBeverage)}`}
+            >
+              <Text style={styles.quickAddText}>{opt.label}</Text>
+            </TouchableOpacity>
+          )}
+        />
+        {/* Fade edge indicator */}
+        <LinearGradient
+          colors={['transparent', Colors.primaryBackground]}
+          start={{ x: 0, y: 0.5 }}
+          end={{ x: 1, y: 0.5 }}
+          style={styles.fadeEdge}
+          pointerEvents="none"
+        />
+      </View>
 
       {/* Custom amount */}
       <Text style={styles.sectionTitle}>Custom Amount</Text>
@@ -265,9 +344,9 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
           onSubmitEditing={logCustom}
         />
         <TouchableOpacity
-          style={[styles.customBtn, !customAmount && styles.customBtnDisabled]}
+          style={[styles.customBtn, !customAmount.trim() && styles.customBtnDisabled]}
           onPress={logCustom}
-          disabled={!customAmount}
+          disabled={!customAmount.trim()}
           activeOpacity={0.7}
         >
           <Text style={styles.customBtnText}>Log</Text>
@@ -281,26 +360,32 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
           {entries
             .slice()
             .reverse()
-            .map((entry) => (
-              <View key={entry.id} style={styles.entryRow}>
-                <View style={styles.entryInfo}>
-                  <Text style={styles.entryAmount}>{entry.amount_oz} oz</Text>
-                  <Text style={styles.entryBeverage}>{beverageLabel(entry.beverage ?? 'water')}</Text>
-                  <Text style={styles.entryTime}>
-                    {new Date(entry.timestamp).toLocaleTimeString('en-US', {
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </Text>
+            .map((entry) => {
+              const bev = entry.beverage ?? 'water';
+              const nonHydrating = !isHydrating(bev);
+              return (
+                <View key={entry.id} style={styles.entryRow}>
+                  <View style={styles.entryInfo}>
+                    <Text style={styles.entryAmount}>{entry.amount_oz} oz</Text>
+                    <Text style={[styles.entryBeverage, nonHydrating && styles.entryBeverageCaffeine]}>
+                      {beverageLabel(bev)}{nonHydrating ? ' ☕' : ''}
+                    </Text>
+                    <Text style={styles.entryTime}>
+                      {new Date(entry.timestamp).toLocaleTimeString('en-US', {
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => confirmDelete(entry)}
+                    hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                  >
+                    <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+                  </TouchableOpacity>
                 </View>
-                <TouchableOpacity
-                  onPress={() => deleteEntry(entry.id)}
-                  hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                >
-                  <Ionicons name="trash-outline" size={18} color={Colors.danger} />
-                </TouchableOpacity>
-              </View>
-            ))}
+              );
+            })}
         </>
       )}
     </ScrollView>
@@ -358,6 +443,16 @@ const styles = StyleSheet.create({
     marginTop: 6,
     textAlign: 'right',
   },
+  caffeineRow: {
+    marginTop: 10,
+    paddingTop: 8,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: Colors.divider,
+  },
+  caffeineText: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+  },
   breakdownText: {
     color: Colors.secondaryText,
     fontSize: 12,
@@ -371,10 +466,10 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   beverageRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 8,
-    marginBottom: 24,
+    paddingRight: 16,
+    paddingBottom: 8,
+    marginBottom: 16,
   },
   beverageBtn: {
     paddingVertical: 8,
@@ -396,9 +491,19 @@ const styles = StyleSheet.create({
   beverageBtnTextSelected: {
     color: Colors.primaryBackground,
   },
+  nonHydratingNote: {
+    color: Colors.warning,
+    fontSize: 12,
+    marginBottom: 16,
+    marginTop: -8,
+  },
+  quickAddWrapper: {
+    position: 'relative',
+    marginBottom: 24,
+  },
   quickAddRow: {
     gap: 8,
-    paddingBottom: 24,
+    paddingRight: 32,
   },
   quickAddPill: {
     alignItems: 'center',
@@ -414,6 +519,13 @@ const styles = StyleSheet.create({
     color: Colors.primaryBackground,
     fontSize: 15,
     fontWeight: '700',
+  },
+  fadeEdge: {
+    position: 'absolute',
+    right: 0,
+    top: 0,
+    bottom: 0,
+    width: 32,
   },
   customRow: {
     flexDirection: 'row',
@@ -470,6 +582,9 @@ const styles = StyleSheet.create({
     color: Colors.accent,
     fontSize: 13,
     fontWeight: '500',
+  },
+  entryBeverageCaffeine: {
+    color: Colors.warning,
   },
   entryTime: {
     color: Colors.secondaryText,

@@ -18,7 +18,26 @@ export * from './marketplace';
 
 // -- HYDRATION --
 
-export type BeverageType = 'water' | 'tea' | 'coffee' | 'juice' | 'sparkling' | 'other';
+export type BeverageType =
+  | 'water'
+  | 'tea'
+  | 'coffee'
+  | 'juice'
+  | 'sparkling'
+  | 'energy_drink'
+  | 'smoothie'
+  | 'protein_shake'
+  | 'soda'
+  | 'milk'
+  | 'other';
+
+/** Beverages that do NOT count toward the daily hydration goal (caffeine/diuretic). */
+export const NON_HYDRATING_BEVERAGES: BeverageType[] = [
+  'coffee',
+  'energy_drink',
+  'soda',
+  'protein_shake',
+];
 
 export interface WaterEntry {
   id: string;

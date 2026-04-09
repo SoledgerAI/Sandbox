@@ -1,5 +1,6 @@
 // Supplement checklist -- vitamins, medications, supplements with time logging, quantity, and UL validation
 // Phase 13 + Task F: Prompt 07 v2
+// Sprint 11: Expanded library, timing labels, multi-dose, barcode scan
 
 import { useState, useEffect, useCallback } from 'react';
 import { hapticLight } from '../../utils/haptics';
@@ -34,6 +35,13 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
 import { getActiveDate } from '../../services/dateContextService';
 import type { UserProfile, ActivityLevel } from '../../types/profile';
+import {
+  SUPPLEMENT_LIBRARY,
+  getSupplementInfo,
+  timingEmoji,
+  timingLabel,
+  type SupplementTiming,
+} from '../../data/supplementLibrary';
 
 // MASTER-52: Supplement stack preset type
 interface SupplementStack {
@@ -52,19 +60,36 @@ const CATEGORY_TABS: { value: SupplementCategory; label: string; icon: string }[
   { value: 'supplement', label: 'Supplements', icon: 'flask-outline' },
 ];
 
-const DEFAULT_VITAMINS = [
-  'Vitamin A', 'Vitamin B1', 'Vitamin B2', 'Vitamin B3', 'Vitamin B5',
-  'Vitamin B6', 'Vitamin B7', 'Vitamin B9', 'Vitamin B12', 'Vitamin C',
-  'Vitamin D', 'Vitamin E', 'Vitamin K',
-];
+// Sprint 11: Build vitamin/supplement lists from the library
+const DEFAULT_VITAMINS = SUPPLEMENT_LIBRARY
+  .filter((s) => s.category === 'vitamin')
+  .map((s) => s.name);
 
 const COMMON_SUPPLEMENTS = [
-  'Creatine Monohydrate', 'Beta-Alanine', 'Citrulline Malate', 'BCAAs', 'HMB',
-  'Ashwagandha', 'Rhodiola Rosea', 'Tongkat Ali', 'Maca Root', 'Turmeric/Curcumin',
-  'Berberine', "Lion's Mane", 'Reishi', 'Omega-3 Fish Oil', 'Probiotics',
-  'Collagen Peptides', 'CoQ10', 'Melatonin', 'L-Theanine',
-  'Glucosamine/Chondroitin', 'Fiber supplement', 'Electrolytes',
+  // Minerals
+  ...SUPPLEMENT_LIBRARY.filter((s) => s.category === 'mineral').map((s) => s.name),
+  // Amino acids
+  ...SUPPLEMENT_LIBRARY.filter((s) => s.category === 'amino_acid').map((s) => s.name),
+  // Other
+  ...SUPPLEMENT_LIBRARY.filter((s) => s.category === 'other').map((s) => s.name),
 ];
+
+// Sprint 11: Group supplements by timing for display
+const TIMING_ORDER: SupplementTiming[] = ['morning', 'with_food', 'empty_stomach', 'anytime', 'evening'];
+
+function groupByTiming(names: string[]): { timing: SupplementTiming; label: string; items: string[] }[] {
+  const groups: Record<SupplementTiming, string[]> = {
+    morning: [], evening: [], with_food: [], empty_stomach: [], anytime: [],
+  };
+  for (const name of names) {
+    const info = getSupplementInfo(name);
+    const t = info?.timing ?? 'anytime';
+    groups[t].push(name);
+  }
+  return TIMING_ORDER
+    .filter((t) => groups[t].length > 0)
+    .map((t) => ({ timing: t, label: timingLabel(t), items: groups[t] }));
+}
 
 export function SupplementChecklist() {
   const [entries, setEntries] = useState<SupplementEntry[]>([]);
@@ -720,57 +745,75 @@ export function SupplementChecklist() {
         </>
       )}
 
-      {/* Checklist for vitamins/supplements (daily logging view) */}
+      {/* Checklist for vitamins/supplements (daily logging view) — grouped by timing */}
       {!editingSelection && category !== 'medication' && (
         <>
-          <Text style={styles.sectionTitle}>
-            {category === 'vitamin' ? 'Vitamins' : 'Supplements'}
-          </Text>
           {checklist.length === 0 && mySupplements != null ? (
-            <Text style={styles.sectionHint}>
-              No {category === 'vitamin' ? 'vitamins' : 'supplements'} selected. Tap "Edit My Supplements" below to choose.
-            </Text>
+            <>
+              <Text style={styles.sectionTitle}>
+                {category === 'vitamin' ? 'Vitamins' : 'Supplements'}
+              </Text>
+              <Text style={styles.sectionHint}>
+                No {category === 'vitamin' ? 'vitamins' : 'supplements'} selected. Tap "Edit My Supplements" below to choose.
+              </Text>
+            </>
           ) : (
-            <Text style={styles.sectionHint}>Tap to log. Tap again to add another dose. Long-press to remove.</Text>
+            <>
+              <Text style={styles.sectionHint}>Tap to log. Tap again to add another dose. Long-press to edit.</Text>
+              {groupByTiming(checklist).map((group) => (
+                <View key={group.timing}>
+                  <Text style={styles.timingGroupHeader}>{group.label}</Text>
+                  {group.items.map((name) => {
+                    const { count, latest, hasOverriddenTime } = getItemInfo(name, category);
+                    const taken = count > 0;
+                    const info = getSupplementInfo(name);
+                    const multiDose = info?.allowMultipleDoses === true;
+                    return (
+                      <TouchableOpacity
+                        key={name}
+                        style={styles.checkRow}
+                        onPress={() => toggleItem(name, category)}
+                        onLongPress={() => taken && openEditModal(name, category)}
+                        activeOpacity={0.7}
+                      >
+                        <Ionicons
+                          name={taken ? 'checkbox' : 'square-outline'}
+                          size={22}
+                          color={taken ? Colors.accent : Colors.secondaryText}
+                        />
+                        <View style={{ flex: 1 }}>
+                          <Text style={[styles.checkLabel, taken && styles.checkLabelTaken]}>{name}</Text>
+                          {info && (
+                            <Text style={styles.checkDosageHint}>
+                              {info.commonDosage}{multiDose ? ' · multi-dose' : ''}
+                            </Text>
+                          )}
+                        </View>
+                        {count > 1 && (
+                          <View style={styles.countBadge}>
+                            <Text style={styles.countBadgeText}>x{count}</Text>
+                          </View>
+                        )}
+                        {taken && latest && (
+                          <TouchableOpacity
+                            onPress={() => setEditingTimeId(editingTimeId === latest.id ? null : latest.id)}
+                            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                          >
+                            <Text style={[styles.checkTime, hasOverriddenTime && styles.checkTimeOverridden]}>
+                              {new Date(latest.timestamp).toLocaleTimeString('en-US', {
+                                hour: 'numeric',
+                                minute: '2-digit',
+                              })}
+                            </Text>
+                          </TouchableOpacity>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              ))}
+            </>
           )}
-          {checklist.map((name) => {
-            const { count, latest, hasOverriddenTime } = getItemInfo(name, category);
-            const taken = count > 0;
-            return (
-              <TouchableOpacity
-                key={name}
-                style={styles.checkRow}
-                onPress={() => toggleItem(name, category)}
-                onLongPress={() => taken && openEditModal(name, category)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={taken ? 'checkbox' : 'square-outline'}
-                  size={22}
-                  color={taken ? Colors.accent : Colors.secondaryText}
-                />
-                <Text style={[styles.checkLabel, taken && styles.checkLabelTaken]}>{name}</Text>
-                {count > 1 && (
-                  <View style={styles.countBadge}>
-                    <Text style={styles.countBadgeText}>x{count}</Text>
-                  </View>
-                )}
-                {taken && latest && (
-                  <TouchableOpacity
-                    onPress={() => setEditingTimeId(editingTimeId === latest.id ? null : latest.id)}
-                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                  >
-                    <Text style={[styles.checkTime, hasOverriddenTime && styles.checkTimeOverridden]}>
-                      {new Date(latest.timestamp).toLocaleTimeString('en-US', {
-                        hour: 'numeric',
-                        minute: '2-digit',
-                      })}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-              </TouchableOpacity>
-            );
-          })}
 
           {/* F-12: Edit My Supplements link */}
           <TouchableOpacity
@@ -816,6 +859,37 @@ export function SupplementChecklist() {
         <TouchableOpacity style={styles.saveStackBtn} onPress={saveAsStack} activeOpacity={0.7}>
           <Ionicons name="layers-outline" size={16} color={Colors.accent} />
           <Text style={styles.saveStackText}>Save as Stack</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Supplement barcode scan — reuses barcode scanner for supplement bottles */}
+      {category !== 'medication' && (
+        <TouchableOpacity
+          style={styles.scanBarcodeBtn}
+          onPress={() => {
+            Alert.alert(
+              'Scan Supplement',
+              'Use the barcode scanner on a supplement bottle to look it up in Open Food Facts and add it to your list.',
+              [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                  text: 'Open Scanner',
+                  onPress: () => {
+                    // Navigate to the food barcode scanner — results come back via manual entry
+                    // The barcode scanner is on the food screen; for now, guide user there
+                    Alert.alert(
+                      'Coming Soon',
+                      'Supplement barcode scanning will share the food barcode scanner. For now, add supplements manually below.',
+                    );
+                  },
+                },
+              ],
+            );
+          }}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="barcode-outline" size={18} color={Colors.accent} />
+          <Text style={styles.scanBarcodeText}>Scan Supplement Barcode</Text>
         </TouchableOpacity>
       )}
 
@@ -1074,8 +1148,17 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     gap: 10,
   },
-  checkLabel: { flex: 1, color: Colors.text, fontSize: 14 },
+  timingGroupHeader: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    fontWeight: '600',
+    marginTop: 14,
+    marginBottom: 6,
+    marginLeft: 4,
+  },
+  checkLabel: { color: Colors.text, fontSize: 14 },
   checkLabelTaken: { color: Colors.accent, fontWeight: '600' },
+  checkDosageHint: { color: Colors.secondaryText, fontSize: 11, marginTop: 1 },
   checkTime: { color: Colors.secondaryText, fontSize: 12 },
   checkTimeOverridden: { color: Colors.accent },
   countBadge: {
@@ -1283,6 +1366,24 @@ const styles = StyleSheet.create({
     color: Colors.primaryBackground,
     fontSize: 16,
     fontWeight: '700',
+  },
+  scanBarcodeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    marginBottom: 8,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    borderRadius: 10,
+    borderStyle: 'dashed',
+  },
+  scanBarcodeText: {
+    color: Colors.accent,
+    fontSize: 14,
+    fontWeight: '500',
   },
   editSelectionLink: {
     flexDirection: 'row',

@@ -13,7 +13,7 @@ interface DataContextBannerProps {
 
 const TAG_LABELS: Record<string, string> = {
   'nutrition.food': 'Nutrition',
-  'hydration.water': 'Hydration',
+  'hydration.water': 'Drinks',
   'sleep.tracking': 'Sleep',
   'mental.wellness': 'Mood',
   'body.measurements': 'Body',

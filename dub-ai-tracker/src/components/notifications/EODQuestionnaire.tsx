@@ -130,7 +130,7 @@ async function generateTemplateSummary(dateOverride?: string): Promise<string> {
 
   // Encouraging closer
   if (calories > 0 && waterOz > 0 && activeMins > 0) {
-    parts.push('Solid day — you hit nutrition, hydration, and movement. Keep it up!');
+    parts.push('Solid day — you hit nutrition, drinks, and movement. Keep it up!');
   } else if (calories > 0) {
     parts.push('Good logging today. Try to track water and activity too for a fuller picture.');
   } else {

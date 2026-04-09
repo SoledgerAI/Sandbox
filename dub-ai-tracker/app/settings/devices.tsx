@@ -1,7 +1,9 @@
 // Settings > Device Connections
 // Phase 18: Device Integrations
+// Sprint 11: Strava OAuth integration
 // Apple Health (iOS) and Google Health Connect (Android) are functional.
-// Strava, Garmin, Oura: Coming Soon — no active data flow.
+// Strava: OAuth + activity sync.
+// Garmin, Oura: Coming Soon — no active data flow.
 
 import { useState, useEffect } from 'react';
 import {
@@ -29,6 +31,7 @@ interface DeviceConfig {
   iconColor: string;
   platform: 'ios' | 'android' | 'all';
   comingSoon: boolean;
+  description?: string;
 }
 
 const DEVICES: DeviceConfig[] = [
@@ -54,7 +57,8 @@ const DEVICES: DeviceConfig[] = [
     icon: 'bicycle-outline',
     iconColor: '#FC4C02',
     platform: 'all',
-    comingSoon: true,
+    comingSoon: false,
+    description: 'Import activities from Strava',
   },
   {
     id: 'garmin',
@@ -160,6 +164,27 @@ export default function DevicesScreen() {
       );
       return;
     }
+
+    if (config.id === 'strava') {
+      Alert.alert(
+        'Connect Strava',
+        'DUB_AI will open Strava to authorize reading your activities. Your workouts will be imported automatically.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Connect',
+            onPress: async () => {
+              const ok = await connectDevice('strava');
+              if (!ok) {
+                Alert.alert('Error', 'Could not initiate Strava authorization. Please try again.');
+              }
+              // On success, the deep link callback handles the rest.
+            },
+          },
+        ],
+      );
+      return;
+    }
   }
 
   function handleDisconnect(config: DeviceConfig) {
@@ -227,9 +252,11 @@ export default function DevicesScreen() {
       {platformDevices.map((config) => {
         const deviceStatus = devices.find((d) => d.id === config.id);
         const connected = !config.comingSoon && deviceStatus?.connected === true;
+        const isAvailable = deviceStatus?.available === true;
         const isSyncing = syncingDeviceId === config.id;
 
-        if (config.comingSoon) {
+        // Coming soon devices (not Strava when configured)
+        if (config.comingSoon && deviceStatus?.comingSoon !== false) {
           return (
             <View key={config.id} style={styles.deviceCard}>
               <View style={styles.deviceInfo}>
@@ -261,6 +288,26 @@ export default function DevicesScreen() {
           );
         }
 
+        // Strava not configured — show "Setup Required"
+        if (config.id === 'strava' && !isAvailable && !connected) {
+          return (
+            <View key={config.id} style={styles.deviceCard}>
+              <View style={styles.deviceInfo}>
+                <Ionicons name={config.icon as any} size={24} color={config.iconColor} />
+                <View style={styles.deviceTextContainer}>
+                  <Text style={styles.deviceName}>{config.name}</Text>
+                  <Text style={styles.comingSoonText}>
+                    {config.description ?? 'Import activities from Strava'}
+                  </Text>
+                  <Text style={styles.setupText}>
+                    Set client ID/secret in src/config/strava.ts
+                  </Text>
+                </View>
+              </View>
+            </View>
+          );
+        }
+
         return (
           <View key={config.id} style={styles.deviceCard}>
             <View style={styles.deviceInfo}>
@@ -272,7 +319,9 @@ export default function DevicesScreen() {
                     Connected{deviceStatus?.lastSync ? ` \u2014 Last sync: ${formatDate(deviceStatus.lastSync)}` : ''}
                   </Text>
                 ) : (
-                  <Text style={styles.notConnected}>Not connected</Text>
+                  <Text style={styles.notConnected}>
+                    {config.description ?? 'Not connected'}
+                  </Text>
                 )}
               </View>
             </View>
@@ -370,6 +419,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 2,
     fontStyle: 'italic',
+  },
+  setupText: {
+    color: Colors.warning,
+    fontSize: 11,
+    marginTop: 2,
   },
   buttonRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   syncButton: {

@@ -1,7 +1,7 @@
 // Sprint 2 Fix 2 + Fix 3: Onboarding Value Prop + Summary Screen tests
 
 describe('PersonalizationFlow step structure', () => {
-  it('TOTAL_STEPS is 11 (9 original + value prop + summary)', () => {
+  it('TOTAL_STEPS is 12 (9 original + value prop + supplements + summary)', () => {
     // Read the source to verify the constant
     const fs = require('fs');
     const path = require('path');
@@ -9,7 +9,7 @@ describe('PersonalizationFlow step structure', () => {
       path.resolve(__dirname, '../components/PersonalizationFlow.tsx'),
       'utf-8',
     );
-    expect(source).toContain('const TOTAL_STEPS = 11');
+    expect(source).toContain('const TOTAL_STEPS = 12');
   });
 });
 
@@ -77,18 +77,18 @@ describe('Summary screen (Fix 2)', () => {
     expect(source).toContain("{ label: 'Name', value: name || 'Not set', editStep: 2 }");
     expect(source).toContain("{ label: 'Biological Sex', value: sexLabel, editStep: 3 }");
     expect(source).toContain("{ label: 'Height', value: heightDisplay, editStep: 5 }");
-    expect(source).toContain("{ label: 'Zip Code', value: zip.trim() || 'Not provided', editStep: 10 }");
+    expect(source).toContain("{ label: 'Zip Code', value: zip.trim() || 'Not provided', editStep: 11 }");
   });
 
-  it('Start Tracking button triggers onboarding completion from step 11', () => {
+  it('Start Tracking button triggers onboarding completion from step 12', () => {
     const fs = require('fs');
     const path = require('path');
     const source = fs.readFileSync(
       path.resolve(__dirname, '../components/PersonalizationFlow.tsx'),
       'utf-8',
     );
-    // Step 11 calls handleFinish
-    expect(source).toContain('case 11: // Summary — finish');
+    // Step 12 calls handleFinish
+    expect(source).toContain('case 12: // Summary — finish');
     expect(source).toContain('handleFinish()');
   });
 });
