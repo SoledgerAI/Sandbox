@@ -52,7 +52,12 @@ export async function getSecure(key: string): Promise<string | null> {
 }
 
 export async function setSecure(key: string, value: string): Promise<void> {
-  await SecureStore.setItemAsync(key, value);
+  await asyncWithTimeout(
+    SecureStore.setItemAsync(key, value),
+    STORAGE_READ_TIMEOUT,
+    undefined as void,
+    `setSecure(${key})`,
+  );
 }
 
 export async function deleteSecure(key: string): Promise<void> {

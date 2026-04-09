@@ -269,7 +269,11 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
   // ── Finish & Persist ──
 
   const handleFinish = useCallback(async () => {
-    if (isNavigating.current) return;
+    if (__DEV__) console.log('[Onboarding] handleFinish: tapped');
+    if (isNavigating.current) {
+      if (__DEV__) console.log('[Onboarding] handleFinish: blocked by isNavigating guard');
+      return;
+    }
     isNavigating.current = true;
     setSaving(true);
     try {
@@ -360,9 +364,21 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
         writes.push(storageSet(STORAGE_KEYS.MY_SUPPLEMENTS, selectedSupplements));
       }
 
+      if (__DEV__) console.log('[Onboarding] handleFinish: saving profile data...');
       await Promise.all(writes);
+      if (__DEV__) console.log('[Onboarding] handleFinish: profile saved, completing onboarding...');
       await completeOnboarding();
+      if (__DEV__) console.log('[Onboarding] handleFinish: onboarding complete, navigating...');
       onComplete();
+      if (__DEV__) console.log('[Onboarding] handleFinish: navigation fired');
+    } catch (error) {
+      if (__DEV__) console.error('[Onboarding] handleFinish: error during save —', error);
+      // Profile data is in AsyncStorage; don't block the user on SecureStore failures
+      try {
+        onComplete();
+      } catch (navError) {
+        if (__DEV__) console.error('[Onboarding] handleFinish: fallback navigation also failed —', navError);
+      }
     } finally {
       setSaving(false);
       isNavigating.current = false;
