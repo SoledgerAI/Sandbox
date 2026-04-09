@@ -45,6 +45,8 @@ export const STORAGE_KEYS = {
   LOG_BLOODWORK: 'dub.log.bloodwork',
   LOG_GLUCOSE: 'dub.log.glucose',
   LOG_BP: 'dub.log.bp',
+  LOG_HABITS: 'dub.log.habits',
+  LOG_REPS: 'dub.log.reps',
   LOG_CUSTOM: 'dub.log.custom',
 
   // Aggregates and Caches
@@ -95,6 +97,7 @@ export const STORAGE_KEYS = {
   // Settings
   INGREDIENT_FLAGS: 'dub.settings.ingredient_flags',
   USER_MACROS: 'dub.settings.user_macros',
+  SETTINGS_HABITS: 'dub.settings.habits',
 
   // Activity Logger
   RECENT_ACTIVITIES: 'dub.recent_activities',

@@ -147,7 +147,9 @@ export default function RootLayout() {
 
     async function init() {
       try {
+        if (__DEV__) console.log('[ONBOARD-08] _layout init: checking onboarding status...');
         const complete = await isOnboardingComplete();
+        if (__DEV__) console.log('[ONBOARD-08] _layout init: isOnboardingComplete =', complete);
         if (!cancelled && !complete) {
           router.replace('/onboarding');
         }

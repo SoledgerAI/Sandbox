@@ -35,7 +35,7 @@ import {
   setUserSex,
   setUserZip,
 } from '../services/onboardingService';
-import { storageSet, STORAGE_KEYS } from '../utils/storage';
+import { storageSet, STORAGE_KEYS, asyncWithTimeout } from '../utils/storage';
 import { getDefaultTagsForTier } from '../constants/tags';
 import { DEFAULT_TIER } from '../constants/tiers';
 import {
@@ -268,15 +268,19 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
 
   // ── Finish & Persist ──
 
+  // Master timeout for entire save sequence — if saves hang, navigate anyway
+  const FINISH_TIMEOUT_MS = 6000;
+
   const handleFinish = useCallback(async () => {
-    if (__DEV__) console.log('[Onboarding] handleFinish: tapped');
+    if (__DEV__) console.log('[ONBOARD-01] Start Tracking tapped');
     if (isNavigating.current) {
-      if (__DEV__) console.log('[Onboarding] handleFinish: blocked by isNavigating guard');
+      if (__DEV__) console.log('[ONBOARD-01] blocked by isNavigating guard');
       return;
     }
     isNavigating.current = true;
     setSaving(true);
     try {
+      if (__DEV__) console.log('[ONBOARD-02] handleFinish entered');
       const dobString = `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, '0')}-${String(dobDate.getDate()).padStart(2, '0')}`;
 
       // Compute stored height in inches
@@ -364,20 +368,32 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
         writes.push(storageSet(STORAGE_KEYS.MY_SUPPLEMENTS, selectedSupplements));
       }
 
-      if (__DEV__) console.log('[Onboarding] handleFinish: saving profile data...');
-      await Promise.all(writes);
-      if (__DEV__) console.log('[Onboarding] handleFinish: profile saved, completing onboarding...');
-      await completeOnboarding();
-      if (__DEV__) console.log('[Onboarding] handleFinish: onboarding complete, navigating...');
+      // Master timeout: race ALL saves against a hard deadline.
+      // If any AsyncStorage/SecureStore write hangs, we still navigate.
+      await asyncWithTimeout(
+        (async () => {
+          if (__DEV__) console.log('[ONBOARD-02a] saving profile data...');
+          await Promise.all(writes);
+          if (__DEV__) console.log('[ONBOARD-02b] profile saved, completing onboarding flag...');
+          await completeOnboarding();
+          if (__DEV__) console.log('[ONBOARD-04] all saves complete');
+        })(),
+        FINISH_TIMEOUT_MS,
+        undefined as void,
+        'handleFinish(allSaves)',
+      );
+
+      if (__DEV__) console.log('[ONBOARD-05] onComplete callback firing...');
       onComplete();
-      if (__DEV__) console.log('[Onboarding] handleFinish: navigation fired');
+      if (__DEV__) console.log('[ONBOARD-05a] onComplete fired');
     } catch (error) {
-      if (__DEV__) console.error('[Onboarding] handleFinish: error during save —', error);
-      // Profile data is in AsyncStorage; don't block the user on SecureStore failures
+      if (__DEV__) console.error('[ONBOARD-ERR] error during save —', error);
+      // Profile data may be partially saved; don't block the user
       try {
+        if (__DEV__) console.log('[ONBOARD-05] fallback: onComplete callback firing...');
         onComplete();
       } catch (navError) {
-        if (__DEV__) console.error('[Onboarding] handleFinish: fallback navigation also failed —', navError);
+        if (__DEV__) console.error('[ONBOARD-ERR] fallback navigation also failed —', navError);
       }
     } finally {
       setSaving(false);

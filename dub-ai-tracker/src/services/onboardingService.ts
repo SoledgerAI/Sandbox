@@ -3,7 +3,7 @@
 // FORENSIC FIX: Reads AsyncStorage first (fast, no Keychain), writes to BOTH stores.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { STORAGE_KEYS } from '../utils/storage';
+import { STORAGE_KEYS, asyncWithTimeout, STORAGE_READ_TIMEOUT } from '../utils/storage';
 import {
   SECURE_KEYS,
   PREF_KEYS,
@@ -43,11 +43,19 @@ export async function isOnboardingComplete(): Promise<boolean> {
 }
 
 export async function completeOnboarding(): Promise<void> {
+  if (__DEV__) console.log('[ONBOARD-03] completeOnboarding: writing flags...');
   // Write to BOTH stores — eliminates split-brain between code paths
+  // Both writes are timeout-protected to prevent indefinite hang
   await Promise.all([
     setSecure(SECURE_KEYS.ONBOARDING_COMPLETE, 'true'),
-    AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, JSON.stringify(true)),
+    asyncWithTimeout(
+      AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING_COMPLETE, JSON.stringify(true)),
+      STORAGE_READ_TIMEOUT,
+      undefined as void,
+      'completeOnboarding(AsyncStorage)',
+    ),
   ]);
+  if (__DEV__) console.log('[ONBOARD-04] completeOnboarding: flags written');
 }
 
 export async function resetOnboarding(): Promise<void> {

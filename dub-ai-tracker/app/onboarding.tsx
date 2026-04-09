@@ -20,7 +20,9 @@ export default function OnboardingScreen() {
   }, []);
 
   const handleComplete = useCallback(() => {
+    if (__DEV__) console.log('[ONBOARD-06] Parent received onComplete — navigating to /(tabs)');
     router.replace('/(tabs)');
+    if (__DEV__) console.log('[ONBOARD-07] router.replace("/(tabs)") called');
   }, []);
 
   return <PersonalizationFlow onComplete={handleComplete} />;
