@@ -221,11 +221,23 @@ export interface SupplementEntry {
 
 // -- SUBSTANCES --
 
-export type SubstanceType = 'alcohol' | 'cannabis' | 'tobacco' | 'caffeine';
+export type SubstanceType = 'alcohol' | 'cannabis' | 'tobacco' | 'hemp' | 'caffeine';
 
 export type AlcoholType = 'beer' | 'wine' | 'liquor' | 'cocktail';
 
 export type CannabisMethod = 'smoked' | 'vaped' | 'edible' | 'topical' | 'beverage';
+
+export type HempMethod = 'oil_tincture' | 'capsule' | 'topical' | 'edible' | 'flower';
+
+export type CannabisTerpene =
+  | 'myrcene'
+  | 'limonene'
+  | 'linalool'
+  | 'pinene'
+  | 'caryophyllene'
+  | 'terpinolene'
+  | 'humulene'
+  | 'ocimene';
 
 export interface SubstanceEntry {
   id: string;
@@ -235,10 +247,13 @@ export interface SubstanceEntry {
   unit: string;
   alcohol_type: AlcoholType | null;
   cannabis_method: CannabisMethod | null;
+  hemp_method: HempMethod | null;
   thc_mg: number | null;
   cbd_mg: number | null;
   calories: number | null;
   notes: string | null;
+  terpenes: CannabisTerpene[] | null;  // Cannabis terpene profile
+  strain_name: string | null;          // Cannabis strain name
 }
 
 // -- SEXUAL ACTIVITY --

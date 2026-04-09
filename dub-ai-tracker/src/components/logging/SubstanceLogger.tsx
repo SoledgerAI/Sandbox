@@ -26,6 +26,8 @@ import type {
   SubstanceEntry,
   AlcoholType,
   CannabisMethod,
+  HempMethod,
+  CannabisTerpene,
 } from '../../types';
 import type { SobrietyGoal } from '../../types/profile';
 import { useLastEntry } from '../../hooks/useLastEntry';
@@ -34,7 +36,7 @@ import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 import { getActiveDate } from '../../services/dateContextService';
 
-type SubstanceTab = 'alcohol' | 'cannabis' | 'tobacco';
+type SubstanceTab = 'alcohol' | 'cannabis' | 'tobacco' | 'hemp';
 
 const TOBACCO_TYPES = [
   { value: 'cigarette', label: 'Cigarette', icon: 'flame-outline' },
@@ -61,6 +63,25 @@ const CANNABIS_METHODS: { label: string; method: CannabisMethod }[] = [
   { label: 'Beverage', method: 'beverage' },
 ];
 
+const HEMP_METHODS: { label: string; method: HempMethod }[] = [
+  { label: 'Oil / Tincture', method: 'oil_tincture' },
+  { label: 'Capsule', method: 'capsule' },
+  { label: 'Topical', method: 'topical' },
+  { label: 'Edible', method: 'edible' },
+  { label: 'Flower', method: 'flower' },
+];
+
+const TERPENE_OPTIONS: { id: CannabisTerpene; label: string; note: string }[] = [
+  { id: 'myrcene', label: 'Myrcene', note: 'relaxing, earthy' },
+  { id: 'limonene', label: 'Limonene', note: 'uplifting, citrus' },
+  { id: 'linalool', label: 'Linalool', note: 'calming, floral' },
+  { id: 'pinene', label: 'Pinene', note: 'alertness, pine' },
+  { id: 'caryophyllene', label: 'Caryophyllene', note: 'anti-inflammatory' },
+  { id: 'terpinolene', label: 'Terpinolene', note: 'energizing, herbal' },
+  { id: 'humulene', label: 'Humulene', note: 'appetite suppressant' },
+  { id: 'ocimene', label: 'Ocimene', note: 'decongestant, sweet' },
+];
+
 
 interface SubstanceLoggerProps {
   initialTab?: SubstanceTab;
@@ -81,10 +102,19 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
   const [thcMg, setThcMg] = useState('');
   const [cbdMg, setCbdMg] = useState('');
 
+  // Cannabis extras
+  const [selectedTerpenes, setSelectedTerpenes] = useState<CannabisTerpene[]>([]);
+  const [strainName, setStrainName] = useState('');
+
   // Tobacco state
   const [tobaccoType, setTobaccoType] = useState<TobaccoType>('cigarette');
   const [tobaccoCount, setTobaccoCount] = useState('1');
   const [tobaccoNotes, setTobaccoNotes] = useState('');
+
+  // Hemp state
+  const [selectedHempMethod, setSelectedHempMethod] = useState<HempMethod>('oil_tincture');
+  const [hempCbdMg, setHempCbdMg] = useState('');
+  const [hempThcMg, setHempThcMg] = useState('');
 
   const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<SubstanceEntry>('substances.tracking');
 
@@ -96,8 +126,14 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
       setAlcoholCount(String(lastEntry.amount));
     } else if (lastEntry.substance === 'cannabis') {
       if (lastEntry.cannabis_method) setSelectedMethod(lastEntry.cannabis_method);
+      if (lastEntry.terpenes) setSelectedTerpenes(lastEntry.terpenes);
+      if (lastEntry.strain_name) setStrainName(lastEntry.strain_name);
     } else if (lastEntry.substance === 'tobacco') {
       setTobaccoCount(String(lastEntry.amount));
+    } else if (lastEntry.substance === 'hemp') {
+      if (lastEntry.hemp_method) setSelectedHempMethod(lastEntry.hemp_method);
+      if (lastEntry.cbd_mg != null) setHempCbdMg(String(lastEntry.cbd_mg));
+      if (lastEntry.thc_mg != null) setHempThcMg(String(lastEntry.thc_mg));
     }
   }, [lastEntry]);
 
@@ -185,10 +221,13 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
       unit: typeInfo.unit,
       alcohol_type: selectedAlcoholType,
       cannabis_method: null,
+      hemp_method: null,
       thc_mg: null,
       cbd_mg: null,
       calories: Math.round(typeInfo.calories * count),
       notes: null,
+      terpenes: null,
+      strain_name: null,
     });
     setAlcoholCount('1');
   }, [alcoholCount, selectedAlcoholType, logSubstance]);
@@ -203,14 +242,19 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
       unit: 'session',
       alcohol_type: null,
       cannabis_method: selectedMethod,
+      hemp_method: null,
       thc_mg: thc,
       cbd_mg: cbd,
       calories: null,
       notes: null,
+      terpenes: selectedTerpenes.length > 0 ? selectedTerpenes : null,
+      strain_name: strainName.trim() || null,
     });
     setThcMg('');
     setCbdMg('');
-  }, [selectedMethod, thcMg, cbdMg, logSubstance]);
+    setSelectedTerpenes([]);
+    setStrainName('');
+  }, [selectedMethod, thcMg, cbdMg, selectedTerpenes, strainName, logSubstance]);
 
   const logTobacco = useCallback(() => {
     const count = parseInt(tobaccoCount, 10);
@@ -225,14 +269,45 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
       unit: 'cigarettes',
       alcohol_type: null,
       cannabis_method: null,
+      hemp_method: null,
       thc_mg: null,
       cbd_mg: null,
       calories: null,
       notes: tobaccoNotes.trim() || null,
+      terpenes: null,
+      strain_name: null,
     });
     setTobaccoCount('1');
     setTobaccoNotes('');
   }, [tobaccoCount, tobaccoNotes, logSubstance]);
+
+  const logHemp = useCallback(() => {
+    const cbd = hempCbdMg ? parseFloat(hempCbdMg) : null;
+    const thc = hempThcMg ? parseFloat(hempThcMg) : null;
+
+    logSubstance({
+      substance: 'hemp',
+      amount: 1,
+      unit: 'session',
+      alcohol_type: null,
+      cannabis_method: null,
+      hemp_method: selectedHempMethod,
+      thc_mg: thc,
+      cbd_mg: cbd,
+      calories: null,
+      notes: null,
+      terpenes: null,
+      strain_name: null,
+    });
+    setHempCbdMg('');
+    setHempThcMg('');
+  }, [selectedHempMethod, hempCbdMg, hempThcMg, logSubstance]);
+
+  const toggleTerpene = useCallback((id: CannabisTerpene) => {
+    setSelectedTerpenes((prev) =>
+      prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id],
+    );
+  }, []);
 
   // Compute totals for alcohol
   const alcoholEntries = entries.filter((e) => e.substance === 'alcohol');
@@ -377,6 +452,39 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
         </View>
       </View>
 
+      {/* Terpenes (optional) */}
+      <Text style={styles.sectionTitle}>Terpenes (optional)</Text>
+      <View style={styles.terpeneGrid}>
+        {TERPENE_OPTIONS.map((t) => {
+          const isSelected = selectedTerpenes.includes(t.id);
+          return (
+            <TouchableOpacity
+              key={t.id}
+              style={[styles.terpenePill, isSelected && styles.terpenePillSelected]}
+              onPress={() => toggleTerpene(t.id)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.terpeneName, isSelected && styles.terpeneNameSelected]}>
+                {t.label}
+              </Text>
+              <Text style={[styles.terpeneNote, isSelected && styles.terpeneNoteSelected]}>
+                {t.note}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Strain name (optional) */}
+      <Text style={styles.sectionTitle}>Strain Name (optional)</Text>
+      <TextInput
+        style={styles.strainInput}
+        value={strainName}
+        onChangeText={setStrainName}
+        placeholder="e.g. Blue Dream, OG Kush"
+        placeholderTextColor={Colors.secondaryText}
+      />
+
       <TouchableOpacity style={styles.logBtn} onPress={logCannabis} activeOpacity={0.7}>
         <Text style={styles.logBtnText}>Log Session</Text>
       </TouchableOpacity>
@@ -456,6 +564,64 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
     </>
   );
 
+  const renderHempTab = () => (
+    <>
+      {/* Method selector */}
+      <Text style={styles.sectionTitle}>Method</Text>
+      <View style={styles.typeGrid}>
+        {HEMP_METHODS.map((m) => (
+          <TouchableOpacity
+            key={m.method}
+            style={[
+              styles.typeBtn,
+              selectedHempMethod === m.method && styles.typeBtnSelected,
+            ]}
+            onPress={() => setSelectedHempMethod(m.method)}
+            activeOpacity={0.7}
+          >
+            <Text
+              style={[
+                styles.typeBtnText,
+                selectedHempMethod === m.method && styles.typeBtnTextSelected,
+              ]}
+            >
+              {m.label}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {/* Dosage */}
+      <Text style={styles.sectionTitle}>Dosage</Text>
+      <View style={styles.dosageRow}>
+        <View style={styles.dosageField}>
+          <TextInput
+            style={styles.dosageInput}
+            value={hempCbdMg}
+            onChangeText={setHempCbdMg}
+            placeholder="CBD mg"
+            placeholderTextColor={Colors.secondaryText}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={styles.dosageField}>
+          <TextInput
+            style={styles.dosageInput}
+            value={hempThcMg}
+            onChangeText={setHempThcMg}
+            placeholder="THC mg (< 0.3%)"
+            placeholderTextColor={Colors.secondaryText}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      <TouchableOpacity style={styles.logBtn} onPress={logHemp} activeOpacity={0.7}>
+        <Text style={styles.logBtnText}>Log Hemp</Text>
+      </TouchableOpacity>
+    </>
+  );
+
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
@@ -474,7 +640,7 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
 
       {/* Tab bar */}
       <View style={styles.tabBar}>
-        {(['alcohol', 'cannabis', 'tobacco'] as SubstanceTab[]).map((tab) => (
+        {(['alcohol', 'cannabis', 'tobacco', 'hemp'] as SubstanceTab[]).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}
@@ -492,6 +658,7 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
       {activeTab === 'alcohol' && renderAlcoholTab()}
       {activeTab === 'cannabis' && renderCannabisTab()}
       {activeTab === 'tobacco' && renderTobaccoTab()}
+      {activeTab === 'hemp' && renderHempTab()}
 
       {/* Today's entries for active tab */}
       {tabEntries.length > 0 && (
@@ -510,13 +677,26 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
                       ? `${entry.amount} ${entry.alcohol_type ?? 'drink'}${entry.amount !== 1 ? 's' : ''}`
                       : entry.substance === 'cannabis'
                         ? `${entry.cannabis_method ?? 'session'}`
-                        : `${entry.amount} cigarette${entry.amount !== 1 ? 's' : ''}`}
+                        : entry.substance === 'hemp'
+                          ? `${entry.hemp_method?.replace('_', '/') ?? 'hemp'}`
+                          : `${entry.amount} cigarette${entry.amount !== 1 ? 's' : ''}`}
                   </Text>
                   {entry.calories != null && (
                     <Text style={styles.entryCals}>{entry.calories} cal</Text>
                   )}
+                  {entry.cbd_mg != null && (
+                    <Text style={styles.entryDetail}>{entry.cbd_mg} mg CBD</Text>
+                  )}
                   {entry.thc_mg != null && (
                     <Text style={styles.entryDetail}>{entry.thc_mg} mg THC</Text>
+                  )}
+                  {entry.strain_name != null && (
+                    <Text style={styles.entryDetail}>{entry.strain_name}</Text>
+                  )}
+                  {entry.terpenes != null && entry.terpenes.length > 0 && (
+                    <Text style={styles.entryDetail}>
+                      {entry.terpenes.map((t) => t.charAt(0).toUpperCase() + t.slice(1)).join(', ')}
+                    </Text>
                   )}
                   <Text style={styles.entryTime}>
                     {new Date(entry.timestamp).toLocaleTimeString('en-US', {
@@ -790,5 +970,52 @@ const styles = StyleSheet.create({
   entryTime: {
     color: Colors.secondaryText,
     fontSize: 12,
+  },
+  terpeneGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 20,
+  },
+  terpenePill: {
+    width: '47%',
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderWidth: 1.5,
+    borderColor: Colors.divider,
+    alignItems: 'center',
+  },
+  terpenePillSelected: {
+    borderColor: Colors.accent,
+    backgroundColor: Colors.cardBackground,
+  },
+  terpeneName: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  terpeneNameSelected: {
+    color: Colors.accent,
+  },
+  terpeneNote: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    marginTop: 2,
+  },
+  terpeneNoteSelected: {
+    color: Colors.accentText,
+  },
+  strainInput: {
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: Colors.text,
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    marginBottom: 20,
   },
 });

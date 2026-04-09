@@ -25,6 +25,7 @@ export const SUBSTANCE_SUB_TAGS = {
   ALCOHOL: 'substances.alcohol',
   CANNABIS: 'substances.cannabis',
   TOBACCO: 'substances.tobacco',
+  HEMP: 'substances.hemp',
   CAFFEINE: 'substances.caffeine',
 } as const;
 

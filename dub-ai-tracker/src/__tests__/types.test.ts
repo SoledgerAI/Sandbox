@@ -212,10 +212,13 @@ describe('Type System -- Core Interfaces', () => {
       unit: 'drink',
       alcohol_type: 'beer',
       cannabis_method: null,
+      hemp_method: null,
       thc_mg: null,
       cbd_mg: null,
       calories: 150,
       notes: null,
+      terpenes: null,
+      strain_name: null,
     };
     expect(entry.substance).toBe('alcohol');
   });

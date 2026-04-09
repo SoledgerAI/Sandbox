@@ -88,6 +88,16 @@ export interface StreakData {
 
 export type SobrietyGoalType = 'reduce' | 'quit' | 'monitor';
 
+export interface DailyTargets {
+  mon: number;
+  tue: number;
+  wed: number;
+  thu: number;
+  fri: number;
+  sat: number;
+  sun: number;
+}
+
 export interface SobrietyGoal {
   substance: string;
   goal_type: SobrietyGoalType;
@@ -96,6 +106,10 @@ export interface SobrietyGoal {
   longest_streak_days: number;
   target_amount: number | null;
   target_frequency: string | null;
+  daily_targets: DailyTargets | null;  // Day-of-week targets for reduce goals
+  quit_date: string | null;            // ISO date for quit goals
+  created_at: string;
+  updated_at: string;
 }
 
 export interface DeviceSyncState {
