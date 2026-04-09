@@ -58,6 +58,7 @@ export const STORAGE_KEYS = {
   FOOD_FAVORITES: 'dub.food.favorites',
   FOOD_TEMPLATES: 'dub.food.templates',
   FOOD_RECENT: 'dub.food.recent',
+  MY_FOODS: 'dub.food.my_foods',
   SUPPLEMENT_STACKS: 'dub.supplement.stacks',
   MY_SUPPLEMENTS: 'dub.supplement.selected',
 

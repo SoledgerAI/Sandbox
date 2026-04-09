@@ -1,9 +1,21 @@
 // Food logging screen -- search, select, configure serving, save
 // Phase 6: Food Logging -- Core
 // Phase 19: NLP text entry and photo food entry integration
+// Sprint 10: Food scanning MVP — scan/gallery/barcode → FoodScanResult review
 
 import { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
+import { Ionicons } from '@expo/vector-icons';
 import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
@@ -16,6 +28,9 @@ import { ServingSizeSelector } from '../../src/components/logging/ServingSizeSel
 import { BarcodeScanner } from '../../src/components/logging/BarcodeScanner';
 import { NLPFoodEntry } from '../../src/components/logging/NLPFoodEntry';
 import { PhotoFoodEntry } from '../../src/components/logging/PhotoFoodEntry';
+import { FoodScanResult, type LogEntry } from '../../src/components/logging/FoodScanResult';
+import { scanFood, type FoodScanResult as ScanResultData } from '../../src/services/foodScanService';
+import { getSavedFoods, incrementTimesLogged, type SavedFood } from '../../src/utils/foodLibrary';
 import { Button } from '../../src/components/common/Button';
 import { TimestampPicker } from '../../src/components/common/TimestampPicker';
 import { RepeatLastEntry } from '../../src/components/logging/RepeatLastEntry';
@@ -27,7 +42,17 @@ import { getActiveDate } from '../../src/services/dateContextService';
 import { DateContextBanner } from '../../src/components/DateContextBanner';
 import type { AppSettings } from '../../src/types/profile';
 
-type Screen = 'search' | 'configure' | 'manual' | 'quicklog' | 'barcode' | 'nlp' | 'photo' | 'quickconfirm';
+type Screen =
+  | 'search'
+  | 'configure'
+  | 'manual'
+  | 'quicklog'
+  | 'barcode'
+  | 'nlp'
+  | 'photo'
+  | 'quickconfirm'
+  | 'scanning'     // Sprint 10: photo captured, analyzing
+  | 'scanresult';  // Sprint 10: scan result review
 
 
 function guessMealType(hour: number, settings?: AppSettings | null): MealType {
@@ -63,6 +88,12 @@ export default function FoodLogScreen() {
   const [quickConfirmEntry, setQuickConfirmEntry] = useState<RecentFoodInfo | null>(null);
   const { lastEntry: lastFoodEntry, saveAsLast: saveLastFood } = useLastEntry<FoodEntry>('nutrition.food');
 
+  // Sprint 10: scan state
+  const [scanResultData, setScanResultData] = useState<ScanResultData | null>(null);
+  const [scanPhotoUri, setScanPhotoUri] = useState<string | null>(null);
+  const [scanLoading, setScanLoading] = useState(false);
+  const [myFoods, setMyFoods] = useState<SavedFood[]>([]);
+
   useEffect(() => {
     loadIngredientFlags().then(setIngredientFlags);
     // Load fasting settings to refine meal type guess
@@ -71,7 +102,16 @@ export default function FoodLogScreen() {
         setMealType(guessMealType(new Date().getHours(), settings));
       }
     });
+    // Load My Foods
+    getSavedFoods().then(setMyFoods);
   }, []);
+
+  // Refresh My Foods when returning to search screen
+  useEffect(() => {
+    if (screen === 'search') {
+      getSavedFoods().then(setMyFoods);
+    }
+  }, [screen]);
 
   const saveEntry = useCallback(
     async (partial: Omit<FoodEntry, 'id' | 'timestamp'>) => {
@@ -104,6 +144,175 @@ export default function FoodLogScreen() {
     [saveLastFood, entryTimestamp],
   );
 
+  // Sprint 10: Capture photo and analyze with Claude Vision
+  const handleScanCamera = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Camera access is needed to scan food.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      base64: true,
+      allowsEditing: true,
+      aspect: [4, 3],
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setScanPhotoUri(asset.uri);
+      setScreen('scanning');
+      setScanLoading(true);
+
+      try {
+        let base64 = asset.base64;
+        if (!base64) {
+          base64 = await readAsStringAsync(asset.uri, { encoding: EncodingType.Base64 });
+        }
+        const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpeg';
+        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+        const scanResult = await scanFood(base64, mimeType);
+        setScanResultData(scanResult);
+        setScreen('scanresult');
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Failed to analyze photo';
+        Alert.alert('Scan Error', msg);
+        setScreen('search');
+      } finally {
+        setScanLoading(false);
+      }
+    }
+  }, []);
+
+  // Sprint 10: Pick from gallery and analyze
+  const handleScanGallery = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Photo library access is needed.');
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      base64: true,
+      allowsEditing: true,
+      aspect: [4, 3],
+    });
+
+    if (!result.canceled && result.assets[0]) {
+      const asset = result.assets[0];
+      setScanPhotoUri(asset.uri);
+      setScreen('scanning');
+      setScanLoading(true);
+
+      try {
+        let base64 = asset.base64;
+        if (!base64) {
+          base64 = await readAsStringAsync(asset.uri, { encoding: EncodingType.Base64 });
+        }
+        const ext = asset.uri.split('.').pop()?.toLowerCase() ?? 'jpeg';
+        const mimeType = ext === 'png' ? 'image/png' : 'image/jpeg';
+        const scanResult = await scanFood(base64, mimeType);
+        setScanResultData(scanResult);
+        setScreen('scanresult');
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : 'Failed to analyze photo';
+        Alert.alert('Scan Error', msg);
+        setScreen('search');
+      } finally {
+        setScanLoading(false);
+      }
+    }
+  }, []);
+
+  // Sprint 10: Handle scan result log
+  const handleScanLog = useCallback((entry: LogEntry) => {
+    const today = getActiveDate();
+    const key = dateKey(STORAGE_KEYS.LOG_FOOD, today);
+    const sourceId = `scan:${Date.now()}`;
+
+    const foodItem: FoodItem = {
+      source: 'ai_photo',
+      source_id: sourceId,
+      name: entry.foodName,
+      brand: entry.brand,
+      barcode: null,
+      nutrition_per_100g: {
+        calories: entry.nutrition.calories,
+        protein_g: entry.nutrition.protein,
+        carbs_g: entry.nutrition.carbs,
+        fat_g: entry.nutrition.fat,
+        fiber_g: entry.nutrition.fiber,
+        sugar_g: null,
+        added_sugar_g: entry.nutrition.addedSugar,
+        sodium_mg: null,
+        cholesterol_mg: null,
+        saturated_fat_g: null,
+        trans_fat_g: null,
+        potassium_mg: null,
+        vitamin_d_mcg: null,
+        calcium_mg: null,
+        iron_mg: null,
+      },
+      serving_sizes: [{ description: entry.servingSize, unit: 'each', gram_weight: 0, quantity: 1 }],
+      default_serving_index: 0,
+      ingredients: null,
+      last_accessed: new Date().toISOString(),
+    };
+
+    const serving = foodItem.serving_sizes[0];
+
+    saveEntry({
+      meal_type: entry.mealType,
+      food_item: foodItem,
+      serving,
+      quantity: 1,
+      computed_nutrition: {
+        calories: entry.nutrition.calories,
+        protein_g: entry.nutrition.protein,
+        carbs_g: entry.nutrition.carbs,
+        fat_g: entry.nutrition.fat,
+        fiber_g: entry.nutrition.fiber,
+        sugar_g: null,
+        added_sugar_g: entry.nutrition.addedSugar,
+        sodium_mg: null,
+        cholesterol_mg: null,
+        saturated_fat_g: null,
+        trans_fat_g: null,
+        potassium_mg: null,
+        vitamin_d_mcg: null,
+        calcium_mg: null,
+        iron_mg: null,
+      },
+      source: 'ai_photo',
+      photo_uri: entry.photoUri,
+      photo_confidence: entry.confidence,
+      flagged_ingredients: [],
+      notes: entry.isEstimate ? 'AI estimate' : 'Nutrition label scan',
+    });
+  }, [saveEntry]);
+
+  // Sprint 10: Log from My Foods
+  const handleMyFoodLog = useCallback((food: SavedFood) => {
+    // Pre-populate scan result from saved food and show review screen
+    const result: ScanResultData = {
+      foodName: food.foodName,
+      brand: food.brand ?? null,
+      servingSize: food.servingSize,
+      servingsPerContainer: null,
+      isEstimate: false,
+      confidence: 'high',
+      nutrition: { ...food.nutrition },
+    };
+    setScanResultData(result);
+    setScanPhotoUri(food.photoUri ?? null);
+    setScreen('scanresult');
+    incrementTimesLogged(food.id);
+  }, []);
+
   const handleBarcodeFound = useCallback((food: FoodItem) => {
     setSelectedFood(food);
     setServingIndex(food.default_serving_index);
@@ -112,8 +321,15 @@ export default function FoodLogScreen() {
   }, []);
 
   const handleBarcodeNotFound = useCallback((_barcode: string) => {
-    setScreen('manual');
-  }, []);
+    Alert.alert(
+      'Product Not Found',
+      'Try scanning the nutrition label instead.',
+      [
+        { text: 'Scan Label', onPress: handleScanCamera },
+        { text: 'Manual Entry', onPress: () => setScreen('manual') },
+      ],
+    );
+  }, [handleScanCamera]);
 
   const repeatLastFood = useCallback(() => {
     if (!lastFoodEntry) return;
@@ -335,8 +551,62 @@ export default function FoodLogScreen() {
       <View style={styles.container}>
         <DateContextBanner />
         <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
+
         {screen === 'search' && (
           <>
+          {/* Sprint 10: Prominent scan area */}
+          <View style={styles.scanArea}>
+            <TouchableOpacity style={styles.scanBtn} onPress={handleScanCamera} activeOpacity={0.7}>
+              <Ionicons name="camera" size={28} color={Colors.accent} />
+              <Text style={styles.scanBtnTitle}>Scan</Text>
+              <Text style={styles.scanBtnSub}>Food/Label</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.scanBtn} onPress={handleScanGallery} activeOpacity={0.7}>
+              <Ionicons name="images" size={28} color={Colors.accent} />
+              <Text style={styles.scanBtnTitle}>Gallery</Text>
+              <Text style={styles.scanBtnSub}>Choose</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.scanBtn} onPress={() => setScreen('barcode')} activeOpacity={0.7}>
+              <Ionicons name="barcode" size={28} color={Colors.accent} />
+              <Text style={styles.scanBtnTitle}>Barcode</Text>
+              <Text style={styles.scanBtnSub}>UPC/EAN</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Sprint 10: My Foods section */}
+          {myFoods.length > 0 && (
+            <View style={styles.myFoodsSection}>
+              <View style={styles.myFoodsHeader}>
+                <Ionicons name="star" size={14} color={Colors.accent} />
+                <Text style={styles.myFoodsTitle}>My Foods</Text>
+              </View>
+              {myFoods.slice(0, 5).map((food) => (
+                <TouchableOpacity
+                  key={food.id}
+                  style={styles.myFoodRow}
+                  onPress={() => handleMyFoodLog(food)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.myFoodInfo}>
+                    <Text style={styles.myFoodName} numberOfLines={1}>
+                      {food.foodName}
+                      {food.brand ? ` (${food.brand})` : ''}
+                    </Text>
+                    <Text style={styles.myFoodServing} numberOfLines={1}>
+                      {food.servingSize}
+                      {food.timesLogged > 0 ? ` \u2022 Logged ${food.timesLogged}x` : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.myFoodCalCol}>
+                    <Text style={styles.myFoodCal}>{food.nutrition.calories}</Text>
+                    <Text style={styles.myFoodCalUnit}>cal</Text>
+                  </View>
+                  <Ionicons name="add-circle" size={24} color={Colors.accent} style={{ marginLeft: 8 }} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
           <RepeatLastEntry
             tagLabel="food"
             subtitle={lastFoodEntry?.food_item.name}
@@ -360,6 +630,36 @@ export default function FoodLogScreen() {
             onFoodFound={handleBarcodeFound}
             onNotFound={handleBarcodeNotFound}
             onCancel={() => setScreen('search')}
+          />
+        )}
+
+        {/* Sprint 10: Scanning loading state */}
+        {screen === 'scanning' && (
+          <View style={styles.scanningContainer}>
+            {scanPhotoUri && (
+              <Image source={{ uri: scanPhotoUri }} style={styles.scanningPreview} resizeMode="cover" />
+            )}
+            <View style={styles.scanningRow}>
+              <ActivityIndicator color={Colors.accent} size="large" />
+              <Text style={styles.scanningText}>Scanning...</Text>
+              <Text style={styles.scanningSubtext}>Analyzing your food with AI</Text>
+            </View>
+          </View>
+        )}
+
+        {/* Sprint 10: Scan result review */}
+        {screen === 'scanresult' && scanResultData && (
+          <FoodScanResult
+            result={scanResultData}
+            photoUri={scanPhotoUri}
+            mealType={mealType}
+            timestamp={entryTimestamp}
+            onLog={handleScanLog}
+            onCancel={() => {
+              setScanResultData(null);
+              setScanPhotoUri(null);
+              setScreen('search');
+            }}
           />
         )}
 
@@ -473,6 +773,111 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingTop: 12,
   },
+  // Sprint 10: Scan area
+  scanArea: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 16,
+  },
+  scanBtn: {
+    flex: 1,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  scanBtnTitle: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  scanBtnSub: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+  },
+  // Sprint 10: My Foods
+  myFoodsSection: {
+    marginBottom: 12,
+  },
+  myFoodsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  myFoodsTitle: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+  },
+  myFoodRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 4,
+    minHeight: 56,
+  },
+  myFoodInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  myFoodName: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  myFoodServing: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    marginTop: 2,
+  },
+  myFoodCalCol: {
+    alignItems: 'flex-end',
+  },
+  myFoodCal: {
+    color: Colors.accentText,
+    fontSize: 18,
+    fontWeight: 'bold',
+    fontVariant: ['tabular-nums'],
+  },
+  myFoodCalUnit: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+  },
+  // Sprint 10: Scanning state
+  scanningContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  scanningPreview: {
+    width: '100%',
+    height: 220,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
+  scanningRow: {
+    alignItems: 'center',
+    gap: 12,
+  },
+  scanningText: {
+    color: Colors.text,
+    fontSize: 20,
+    fontWeight: '600',
+  },
+  scanningSubtext: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+  },
+  // Existing styles
   configureContainer: {
     flex: 1,
     justifyContent: 'space-between',
