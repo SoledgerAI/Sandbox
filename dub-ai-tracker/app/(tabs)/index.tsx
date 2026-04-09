@@ -35,6 +35,7 @@ import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import type { DeferredSetupKey } from '../../src/hooks/useDeferredSetup';
 
 export default function DashboardScreen() {
+  if (__DEV__) console.log('[ONBOARD-09] Dashboard mounting');
   const {
     loading,
     greeting,

@@ -87,6 +87,7 @@ const CATEGORY_SECTIONS: CategorySection[] = [
     items: [
       { label: 'Exercise', icon: 'fitness-outline', route: '/log/workout', storageKey: STORAGE_KEYS.LOG_WORKOUT, searchTerms: 'workout exercise cardio run' },
       { label: 'Strength', icon: 'barbell-outline', route: '/log/strength', searchTerms: 'strength weight lifting gym' },
+      { label: 'Bodyweight Reps', icon: 'body-outline', route: '/log/reps', storageKey: STORAGE_KEYS.LOG_REPS, searchTerms: 'bodyweight reps pushups pullups situps jumping jacks squats calisthenics' },
     ],
   },
   {
@@ -112,6 +113,7 @@ const CATEGORY_SECTIONS: CategorySection[] = [
   {
     title: 'LIFESTYLE',
     items: [
+      { label: 'Daily Habits', icon: 'checkbox-outline', route: '/log/habits', storageKey: STORAGE_KEYS.LOG_HABITS, searchTerms: 'habits daily checklist routine brush floss bed cream' },
       { label: 'Substances', icon: 'wine-outline', route: '/log/substances', searchTerms: 'substances alcohol cannabis tobacco sobriety' },
       { label: 'Cycle', icon: 'flower-outline', route: '/log/cycle', searchTerms: 'cycle period menstrual ovulation reproductive' },
       { label: 'Digestive', icon: 'nutrition-outline', route: '/log/digestive', searchTerms: 'digestive gut stomach bowel bristol' },
@@ -233,6 +235,27 @@ export default function LogScreen() {
       entries['/log/mood'] = {
         label: labels[last.score] ?? `${last.score}/5`,
         time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      };
+    }
+
+    // Load bodyweight reps
+    const reps = await storageGet<{ exercise_type: string; reps: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_REPS, dateStr));
+    if (reps?.length) {
+      const totalReps = reps.reduce((s, r) => s + r.reps, 0);
+      const last = reps[reps.length - 1];
+      entries['/log/reps'] = {
+        label: `${totalReps} total reps`,
+        time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      };
+    }
+
+    // Load habits
+    const habits = await storageGet<{ name: string; completed: boolean }[]>(dateKey(STORAGE_KEYS.LOG_HABITS, dateStr));
+    if (habits?.length) {
+      const done = habits.filter(h => h.completed).length;
+      entries['/log/habits'] = {
+        label: `${done}/${habits.length} done`,
+        time: '',
       };
     }
 

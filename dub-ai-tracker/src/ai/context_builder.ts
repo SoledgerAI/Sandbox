@@ -46,6 +46,9 @@ import type {
   RecoveryScore,
   GlucoseEntry,
   BloodPressureEntry,
+  HabitEntry,
+  HabitDefinition,
+  BodyweightRepEntry,
 } from '../types';
 import { todayDateString } from '../utils/dayBoundary';
 
@@ -74,6 +77,8 @@ const _SUBSTANCE_KEYWORDS = ['drink', 'alcohol', 'sober', 'substance', 'cannabis
 const SUPPLEMENT_KEYWORDS = ['supplement', 'vitamin', 'medication', 'dosage'];
 const THERAPY_KEYWORDS = ['therapy', 'therapist', 'mental health', 'counseling'];
 const INGREDIENT_KEYWORDS = ['ingredient', 'flag', 'additive', 'sweetener', 'sugar', 'msg', 'artificial'];
+const HABIT_KEYWORDS = ['habit', 'routine', 'checklist', 'daily', 'brush', 'floss', 'bed', 'cream', 'self care'];
+const REP_KEYWORDS = ['rep', 'reps', 'pushup', 'push-up', 'pullup', 'pull-up', 'situp', 'sit-up', 'jumping jack', 'squat', 'bodyweight', 'calisthenics'];
 
 function messageMatchesKeywords(message: string, keywords: string[]): boolean {
   const lower = message.toLowerCase();
@@ -403,6 +408,42 @@ export async function buildCoachContext(userMessage: string): Promise<{
         .map(([name, count]) => `${sanitizeForPrompt(name, 50)}:${count}x`)
         .join(' ');
       conditionalSections.push(`[INGREDIENT FLAGS 7d] ${parts}`);
+    }
+  }
+
+  // Daily habits (conditional)
+  if (messageMatchesKeywords(userMessage, HABIT_KEYWORDS)) {
+    const habitDefs = await storageGet<HabitDefinition[]>(STORAGE_KEYS.SETTINGS_HABITS);
+    const habitEntries = await storageGet<HabitEntry[]>(dateKey(STORAGE_KEYS.LOG_HABITS, today));
+    if (habitEntries && habitEntries.length > 0 && habitDefs) {
+      const completed = habitEntries.filter((h) => h.completed);
+      const missed = habitEntries.filter((h) => !h.completed);
+      const missedNames = missed
+        .map((h) => sanitizeForPrompt(h.name, 50))
+        .join(', ');
+      const missedPart = missed.length > 0 ? ` (missed: ${missedNames})` : '';
+      conditionalSections.push(
+        `[HABITS ${today}] ${completed.length}/${habitEntries.length} completed${missedPart}`,
+      );
+    }
+  }
+
+  // Bodyweight reps (conditional)
+  if (messageMatchesKeywords(userMessage, REP_KEYWORDS)) {
+    const repEntries = await storageGet<BodyweightRepEntry[]>(dateKey(STORAGE_KEYS.LOG_REPS, today));
+    if (repEntries && repEntries.length > 0) {
+      const totals = new Map<string, { reps: number; sets: number }>();
+      for (const r of repEntries) {
+        const prev = totals.get(r.exercise_type) ?? { reps: 0, sets: 0 };
+        totals.set(r.exercise_type, {
+          reps: prev.reps + r.reps * r.sets,
+          sets: prev.sets + r.sets,
+        });
+      }
+      const parts = Array.from(totals.entries())
+        .map(([type, t]) => `${type}:${t.reps}(${t.sets}sets)`)
+        .join(' ');
+      conditionalSections.push(`[REPS ${today}] ${parts}`);
     }
   }
 

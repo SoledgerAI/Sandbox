@@ -489,6 +489,56 @@ export interface OfflineQueueItem {
   retries: number;
 }
 
+// -- DAILY HABITS --
+
+export interface HabitDefinition {
+  id: string;
+  name: string;
+  order: number;
+}
+
+export const DEFAULT_HABITS: Omit<HabitDefinition, 'id'>[] = [
+  { name: 'Brush teeth (morning)', order: 0 },
+  { name: 'Brush teeth (evening)', order: 1 },
+  { name: 'Floss', order: 2 },
+  { name: 'Make bed', order: 3 },
+  { name: 'Face cream (morning)', order: 4 },
+  { name: 'Face cream (evening)', order: 5 },
+];
+
+export interface HabitEntry {
+  id: string;
+  name: string;
+  completed: boolean;
+  completedAt: string | null; // ISO datetime, null if not completed
+}
+
+// -- BODYWEIGHT REPS --
+
+export type BodyweightExerciseType =
+  | 'pushups'
+  | 'pullups'
+  | 'situps'
+  | 'jumping_jacks'
+  | 'standing_squats';
+
+export const BODYWEIGHT_EXERCISES: { type: BodyweightExerciseType; label: string; icon: string }[] = [
+  { type: 'pushups', label: 'Push-ups', icon: 'body-outline' },
+  { type: 'pullups', label: 'Pull-ups', icon: 'arrow-up-outline' },
+  { type: 'situps', label: 'Sit-ups', icon: 'fitness-outline' },
+  { type: 'jumping_jacks', label: 'Jumping Jacks', icon: 'walk-outline' },
+  { type: 'standing_squats', label: 'Standing Squats', icon: 'chevron-down-circle-outline' },
+];
+
+export interface BodyweightRepEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  exercise_type: BodyweightExerciseType;
+  reps: number;
+  sets: number; // default 1
+  notes: string | null;
+}
+
 // -- FASTING --
 
 export type FastingProtocol = '16:8' | '18:6' | '20:4' | 'custom';
