@@ -65,6 +65,7 @@ export const STORAGE_KEYS = {
   // Coach
   COACH_HISTORY: 'dub.coach.history',
   COACH_PATTERNS: 'dub.coach.patterns',
+  FEEDBACK_LOG: 'dub.coach.feedback',
 
   // Device Sync
   DEVICES_STRAVA: 'dub.devices.strava',

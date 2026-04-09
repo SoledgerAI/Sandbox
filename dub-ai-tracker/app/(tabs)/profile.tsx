@@ -137,6 +137,7 @@ export default function ProfileScreen() {
         { id: 'devices', icon: 'watch-outline', label: 'Devices', route: '/settings/devices' },
         { id: 'healthreport', icon: 'document-text-outline', label: 'Health Report', route: '/settings/healthreport' },
         { id: 'export', icon: 'download-outline', label: 'Data Export', route: '/settings/export' },
+        { id: 'feedback', icon: 'chatbox-ellipses-outline', label: 'Feedback Log', route: '/settings/feedback' },
       ],
     },
     {

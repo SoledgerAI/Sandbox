@@ -1,12 +1,14 @@
 // Coach DUB chat interface
 // Phase 14: AI Coach
+// Sprint 12: Expert @mention panel, streaming, tool use, photo capture, disclaimer modal
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
-  ScrollView,
+  Modal,
   Platform,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -15,6 +17,7 @@ import {
 } from 'react-native';
 import { useScrollToTop } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../src/constants/colors';
 import { FontSize, FontWeight } from '../../src/constants/typography';
 import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
@@ -28,19 +31,25 @@ import { useNetworkStatus } from '../../src/hooks/useNetworkStatus';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { runPatternEngine } from '../../src/ai/pattern_engine';
+import { getAllExperts, getExpert } from '../../src/ai/experts';
 import ScreenWrapper from '../../src/components/common/ScreenWrapper';
-import type { ChatMessage, PatternInsight } from '../../src/types/coach';
+import type { ChatMessage, PatternInsight, ExpertId } from '../../src/types/coach';
 
 export default function CoachScreen() {
   const {
     messages,
     loading,
     sending,
+    streaming,
     apiKeyConfigured,
     error,
     tagsLogged,
     lastUserMessage,
+    activeExpert,
+    pendingToolUse,
     sendUserMessage,
+    confirmTool,
+    cancelTool,
     retry,
     refresh,
   } = useCoach();
@@ -51,20 +60,22 @@ export default function CoachScreen() {
   const [inputText, setInputText] = useState('');
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [consentGranted, setConsentGranted] = useState(false);
-  const [showInfoTooltip, setShowInfoTooltip] = useState(false);
+  const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [patterns, setPatterns] = useState<PatternInsight[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showExpertPicker, setShowExpertPicker] = useState(false);
   const flatListRef = useRef<FlatList<ChatMessage>>(null);
-  // Fix 3: Scroll-to-top on tab re-tap
   useScrollToTop(flatListRef);
   const { summary, calorieTarget } = useDailySummary();
+  const inputRef = useRef<TextInput>(null);
+
+  const allExperts = getAllExperts();
 
   // Check if Anthropic consent has been acknowledged
   useEffect(() => {
     (async () => {
       const settings = await storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS);
-      // Check Anthropic data consent (MASTER-05)
       if (
         settings &&
         settings.anthropic_consent_date &&
@@ -97,6 +108,16 @@ export default function CoachScreen() {
     }
   }, [messages.length]);
 
+  // Also scroll during streaming
+  useEffect(() => {
+    if (streaming) {
+      const interval = setInterval(() => {
+        flatListRef.current?.scrollToEnd({ animated: false });
+      }, 300);
+      return () => clearInterval(interval);
+    }
+  }, [streaming]);
+
   // Refresh API key status on focus
   useEffect(() => {
     refresh();
@@ -111,10 +132,27 @@ export default function CoachScreen() {
     }
   }, [apiKeyConfigured]);
 
+  // Detect @ typing for autocomplete
+  const handleTextChange = useCallback((text: string) => {
+    setInputText(text);
+    // Show expert picker when user types @ at end of text or standalone @
+    const atEnd = text.endsWith('@') || text.match(/@\w{0,10}$/);
+    setShowExpertPicker(!!atEnd && text.includes('@'));
+  }, []);
+
+  const handleExpertSelect = useCallback((expertId: ExpertId) => {
+    // Replace partial @mention with full @mention
+    const cleaned = inputText.replace(/@\w*$/, '');
+    setInputText(`${cleaned}@${expertId} `);
+    setShowExpertPicker(false);
+    inputRef.current?.focus();
+  }, [inputText]);
+
   const handleSend = async () => {
     const text = inputText.trim();
     if (!text || sending) return;
     setInputText('');
+    setShowExpertPicker(false);
     await sendUserMessage(text);
   };
 
@@ -122,6 +160,41 @@ export default function CoachScreen() {
     if (sending) return;
     await sendUserMessage(prompt);
   };
+
+  // Photo capture for Coach chat (Feature 4)
+  const handlePhotoCapture = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const text = inputText.trim() || '';
+      setInputText('');
+      await sendUserMessage(text, result.assets[0].uri);
+    }
+  }, [inputText, sendUserMessage]);
+
+  const handlePhotoLibrary = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const text = inputText.trim() || '';
+      setInputText('');
+      await sendUserMessage(text, result.assets[0].uri);
+    }
+  }, [inputText, sendUserMessage]);
 
   const renderEmpty = () => {
     if (loading) {
@@ -205,15 +278,19 @@ export default function CoachScreen() {
       <View style={styles.emptyContainer}>
         <Ionicons name="chatbubbles-outline" size={48} color={Colors.divider} />
         <Text style={styles.emptyTitle}>Hi! I'm Coach DUB</Text>
-        <Text style={styles.greetingSubtitle}>Your AI wellness companion.</Text>
+        <Text style={styles.greetingSubtitle}>Your AI wellness panel — 11 experts, one chat.</Text>
         <Text style={styles.emptySubtitle}>
-          I can help with meal plans, analyze your trends, and answer health questions based on your data.
+          Type @ to summon an expert: @dietician, @trainer, @sleep, and more.
+          Or just ask me anything — I'm your general wellness coach.
         </Text>
         <Text style={styles.greetingPromptHint}>Pick a prompt below or type your own question.</Text>
         <SuggestedPrompts onSelect={handleSuggestedPrompt} visible />
       </View>
     );
   };
+
+  // Active expert badge
+  const activeExpertDef = activeExpert ? getExpert(activeExpert) : undefined;
 
   return (
     <ScreenWrapper scrollFade={false}>
@@ -227,26 +304,55 @@ export default function CoachScreen() {
         onConsent={handleAnthropicConsent}
       />
 
-      {/* Sprint 8 Fix 4: Subtle info icon replacing persistent banner */}
+      {/* Sprint 12: Info icon → modal (replaces tooltip) */}
       {apiKeyConfigured && (
         <View style={styles.infoIconRow}>
           <TouchableOpacity
-            onPress={() => setShowInfoTooltip(!showInfoTooltip)}
+            onPress={() => setShowDisclaimerModal(true)}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             accessibilityRole="button"
             accessibilityLabel="Coach DUB information"
           >
             <Ionicons name="information-circle-outline" size={18} color={Colors.secondaryText} />
           </TouchableOpacity>
-          {showInfoTooltip && (
-            <View style={styles.infoTooltip}>
-              <Text style={styles.infoTooltipText}>
-                Coach DUB provides wellness guidance, not medical advice.
+
+          {/* Active expert badge */}
+          {activeExpertDef && (
+            <View style={styles.expertBadge}>
+              <Text style={styles.expertBadgeText}>
+                {activeExpertDef.emoji} {activeExpertDef.name} mode
               </Text>
             </View>
           )}
         </View>
       )}
+
+      {/* Disclaimer modal (Feature 5) */}
+      <Modal
+        visible={showDisclaimerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDisclaimerModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.disclaimerCard}>
+            <Ionicons name="information-circle" size={32} color={Colors.accent} />
+            <Text style={styles.disclaimerTitle}>About Coach DUB</Text>
+            <Text style={styles.disclaimerText}>
+              Coach DUB provides wellness guidance based on your data.
+              For medical concerns, consult a healthcare professional.
+              See User Agreement for full terms.
+            </Text>
+            <TouchableOpacity
+              style={styles.disclaimerOk}
+              onPress={() => setShowDisclaimerModal(false)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.disclaimerOkText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       {isOffline && apiKeyConfigured && (
         <View style={styles.offlineNotice}>
@@ -261,7 +367,13 @@ export default function CoachScreen() {
         ref={flatListRef}
         data={messages}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => <ChatBubble message={item} />}
+        renderItem={({ item }) => (
+          <ChatBubble
+            message={item}
+            onConfirmTool={item.toolUse?.status === 'pending' ? confirmTool : undefined}
+            onCancelTool={item.toolUse?.status === 'pending' ? cancelTool : undefined}
+          />
+        )}
         ListEmptyComponent={renderEmpty}
         contentContainerStyle={messages.length === 0 ? styles.emptyList : styles.messageList}
         onContentSizeChange={() => {
@@ -276,14 +388,11 @@ export default function CoachScreen() {
         <SuggestedPrompts onSelect={(p) => { setShowSuggestions(false); handleSuggestedPrompt(p); }} visible />
       )}
 
-      {sending && (
+      {/* Streaming indicator */}
+      {sending && !streaming && (
         <View style={styles.typingRow}>
           <LoadingIndicator size="small" />
-          <Text style={styles.typingText}>
-            {messages.length > 0 && messages[messages.length - 1].role === 'user'
-              ? 'Coach DUB is thinking...'
-              : 'Sending...'}
-          </Text>
+          <Text style={styles.typingText}>Coach DUB is thinking...</Text>
         </View>
       )}
 
@@ -323,14 +432,55 @@ export default function CoachScreen() {
         </TouchableOpacity>
       )}
 
+      {/* @mention autocomplete dropdown */}
+      {showExpertPicker && apiKeyConfigured && (
+        <View style={styles.expertPicker}>
+          <ScrollView style={styles.expertPickerScroll} keyboardShouldPersistTaps="always">
+            {allExperts
+              .filter((e) => {
+                const partial = inputText.match(/@(\w*)$/)?.[1]?.toLowerCase() ?? '';
+                return !partial || e.id.startsWith(partial) || e.shortLabel.toLowerCase().startsWith(partial);
+              })
+              .map((e) => (
+                <TouchableOpacity
+                  key={e.id}
+                  style={styles.expertPickerRow}
+                  onPress={() => handleExpertSelect(e.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.expertPickerEmoji}>{e.emoji}</Text>
+                  <Text style={styles.expertPickerName}>@{e.id}</Text>
+                  <Text style={styles.expertPickerLabel}>{e.shortLabel}</Text>
+                </TouchableOpacity>
+              ))}
+          </ScrollView>
+        </View>
+      )}
+
       {apiKeyConfigured && (
         <View style={styles.inputRow}>
+          {/* Camera button (Feature 4) */}
+          <TouchableOpacity
+            style={styles.cameraButton}
+            onPress={handlePhotoCapture}
+            onLongPress={handlePhotoLibrary}
+            disabled={sending || isOffline}
+            activeOpacity={0.7}
+          >
+            <Ionicons
+              name="camera"
+              size={22}
+              color={sending || isOffline ? Colors.secondaryText : Colors.accent}
+            />
+          </TouchableOpacity>
+
           <TextInput
+            ref={inputRef}
             style={styles.input}
-            placeholder={isOffline ? 'Reconnect to chat with Coach DUB' : 'Ask Coach DUB...'}
+            placeholder={isOffline ? 'Reconnect to chat with Coach DUB' : 'Ask Coach DUB... (type @ for experts)'}
             placeholderTextColor={Colors.secondaryText}
             value={inputText}
-            onChangeText={setInputText}
+            onChangeText={handleTextChange}
             multiline
             maxLength={2000}
             editable={!sending && !isOffline}
@@ -484,6 +634,14 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryBackground,
     gap: 8,
   },
+  cameraButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.inputBackground,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   input: {
     flex: 1,
     backgroundColor: Colors.inputBackground,
@@ -505,7 +663,7 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     backgroundColor: Colors.divider,
   },
-  // Sprint 8 Fix 4: Info icon + tooltip
+  // Sprint 12: Info icon row with expert badge
   infoIconRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -513,17 +671,91 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     gap: 8,
   },
-  infoTooltip: {
+  expertBadge: {
     backgroundColor: Colors.cardBackground,
-    borderRadius: 8,
+    borderRadius: 12,
     paddingHorizontal: 10,
-    paddingVertical: 6,
+    paddingVertical: 4,
+  },
+  expertBadgeText: {
+    color: Colors.accentText,
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  // Sprint 12: Disclaimer modal (Feature 5)
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  disclaimerCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+    width: '100%',
+    maxWidth: 340,
+  },
+  disclaimerTitle: {
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  disclaimerText: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  disclaimerOk: {
+    backgroundColor: Colors.accent,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 40,
+    marginTop: 4,
+  },
+  disclaimerOkText: {
+    color: Colors.primaryBackground,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  // Sprint 12: @mention autocomplete (Feature 1C)
+  expertPicker: {
+    maxHeight: 260,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    marginHorizontal: 12,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  expertPickerScroll: {
+    padding: 4,
+  },
+  expertPickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    gap: 10,
+  },
+  expertPickerEmoji: {
+    fontSize: 18,
+    width: 28,
+    textAlign: 'center',
+  },
+  expertPickerName: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
     flex: 1,
   },
-  infoTooltipText: {
+  expertPickerLabel: {
     color: Colors.secondaryText,
-    fontSize: 11,
-    fontStyle: 'italic',
+    fontSize: 13,
   },
   // C2: Suggestions pill
   suggestionsPill: {

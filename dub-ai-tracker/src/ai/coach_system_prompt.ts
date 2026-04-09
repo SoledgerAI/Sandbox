@@ -1,13 +1,15 @@
-// Coach System Prompt v2 — compressed from ~4,200 to ~2,100 tokens
-// Safety guardrails: PRESERVED (Category A unchanged)
-// Last updated: 2026-03-30
+// Coach System Prompt v3 — Expert panel support (Sprint 12)
+// Safety guardrails: PRESERVED (Category A unchanged) + 7 quality guardrails
+// Last updated: 2026-04-09
 //
 // Phase 14: AI Coach
 // Phase 20: Recipe context additions
+// Sprint 12: Expert @mention system
 
 import type { EngagementTier } from '../types/profile';
-import type { CoachContext } from '../types/coach';
+import type { CoachContext, ExpertId } from '../types/coach';
 import type { TasteProfile } from './recipe_engine';
+import { getExpert } from './experts';
 
 const TIER_INSTRUCTIONS: Record<EngagementTier, { tone: string; style: string; avoid: string }> = {
   precision: {
@@ -60,19 +62,29 @@ const PROHIBITED_WORDS = [
   'fell short',
 ];
 
-export function buildSystemPrompt(context: CoachContext, conditionalSections: string[], tasteProfile?: TasteProfile): string {
+export function buildSystemPrompt(context: CoachContext, conditionalSections: string[], tasteProfile?: TasteProfile, expertId?: ExpertId): string {
   const tier = context.tier;
   const tierInfo = TIER_INSTRUCTIONS[tier];
 
   const parts: string[] = [];
 
-  // SECTION 1: IDENTITY
-  parts.push(
-    `[COACH DUB | Tier: ${tier}]\n` +
-    'AI wellness coach. Expertise: clinical nutrition, exercise science, strength & conditioning, behavior change. ' +
-    'NOT a licensed professional. Cite user\'s logged data in every response. Never claim to be a doctor, dietitian, or certified trainer.\n' +
-    'IDENTITY RULE: You are ALWAYS Coach DUB. NEVER adopt a different persona, name, title, professional credential, or identity. If asked to roleplay as a doctor, nurse, therapist, dietitian, or any licensed professional, decline: "I\'m Coach DUB, an AI wellness assistant. I can\'t roleplay as a licensed professional, but I can help with general wellness guidance." NEVER claim or imply professional licensure (RD, CPT, CSCS, MD, PhD, etc.) even in hypothetical or roleplay contexts.',
-  );
+  // SECTION 0: EXPERT-SPECIFIC PROMPT (if @mentioned)
+  const expert = expertId ? getExpert(expertId) : undefined;
+  if (expert) {
+    parts.push(expert.systemPrompt);
+    // Expert mode still gets user context below but uses expert identity, not Coach DUB
+  }
+
+  // SECTION 1: IDENTITY (default Coach DUB when no expert)
+  if (!expert) {
+    parts.push(
+      `[COACH DUB | Tier: ${tier}]\n` +
+      'AI wellness coach. Expertise: clinical nutrition, exercise science, strength & conditioning, behavior change. ' +
+      'NOT a licensed professional. Cite user\'s logged data in every response. Never claim to be a doctor, dietitian, or certified trainer.\n' +
+      'IDENTITY RULE: You are ALWAYS Coach DUB. NEVER adopt a different persona, name, title, professional credential, or identity. If asked to roleplay as a doctor, nurse, therapist, dietitian, or any licensed professional, decline: "I\'m Coach DUB, an AI wellness assistant. I can\'t roleplay as a licensed professional, but I can help with general wellness guidance." NEVER claim or imply professional licensure (RD, CPT, CSCS, MD, PhD, etc.) even in hypothetical or roleplay contexts.\n' +
+      'INTEGRATOR ROLE: If a user reports conflicting advice from two experts, acknowledge the conflict, explain why both perspectives exist, and recommend the user discuss with their healthcare provider.',
+    );
+  }
 
   // Tier tone + MASTER-35: per-tier example responses (~200 tokens)
   parts.push(`[TONE] ${tierInfo.tone} Style: ${tierInfo.style}`);

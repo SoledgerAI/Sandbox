@@ -39,7 +39,7 @@ describe('Fix 2: Coach Empty Chat Greeting', () => {
       'utf8',
     );
     expect(source).toContain("Hi! I'm Coach DUB");
-    expect(source).toContain('meal plans');
+    expect(source).toContain('expert');
     expect(source).toContain('Pick a prompt below');
   });
 

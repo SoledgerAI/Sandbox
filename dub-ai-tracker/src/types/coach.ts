@@ -1,8 +1,26 @@
 // AI Coach types for DUB_AI Tracker
 // Phase 2: Type System and Storage Layer
 // Per Section 12: AI Coach
+// Sprint 12: Expert panel, streaming, tool use, photo capture
 
 import type { EngagementTier, UserProfile } from './profile';
+
+// ============================================================
+// Expert Panel — 11 domain experts invoked via @mention
+// ============================================================
+
+export type ExpertId =
+  | 'dietician'
+  | 'trainer'
+  | 'therapist'
+  | 'physician'
+  | 'analyst'
+  | 'pharmacist'
+  | 'recovery'
+  | 'sleep'
+  | 'coach'
+  | 'biohacker'
+  | 'dub';
 
 export type MessageRole = 'user' | 'assistant' | 'system';
 
@@ -11,11 +29,53 @@ export interface ChatMessage {
   role: MessageRole;
   content: string;
   timestamp: string; // ISO datetime
+  /** Which expert responded (assistant messages only) */
+  expertId?: ExpertId;
+  /** Photo URI attached to this message (user messages only) */
+  imageUri?: string;
+  /** Tool use confirmation pending (assistant messages only) */
+  toolUse?: ToolUseRequest;
+  /** Whether this message is still streaming */
+  streaming?: boolean;
+}
+
+// ============================================================
+// Tool Use — Coach can log data via Anthropic tool_use
+// ============================================================
+
+export type CoachToolName =
+  | 'log_drink'
+  | 'log_food'
+  | 'log_weight'
+  | 'log_exercise'
+  | 'log_supplement'
+  | 'log_feedback';
+
+export interface ToolUseRequest {
+  toolUseId: string;
+  name: CoachToolName;
+  input: Record<string, unknown>;
+  /** User's confirmation state */
+  status: 'pending' | 'confirmed' | 'cancelled';
 }
 
 export interface SuggestedPrompt {
   text: string;
   category: 'general' | 'nutrition' | 'fitness' | 'sleep' | 'patterns' | 'recovery';
+}
+
+// ============================================================
+// Feedback Log — @dub exclusive
+// ============================================================
+
+export interface FeedbackEntry {
+  id: string;
+  timestamp: string; // ISO
+  type: 'bug' | 'feature_request' | 'question';
+  description: string;
+  screen: string;
+  userMessage: string;
+  resolved: boolean;
 }
 
 export type EdRiskFlagType = 'sustained_low_intake' | 'extreme_restriction_today' | 'healthy_bmi_loss_goal' | 'underweight_bmi';
