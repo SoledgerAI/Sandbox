@@ -16,6 +16,7 @@ import {
 } from 'react-native';
 import { useScrollToTop } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
 import { FontSize, FontWeight } from '../../src/constants/typography';
 import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
@@ -32,6 +33,7 @@ import { runPatternEngine } from '../../src/ai/pattern_engine';
 import type { ChatMessage, PatternInsight } from '../../src/types/coach';
 
 export default function CoachScreen() {
+  const insets = useSafeAreaInsets();
   const {
     messages,
     loading,
@@ -230,7 +232,7 @@ export default function CoachScreen() {
 
   return (
     <KeyboardAvoidingView
-      style={styles.container}
+      style={[styles.container, { paddingTop: insets.top }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={90}
     >
@@ -596,7 +598,7 @@ const styles = StyleSheet.create({
   // MASTER-57: Coach Lite styles
   coachLiteContainer: {
     padding: 16,
-    paddingTop: 60,
+    paddingTop: 12,
     paddingBottom: 32,
   },
   liteSummaryCard: {

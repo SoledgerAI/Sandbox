@@ -125,7 +125,7 @@ describe('Formulas Constants', () => {
 
   it('MET values exist for key activities (via ACTIVITY_MULTIPLIERS)', () => {
     expect(ACTIVITY_MULTIPLIERS.sedentary).toBe(1.2);
-    expect(ACTIVITY_MULTIPLIERS.very_active).toBe(1.725);
+    expect(ACTIVITY_MULTIPLIERS.very_active).toBe(1.55);
   });
 
   it('sexual activity MET = 3.0 (in SexualEntry type)', () => {

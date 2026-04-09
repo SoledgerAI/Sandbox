@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useScrollToTop } from '@react-navigation/native';
 import { router } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
 import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
 import { useTrendsData, TrendDataSet } from '../../src/hooks/useTrendsData';
@@ -261,6 +262,7 @@ const TAG_TO_CATEGORY: Record<string, string> = {
 };
 
 export default function TrendsScreen() {
+  const insets = useSafeAreaInsets();
   // Fix 3: Scroll-to-top on tab re-tap
   const chartListRef = useRef<FlatList>(null);
   useScrollToTop(chartListRef);
@@ -386,7 +388,7 @@ export default function TrendsScreen() {
   return (
     <View style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <Text style={styles.title}>Trends</Text>
       </View>
 

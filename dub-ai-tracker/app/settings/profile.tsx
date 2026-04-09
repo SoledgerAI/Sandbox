@@ -5,6 +5,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
+  Image,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,6 +14,8 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { useToast } from '../../src/contexts/ToastContext';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,6 +65,8 @@ export default function ProfileScreen() {
   const [weight, setWeight] = useState('');
   const [activityLevel, setActivityLevel] = useState<ActivityLevel | null>(null);
   const [altitudeAcclimated, setAltitudeAcclimated] = useState(false);
+  const [customTdee, setCustomTdee] = useState('');
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const loadProfile = useCallback(async () => {
@@ -95,13 +100,36 @@ export default function ProfileScreen() {
       }
       setActivityLevel(p.activity_level || null);
       setAltitudeAcclimated(p.altitude_acclimated || false);
+      if (p.custom_tdee) setCustomTdee(String(p.custom_tdee));
     }
+    // Load avatar
+    const uri = await AsyncStorage.getItem('PROFILE_AVATAR_URI');
+    if (uri) setAvatarUri(uri);
     setLoading(false);
   }, []);
 
   useEffect(() => {
     loadProfile();
   }, [loadProfile]);
+
+  const pickImage = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission needed', 'Allow photo access to set your profile picture.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.5,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const uri = result.assets[0].uri;
+      setAvatarUri(uri);
+      await AsyncStorage.setItem('PROFILE_AVATAR_URI', uri);
+    }
+  }, []);
 
   // MASTER-38: Age gate re-validation — same check as onboarding ProfileStep
   function getAge(birthDate: Date): number {
@@ -175,6 +203,7 @@ export default function ProfileScreen() {
       weight_lbs: weightLbs,
       activity_level: activityLevel,
       altitude_acclimated: altitudeAcclimated,
+      custom_tdee: customTdee ? parseInt(customTdee, 10) || null : null,
     };
 
     await storageSet(STORAGE_KEYS.PROFILE, updatedProfile);
@@ -213,26 +242,25 @@ export default function ProfileScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Profile photo placeholder */}
+      {/* Profile photo */}
       <TouchableOpacity
         style={styles.avatarContainer}
-        onPress={() =>
-          Alert.alert(
-            'Profile Photo',
-            'Coming in a future update. Your profile photo will appear here and on the Settings screen.',
-            [{ text: 'OK' }],
-          )
-        }
+        onPress={pickImage}
         activeOpacity={0.7}
       >
-        <View style={styles.avatar}>
-          <Text style={styles.avatarInitial}>
-            {name.charAt(0).toUpperCase() || '?'}
-          </Text>
-        </View>
+        {avatarUri ? (
+          <Image source={{ uri: avatarUri }} style={styles.avatar} />
+        ) : (
+          <View style={styles.avatar}>
+            <Text style={styles.avatarInitial}>
+              {name.charAt(0).toUpperCase() || '?'}
+            </Text>
+          </View>
+        )}
         <View style={styles.cameraIcon}>
           <Ionicons name="camera" size={14} color={Colors.primaryBackground} />
         </View>
+        <Text style={styles.changePhotoText}>Change Photo</Text>
       </TouchableOpacity>
 
       <Input
@@ -372,6 +400,17 @@ export default function ProfileScreen() {
         </TouchableOpacity>
       </View>
 
+      <Input
+        label="Custom Daily Calorie Target (optional)"
+        value={customTdee}
+        onChangeText={(t) => setCustomTdee(t.replace(/[^\d]/g, ''))}
+        keyboardType="number-pad"
+        placeholder="Leave blank to use calculated estimate"
+      />
+      <Text style={styles.tdeeHint}>
+        This is an estimate. If you track with a wearable device (Garmin, WHOOP, Apple Watch), your device's TDEE reading is more accurate. You can enter it here to override the calculated value.
+      </Text>
+
       <View style={styles.footer}>
         <Button title="Save Profile" onPress={handleSave} loading={saving} />
       </View>
@@ -398,7 +437,13 @@ const styles = StyleSheet.create({
   title: { color: Colors.text, fontSize: 22, fontWeight: 'bold' },
   avatarContainer: {
     alignSelf: 'center',
+    alignItems: 'center',
     marginBottom: 20,
+  },
+  changePhotoText: {
+    color: Colors.accent,
+    fontSize: 13,
+    marginTop: 8,
   },
   avatar: {
     width: 80,
@@ -490,5 +535,6 @@ const styles = StyleSheet.create({
   toggleBtnText: { color: Colors.secondaryText, fontSize: 13, fontWeight: '600' },
   toggleBtnTextActive: { color: Colors.primaryBackground },
   errorText: { color: Colors.dangerText, fontSize: 13, marginTop: 4, marginBottom: 8 },
+  tdeeHint: { color: Colors.secondaryText, fontSize: 12, lineHeight: 18, marginBottom: 16 },
   footer: { marginTop: 8, marginBottom: 32 },
 });

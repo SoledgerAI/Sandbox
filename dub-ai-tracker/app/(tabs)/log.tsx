@@ -18,6 +18,7 @@ import {
   TextInput,
   Platform,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
@@ -164,6 +165,7 @@ interface RecentEntry {
 // ============================================================
 
 export default function LogScreen() {
+  const insets = useSafeAreaInsets();
   // Fix 3: Scroll-to-top on tab re-tap
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
@@ -589,7 +591,7 @@ export default function LogScreen() {
     <ScrollView
       ref={scrollRef}
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl

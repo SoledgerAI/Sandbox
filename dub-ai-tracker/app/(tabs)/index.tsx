@@ -4,6 +4,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Pressable } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useScrollToTop } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,6 +33,7 @@ import { MissedDayCard } from '../../src/components/dashboard/MissedDayCard';
 import type { DeferredSetupKey } from '../../src/hooks/useDeferredSetup';
 
 export default function DashboardScreen() {
+  const insets = useSafeAreaInsets();
   const {
     loading,
     greeting,
@@ -135,7 +137,7 @@ export default function DashboardScreen() {
     <ScrollView
       ref={scrollRef}
       style={styles.container}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
       showsVerticalScrollIndicator={false}
     >
       {/* Greeting — F-06: centered banner */}

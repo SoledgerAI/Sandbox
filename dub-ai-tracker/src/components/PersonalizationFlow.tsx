@@ -382,18 +382,24 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
 
   return (
     <View style={styles.container}>
-      <ProgressBar currentStep={step} totalSteps={TOTAL_STEPS} />
-      <Text style={styles.stepCounter}>Step {step} of {TOTAL_STEPS}</Text>
-
-      {step > 1 && (
-        <TouchableOpacity
-          style={styles.backArrow}
-          onPress={goBack}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
-        </TouchableOpacity>
-      )}
+      <View style={styles.headerRow}>
+        {step > 1 ? (
+          <TouchableOpacity
+            style={styles.backArrow}
+            onPress={goBack}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.backArrowSpacer} />
+        )}
+        <View style={styles.progressCenter}>
+          <ProgressBar currentStep={step} totalSteps={TOTAL_STEPS} />
+          <Text style={styles.stepCounter}>Step {step} of {TOTAL_STEPS}</Text>
+        </View>
+        <View style={styles.backArrowSpacer} />
+      </View>
 
       <View style={styles.screen}>
         {step === 1 && (
@@ -476,6 +482,7 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
             zip={zip}
             onZipChange={setZip}
             errors={errors}
+            onSubmit={handleStepContinue}
           />
         )}
         {step === 11 && (
@@ -570,7 +577,7 @@ function Step1Consent({
   name: string;
   onNameChange: (v: string) => void;
   pronouns: Pronouns | null;
-  onPronounsSelect: (p: Pronouns) => void;
+  onPronounsSelect: (p: Pronouns | null) => void;
   healthConsent: boolean;
   onHealthConsent: (v: boolean) => void;
   aiConsent: boolean;
@@ -583,10 +590,11 @@ function Step1Consent({
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={120}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -640,7 +648,7 @@ function Step1Consent({
                   styles.chip,
                   pronouns === opt.value && styles.chipSelected,
                 ]}
-                onPress={() => allConsented && onPronounsSelect(opt.value)}
+                onPress={() => allConsented && onPronounsSelect(pronouns === opt.value ? null : opt.value)}
                 disabled={!allConsented}
                 activeOpacity={0.7}
               >
@@ -1114,19 +1122,21 @@ function Step8Tags({
 // ════════════════════════════════════════════════════
 
 function Step9Zip({
-  zip, onZipChange, errors,
+  zip, onZipChange, errors, onSubmit,
 }: {
   zip: string;
   onZipChange: (v: string) => void;
   errors: Record<string, string>;
+  onSubmit?: () => void;
 }) {
   return (
     <KeyboardAvoidingView
       style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={120}
     >
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
@@ -1141,6 +1151,8 @@ function Step9Zip({
           onChangeText={(text) => onZipChange(text.replace(/[^0-9]/g, '').slice(0, 5))}
           placeholder="e.g. 90210"
           keyboardType="number-pad"
+          returnKeyType="done"
+          onSubmitEditing={onSubmit}
           maxLength={5}
           error={errors.zip}
         />
@@ -1274,12 +1286,24 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryBackground,
     paddingTop: 48,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    marginBottom: 4,
+  },
+  progressCenter: {
+    flex: 1,
+    alignItems: 'center',
+  },
   backArrow: {
-    position: 'absolute',
-    top: 56,
-    left: 16,
-    zIndex: 10,
-    padding: 8,
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backArrowSpacer: {
+    width: 44,
   },
   screen: {
     flex: 1,

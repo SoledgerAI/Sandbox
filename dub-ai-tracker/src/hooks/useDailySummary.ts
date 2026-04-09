@@ -139,7 +139,9 @@ export function useDailySummary(): DailySummaryResult {
         });
         // Default to lightly_active (1.375) when activity level not set
         const activityLevel = p.activity_level ?? 'lightly_active';
-        computedTdee = calculateTdee(computedBmr, activityLevel);
+        const rawTdee = calculateTdee(computedBmr, activityLevel);
+        // Apply 5% conservative haircut, or use custom TDEE if set
+        computedTdee = p.custom_tdee ? p.custom_tdee : Math.round(rawTdee * 0.95);
         computedTarget = calculateCalorieTarget({
           tdee: computedTdee,
           goalDirection: p.goal?.direction ?? 'MAINTAIN',

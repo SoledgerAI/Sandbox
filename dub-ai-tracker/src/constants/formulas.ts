@@ -30,10 +30,10 @@ export const BMR_FEMALE_CONSTANT = -161; // added for females
 
 export const ACTIVITY_MULTIPLIERS = {
   sedentary: 1.2, // Little or no exercise
-  lightly_active: 1.375, // Light exercise 1-3 days/week
-  moderately_active: 1.55, // Moderate exercise 3-5 days/week
-  very_active: 1.725, // Hard exercise 6-7 days/week
-  extremely_active: 1.9, // Very hard exercise + physical job
+  lightly_active: 1.35, // Light exercise 1-3 days/week
+  moderately_active: 1.5, // Moderate exercise 3-5 days/week
+  very_active: 1.55, // Hard exercise 6-7 days/week (reduced from 1.725 — Garmin-validated)
+  extremely_active: 1.7, // Very hard exercise + physical job (reduced from 1.9)
 } as const;
 
 // ============================================================================

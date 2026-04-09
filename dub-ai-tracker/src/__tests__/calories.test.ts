@@ -68,28 +68,28 @@ describe('Calorie Engine', () => {
       expect(calculateTdee(testBmr, 'sedentary')).toBeCloseTo(testBmr * 1.2, 1);
     });
 
-    it('lightly active = BMR x 1.375', () => {
-      expect(calculateTdee(testBmr, 'lightly_active')).toBeCloseTo(testBmr * 1.375, 1);
+    it('lightly active = BMR x 1.35', () => {
+      expect(calculateTdee(testBmr, 'lightly_active')).toBeCloseTo(testBmr * 1.35, 1);
     });
 
-    it('moderately active = BMR x 1.55', () => {
-      expect(calculateTdee(testBmr, 'moderately_active')).toBeCloseTo(testBmr * 1.55, 1);
+    it('moderately active = BMR x 1.5', () => {
+      expect(calculateTdee(testBmr, 'moderately_active')).toBeCloseTo(testBmr * 1.5, 1);
     });
 
-    it('very active = BMR x 1.725', () => {
-      expect(calculateTdee(testBmr, 'very_active')).toBeCloseTo(testBmr * 1.725, 1);
+    it('very active = BMR x 1.55', () => {
+      expect(calculateTdee(testBmr, 'very_active')).toBeCloseTo(testBmr * 1.55, 1);
     });
 
-    it('extremely active = BMR x 1.9', () => {
-      expect(calculateTdee(testBmr, 'extremely_active')).toBeCloseTo(testBmr * 1.9, 1);
+    it('extremely active = BMR x 1.7', () => {
+      expect(calculateTdee(testBmr, 'extremely_active')).toBeCloseTo(testBmr * 1.7, 1);
     });
 
     it('multiplier constants match spec', () => {
       expect(ACTIVITY_MULTIPLIERS.sedentary).toBe(1.2);
-      expect(ACTIVITY_MULTIPLIERS.lightly_active).toBe(1.375);
-      expect(ACTIVITY_MULTIPLIERS.moderately_active).toBe(1.55);
-      expect(ACTIVITY_MULTIPLIERS.very_active).toBe(1.725);
-      expect(ACTIVITY_MULTIPLIERS.extremely_active).toBe(1.9);
+      expect(ACTIVITY_MULTIPLIERS.lightly_active).toBe(1.35);
+      expect(ACTIVITY_MULTIPLIERS.moderately_active).toBe(1.5);
+      expect(ACTIVITY_MULTIPLIERS.very_active).toBe(1.55);
+      expect(ACTIVITY_MULTIPLIERS.extremely_active).toBe(1.7);
     });
   });
 
@@ -167,28 +167,28 @@ describe('Calorie Engine', () => {
   // Expected values computed with precise coefficients.
 
   describe('F-05: Full calorie target pipeline', () => {
-    it('Male, 30, 180cm, 80kg, moderately active, maintenance ≈ 2,466 cal', () => {
+    it('Male, 30, 180cm, 80kg, moderately active, maintenance ≈ 2,672 cal', () => {
       // BMR = (9.99*80) + (6.25*180) - (4.92*30) + 5 = 799.2 + 1125 - 147.6 + 5 = 1781.6
-      // TDEE = 1781.6 * 1.55 = 2761.48
-      // Target = TDEE + 0 (maintain) = 2761 (rounded)
+      // TDEE = 1781.6 * 1.5 = 2672.4
+      // Target = TDEE + 0 (maintain) = 2672 (rounded)
       const bmr = calculateBmr({ weightKg: 80, heightCm: 180, ageYears: 30, sex: 'male' });
       const tdee = calculateTdee(bmr, 'moderately_active');
       const target = calculateCalorieTarget({ tdee, goalDirection: 'MAINTAIN', sex: 'male' });
       expect(bmr).toBeCloseTo(1781.6, 0);
-      expect(target).toBeCloseTo(2761, -1); // within ~10 cal
+      expect(target).toBeCloseTo(2672, -1); // within ~10 cal
     });
 
-    it('Female, 25, 165cm, 60kg, lightly active, fat loss ≈ 1,266 cal', () => {
+    it('Female, 25, 165cm, 60kg, lightly active, fat loss ≈ 1,318 cal', () => {
       // BMR = (9.99*60) + (6.25*165) - (4.92*25) - 161 = 599.4 + 1031.25 - 123 - 161 = 1346.65
-      // TDEE = 1346.65 * 1.375 = 1851.64
-      // Target = 1851.64 - 500 = 1351.64 ≈ 1352
+      // TDEE = 1346.65 * 1.35 = 1817.98
+      // Target = 1817.98 - 500 = 1317.98 ≈ 1318
       const bmr = calculateBmr({ weightKg: 60, heightCm: 165, ageYears: 25, sex: 'female' });
       const tdee = calculateTdee(bmr, 'lightly_active');
       const target = calculateCalorieTarget({
         tdee, goalDirection: 'LOSE', sex: 'female', rateLbsPerWeek: 1.0,
       });
       expect(bmr).toBeCloseTo(1346.65, 0);
-      expect(target).toBeCloseTo(1352, -1); // within ~10 cal
+      expect(target).toBeCloseTo(1318, -1); // within ~10 cal
     });
 
     it('Male, 45, 175cm, 90kg, sedentary, maintenance ≈ 1,961 cal', () => {

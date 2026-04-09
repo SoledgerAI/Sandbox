@@ -44,6 +44,7 @@ export interface UserProfile {
   activity_level: ActivityLevel | null;
   goal: WeightGoal | null;
   altitude_acclimated: boolean;
+  custom_tdee?: number | null;
 }
 
 export interface ConsentRecord {

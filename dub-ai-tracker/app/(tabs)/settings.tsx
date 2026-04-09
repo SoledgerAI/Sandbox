@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
 import { Spacing } from '../../src/constants/spacing';
 import { FontSize, FontWeight } from '../../src/constants/typography';
@@ -52,6 +53,8 @@ import {
   resetOnboarding,
 } from '../../src/services/onboardingService';
 import type { AgeRange } from '../../src/services/onboardingService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { SECURE_KEYS, deleteSecure as deleteSecureKey } from '../../src/services/secureStorageService';
 
 interface SettingsItem {
   id: string;
@@ -63,6 +66,7 @@ interface SettingsItem {
 }
 
 export default function SettingsScreen() {
+  const insets = useSafeAreaInsets();
   // Fix 3: Scroll-to-top on tab re-tap
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
@@ -292,24 +296,39 @@ export default function SettingsScreen() {
   const handleResetOnboarding = useCallback(() => {
     hapticWarning();
     Alert.alert(
-      'Reset Onboarding',
-      'The setup flow will appear again on next launch. Your profile, entries, and preferences will NOT be affected.',
+      'Reset App Data',
+      'This will delete ALL your health data and reset the app to its initial state. Your API key will be preserved. This cannot be undone.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Continue',
           onPress: () => {
             Alert.alert(
-              'Are you sure?',
+              'Are you sure? All data will be permanently deleted.',
               '',
               [
                 { text: 'Cancel', style: 'cancel' },
                 {
-                  text: 'Reset',
+                  text: 'Delete Everything',
                   style: 'destructive',
                   onPress: async () => {
-                    await resetOnboarding();
-                    Alert.alert('Done', 'Onboarding will appear on next app launch.');
+                    try {
+                      // Clear all AsyncStorage data
+                      await AsyncStorage.clear();
+                      // Clear SecureStore auth keys (preserve API key)
+                      await Promise.all([
+                        deleteSecureKey(SECURE_KEYS.APP_LOCK_ENABLED),
+                        deleteSecureKey(SECURE_KEYS.AUTH_PIN_HASH),
+                        deleteSecureKey(SECURE_KEYS.AUTH_METHOD),
+                        deleteSecureKey(SECURE_KEYS.USER_SEX),
+                        deleteSecureKey(SECURE_KEYS.ONBOARDING_COMPLETE),
+                        deleteSecureKey(SECURE_KEYS.CONSENT_RECORD),
+                      ]);
+                      Alert.alert('Done', 'All data cleared. The app will restart from onboarding.');
+                      router.replace('/onboarding');
+                    } catch {
+                      Alert.alert('Error', 'Something went wrong. Please try again.');
+                    }
                   },
                 },
               ],
@@ -427,7 +446,7 @@ export default function SettingsScreen() {
   ];
 
   return (
-    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}>
       <Text style={styles.title}>Settings</Text>
 
       {loading ? (
