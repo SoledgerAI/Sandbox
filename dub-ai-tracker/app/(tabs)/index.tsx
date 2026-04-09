@@ -29,6 +29,8 @@ import { RecoveryCard } from '../../src/components/dashboard/RecoveryCard';
 import { TagCardWithData } from '../../src/components/dashboard/TagCardWithData';
 import { shareDailySummary } from '../../src/components/sharing/DailySummaryCard';
 import { MissedDayCard } from '../../src/components/dashboard/MissedDayCard';
+import { CoachDubBadge } from '../../src/components/dashboard/CoachDubBadge';
+import { StreakBadge } from '../../src/components/dashboard/StreakBadge';
 import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import type { DeferredSetupKey } from '../../src/hooks/useDeferredSetup';
 
@@ -140,6 +142,11 @@ export default function DashboardScreen() {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
+      {/* Sprint 15: Coach DUB badge — top right */}
+      <View style={styles.coachBadgeRow}>
+        <CoachDubBadge />
+      </View>
+
       {/* Greeting — F-06: centered banner */}
       <View style={styles.header}>
         {/* Left spacer (matches share button width for centering) */}
@@ -251,6 +258,9 @@ export default function DashboardScreen() {
         )}
       </View>
 
+      {/* Sprint 15: Streak Badge */}
+      <StreakBadge />
+
       {/* Deferred Setup Card (one at a time, Days 1-4) */}
       {activeCard && (
         <DeferredSetupCard
@@ -335,6 +345,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.primaryBackground,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  coachBadgeRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    marginBottom: 4,
   },
   container: {
     flex: 1,

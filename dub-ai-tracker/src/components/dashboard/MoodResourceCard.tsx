@@ -99,12 +99,12 @@ export function MoodResourceCard({ showVeteransLine, onDismiss }: MoodResourceCa
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#1A2355', // Slightly darker than primaryBackground — warm, not alarming
+    backgroundColor: '#1A1D2E',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#3A4580', // Subtle divider-tone border — NOT red, NOT gold-heavy
+    borderColor: 'rgba(212, 168, 67, 0.08)',
   },
   headerRow: {
     flexDirection: 'row',

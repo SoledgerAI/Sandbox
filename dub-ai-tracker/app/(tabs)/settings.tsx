@@ -7,6 +7,7 @@ import { useFocusEffect } from 'expo-router';
 import { useScrollToTop } from '@react-navigation/native';
 import {
   Alert,
+  Image,
   ScrollView,
   StyleSheet,
   Switch,
@@ -23,6 +24,8 @@ import { FontSize, FontWeight } from '../../src/constants/typography';
 import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
 import { hapticSelection, hapticWarning } from '../../src/utils/haptics';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
+import { useMacroPrefs, ALL_MACRO_OPTIONS } from '../../src/hooks/useMacroPrefs';
+import { useTheme, type ThemeMode } from '../../src/contexts/ThemeContext';
 import type { AppSettings } from '../../src/types/profile';
 import { isApiKeySet as checkHasApiKey } from '../../src/services/apiKeyService';
 import {
@@ -74,6 +77,7 @@ export default function SettingsScreen() {
   const [profileName, setProfileName] = useState('');
   const [tier, setTier] = useState<string>('');
   const [hasKey, setHasKey] = useState(false);
+  const [avatarUri, setAvatarUri] = useState<string | null>(null);
 
   // Security state
   const [lockEnabled, setLockEnabledState] = useState(false);
@@ -96,6 +100,12 @@ export default function SettingsScreen() {
   // Population comparison
   const [showPopulationComparison, setShowPopulationComparison] = useState(false);
   const [hasProfileForComparison, setHasProfileForComparison] = useState(false);
+
+  // Sprint 14: Macro preferences
+  const { selectedMacros, toggleMacro, isMacroEnabled } = useMacroPrefs();
+
+  // Sprint 15: Theme mode
+  const { mode: themeMode, setMode: setThemeMode } = useTheme();
 
   // Fasting state
   const [fastingEnabled, setFastingEnabled] = useState(false);
@@ -142,6 +152,9 @@ export default function SettingsScreen() {
     setUserZipState(zip);
     const timeout = await getLockTimeout();
     setLockTimeoutState(timeout);
+    // Sprint 15: Load profile photo
+    const uri = await AsyncStorage.getItem('PROFILE_AVATAR_URI');
+    if (uri) setAvatarUri(uri);
     setLoading(false);
   }, []);
 
@@ -466,11 +479,15 @@ export default function SettingsScreen() {
             onPress={() => router.push('/settings/profile')}
             activeOpacity={0.7}
           >
-            <View style={styles.profileAvatar}>
-              <Text style={styles.profileInitial}>
-                {profileName.charAt(0).toUpperCase() || '?'}
-              </Text>
-            </View>
+            {avatarUri ? (
+              <Image source={{ uri: avatarUri }} style={styles.profileAvatarImage} />
+            ) : (
+              <View style={styles.profileAvatar}>
+                <Text style={styles.profileInitial}>
+                  {profileName.charAt(0).toUpperCase() || '?'}
+                </Text>
+              </View>
+            )}
             <View style={styles.profileInfo}>
               <Text style={styles.profileName}>{profileName}</Text>
               <Text style={styles.profileTier}>{tier} tier</Text>
@@ -807,6 +824,60 @@ export default function SettingsScreen() {
             </View>
           </View>
 
+          {/* Sprint 15: Appearance Section */}
+          <View style={styles.sectionGroup}>
+            <Text style={styles.sectionHeader}>APPEARANCE</Text>
+            <View style={styles.section}>
+              {(['dark', 'light', 'system'] as ThemeMode[]).map((mode) => (
+                <TouchableOpacity
+                  key={mode}
+                  style={styles.settingRow}
+                  onPress={() => { hapticSelection(); setThemeMode(mode); }}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={mode === 'dark' ? 'moon-outline' : mode === 'light' ? 'sunny-outline' : 'phone-portrait-outline'}
+                    size={22}
+                    color={themeMode === mode ? Colors.accent : Colors.secondaryText}
+                  />
+                  <View style={styles.settingInfo}>
+                    <Text style={[styles.settingLabel, themeMode === mode && { color: Colors.accentText }]}>
+                      {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                    </Text>
+                  </View>
+                  {themeMode === mode && (
+                    <Ionicons name="checkmark" size={20} color={Colors.accent} />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* Sprint 14: My Macros Section */}
+          <View style={styles.sectionGroup}>
+            <Text style={styles.sectionHeader}>MY MACROS</Text>
+            <View style={styles.section}>
+              {ALL_MACRO_OPTIONS.map((opt) => (
+                <View key={opt.key} style={styles.settingRow}>
+                  <Ionicons name="nutrition-outline" size={22} color={Colors.accent} />
+                  <View style={styles.settingInfo}>
+                    <Text style={styles.settingLabel}>{opt.label}{opt.unit ? ` (${opt.unit})` : ''}</Text>
+                    {opt.alwaysOn && (
+                      <Text style={styles.settingSubtitle}>Always tracked</Text>
+                    )}
+                  </View>
+                  <Switch
+                    value={isMacroEnabled(opt.key)}
+                    onValueChange={() => { hapticSelection(); toggleMacro(opt.key); }}
+                    disabled={opt.alwaysOn}
+                    trackColor={{ false: Colors.divider, true: Colors.accent }}
+                    thumbColor={Colors.text}
+                  />
+                </View>
+              ))}
+            </View>
+          </View>
+
           {/* Grouped Settings */}
           {settingsSections.map((section) => (
             <View key={section.title} style={styles.sectionGroup}>
@@ -924,6 +995,11 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  profileAvatarImage: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
   profileInitial: {
     color: Colors.primaryBackground,

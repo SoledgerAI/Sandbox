@@ -1,4 +1,4 @@
-// Generic dashboard card component
+// Generic dashboard card component — Sprint 15: uses PremiumCard styling
 // Phase 5: Dashboard Layout
 // Phase 18: Added device source indicator for device-synced data
 
@@ -6,6 +6,7 @@ import { StyleSheet, View, Text, ViewStyle } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontSize } from '../../constants/typography';
+import { PremiumCard } from '../common/PremiumCard';
 
 interface DashboardCardProps {
   title?: string;
@@ -17,7 +18,7 @@ interface DashboardCardProps {
 
 export function DashboardCard({ title, children, style, deviceSource }: DashboardCardProps) {
   return (
-    <View style={[styles.card, style]}>
+    <PremiumCard style={style}>
       {(title != null || deviceSource) && (
         <View style={styles.titleRow}>
           {title != null && <Text style={styles.title}>{title}</Text>}
@@ -30,22 +31,11 @@ export function DashboardCard({ title, children, style, deviceSource }: Dashboar
         </View>
       )}
       {children}
-    </View>
+    </PremiumCard>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
-  },
   titleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -54,16 +44,16 @@ const styles = StyleSheet.create({
   },
   title: {
     color: Colors.accentText,
-    fontSize: FontSize.base,
+    fontSize: FontSize.sm,
     fontWeight: '600',
     textTransform: 'uppercase',
-    letterSpacing: 0.5,
+    letterSpacing: 1.5,
   },
   deviceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: Colors.inputBackground,
+    backgroundColor: Colors.elevated,
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 10,

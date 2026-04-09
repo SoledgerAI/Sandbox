@@ -1,26 +1,24 @@
+// PALETTE MIGRATION — Sprint 15 (April 2026)
+// Old navy #1E2761 retired as primary background.
+// New palette: #0D0F1A (base), #1A1D2E (card), #222639 (elevated)
+// Text colors unchanged — WCAG AA ratios improve on darker bg.
 export const Colors = {
-  primaryBackground: '#1E2761',
+  primaryBackground: '#0D0F1A',     // deepest background (app base, tab bar, status bar)
   accent: '#D4A843',                // non-text (rings, bars, icons, backgrounds)
-  accentText: '#E8C468',            // gold text variant, 5.2:1 on navy (MASTER-04)
+  accentText: '#E8C468',            // gold text variant
   text: '#FFFFFF',
-  secondaryText: '#B8B8B8',         // was #B0B0B0, now 4.6:1 on navy (MASTER-04)
+  secondaryText: '#B8B8B8',
   success: '#4CAF50',               // non-text (progress bars, chart fills)
-  successText: '#66BB6A',           // green text variant, 4.6:1 on navy (MASTER-04)
+  successText: '#66BB6A',           // green text variant
   warning: '#D4A843',
-  danger: '#E57373',               // non-text (borders, icons, chart fills) — 4.8:1 on navy, 3.1:1 on card
-  dangerText: '#FF9C9C',           // red text variant — WCAG AA: 7.2:1 on navy, 4.6:1 on card
-  // Card background — WCAG 2.1 AA remediation
-  // OLD: #2A3370 (L=0.040, avg-RGB delta 13 from bg — insufficient separation)
-  // NEW: #334480 (L=0.064, avg-RGB delta 27 from bg — 22-28 target met)
-  // Contrast ratios on #334480:
-  //   #FFFFFF  text     → 9.21:1 ✓  (AA)
-  //   #B8B8B8  secondary→ 4.64:1 ✓  (AA)
-  //   #E8C468  accent   → 5.49:1 ✓  (AA)
-  //   #66BB6A  success  → 3.89:1 ⚠  (needs bump to pass AA on card)
-  //   #FF8A8A  danger   → 4.50:1 ✓  (fixed — was 3.28:1 with #FF6B6B)
-  cardBackground: '#334480',
-  inputBackground: '#1A2050',
-  divider: '#3A4580',
+  danger: '#E57373',               // non-text (borders, icons, chart fills)
+  dangerText: '#FF9C9C',           // red text variant
+  cardBackground: '#1A1D2E',       // primary cards, input fields
+  elevated: '#222639',             // modals, overlays, selected states
+  cardBorder: 'rgba(212, 168, 67, 0.08)', // faint gold glow
+  inputBackground: '#1A1D2E',
+  divider: 'rgba(255, 255, 255, 0.08)',
+  tabBarBackground: '#0D0F1A',
 } as const;
 
 export type ColorKey = keyof typeof Colors;

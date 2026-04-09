@@ -1,9 +1,7 @@
-// Reusable button component
-// Phase 3: Onboarding Flow
+// Reusable button component — wraps PremiumButton for backward compat
+// Phase 3: Onboarding Flow → Sprint 15: PremiumButton migration
 
-import { StyleSheet, Text, TouchableOpacity } from 'react-native';
-import { Colors } from '../../constants/colors';
-import { LoadingIndicator } from './LoadingIndicator';
+import { PremiumButton } from './PremiumButton';
 
 interface ButtonProps {
   title: string;
@@ -13,6 +11,12 @@ interface ButtonProps {
   loading?: boolean;
 }
 
+const VARIANT_MAP = {
+  primary: 'primary',
+  secondary: 'secondary',
+  ghost: 'outline',
+} as const;
+
 export function Button({
   title,
   onPress,
@@ -21,74 +25,12 @@ export function Button({
   loading = false,
 }: ButtonProps) {
   return (
-    <TouchableOpacity
-      style={[
-        styles.base,
-        variant === 'primary' && styles.primary,
-        variant === 'secondary' && styles.secondary,
-        variant === 'ghost' && styles.ghost,
-        disabled && styles.disabled,
-      ]}
+    <PremiumButton
+      label={title}
       onPress={onPress}
-      disabled={disabled || loading}
-      activeOpacity={0.7}
-    >
-      {loading ? (
-        <LoadingIndicator size="small" />
-      ) : (
-        <Text
-          style={[
-            styles.text,
-            variant === 'primary' && styles.primaryText,
-            variant === 'secondary' && styles.secondaryText,
-            variant === 'ghost' && styles.ghostText,
-            disabled && styles.disabledText,
-          ]}
-        >
-          {title}
-        </Text>
-      )}
-    </TouchableOpacity>
+      variant={VARIANT_MAP[variant]}
+      disabled={disabled}
+      loading={loading}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  base: {
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 48,
-  },
-  primary: {
-    backgroundColor: Colors.accent,
-  },
-  secondary: {
-    backgroundColor: 'transparent',
-    borderWidth: 1,
-    borderColor: Colors.accent,
-  },
-  ghost: {
-    backgroundColor: 'transparent',
-  },
-  disabled: {
-    opacity: 0.4,
-  },
-  text: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  primaryText: {
-    color: Colors.primaryBackground,
-  },
-  secondaryText: {
-    color: Colors.accentText,
-  },
-  ghostText: {
-    color: Colors.secondaryText,
-  },
-  disabledText: {
-    opacity: 0.6,
-  },
-});

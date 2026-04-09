@@ -13,8 +13,8 @@ import {
   ACTIVITY_MULTIPLIERS,
 } from '../constants/formulas';
 describe('Colors', () => {
-  it('primaryBackground = #1E2761', () => {
-    expect(Colors.primaryBackground).toBe('#1E2761');
+  it('primaryBackground = #0D0F1A', () => {
+    expect(Colors.primaryBackground).toBe('#0D0F1A');
   });
 
   it('accent = #D4A843', () => {

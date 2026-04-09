@@ -54,7 +54,7 @@ function buildDailySummaryHTML(data: DailyShareData): string {
     body {
       width: 1080px;
       height: 1080px;
-      background: linear-gradient(135deg, #1E2761 0%, #0D1133 100%);
+      background: linear-gradient(135deg, #0D0F1A 0%, #0D1133 100%);
       font-family: -apple-system, 'Helvetica Neue', sans-serif;
       color: #FFFFFF;
       display: flex;

@@ -370,7 +370,7 @@ export default function LogScreen() {
           <Ionicons name="search-outline" size={18} color={Colors.secondaryText} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search categories..."
+            placeholder="Search..."
             placeholderTextColor={Colors.divider}
             value={searchQuery}
             onChangeText={setSearchQuery}

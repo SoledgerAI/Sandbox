@@ -18,6 +18,7 @@ import { OfflineBanner } from '../src/components/common/OfflineBanner';
 import { AuthGate } from '../src/components/AuthGate';
 import { LoadingIndicator } from '../src/components/common/LoadingIndicator';
 import { ToastProvider } from '../src/contexts/ToastContext';
+import { ThemeProvider } from '../src/contexts/ThemeContext';
 import { isOnboardingComplete } from '../src/services/onboardingService';
 import { handleStravaCallback } from '../src/services/strava';
 import type { AppSettings } from '../src/types/profile';
@@ -213,6 +214,7 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
+      <ThemeProvider>
       <ToastProvider>
       <AuthGate>
         <StatusBar style="light" />
@@ -298,6 +300,7 @@ export default function RootLayout() {
         </View>
       </AuthGate>
       </ToastProvider>
+      </ThemeProvider>
     </ErrorBoundary>
   );
 }
