@@ -4,6 +4,7 @@
 
 import { useState, useCallback } from 'react';
 import {
+  ActivityIndicator,
   Alert,
   Image,
   ScrollView,
@@ -24,7 +25,7 @@ interface FoodScanResultProps {
   photoUri: string | null;
   mealType: MealType;
   timestamp: Date;
-  onLog: (entry: LogEntry) => void;
+  onLog: (entry: LogEntry) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -90,25 +91,33 @@ export function FoodScanResult({
     }
   }, [customMultiplier]);
 
-  const handleLog = useCallback(() => {
-    onLog({
-      foodName,
-      brand: result.brand,
-      servingSize,
-      mealType,
-      photoUri,
-      confidence: result.confidence,
-      isEstimate: result.isEstimate,
-      nutrition: {
-        calories: scaled(baseNutrition.calories),
-        protein: scaled(baseNutrition.protein),
-        carbs: scaled(baseNutrition.carbs),
-        fat: scaled(baseNutrition.fat),
-        addedSugar: scaled(baseNutrition.addedSugar),
-        fiber: scaled(baseNutrition.fiber),
-      },
-    });
-  }, [foodName, result.brand, servingSize, mealType, photoUri, result.confidence, result.isEstimate, baseNutrition, multiplier, onLog]);
+  const [saving, setSaving] = useState(false);
+
+  const handleLog = useCallback(async () => {
+    if (saving) return;
+    setSaving(true);
+    try {
+      await onLog({
+        foodName,
+        brand: result.brand,
+        servingSize,
+        mealType,
+        photoUri,
+        confidence: result.confidence,
+        isEstimate: result.isEstimate,
+        nutrition: {
+          calories: scaled(baseNutrition.calories),
+          protein: scaled(baseNutrition.protein),
+          carbs: scaled(baseNutrition.carbs),
+          fat: scaled(baseNutrition.fat),
+          addedSugar: scaled(baseNutrition.addedSugar),
+          fiber: scaled(baseNutrition.fiber),
+        },
+      });
+    } finally {
+      setSaving(false);
+    }
+  }, [foodName, result.brand, servingSize, mealType, photoUri, result.confidence, result.isEstimate, baseNutrition, multiplier, onLog, saving]);
 
   const handleSaveToMyFoods = useCallback(async () => {
     const saved: SavedFood = {
@@ -268,9 +277,13 @@ export function FoodScanResult({
       <Text style={styles.timeText}>Time: {formattedTime}</Text>
 
       {/* Actions */}
-      <TouchableOpacity style={styles.saveLogBtn} onPress={handleLog} activeOpacity={0.7}>
-        <Ionicons name="save-outline" size={18} color={Colors.primaryBackground} />
-        <Text style={styles.saveLogText}>Save & Log</Text>
+      <TouchableOpacity style={[styles.saveLogBtn, saving && styles.saveLogBtnDisabled]} onPress={handleLog} activeOpacity={0.7} disabled={saving}>
+        {saving ? (
+          <ActivityIndicator color={Colors.primaryBackground} size="small" />
+        ) : (
+          <Ionicons name="save-outline" size={18} color={Colors.primaryBackground} />
+        )}
+        <Text style={styles.saveLogText}>{saving ? 'Saving...' : 'Save & Log'}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity style={styles.saveMyFoodsBtn} onPress={handleSaveToMyFoods} activeOpacity={0.7}>
@@ -531,6 +544,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     marginBottom: 10,
+  },
+  saveLogBtnDisabled: {
+    opacity: 0.6,
   },
   saveLogText: {
     color: Colors.primaryBackground,

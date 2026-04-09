@@ -30,6 +30,7 @@ const SCAN_PROMPT = `Analyze this food image. You MUST respond with ONLY a JSON 
 
 If this is a NUTRITION LABEL, extract the exact values.
 If this is a PHOTO OF FOOD (no label), identify the food and estimate nutrition per serving.
+If you cannot identify the food, still respond with your best guess and set confidence to "low".
 
 Respond with this exact JSON structure:
 {
@@ -49,7 +50,8 @@ Respond with this exact JSON structure:
   }
 }
 
-Be conservative with estimates. If unsure, err on the higher calorie side. For restaurant food, assume generous portions with added oils/butter.`;
+Be conservative with estimates. If unsure, err on the higher calorie side. For restaurant food, assume generous portions with added oils/butter.
+For whole fruits and vegetables, estimate based on a medium-sized piece unless the image clearly shows otherwise.`;
 
 export async function scanFood(
   base64Image: string,
@@ -120,10 +122,60 @@ export async function scanFood(
     throw new AnthropicError('Empty response from API', undefined, 'EMPTY_RESPONSE');
   }
 
-  const cleaned = textBlock.text.replace(/```json|```/g, '').trim();
-  try {
-    return JSON.parse(cleaned) as FoodScanResult;
-  } catch {
-    throw new Error(`Failed to parse food scan result: ${textBlock.text.slice(0, 200)}`);
+  const raw = textBlock.text;
+
+  // Extract JSON from response — handle markdown fences, preamble text, etc.
+  let jsonStr: string;
+  const fenceMatch = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    jsonStr = fenceMatch[1].trim();
+  } else {
+    // Try to find a JSON object in the response
+    const braceStart = raw.indexOf('{');
+    const braceEnd = raw.lastIndexOf('}');
+    if (braceStart !== -1 && braceEnd > braceStart) {
+      jsonStr = raw.slice(braceStart, braceEnd + 1);
+    } else {
+      jsonStr = raw.trim();
+    }
   }
+
+  try {
+    const parsed = JSON.parse(jsonStr) as FoodScanResult;
+
+    // Validate required fields — if missing, return a fallback
+    if (!parsed.foodName || !parsed.nutrition) {
+      return makeFallbackResult(raw);
+    }
+
+    // Ensure all nutrition fields are numbers (not null/undefined)
+    const n = parsed.nutrition;
+    parsed.nutrition = {
+      calories: Number(n.calories) || 0,
+      protein: Number(n.protein) || 0,
+      carbs: Number(n.carbs) || 0,
+      fat: Number(n.fat) || 0,
+      addedSugar: Number(n.addedSugar) || 0,
+      fiber: Number(n.fiber) || 0,
+    };
+
+    return parsed;
+  } catch {
+    // If JSON parsing fails entirely, return a fallback instead of crashing
+    return makeFallbackResult(raw);
+  }
+}
+
+/** Return a low-confidence placeholder so the user can enter values manually. */
+function makeFallbackResult(rawResponse?: string): FoodScanResult {
+  console.warn('[foodScanService] Could not parse scan result, returning fallback. Raw:', rawResponse?.slice(0, 300));
+  return {
+    foodName: 'Unknown Food',
+    brand: null,
+    servingSize: '1 serving',
+    servingsPerContainer: null,
+    isEstimate: true,
+    confidence: 'low',
+    nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0, addedSugar: 0, fiber: 0 },
+  };
 }

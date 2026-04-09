@@ -10,7 +10,9 @@ import {
   Image,
   StyleSheet,
   Text,
+  ToastAndroid,
   TouchableOpacity,
+  Platform,
   View,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
@@ -229,9 +231,7 @@ export default function FoodLogScreen() {
   }, []);
 
   // Sprint 10: Handle scan result log
-  const handleScanLog = useCallback((entry: LogEntry) => {
-    const today = getActiveDate();
-    const key = dateKey(STORAGE_KEYS.LOG_FOOD, today);
+  const handleScanLog = useCallback(async (entry: LogEntry) => {
     const sourceId = `scan:${Date.now()}`;
 
     const foodItem: FoodItem = {
@@ -265,34 +265,46 @@ export default function FoodLogScreen() {
 
     const serving = foodItem.serving_sizes[0];
 
-    saveEntry({
-      meal_type: entry.mealType,
-      food_item: foodItem,
-      serving,
-      quantity: 1,
-      computed_nutrition: {
-        calories: entry.nutrition.calories,
-        protein_g: entry.nutrition.protein,
-        carbs_g: entry.nutrition.carbs,
-        fat_g: entry.nutrition.fat,
-        fiber_g: entry.nutrition.fiber,
-        sugar_g: null,
-        added_sugar_g: entry.nutrition.addedSugar,
-        sodium_mg: null,
-        cholesterol_mg: null,
-        saturated_fat_g: null,
-        trans_fat_g: null,
-        potassium_mg: null,
-        vitamin_d_mcg: null,
-        calcium_mg: null,
-        iron_mg: null,
-      },
-      source: 'ai_photo',
-      photo_uri: entry.photoUri,
-      photo_confidence: entry.confidence,
-      flagged_ingredients: [],
-      notes: entry.isEstimate ? 'AI estimate' : 'Nutrition label scan',
-    });
+    try {
+      await saveEntry({
+        meal_type: entry.mealType,
+        food_item: foodItem,
+        serving,
+        quantity: 1,
+        computed_nutrition: {
+          calories: entry.nutrition.calories,
+          protein_g: entry.nutrition.protein,
+          carbs_g: entry.nutrition.carbs,
+          fat_g: entry.nutrition.fat,
+          fiber_g: entry.nutrition.fiber,
+          sugar_g: null,
+          added_sugar_g: entry.nutrition.addedSugar,
+          sodium_mg: null,
+          cholesterol_mg: null,
+          saturated_fat_g: null,
+          trans_fat_g: null,
+          potassium_mg: null,
+          vitamin_d_mcg: null,
+          calcium_mg: null,
+          iron_mg: null,
+        },
+        source: 'ai_photo',
+        photo_uri: entry.photoUri,
+        photo_confidence: entry.confidence,
+        flagged_ingredients: [],
+        notes: entry.isEstimate ? 'AI estimate' : 'Nutrition label scan',
+      });
+
+      // Show toast confirmation
+      if (Platform.OS === 'android') {
+        ToastAndroid.show(`${entry.foodName} logged`, ToastAndroid.SHORT);
+      } else {
+        Alert.alert('Logged', `${entry.foodName} added to food log`);
+      }
+    } catch (error) {
+      console.error('[FoodLog] Failed to save scan entry:', error);
+      Alert.alert('Save Error', 'Failed to save food entry. Please try again.');
+    }
   }, [saveEntry]);
 
   // Sprint 10: Log from My Foods
