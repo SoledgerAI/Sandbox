@@ -85,7 +85,7 @@ describe('AuthGate', () => {
     );
 
     await waitFor(() => {
-      expect(getByText('Tap to unlock')).toBeTruthy();
+      expect(getByText('Authentication failed. Tap to try again.')).toBeTruthy();
     });
   });
 

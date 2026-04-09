@@ -78,7 +78,7 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
 
   const logWeight = useCallback(async () => {
     const value = selectedWeight;
-    if (value <= 0) {
+    if (value <= 0 || isNaN(value)) {
       Alert.alert('Invalid Weight', `Please select a valid weight in ${unitLabel}.`);
       return;
     }
@@ -169,7 +169,10 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
       <View style={styles.pickerContainer}>
         <Picker
           selectedValue={selectedWeight}
-          onValueChange={(v) => setSelectedWeight(v as number)}
+          onValueChange={(v) => {
+            const safe = Number(v);
+            if (!isNaN(safe)) setSelectedWeight(safe);
+          }}
           style={styles.picker}
           itemStyle={styles.pickerItem}
         >

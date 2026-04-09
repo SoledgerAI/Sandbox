@@ -9,7 +9,7 @@
 // Screen 8: What You Track (tags)
 // Screen 9: Zip Code
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   KeyboardAvoidingView,
   LayoutAnimation,
@@ -105,6 +105,7 @@ interface PersonalizationFlowProps {
 export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
   const [step, setStep] = useState(1);
   const [saving, setSaving] = useState(false);
+  const isNavigating = useRef(false);
 
   // Step 1: Consent + Name + Pronouns
   const [name, setName] = useState('');
@@ -211,6 +212,10 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
   }
 
   function handleStepContinue() {
+    if (isNavigating.current) return;
+    isNavigating.current = true;
+    setTimeout(() => { isNavigating.current = false; }, 500);
+
     setErrors({});
     switch (step) {
       case 1: // Value prop — no validation
@@ -254,6 +259,8 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
   // ── Finish & Persist ──
 
   const handleFinish = useCallback(async () => {
+    if (isNavigating.current) return;
+    isNavigating.current = true;
     setSaving(true);
     try {
       const dobString = `${dobDate.getFullYear()}-${String(dobDate.getMonth() + 1).padStart(2, '0')}-${String(dobDate.getDate()).padStart(2, '0')}`;
@@ -341,6 +348,7 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
       onComplete();
     } finally {
       setSaving(false);
+      isNavigating.current = false;
     }
   }, [
     name, dobDate, sex, metabolicProfile, pronouns, mainGoal,
@@ -841,7 +849,7 @@ function Step4Height({
             <View style={styles.pickerWrapper}>
               <Picker
                 selectedValue={feet}
-                onValueChange={onFeetChange}
+                onValueChange={(v) => { const n = Number(v); if (!isNaN(n)) onFeetChange(n); }}
                 style={styles.picker}
                 itemStyle={styles.pickerItem}
               >
@@ -858,7 +866,7 @@ function Step4Height({
             <View style={styles.pickerWrapper}>
               <Picker
                 selectedValue={inches}
-                onValueChange={onInchesChange}
+                onValueChange={(v) => { const n = Number(v); if (!isNaN(n)) onInchesChange(n); }}
                 style={styles.picker}
                 itemStyle={styles.pickerItem}
               >
@@ -876,7 +884,7 @@ function Step4Height({
             <View style={styles.pickerWrapper}>
               <Picker
                 selectedValue={cm}
-                onValueChange={onCmChange}
+                onValueChange={(v) => { const n = Number(v); if (!isNaN(n)) onCmChange(n); }}
                 style={styles.picker}
                 itemStyle={styles.pickerItem}
               >
@@ -953,7 +961,7 @@ function Step5Weight({
             {!useMetric ? (
               <Picker
                 selectedValue={lbs}
-                onValueChange={onLbsChange}
+                onValueChange={(v) => { const n = Number(v); if (!isNaN(n)) onLbsChange(n); }}
                 style={styles.picker}
                 itemStyle={styles.pickerItem}
               >
@@ -964,7 +972,7 @@ function Step5Weight({
             ) : (
               <Picker
                 selectedValue={kg}
-                onValueChange={onKgChange}
+                onValueChange={(v) => { const n = Number(v); if (!isNaN(n)) onKgChange(n); }}
                 style={styles.picker}
                 itemStyle={styles.pickerItem}
               >

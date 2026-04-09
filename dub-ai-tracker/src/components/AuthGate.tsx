@@ -186,15 +186,31 @@ export function AuthGate({ children }: AuthGateProps) {
     ]).start();
   }, [shakeAnim]);
 
+  const [biometricFailed, setBiometricFailed] = useState(false);
+
   const handleBiometric = useCallback(async () => {
-    const success = await authenticateBiometric();
-    if (success) {
-      hapticSuccess();
-      setState('unlocked');
+    try {
+      const bio = await isBiometricAvailable();
+      if (!bio.available) {
+        // Hardware unavailable — fall through to PIN
+        setLockView('pin');
+        return;
+      }
+      const success = await authenticateBiometric();
+      if (success) {
+        hapticSuccess();
+        setBiometricFailed(false);
+        setState('unlocked');
+      } else {
+        // Failed or cancelled — show manual retry button, do NOT auto-retry
+        setBiometricFailed(true);
+      }
+    } catch {
+      setBiometricFailed(true);
     }
   }, []);
 
-  // Fix 14: Auto-trigger biometric auth when lock screen appears
+  // Auto-trigger biometric auth once when lock screen appears
   useEffect(() => {
     if (state === 'locked' && lockView === 'biometric' && !autoTriggeredRef.current) {
       autoTriggeredRef.current = true;
@@ -202,6 +218,7 @@ export function AuthGate({ children }: AuthGateProps) {
     }
     if (state !== 'locked') {
       autoTriggeredRef.current = false;
+      setBiometricFailed(false);
     }
   }, [state, lockView, handleBiometric]);
 
@@ -388,7 +405,11 @@ export function AuthGate({ children }: AuthGateProps) {
             <>
               <Text style={styles.appName}>DUB_AI</Text>
 
-              <Text style={styles.subtitle}>Tap to unlock</Text>
+              {biometricFailed ? (
+                <Text style={styles.subtitle}>Authentication failed. Tap to try again.</Text>
+              ) : (
+                <Text style={styles.subtitle}>Authenticating…</Text>
+              )}
               <TouchableOpacity
                 style={styles.bioButton}
                 onPress={handleBiometric}
