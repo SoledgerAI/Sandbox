@@ -1,8 +1,5 @@
-// Log tab -- quick logging hub with date selector, search, favorites, grouped categories
-// Phase 6: Food Logging -- Core
-// MASTER-13: Restructured from flat 20-button grid to hero + collapsible categories + recent entries
-// MASTER-49: Shows today's activity across ALL enabled tags, not just food
-// P1-02: Date selector, search, favorites, category grouping, repeat last entry
+// Log tab — Strava-inspired category list with last entry preview (Sprint 9)
+// Clean, well-spaced, succinct. Every element earns its space.
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -13,7 +10,6 @@ import {
   View,
   ScrollView,
   TouchableOpacity,
-  Alert,
   RefreshControl,
   TextInput,
   Platform,
@@ -25,22 +21,12 @@ import { Spacing } from '../../src/constants/spacing';
 import { FontSize, FontWeight } from '../../src/constants/typography';
 import {
   storageGet,
-  storageSet,
   STORAGE_KEYS,
   dateKey,
 } from '../../src/utils/storage';
-import { FoodEntryCard } from '../../src/components/logging/FoodEntryCard';
-import type {
-  FoodEntry,
-  FavoriteFood,
-  MealTemplate,
-  MealType,
-} from '../../src/types/food';
-import { scaleNutrition } from '../../src/utils/servingmath';
 import { todayDateString } from '../../src/utils/dayBoundary';
-import { getActiveDate, setActiveDate as setContextDate, resetToToday, isBackfilling } from '../../src/services/dateContextService';
+import { getActiveDate, setActiveDate as setContextDate, resetToToday } from '../../src/services/dateContextService';
 import { DateContextBanner } from '../../src/components/DateContextBanner';
-import { useToast } from '../../src/contexts/ToastContext';
 import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 
 // ============================================================
@@ -69,23 +55,16 @@ function shiftDate(dateStr: string, offset: number): string {
   return formatDate(d);
 }
 
-function guessMealType(): MealType {
-  const hour = new Date().getHours();
-  if (hour < 11) return 'breakfast';
-  if (hour < 15) return 'lunch';
-  if (hour < 20) return 'dinner';
-  return 'snack';
-}
-
 // ============================================================
-// Category Definitions (grouped per task spec)
+// Category Definitions — Strava-inspired flat list
 // ============================================================
 
 interface CategoryItem {
   label: string;
   icon: string;
   route: string;
-  searchTerms: string; // lowercase, for fuzzy search
+  storageKey?: string; // for loading last entry
+  searchTerms: string;
 }
 
 interface CategorySection {
@@ -95,69 +74,64 @@ interface CategorySection {
 
 const CATEGORY_SECTIONS: CategorySection[] = [
   {
-    title: 'Nutrition',
+    title: 'NUTRITION',
     items: [
-      { label: 'Food', icon: 'restaurant-outline', route: '/log/food', searchTerms: 'food nutrition meal calories macros' },
-      { label: 'Water', icon: 'water-outline', route: '/log/water', searchTerms: 'water hydration drink' },
+      { label: 'Food', icon: 'restaurant-outline', route: '/log/food', storageKey: STORAGE_KEYS.LOG_FOOD, searchTerms: 'food nutrition meal calories macros' },
+      { label: 'Drinks', icon: 'water-outline', route: '/log/water', storageKey: STORAGE_KEYS.LOG_WATER, searchTerms: 'water hydration drink beverages' },
       { label: 'Caffeine', icon: 'cafe-outline', route: '/log/caffeine', searchTerms: 'caffeine coffee tea energy' },
-      { label: 'Supplements', icon: 'flask-outline', route: '/log/supplements', searchTerms: 'supplements vitamins medication pills' },
+      { label: 'Supplements', icon: 'flask-outline', route: '/log/supplements', storageKey: STORAGE_KEYS.LOG_SUPPLEMENTS, searchTerms: 'supplements vitamins medication pills' },
     ],
   },
   {
-    title: 'Fitness',
+    title: 'FITNESS',
     items: [
-      { label: 'Workout', icon: 'fitness-outline', route: '/log/workout', searchTerms: 'workout exercise cardio run' },
+      { label: 'Exercise', icon: 'fitness-outline', route: '/log/workout', storageKey: STORAGE_KEYS.LOG_WORKOUT, searchTerms: 'workout exercise cardio run' },
       { label: 'Strength', icon: 'barbell-outline', route: '/log/strength', searchTerms: 'strength weight lifting gym' },
     ],
   },
   {
-    title: 'Body',
+    title: 'BODY',
     items: [
       { label: 'Weight & Body', icon: 'scale-outline', route: '/log/body', searchTerms: 'weight body measurements scale bmi' },
+      { label: 'Sleep', icon: 'moon-outline', route: '/log/sleep', searchTerms: 'sleep rest bedtime wake hours' },
+      { label: 'Blood Pressure', icon: 'heart-circle-outline', route: '/log/bloodpressure', searchTerms: 'blood pressure bp systolic diastolic' },
+      { label: 'Glucose', icon: 'fitness-outline', route: '/log/glucose', searchTerms: 'blood glucose sugar diabetes a1c' },
       { label: 'Bloodwork', icon: 'water-outline', route: '/log/bloodwork', searchTerms: 'bloodwork labs markers cholesterol iron' },
-      { label: 'Blood Glucose', icon: 'fitness-outline', route: '/log/glucose', searchTerms: 'blood glucose sugar diabetes a1c' },
-      { label: 'Blood Pressure', icon: 'heart-circle-outline', route: '/log/bloodpressure', searchTerms: 'blood pressure bp systolic diastolic hypertension' },
     ],
   },
   {
-    title: 'Mind',
+    title: 'MIND',
     items: [
-      { label: 'Mood', icon: 'happy-outline', route: '/log/mood', searchTerms: 'mood feeling emotion mental' },
+      { label: 'Mood', icon: 'happy-outline', route: '/log/mood', storageKey: STORAGE_KEYS.LOG_MOOD, searchTerms: 'mood feeling emotion mental' },
       { label: 'Stress', icon: 'pulse-outline', route: '/log/stress', searchTerms: 'stress anxiety tension' },
       { label: 'Gratitude', icon: 'heart-outline', route: '/log/gratitude', searchTerms: 'gratitude thankful journal' },
       { label: 'Meditation', icon: 'leaf-outline', route: '/log/meditation', searchTerms: 'meditation mindfulness breathe calm' },
       { label: 'Therapy', icon: 'chatbubbles-outline', route: '/log/therapy', searchTerms: 'therapy counseling therapist session' },
-      { label: 'Substances', icon: 'wine-outline', route: '/log/substances', searchTerms: 'substances alcohol cannabis tobacco sobriety' },
     ],
   },
   {
-    title: 'Health',
+    title: 'LIFESTYLE',
     items: [
-      { label: 'Sleep', icon: 'moon-outline', route: '/log/sleep', searchTerms: 'sleep rest bedtime wake hours' },
+      { label: 'Substances', icon: 'wine-outline', route: '/log/substances', searchTerms: 'substances alcohol cannabis tobacco sobriety' },
       { label: 'Cycle', icon: 'flower-outline', route: '/log/cycle', searchTerms: 'cycle period menstrual ovulation reproductive' },
       { label: 'Digestive', icon: 'nutrition-outline', route: '/log/digestive', searchTerms: 'digestive gut stomach bowel bristol' },
       { label: 'Injury', icon: 'bandage-outline', route: '/log/injury', searchTerms: 'injury pain hurt sore recovery' },
-      { label: 'Sexual', icon: 'heart-half-outline', route: '/log/sexual', searchTerms: 'sexual activity intimacy' },
-      { label: 'Self Care', icon: 'sparkles-outline', route: '/log/personalcare', searchTerms: 'self care hygiene skincare grooming personal' },
+      { label: 'Sexual Health', icon: 'heart-half-outline', route: '/log/sexual', searchTerms: 'sexual activity intimacy' },
+      { label: 'Personal Care', icon: 'sparkles-outline', route: '/log/personalcare', searchTerms: 'self care hygiene skincare grooming personal' },
       { label: 'Custom', icon: 'pricetag-outline', route: '/log/custom', searchTerms: 'custom tag create' },
     ],
   },
 ];
 
-// Flat list of all items for search
 const ALL_CATEGORY_ITEMS: CategoryItem[] = CATEGORY_SECTIONS.flatMap((s) => s.items);
 
 // ============================================================
-// Recent entry from any tag
+// Last Entry type
 // ============================================================
 
-interface RecentEntry {
-  id: string;
-  tag: string;
+interface LastEntry {
   label: string;
-  detail: string;
   time: string;
-  timestamp: number;
 }
 
 // ============================================================
@@ -165,19 +139,14 @@ interface RecentEntry {
 // ============================================================
 
 export default function LogScreen() {
-  // Fix 3: Scroll-to-top on tab re-tap
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
-  const { showToast } = useToast();
-  const undoRef = useRef<{ entry: FoodEntry; timer: ReturnType<typeof setTimeout> } | null>(null);
-  // Deep-link: accept ?date=YYYY-MM-DD from trends tooltip
   const { date: paramDate } = useLocalSearchParams<{ date?: string }>();
 
-  // Date selector state — syncs with dateContextService
+  // Date selector state
   const [selectedDate, setSelectedDateLocal] = useState(paramDate ?? getActiveDate());
   const isToday = selectedDate === todayDateString();
 
-  // Wrapper that syncs both local state and dateContextService
   const setSelectedDate = useCallback((dateOrUpdater: string | ((prev: string) => string)) => {
     setSelectedDateLocal((prev) => {
       const next = typeof dateOrUpdater === 'function' ? dateOrUpdater(prev) : dateOrUpdater;
@@ -186,14 +155,12 @@ export default function LogScreen() {
     });
   }, []);
 
-  // Sync date when navigating from trends tooltip
   useEffect(() => {
     if (paramDate && paramDate !== selectedDate) {
       setSelectedDate(paramDate);
     }
   }, [paramDate]);
 
-  // Sync from dateContextService when tab gains focus (e.g., from Dashboard missed-day card)
   useFocusEffect(
     useCallback(() => {
       const contextDate = getActiveDate();
@@ -205,125 +172,77 @@ export default function LogScreen() {
 
   // Search
   const [searchQuery, setSearchQuery] = useState('');
-
-  // Favorites (pinned tag routes)
-  const [favoriteTags, setFavoriteTags] = useState<string[]>([]);
-
-  // Sections — expand all on first open, then persist per-section state
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Nutrition']));
-  const [sectionsInitialized, setSectionsInitialized] = useState(false);
-
-  useEffect(() => {
-    storageGet<boolean>('dub.log_sections_initialized' as any).then((initialized) => {
-      if (!initialized) {
-        // First open: expand all sections
-        const allTitles = CATEGORY_SECTIONS.map((s) => s.title);
-        setExpandedSections(new Set(allTitles));
-        storageSet('dub.log_sections_initialized' as any, true);
-      } else {
-        // Load persisted expansion state
-        storageGet<string[]>('dub.log_expanded_sections' as any).then((saved) => {
-          if (saved) setExpandedSections(new Set(saved));
-        });
-      }
-      setSectionsInitialized(true);
-    });
-  }, []);
-
-  // ED-safe: hide calorie totals
-  const [hideCalories, setHideCalories] = useState(false);
-  useEffect(() => {
-    storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS).then((s) => {
-      setHideCalories((s?.hide_calories as boolean) ?? false);
-    });
-  }, []);
-
-  // Food data
-  const [foodEntries, setFoodEntries] = useState<FoodEntry[]>([]);
-  const [favorites, setFavorites] = useState<FavoriteFood[]>([]);
-  const [templates, setTemplates] = useState<MealTemplate[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [recentEntries, setRecentEntries] = useState<RecentEntry[]>([]);
 
-  // ---- Data Loading ----
+  // Last entries per category
+  const [lastEntries, setLastEntries] = useState<Record<string, LastEntry>>({});
+
+  // Sex setting for Cycle visibility
+  const [showCycle, setShowCycle] = useState(true);
+
   const loadData = useCallback(async () => {
     const dateStr = selectedDate;
-    const [foods, favs, tmpls, pinnedTags] = await Promise.all([
-      storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, dateStr)),
-      storageGet<FavoriteFood[]>(STORAGE_KEYS.FOOD_FAVORITES),
-      storageGet<MealTemplate[]>(STORAGE_KEYS.FOOD_TEMPLATES),
-      storageGet<string[]>(STORAGE_KEYS.FAVORITE_TAGS),
-    ]);
-    setFoodEntries(foods ?? []);
-    setFavorites(favs ?? []);
-    setTemplates(tmpls ?? []);
-    setFavoriteTags(pinnedTags ?? []);
+    const entries: Record<string, LastEntry> = {};
 
-    // Load recent entries across common tags
-    const recents: RecentEntry[] = [];
-
-    for (const f of foods ?? []) {
-      recents.push({
-        id: f.id,
-        tag: 'Food',
-        label: f.food_item.name,
-        detail: hideCalories ? f.serving.description : `${Math.round(f.computed_nutrition.calories)} cal`,
-        time: new Date(f.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-        timestamp: new Date(f.timestamp).getTime(),
-      });
+    // Load food
+    const foods = await storageGet<{ food_item: { name: string }; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_FOOD, dateStr));
+    if (foods?.length) {
+      const last = foods[foods.length - 1];
+      entries['/log/food'] = {
+        label: last.food_item.name,
+        time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      };
     }
 
-    const waters = await storageGet<{ id: string; timestamp: string; amount_oz: number }[]>(dateKey(STORAGE_KEYS.LOG_WATER, dateStr));
-    for (const w of waters ?? []) {
-      recents.push({
-        id: w.id,
-        tag: 'Water',
-        label: 'Water',
-        detail: `${w.amount_oz} oz`,
-        time: new Date(w.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-        timestamp: new Date(w.timestamp).getTime(),
-      });
+    // Load water/drinks
+    const waters = await storageGet<{ timestamp: string; amount_oz: number }[]>(dateKey(STORAGE_KEYS.LOG_WATER, dateStr));
+    if (waters?.length) {
+      const last = waters[waters.length - 1];
+      entries['/log/water'] = {
+        label: `${last.amount_oz} oz`,
+        time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      };
     }
 
-    const workouts = await storageGet<{ id: string; timestamp: string; type: string; duration_minutes?: number; calories_burned?: number }[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, dateStr));
-    for (const w of workouts ?? []) {
-      recents.push({
-        id: w.id,
-        tag: 'Exercise',
-        label: w.type ?? 'Workout',
-        detail: `${w.duration_minutes ?? 0} min${!hideCalories && w.calories_burned ? ` · ${w.calories_burned} cal` : ''}`,
-        time: new Date(w.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-        timestamp: new Date(w.timestamp).getTime(),
-      });
+    // Load workouts
+    const workouts = await storageGet<{ timestamp: string; type: string }[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, dateStr));
+    if (workouts?.length) {
+      const last = workouts[workouts.length - 1];
+      entries['/log/workout'] = {
+        label: last.type ?? 'Workout',
+        time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      };
     }
 
-    const supps = await storageGet<{ id: string; timestamp: string; name: string; taken: boolean }[]>(dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, dateStr));
-    for (const s of (supps ?? []).filter(s => s.taken)) {
-      recents.push({
-        id: s.id,
-        tag: 'Supplement',
-        label: s.name,
-        detail: 'taken',
-        time: new Date(s.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-        timestamp: new Date(s.timestamp).getTime(),
-      });
+    // Load supplements
+    const supps = await storageGet<{ timestamp: string; name: string; taken: boolean }[]>(dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, dateStr));
+    const takenSupps = (supps ?? []).filter(s => s.taken);
+    if (takenSupps.length) {
+      const last = takenSupps[takenSupps.length - 1];
+      entries['/log/supplements'] = {
+        label: last.name,
+        time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      };
     }
 
-    const moods = await storageGet<{ id: string; timestamp: string; score: number }[]>(dateKey(STORAGE_KEYS.LOG_MOOD, dateStr));
-    for (const m of moods ?? []) {
+    // Load mood
+    const moods = await storageGet<{ timestamp: string; score: number }[]>(dateKey(STORAGE_KEYS.LOG_MOOD, dateStr));
+    if (moods?.length) {
       const labels = ['', 'Bad', 'Poor', 'OK', 'Good', 'Great'];
-      recents.push({
-        id: m.id,
-        tag: 'Mood',
-        label: 'Mood',
-        detail: labels[m.score] ?? `${m.score}/5`,
-        time: new Date(m.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
-        timestamp: new Date(m.timestamp).getTime(),
-      });
+      const last = moods[moods.length - 1];
+      entries['/log/mood'] = {
+        label: labels[last.score] ?? `${last.score}/5`,
+        time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      };
     }
 
-    recents.sort((a, b) => b.timestamp - a.timestamp);
-    setRecentEntries(recents.slice(0, 20));
+    setLastEntries(entries);
+
+    // Check sex setting for Cycle visibility
+    const settings = await storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS);
+    const profile = await storageGet<{ sex?: string }>(STORAGE_KEYS.PROFILE);
+    const sex = profile?.sex;
+    setShowCycle(sex !== 'male');
   }, [selectedDate]);
 
   useEffect(() => {
@@ -333,7 +252,7 @@ export default function LogScreen() {
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [loadData])
+    }, [loadData]),
   );
 
   const onRefresh = useCallback(async () => {
@@ -342,7 +261,7 @@ export default function LogScreen() {
     setRefreshing(false);
   }, [loadData]);
 
-  // ---- Date Navigation ----
+  // Date navigation
   const goBack = useCallback(() => {
     setSelectedDate((d) => shiftDate(d, -1));
   }, []);
@@ -350,7 +269,6 @@ export default function LogScreen() {
   const goForward = useCallback(() => {
     setSelectedDate((d) => {
       const next = shiftDate(d, 1);
-      // Don't go past today
       return next > todayDateString() ? d : next;
     });
   }, []);
@@ -360,7 +278,7 @@ export default function LogScreen() {
     setSelectedDateLocal(todayDateString());
   }, []);
 
-  // ---- Search filtering ----
+  // Search filtering
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return null;
     const q = searchQuery.toLowerCase();
@@ -369,532 +287,126 @@ export default function LogScreen() {
     );
   }, [searchQuery]);
 
-  // ---- Favorite tags ----
-  const favoriteCategoryItems = useMemo(() => {
-    return ALL_CATEGORY_ITEMS.filter((item) => favoriteTags.includes(item.route));
-  }, [favoriteTags]);
+  // Filter sections for visibility (Cycle based on sex)
+  const visibleSections = useMemo(() => {
+    return CATEGORY_SECTIONS.map((section) => ({
+      ...section,
+      items: section.items.filter((item) => {
+        if (item.route === '/log/cycle' && !showCycle) return false;
+        return true;
+      }),
+    }));
+  }, [showCycle]);
 
-  const toggleFavoriteTag = useCallback(async (route: string) => {
-    setFavoriteTags((prev) => {
-      const next = prev.includes(route)
-        ? prev.filter((r) => r !== route)
-        : [...prev, route];
-      storageSet(STORAGE_KEYS.FAVORITE_TAGS, next);
-      return next;
-    });
-  }, []);
-
-  // ---- Food operations ----
-  const totalCalories = foodEntries.reduce(
-    (sum, e) => sum + Math.round(e.computed_nutrition.calories),
-    0,
-  );
-  const totalProtein = foodEntries.reduce(
-    (sum, e) => sum + Math.round(e.computed_nutrition.protein_g),
-    0,
-  );
-  const totalCarbs = foodEntries.reduce(
-    (sum, e) => sum + Math.round(e.computed_nutrition.carbs_g ?? 0),
-    0,
-  );
-  const totalFat = foodEntries.reduce(
-    (sum, e) => sum + Math.round(e.computed_nutrition.fat_g ?? 0),
-    0,
-  );
-
-  const deleteEntry = useCallback(
-    async (id: string) => {
-      const deletedEntry = foodEntries.find((e) => e.id === id);
-      const key = dateKey(STORAGE_KEYS.LOG_FOOD, selectedDate);
-      const updated = foodEntries.filter((e) => e.id !== id);
-      await storageSet(key, updated);
-      setFoodEntries(updated);
-
-      if (deletedEntry) {
-        // Clear any previous undo timer
-        if (undoRef.current?.timer) clearTimeout(undoRef.current.timer);
-        undoRef.current = {
-          entry: deletedEntry,
-          timer: setTimeout(() => { undoRef.current = null; }, 3000),
-        };
-        showToast('Entry deleted. Tap to undo.', 'info');
-      }
-    },
-    [foodEntries, selectedDate, showToast],
-  );
-
-  const addToFavorites = useCallback(
-    async (entry: FoodEntry) => {
-      const existing = favorites.find(
-        (f) => f.food_item.source_id === entry.food_item.source_id,
-      );
-      if (existing) {
-        Alert.alert('Already in Favorites', `${entry.food_item.name} is already a favorite.`);
-        return;
-      }
-
-      const fav: FavoriteFood = {
-        id: `fav_${Date.now()}`,
-        food_item: entry.food_item,
-        serving: entry.serving,
-        quantity: entry.quantity,
-        meal_type: entry.meal_type,
-        added_at: new Date().toISOString(),
-      };
-
-      const updated = [fav, ...favorites];
-      await storageSet(STORAGE_KEYS.FOOD_FAVORITES, updated);
-      setFavorites(updated);
-    },
-    [favorites],
-  );
-
-  const relogFavorite = useCallback(
-    async (fav: FavoriteFood) => {
-      const key = dateKey(STORAGE_KEYS.LOG_FOOD, selectedDate);
-      const serving = fav.serving;
-      const computed = scaleNutrition(
-        fav.food_item.nutrition_per_100g,
-        serving,
-        fav.quantity,
-      );
-
-      const entry: FoodEntry = {
-        id: `food_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-        timestamp: new Date().toISOString(),
-        meal_type: fav.meal_type ?? guessMealType(),
-        food_item: fav.food_item,
-        serving,
-        quantity: fav.quantity,
-        computed_nutrition: computed,
-        source: fav.food_item.source,
-        photo_uri: null,
-        photo_confidence: null,
-        flagged_ingredients: [],
-        notes: null,
-      };
-
-      const updated = [...foodEntries, entry];
-      await storageSet(key, updated);
-      setFoodEntries(updated);
-    },
-    [foodEntries, selectedDate],
-  );
-
-  const relogTemplate = useCallback(
-    async (template: MealTemplate) => {
-      const key = dateKey(STORAGE_KEYS.LOG_FOOD, selectedDate);
-      const now = new Date();
-
-      const newEntries: FoodEntry[] = template.entries.map((e, i) => ({
-        ...e,
-        id: `food_${now.getTime()}_${i}_${Math.random().toString(36).slice(2, 8)}`,
-        timestamp: now.toISOString(),
-      }));
-
-      const updated = [...foodEntries, ...newEntries];
-      await storageSet(key, updated);
-      setFoodEntries(updated);
-
-      const updatedTemplates = templates.map((t) =>
-        t.id === template.id ? { ...t, last_used: now.toISOString() } : t,
-      );
-      await storageSet(STORAGE_KEYS.FOOD_TEMPLATES, updatedTemplates);
-      setTemplates(updatedTemplates);
-    },
-    [foodEntries, templates, selectedDate],
-  );
-
-  const saveMealAsTemplate = useCallback(async () => {
-    if (foodEntries.length === 0) return;
-
-    Alert.prompt
-      ? Alert.prompt('Save Meal Template', 'Enter a name for this meal:', async (name) => {
-          if (!name?.trim()) return;
-          const template: MealTemplate = {
-            id: `tmpl_${Date.now()}`,
-            name: name.trim(),
-            entries: foodEntries.map(({ id, timestamp, ...rest }) => rest),
-            created_at: new Date().toISOString(),
-            last_used: null,
-          };
-          const updated = [template, ...templates];
-          await storageSet(STORAGE_KEYS.FOOD_TEMPLATES, updated);
-          setTemplates(updated);
-        })
-      : Alert.alert(
-          'Save Meal Template',
-          `Save today's ${foodEntries.length} item(s) as a reusable meal template?`,
-          [
-            { text: 'Cancel', style: 'cancel' },
-            {
-              text: 'Save',
-              onPress: async () => {
-                const template: MealTemplate = {
-                  id: `tmpl_${Date.now()}`,
-                  name: `Meal ${new Date().toLocaleDateString()}`,
-                  entries: foodEntries.map(({ id, timestamp, ...rest }) => rest),
-                  created_at: new Date().toISOString(),
-                  last_used: null,
-                };
-                const updated = [template, ...templates];
-                await storageSet(STORAGE_KEYS.FOOD_TEMPLATES, updated);
-                setTemplates(updated);
-              },
-            },
-          ],
-        );
-  }, [foodEntries, templates]);
-
-  const toggleSection = useCallback((title: string) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev);
-      if (next.has(title)) {
-        next.delete(title);
-      } else {
-        next.add(title);
-      }
-      // B3: Persist section state after interaction
-      storageSet('dub.log_expanded_sections' as any, Array.from(next));
-      return next;
-    });
-  }, []);
-
-  // Group food entries by meal type
-  const mealGroups = ['breakfast', 'lunch', 'dinner', 'snack'] as const;
-  const grouped = mealGroups
-    .map((meal) => ({
-      meal,
-      entries: foodEntries.filter((e) => e.meal_type === meal),
-    }))
-    .filter((g) => g.entries.length > 0);
-
-  // ---- Render helpers ----
-  const renderCategoryButton = (item: CategoryItem, showPinAction: boolean) => (
-    <TouchableOpacity
-      key={item.route}
-      style={styles.categoryBtn}
-      onPress={() => router.push(item.route as any)}
-      onLongPress={showPinAction ? () => toggleFavoriteTag(item.route) : undefined}
-      activeOpacity={0.7}
-    >
-      <Ionicons name={item.icon as any} size={18} color={Colors.accent} />
-      <Text style={styles.categoryBtnText}>{item.label}</Text>
-      {favoriteTags.includes(item.route) && (
-        <Ionicons name="star" size={12} color={Colors.accent} style={styles.pinIcon} />
-      )}
-    </TouchableOpacity>
-  );
+  const renderCategoryRow = (item: CategoryItem) => {
+    const lastEntry = lastEntries[item.route];
+    return (
+      <TouchableOpacity
+        key={item.route}
+        style={styles.categoryRow}
+        onPress={() => router.push(item.route as any)}
+        activeOpacity={0.7}
+      >
+        <View style={styles.categoryIcon}>
+          <Ionicons name={item.icon as any} size={24} color={Colors.accent} />
+        </View>
+        <View style={styles.categoryInfo}>
+          <Text style={styles.categoryName}>{item.label}</Text>
+          <Text style={styles.categoryLastEntry} numberOfLines={1}>
+            {lastEntry
+              ? `Last: ${lastEntry.label}, ${lastEntry.time}`
+              : 'No entries today'}
+          </Text>
+        </View>
+        <Ionicons name="chevron-forward" size={16} color={Colors.secondaryText} />
+      </TouchableOpacity>
+    );
+  };
 
   return (
     <ScreenWrapper>
-    <ScrollView
-      ref={scrollRef}
-      style={styles.container}
-      contentContainerStyle={styles.content}
-      showsVerticalScrollIndicator={false}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          tintColor={Colors.accent}
-        />
-      }
-    >
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.title}>Log</Text>
-      </View>
+      <ScrollView
+        ref={scrollRef}
+        style={styles.container}
+        contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={Colors.accent}
+          />
+        }
+      >
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={styles.title}>Log</Text>
+        </View>
 
-      {/* Backfill Banner — Prompt 14 */}
-      <DateContextBanner />
+        {/* Backfill Banner */}
+        <DateContextBanner />
 
-      {/* ========== DATE SELECTOR ========== */}
-      <View style={styles.dateSelector}>
-        <TouchableOpacity onPress={goBack} hitSlop={12} style={styles.dateArrow}>
-          <Ionicons name="chevron-back" size={22} color={Colors.accentText} />
-        </TouchableOpacity>
-        <TouchableOpacity onPress={goToday} style={styles.dateLabelWrap}>
-          <Ionicons name="calendar-outline" size={16} color={Colors.accent} style={{ marginRight: 6 }} />
-          <Text style={styles.dateLabel}>Logging for: {displayDate(selectedDate)}</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          onPress={goForward}
-          hitSlop={12}
-          style={[styles.dateArrow, isToday && { opacity: 0.3 }]}
-          disabled={isToday}
-        >
-          <Ionicons name="chevron-forward" size={22} color={Colors.accentText} />
-        </TouchableOpacity>
-      </View>
-
-      {/* ========== SEARCH BAR ========== */}
-      <View style={styles.searchBar}>
-        <Ionicons name="search-outline" size={18} color={Colors.secondaryText} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search categories..."
-          placeholderTextColor={Colors.divider}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          returnKeyType="search"
-          autoCorrect={false}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
-            <Ionicons name="close-circle" size={18} color={Colors.secondaryText} />
+        {/* Date Navigator */}
+        <View style={styles.dateSelector}>
+          <TouchableOpacity onPress={goBack} hitSlop={12} style={styles.dateArrow}>
+            <Ionicons name="chevron-back" size={22} color={Colors.accentText} />
           </TouchableOpacity>
-        )}
-      </View>
+          <TouchableOpacity onPress={goToday} style={styles.dateLabelWrap}>
+            <Ionicons name="calendar-outline" size={16} color={Colors.accent} style={{ marginRight: 6 }} />
+            <Text style={styles.dateLabel}>Logging for: {displayDate(selectedDate)}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={goForward}
+            hitSlop={12}
+            style={[styles.dateArrow, isToday && { opacity: 0.3 }]}
+            disabled={isToday}
+          >
+            <Ionicons name="chevron-forward" size={22} color={Colors.accentText} />
+          </TouchableOpacity>
+        </View>
 
-      {/* ========== SEARCH RESULTS ========== */}
-      {searchResults != null ? (
-        <View style={styles.searchResults}>
-          {searchResults.length === 0 ? (
-            <Text style={styles.searchEmpty}>No matching categories</Text>
-          ) : (
-            <View style={styles.categoryGrid}>
-              {searchResults.map((item) => renderCategoryButton(item, true))}
-            </View>
+        {/* Search Bar */}
+        <View style={styles.searchBar}>
+          <Ionicons name="search-outline" size={18} color={Colors.secondaryText} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search categories..."
+            placeholderTextColor={Colors.divider}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
+              <Ionicons name="close-circle" size={18} color={Colors.secondaryText} />
+            </TouchableOpacity>
           )}
         </View>
-      ) : (
-        <>
-          {/* ========== HERO ACTIONS ========== */}
-          <View style={styles.heroSection}>
-            <TouchableOpacity
-              style={styles.heroFoodBtn}
-              onPress={() => router.push('/log/food')}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="restaurant-outline" size={24} color={Colors.primaryBackground} />
-              <Text style={styles.heroFoodText}>Log Food</Text>
-              {totalCalories > 0 && (
-                <Text style={styles.heroFoodSub}>{totalCalories} cal · {totalProtein}g protein</Text>
-              )}
-            </TouchableOpacity>
 
-            <View style={styles.heroRow}>
-              <TouchableOpacity
-                style={styles.heroBtn}
-                onPress={() => router.push('/log/water')}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="water-outline" size={20} color={Colors.primaryBackground} />
-                <Text style={styles.heroBtnText}>Water</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.heroBtn}
-                onPress={() => router.push('/log/workout')}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="fitness-outline" size={20} color={Colors.primaryBackground} />
-                <Text style={styles.heroBtnText}>Exercise</Text>
-              </TouchableOpacity>
-            </View>
-            <View style={styles.heroRow}>
-              <TouchableOpacity
-                style={styles.heroBtn}
-                onPress={() => router.push('/log/supplements')}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="flask-outline" size={20} color={Colors.primaryBackground} />
-                <Text style={styles.heroBtnText}>Supplements</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.heroBtn}
-                onPress={() => router.push('/log/strength')}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="barbell-outline" size={20} color={Colors.primaryBackground} />
-                <Text style={styles.heroBtnText}>Strength</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Daily totals */}
-          {foodEntries.length > 0 && (
-            <View style={styles.totalsCard}>
-              <View style={styles.totalItem}>
-                <Text style={styles.totalValue}>{totalCalories}</Text>
-                <Text style={styles.totalLabel}>kcal</Text>
-              </View>
-              <View style={styles.totalDivider} />
-              <View style={styles.totalItem}>
-                <Text style={styles.totalValue}>{totalProtein}g</Text>
-                <Text style={styles.totalLabel}>protein</Text>
-              </View>
-              <View style={styles.totalDivider} />
-              <View style={styles.totalItem}>
-                <Text style={styles.totalValue}>{totalCarbs}g</Text>
-                <Text style={styles.totalLabel}>carbs</Text>
-              </View>
-              <View style={styles.totalDivider} />
-              <View style={styles.totalItem}>
-                <Text style={styles.totalValue}>{totalFat}g</Text>
-                <Text style={styles.totalLabel}>fat</Text>
-              </View>
-              <View style={styles.totalDivider} />
-              <View style={styles.totalItem}>
-                <Text style={styles.totalValue}>{foodEntries.length}</Text>
-                <Text style={styles.totalLabel}>items</Text>
-              </View>
-            </View>
-          )}
-
-          {/* ========== FAVORITES (pinned tags) ========== */}
-          {favoriteCategoryItems.length > 0 && (
-            <View style={styles.favTagsSection}>
-              <Text style={styles.sectionTitle}>Favorites</Text>
-              <Text style={styles.sectionHint}>Long-press any category to pin/unpin</Text>
-              <View style={styles.categoryGrid}>
-                {favoriteCategoryItems.map((item) => renderCategoryButton(item, true))}
-              </View>
-            </View>
-          )}
-
-          {/* ========== GROUPED CATEGORIES ========== */}
-          <View style={styles.categoriesSection}>
-            <Text style={styles.sectionTitle}>Quick Log</Text>
-            {favoriteCategoryItems.length === 0 && (
-              <Text style={styles.sectionHint}>Long-press any category to add to Favorites</Text>
+        {/* Search Results */}
+        {searchResults != null ? (
+          <View style={styles.searchResultsSection}>
+            {searchResults.length === 0 ? (
+              <Text style={styles.searchEmpty}>No matching categories</Text>
+            ) : (
+              searchResults.map((item) => renderCategoryRow(item))
             )}
-            {CATEGORY_SECTIONS.map((section) => {
-              const isExpanded = expandedSections.has(section.title);
-              return (
-                <View key={section.title}>
-                  <TouchableOpacity
-                    style={styles.sectionHeader}
-                    onPress={() => toggleSection(section.title)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.sectionHeaderText}>{section.title}</Text>
-                    <Ionicons
-                      name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                      size={18}
-                      color={Colors.secondaryText}
-                    />
-                  </TouchableOpacity>
-                  {isExpanded && (
-                    <View style={styles.categoryGrid}>
-                      {section.items.map((item) => renderCategoryButton(item, true))}
-                    </View>
-                  )}
-                </View>
-              );
-            })}
           </View>
-
-          {/* ========== RECENT ENTRIES (all tags) ========== */}
-          {recentEntries.length > 0 && (
-            <View style={styles.recentSection}>
-              <Text style={styles.sectionTitle}>
-                {isToday ? "Today's Activity" : `Activity for ${displayDate(selectedDate)}`}
-              </Text>
-              {recentEntries.slice(0, 15).map((entry) => (
-                <View key={entry.id} style={styles.recentRow}>
-                  <View style={styles.recentTagBadge}>
-                    <Text style={styles.recentTagText}>{entry.tag}</Text>
-                  </View>
-                  <View style={styles.recentInfo}>
-                    <Text style={styles.recentLabel} numberOfLines={1}>{entry.label}</Text>
-                    <Text style={styles.recentDetail}>{entry.detail}</Text>
-                  </View>
-                  <Text style={styles.recentTime}>{entry.time}</Text>
-                </View>
-              ))}
+        ) : (
+          /* Category List */
+          visibleSections.map((section) => (
+            <View key={section.title} style={styles.sectionContainer}>
+              <Text style={styles.sectionHeader}>{section.title}</Text>
+              <View style={styles.sectionList}>
+                {section.items.map((item) => renderCategoryRow(item))}
+              </View>
             </View>
-          )}
+          ))
+        )}
 
-          {/* Food entries grouped by meal */}
-          {grouped.length > 0 && (
-            <View style={styles.foodSection}>
-              <Text style={styles.sectionTitle}>Food Log</Text>
-              {grouped.map(({ meal, entries }) => (
-                <View key={meal} style={styles.mealGroup}>
-                  <Text style={styles.mealGroupTitle}>
-                    {meal.charAt(0).toUpperCase() + meal.slice(1)}
-                  </Text>
-                  {entries.map((entry) => (
-                    <FoodEntryCard
-                      key={entry.id}
-                      entry={entry}
-                      onDelete={() => deleteEntry(entry.id)}
-                      onFavorite={() => addToFavorites(entry)}
-                    />
-                  ))}
-                </View>
-              ))}
-              <TouchableOpacity style={styles.templateBtn} onPress={saveMealAsTemplate}>
-                <Ionicons name="bookmark-outline" size={16} color={Colors.accent} />
-                <Text style={styles.templateBtnText}>Save as Meal Template</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Food Favorites section */}
-          {favorites.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Food Favorites</Text>
-              {favorites.slice(0, 5).map((fav) => (
-                <TouchableOpacity
-                  key={fav.id}
-                  style={styles.favRow}
-                  onPress={() => relogFavorite(fav)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.favInfo}>
-                    <Text style={styles.favName} numberOfLines={1}>
-                      {fav.food_item.name}
-                    </Text>
-                    <Text style={styles.favDetails}>
-                      {Math.round(fav.food_item.nutrition_per_100g.calories)} kcal/100g
-                    </Text>
-                  </View>
-                  <Ionicons name="add-circle-outline" size={22} color={Colors.accent} />
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* Templates section */}
-          {templates.length > 0 && (
-            <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Meal Templates</Text>
-              {templates.slice(0, 5).map((tmpl) => (
-                <TouchableOpacity
-                  key={tmpl.id}
-                  style={styles.favRow}
-                  onPress={() => relogTemplate(tmpl)}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.favInfo}>
-                    <Text style={styles.favName} numberOfLines={1}>
-                      {tmpl.name}
-                    </Text>
-                    <Text style={styles.favDetails}>
-                      {tmpl.entries.length} item{tmpl.entries.length !== 1 ? 's' : ''}
-                    </Text>
-                  </View>
-                  <Ionicons name="copy-outline" size={20} color={Colors.accent} />
-                </TouchableOpacity>
-              ))}
-            </View>
-          )}
-
-          {/* Empty state */}
-          {recentEntries.length === 0 && foodEntries.length === 0 && favorites.length === 0 && (
-            <View style={styles.emptyState}>
-              <Ionicons name="restaurant-outline" size={48} color={Colors.divider} />
-              <Text style={styles.emptyTitle}>Nothing logged {isToday ? 'today' : 'this day'}</Text>
-              <Text style={styles.emptySubtitle}>
-                Tap one of the buttons above to start logging
-              </Text>
-            </View>
-          )}
-        </>
-      )}
-    </ScrollView>
+        <View style={{ height: 24 }} />
+      </ScrollView>
     </ScreenWrapper>
   );
 }
@@ -918,7 +430,7 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.bold,
   },
 
-  // Date Selector
+  // Date Navigator
   dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -964,8 +476,9 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: 15,
   },
-  searchResults: {
+  searchResultsSection: {
     marginBottom: 16,
+    gap: 8,
   },
   searchEmpty: {
     color: Colors.secondaryText,
@@ -974,258 +487,49 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
 
-  // Hero Actions
-  heroSection: {
-    marginBottom: 16,
+  // Section Headers
+  sectionContainer: {
+    marginBottom: 0,
   },
-  heroFoodBtn: {
-    backgroundColor: Colors.accent,
-    borderRadius: 14,
-    paddingVertical: 18,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  heroFoodText: {
-    color: Colors.primaryBackground,
-    fontSize: 18,
-    fontWeight: '800',
-    marginTop: 4,
-  },
-  heroFoodSub: {
-    color: Colors.primaryBackground,
+  sectionHeader: {
+    color: Colors.accent,
     fontSize: 12,
-    fontWeight: '500',
-    opacity: 0.7,
-    marginTop: 2,
+    fontWeight: '600',
+    letterSpacing: 1.5,
+    marginTop: 24,
+    marginBottom: 10,
+    marginLeft: 4,
   },
-  heroRow: {
-    flexDirection: 'row',
+  sectionList: {
     gap: 8,
-    marginBottom: 8,
   },
-  heroBtn: {
+
+  // Category Rows — Strava-inspired
+  categoryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    minHeight: 60,
+  },
+  categoryIcon: {
+    width: 40,
+    alignItems: 'center',
+  },
+  categoryInfo: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.accent,
-    borderRadius: 12,
-    paddingVertical: 12,
-    gap: 6,
-    minHeight: 48,
+    marginLeft: 8,
   },
-  heroBtnText: {
-    color: Colors.primaryBackground,
-    fontSize: 15,
-    fontWeight: '700',
-  },
-
-  // Daily totals
-  totalsCard: {
-    flexDirection: 'row',
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    alignItems: 'center',
-    justifyContent: 'space-around',
-  },
-  totalItem: {
-    alignItems: 'center',
-  },
-  totalValue: {
-    color: Colors.accentText,
-    fontSize: 22,
-    fontWeight: 'bold',
-    fontVariant: ['tabular-nums'],
-  },
-  totalLabel: {
-    color: Colors.secondaryText,
-    fontSize: 11,
-    marginTop: 2,
-  },
-  totalDivider: {
-    width: 1,
-    height: 32,
-    backgroundColor: Colors.divider,
-  },
-
-  // Favorite tags section
-  favTagsSection: {
-    marginBottom: 16,
-  },
-
-  // Collapsible Categories
-  categoriesSection: {
-    marginBottom: 16,
-  },
-  sectionTitle: {
+  categoryName: {
     color: Colors.text,
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 4,
   },
-  sectionHint: {
-    color: Colors.secondaryText,
-    fontSize: 11,
-    marginBottom: 8,
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 4,
-  },
-  sectionHeaderText: {
-    color: Colors.accentText,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-  },
-  categoryBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: Colors.inputBackground,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderWidth: 1,
-    borderColor: Colors.divider,
-    flexBasis: '47%',
-    flexGrow: 1,
-    minHeight: 48,
-  },
-  categoryBtnText: {
-    color: Colors.text,
-    fontSize: 13,
-    fontWeight: '500',
-    flex: 1,
-  },
-  pinIcon: {
-    marginLeft: 2,
-  },
-
-  // Recent Entries
-  recentSection: {
-    marginBottom: 16,
-  },
-  recentRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 10,
-    padding: 10,
-    marginBottom: 4,
-    gap: 8,
-  },
-  recentTagBadge: {
-    backgroundColor: Colors.inputBackground,
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    minWidth: 56,
-    alignItems: 'center',
-  },
-  recentTagText: {
-    color: Colors.accentText,
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  recentInfo: {
-    flex: 1,
-  },
-  recentLabel: {
-    color: Colors.text,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  recentDetail: {
-    color: Colors.secondaryText,
-    fontSize: 11,
-    marginTop: 1,
-  },
-  recentTime: {
-    color: Colors.secondaryText,
-    fontSize: 11,
-  },
-
-  // Food log section
-  foodSection: {
-    marginBottom: 16,
-  },
-  mealGroup: {
-    marginBottom: 12,
-  },
-  mealGroupTitle: {
-    color: Colors.text,
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 6,
-  },
-  templateBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-  },
-  templateBtnText: {
-    color: Colors.accentText,
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  section: {
-    marginBottom: 16,
-  },
-  favRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 10,
-    padding: 12,
-    marginBottom: 6,
-  },
-  favInfo: {
-    flex: 1,
-    marginRight: 12,
-  },
-  favName: {
-    color: Colors.text,
-    fontSize: 14,
-    fontWeight: '500',
-  },
-  favDetails: {
-    color: Colors.secondaryText,
+  categoryLastEntry: {
+    color: '#8899AA',
     fontSize: 12,
     marginTop: 2,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 48,
-  },
-  emptyTitle: {
-    color: Colors.text,
-    fontSize: 18,
-    fontWeight: '600',
-    marginTop: 16,
-  },
-  emptySubtitle: {
-    color: Colors.secondaryText,
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: 8,
-    paddingHorizontal: 32,
   },
 });

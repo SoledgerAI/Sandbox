@@ -51,9 +51,10 @@ const AVAILABLE_SECTIONS: HealthReportSection[] = [
 // Date Range Presets
 // ============================================================
 
-type DateRangePreset = '30d' | '90d' | '6m' | '1y' | 'custom';
+type DateRangePreset = '7d' | '30d' | '90d' | '6m' | '1y' | 'custom';
 
 const DATE_RANGE_LABELS: Record<DateRangePreset, string> = {
+  '7d': 'Last 7 Days',
   '30d': 'Last 30 Days',
   '90d': 'Last 90 Days',
   '6m': 'Last 6 Months',
@@ -66,6 +67,9 @@ function getDateRange(preset: DateRangePreset): { start: string; end: string } {
   const start = new Date();
 
   switch (preset) {
+    case '7d':
+      start.setDate(start.getDate() - 7);
+      break;
     case '30d':
       start.setDate(start.getDate() - 30);
       break;
@@ -167,7 +171,7 @@ export default function HealthReportScreen() {
         <View style={styles.header}>
           <Text style={styles.title}>Health Report</Text>
           <Text style={styles.subtitle}>
-            Generate a PDF summary to share with your healthcare provider.
+            Generate a PDF health summary.
           </Text>
         </View>
 
@@ -202,7 +206,7 @@ export default function HealthReportScreen() {
             ))}
         </View>
         <View style={styles.customRangeContainer}>
-          <Text style={styles.customRangeLabel}>Or select a custom range:</Text>
+          <Text style={styles.customRangeLabel}>Custom Range</Text>
           <DateRangePicker
             currentRange={customRange}
             onRangeChange={(range) => {
@@ -214,7 +218,7 @@ export default function HealthReportScreen() {
 
         {/* Section Selector */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Sections to Include</Text>
+          <Text style={styles.sectionTitle}>Include:</Text>
           <View style={styles.selectActions}>
             <Pressable onPress={selectAll}>
               <Text style={styles.selectActionText}>Select All</Text>

@@ -26,6 +26,7 @@ interface DeviceConfig {
   id: DeviceType;
   name: string;
   icon: string;
+  iconColor: string;
   platform: 'ios' | 'android' | 'all';
   comingSoon: boolean;
 }
@@ -35,6 +36,7 @@ const DEVICES: DeviceConfig[] = [
     id: 'apple',
     name: 'Apple Health',
     icon: 'heart-outline',
+    iconColor: '#FF2D55',
     platform: 'ios',
     comingSoon: false,
   },
@@ -42,6 +44,7 @@ const DEVICES: DeviceConfig[] = [
     id: 'google',
     name: 'Google Health Connect',
     icon: 'fitness-outline',
+    iconColor: '#4285F4',
     platform: 'android',
     comingSoon: false,
   },
@@ -49,6 +52,7 @@ const DEVICES: DeviceConfig[] = [
     id: 'strava',
     name: 'Strava',
     icon: 'bicycle-outline',
+    iconColor: '#FC4C02',
     platform: 'all',
     comingSoon: true,
   },
@@ -56,6 +60,7 @@ const DEVICES: DeviceConfig[] = [
     id: 'garmin',
     name: 'Garmin',
     icon: 'watch-outline',
+    iconColor: '#007CC3',
     platform: 'all',
     comingSoon: true,
   },
@@ -63,6 +68,15 @@ const DEVICES: DeviceConfig[] = [
     id: 'oura',
     name: 'Oura',
     icon: 'ellipse-outline',
+    iconColor: '#C0C0C0',
+    platform: 'all',
+    comingSoon: true,
+  },
+  {
+    id: 'whoop',
+    name: 'WHOOP',
+    icon: 'pulse-outline',
+    iconColor: '#44D62C',
     platform: 'all',
     comingSoon: true,
   },
@@ -219,7 +233,7 @@ export default function DevicesScreen() {
           return (
             <View key={config.id} style={styles.deviceCard}>
               <View style={styles.deviceInfo}>
-                <Ionicons name={config.icon as any} size={24} color={Colors.secondaryText} />
+                <Ionicons name={config.icon as any} size={24} color={config.iconColor} />
                 <View style={styles.deviceTextContainer}>
                   <Text style={styles.deviceName}>{config.name}</Text>
                   <Text style={styles.comingSoonText}>
@@ -250,7 +264,7 @@ export default function DevicesScreen() {
         return (
           <View key={config.id} style={styles.deviceCard}>
             <View style={styles.deviceInfo}>
-              <Ionicons name={config.icon as any} size={24} color={Colors.accent} />
+              <Ionicons name={config.icon as any} size={24} color={config.iconColor} />
               <View style={styles.deviceTextContainer}>
                 <Text style={styles.deviceName}>{config.name}</Text>
                 {connected ? (

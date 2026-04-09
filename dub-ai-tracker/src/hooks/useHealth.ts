@@ -31,7 +31,7 @@ import {
 // Types
 // ============================================================
 
-export type DeviceType = 'apple' | 'google' | 'strava' | 'garmin' | 'oura';
+export type DeviceType = 'apple' | 'google' | 'strava' | 'garmin' | 'oura' | 'whoop';
 
 export interface DeviceStatus {
   id: DeviceType;
