@@ -323,6 +323,16 @@ jest.mock('@expo/vector-icons', () => {
 });
 
 // ============================================================
+// expo-linear-gradient
+// ============================================================
+jest.mock('expo-linear-gradient', () => {
+  const View = require('react-native').View;
+  return {
+    LinearGradient: View,
+  };
+});
+
+// ============================================================
 // expo-tracking-transparency
 // ============================================================
 jest.mock('expo-tracking-transparency', () => ({

@@ -18,6 +18,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import {
   ALL_DEFAULT_TAGS,
   HEALTH_FITNESS_TAGS,
@@ -121,6 +122,7 @@ export default function TagsScreen() {
     .filter(Boolean);
 
   return (
+    <ScreenWrapper>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
@@ -256,12 +258,13 @@ export default function TagsScreen() {
         </TouchableOpacity>
       </View>
     </ScrollView>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.primaryBackground },
-  content: { padding: 16, paddingTop: 60, paddingBottom: 40 },
+  content: { padding: 16, paddingTop: 12, paddingBottom: 40 },
   loadingContainer: {
     flex: 1,
     backgroundColor: Colors.primaryBackground,

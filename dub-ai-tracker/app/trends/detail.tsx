@@ -17,6 +17,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { useTrendsData, TrendDataSet } from '../../src/hooks/useTrendsData';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { useStorage } from '../../src/hooks/useStorage';
@@ -307,6 +308,7 @@ export default function TrendsDetailScreen() {
   }, [chartData, hasData]);
 
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
@@ -501,6 +503,7 @@ export default function TrendsDetailScreen() {
         <View style={{ height: 40 }} />
       </ScrollView>
     </View>
+    </ScreenWrapper>
   );
 }
 
@@ -640,7 +643,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 60,
+    paddingTop: 12,
     paddingBottom: 8,
   },
   backButton: {

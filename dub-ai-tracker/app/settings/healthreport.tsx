@@ -17,6 +17,7 @@ import {
   Platform,
 } from 'react-native';
 import { Colors } from '../../src/constants/colors';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import {
   generateAndShareHealthReport,
   type HealthReportSection,
@@ -159,6 +160,7 @@ export default function HealthReportScreen() {
   };
 
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
         {/* Header */}
@@ -281,6 +283,7 @@ export default function HealthReportScreen() {
         </Pressable>
       </View>
     </View>
+    </ScreenWrapper>
   );
 }
 

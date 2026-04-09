@@ -131,18 +131,30 @@ export function AuthGate({ children }: AuthGateProps) {
   }, []);
 
   // Re-lock when app goes to background (with grace period)
+  // Minimum 3-second grace to prevent doom loop on accidental swipe-up
+  const MIN_GRACE_SECONDS = 3;
+
   useEffect(() => {
     function handleAppState(nextState: AppStateStatus) {
-      if (nextState === 'background' && lockEnabledRef.current) {
-        backgroundTimeRef.current = Date.now();
+      if ((nextState === 'background' || nextState === 'inactive') && lockEnabledRef.current) {
+        // Only set timestamp on first transition away (not inactive→background)
+        if (backgroundTimeRef.current === 0) {
+          backgroundTimeRef.current = Date.now();
+        }
       }
       if (nextState === 'active' && lockEnabledRef.current && state === 'unlocked') {
         const elapsed = (Date.now() - backgroundTimeRef.current) / 1000;
-        if (backgroundTimeRef.current > 0 && elapsed >= lockTimeoutRef.current) {
+        const effectiveTimeout = Math.max(lockTimeoutRef.current, MIN_GRACE_SECONDS);
+
+        if (backgroundTimeRef.current > 0 && elapsed >= effectiveTimeout) {
+          // Grace period expired — require auth
+          autoTriggeredRef.current = false; // allow one biometric attempt
           setState('locked');
           setPin('');
           setPinError(false);
         }
+        // Reset background timestamp so next background transition starts fresh
+        backgroundTimeRef.current = 0;
       }
     }
 

@@ -19,6 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { cacheDirectory, writeAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { shareAsync } from 'expo-sharing';
 import { Colors } from '../../src/constants/colors';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { logAuditEvent } from '../../src/utils/audit';
 import { DateRangePicker } from '../../src/components/common/DateRangePicker';
 
@@ -283,6 +284,7 @@ export default function ExportScreen() {
   }
 
   return (
+    <ScreenWrapper>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
@@ -388,6 +390,7 @@ export default function ExportScreen() {
         and be cautious about sharing.
       </Text>
     </ScrollView>
+    </ScreenWrapper>
   );
 }
 
@@ -406,7 +409,7 @@ function DetailItem({ label, warning }: { label: string; warning?: boolean }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.primaryBackground },
-  content: { padding: 16, paddingTop: 60, paddingBottom: 40 },
+  content: { padding: 16, paddingTop: 12, paddingBottom: 40 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -3,7 +3,8 @@
 // Phase 19: NLP text entry and photo food entry integration
 
 import { useState, useCallback, useEffect } from 'react';
-import { StyleSheet, View, Text, SafeAreaView } from 'react-native';
+import { StyleSheet, View, Text } from 'react-native';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { router } from 'expo-router';
 import { Colors } from '../../src/constants/colors';
 import { storageGet, storageSet, STORAGE_KEYS, dateKey } from '../../src/utils/storage';
@@ -330,7 +331,7 @@ export default function FoodLogScreen() {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <ScreenWrapper>
       <View style={styles.container}>
         <DateContextBanner />
         <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
@@ -462,19 +463,15 @@ export default function FoodLogScreen() {
           </View>
         )}
       </View>
-    </SafeAreaView>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: Colors.primaryBackground,
-  },
   container: {
     flex: 1,
     padding: 16,
-    paddingTop: 16,
+    paddingTop: 12,
   },
   configureContainer: {
     flex: 1,

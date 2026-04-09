@@ -14,6 +14,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { Colors } from '../../src/constants/colors';
 import { ProductCard } from '../../src/components/marketplace/ProductCard';
 import { getTriggeredProducts } from '../../src/components/marketplace/ContextualTrigger';
@@ -64,6 +65,7 @@ export default function MarketplaceScreen() {
     : [];
 
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
@@ -229,6 +231,7 @@ export default function MarketplaceScreen() {
         </ScrollView>
       )}
     </View>
+    </ScreenWrapper>
   );
 }
 
@@ -238,7 +241,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 8,
   },

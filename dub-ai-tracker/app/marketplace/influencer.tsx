@@ -5,6 +5,7 @@
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { Colors } from '../../src/constants/colors';
 import { InfluencerStorefrontView, InfluencerApplicationForm } from '../../src/components/marketplace/InfluencerStorefront';
 
@@ -14,6 +15,7 @@ export default function InfluencerScreen() {
   const showApplication = apply === 'true';
 
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -31,6 +33,7 @@ export default function InfluencerScreen() {
         <InfluencerStorefrontView influencerId={id} />
       )}
     </View>
+    </ScreenWrapper>
   );
 }
 
@@ -40,7 +43,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 8,
   },

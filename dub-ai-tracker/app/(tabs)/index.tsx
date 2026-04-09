@@ -4,7 +4,6 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Pressable } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router, useFocusEffect } from 'expo-router';
 import { useScrollToTop } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -30,10 +29,10 @@ import { RecoveryCard } from '../../src/components/dashboard/RecoveryCard';
 import { TagCardWithData } from '../../src/components/dashboard/TagCardWithData';
 import { shareDailySummary } from '../../src/components/sharing/DailySummaryCard';
 import { MissedDayCard } from '../../src/components/dashboard/MissedDayCard';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import type { DeferredSetupKey } from '../../src/hooks/useDeferredSetup';
 
 export default function DashboardScreen() {
-  const insets = useSafeAreaInsets();
   const {
     loading,
     greeting,
@@ -134,10 +133,11 @@ export default function DashboardScreen() {
     : enabledTags;
 
   return (
+    <ScreenWrapper>
     <ScrollView
       ref={scrollRef}
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
+      contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
     >
       {/* Greeting — F-06: centered banner */}
@@ -325,6 +325,7 @@ export default function DashboardScreen() {
       })}
       </View>
     </ScrollView>
+    </ScreenWrapper>
   );
 }
 
@@ -341,7 +342,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
-    paddingTop: Spacing.jumbo,
+    paddingTop: 12,
     paddingBottom: Spacing.xxl,
   },
   header: {

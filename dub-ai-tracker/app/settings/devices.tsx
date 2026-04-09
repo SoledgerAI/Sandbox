@@ -17,6 +17,7 @@ import {
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import { useHealth, type DeviceType } from '../../src/hooks/useHealth';
 import type { UserProfile } from '../../src/types/profile';
@@ -195,6 +196,7 @@ export default function DevicesScreen() {
   }
 
   return (
+    <ScreenWrapper>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
@@ -205,7 +207,7 @@ export default function DevicesScreen() {
       </View>
 
       <Text style={styles.subtitle}>
-        Connect your devices to automatically import workouts, sleep, and health data.
+        Manage apps and devices
       </Text>
 
       {platformDevices.map((config) => {
@@ -299,15 +301,8 @@ export default function DevicesScreen() {
         );
       })}
 
-      <View style={styles.infoBox}>
-        <Ionicons name="information-circle-outline" size={18} color={Colors.accent} />
-        <Text style={styles.infoText}>
-          Device data is stored on your device. When you use Coach DUB,
-          a summary of today's data is sent to Anthropic for processing.
-          Raw device data is never transmitted.
-        </Text>
-      </View>
     </ScrollView>
+    </ScreenWrapper>
   );
 }
 
@@ -322,7 +317,7 @@ function formatDate(isoDate: string): string {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.primaryBackground },
-  content: { padding: 16, paddingTop: 60, paddingBottom: 40 },
+  content: { padding: 16, paddingTop: 12, paddingBottom: 40 },
   loadingContainer: {
     flex: 1,
     backgroundColor: Colors.primaryBackground,
@@ -405,14 +400,4 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  infoBox: {
-    flexDirection: 'row',
-    backgroundColor: Colors.inputBackground,
-    borderRadius: 12,
-    padding: 12,
-    gap: 8,
-    marginTop: 12,
-    alignItems: 'flex-start',
-  },
-  infoText: { color: Colors.secondaryText, fontSize: 13, lineHeight: 18, flex: 1 },
 });

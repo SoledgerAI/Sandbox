@@ -2,6 +2,7 @@
 // Phase 11: Fitness and Workout Logging
 
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
@@ -10,6 +11,7 @@ import { ActivityLogger } from '../../src/components/logging/ActivityLogger';
 
 export default function WorkoutScreen() {
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
@@ -26,6 +28,7 @@ export default function WorkoutScreen() {
       <DateContextBanner />
       <ActivityLogger />
     </View>
+    </ScreenWrapper>
   );
 }
 
@@ -38,7 +41,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 8,
   },

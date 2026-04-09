@@ -2,6 +2,7 @@
 // Phase 8: Hydration, Caffeine, and Substance Logging
 
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
@@ -10,6 +11,7 @@ import { CaffeineLogger } from '../../src/components/logging/CaffeineLogger';
 
 export default function CaffeineScreen() {
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
@@ -27,6 +29,7 @@ export default function CaffeineScreen() {
       <DateContextBanner />
       <CaffeineLogger />
     </View>
+    </ScreenWrapper>
   );
 }
 
@@ -39,7 +42,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 8,
   },

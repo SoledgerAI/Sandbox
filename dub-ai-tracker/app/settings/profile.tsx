@@ -20,6 +20,7 @@ import { router } from 'expo-router';
 import { useToast } from '../../src/contexts/ToastContext';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
 import { Input } from '../../src/components/common/Input';
 import { Button } from '../../src/components/common/Button';
@@ -228,6 +229,7 @@ export default function ProfileScreen() {
   }
 
   return (
+    <ScreenWrapper>
     <KeyboardAvoidingView
       style={{ flex: 1, backgroundColor: Colors.primaryBackground }}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -416,12 +418,13 @@ export default function ProfileScreen() {
       </View>
     </ScrollView>
     </KeyboardAvoidingView>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.primaryBackground },
-  content: { padding: 16, paddingTop: 60, paddingBottom: 40 },
+  content: { padding: 16, paddingTop: 12, paddingBottom: 40 },
   loadingContainer: {
     flex: 1,
     backgroundColor: Colors.primaryBackground,

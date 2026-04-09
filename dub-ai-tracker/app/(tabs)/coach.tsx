@@ -5,7 +5,6 @@ import { useState, useRef, useEffect } from 'react';
 import {
   FlatList,
   KeyboardAvoidingView,
-  Modal,
   ScrollView,
   Platform,
   StyleSheet,
@@ -16,7 +15,6 @@ import {
 } from 'react-native';
 import { useScrollToTop } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
 import { FontSize, FontWeight } from '../../src/constants/typography';
 import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
@@ -30,10 +28,10 @@ import { useNetworkStatus } from '../../src/hooks/useNetworkStatus';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { runPatternEngine } from '../../src/ai/pattern_engine';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import type { ChatMessage, PatternInsight } from '../../src/types/coach';
 
 export default function CoachScreen() {
-  const insets = useSafeAreaInsets();
   const {
     messages,
     loading,
@@ -51,9 +49,9 @@ export default function CoachScreen() {
   const isOffline = !isConnected || isInternetReachable === false;
 
   const [inputText, setInputText] = useState('');
-  const [showDisclaimer, setShowDisclaimer] = useState(true);
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [consentGranted, setConsentGranted] = useState(false);
+  const [showInfoTooltip, setShowInfoTooltip] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [patterns, setPatterns] = useState<PatternInsight[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -62,13 +60,10 @@ export default function CoachScreen() {
   useScrollToTop(flatListRef);
   const { summary, calorieTarget } = useDailySummary();
 
-  // Check if coach disclaimer and Anthropic consent have been acknowledged
+  // Check if Anthropic consent has been acknowledged
   useEffect(() => {
     (async () => {
       const settings = await storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS);
-      if (settings && settings.coach_disclaimer_acknowledged) {
-        setShowDisclaimer(false);
-      }
       // Check Anthropic data consent (MASTER-05)
       if (
         settings &&
@@ -81,16 +76,6 @@ export default function CoachScreen() {
       }
     })();
   }, []);
-
-  const acknowledgeDisclaimer = async () => {
-    const settings = (await storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS)) || {};
-    await storageSet(STORAGE_KEYS.SETTINGS, { ...settings, coach_disclaimer_acknowledged: true });
-    setShowDisclaimer(false);
-    // After disclaimer, show Anthropic consent if not yet granted
-    if (!consentGranted) {
-      setShowConsentModal(true);
-    }
-  };
 
   const handleAnthropicConsent = async () => {
     const settings = (await storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS)) || {};
@@ -231,41 +216,37 @@ export default function CoachScreen() {
   };
 
   return (
+    <ScreenWrapper scrollFade={false}>
     <KeyboardAvoidingView
-      style={[styles.container, { paddingTop: insets.top }]}
+      style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={90}
     >
-      <Modal
-        visible={showDisclaimer && apiKeyConfigured}
-        transparent
-        animationType="slide"
-        onRequestClose={acknowledgeDisclaimer}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>About Coach DUB</Text>
-            <Text style={styles.modalText}>
-              Coach DUB is an AI wellness assistant powered by Anthropic's Claude. It is NOT a
-              licensed healthcare provider, dietitian, or trainer. Do not use it for medical
-              emergencies, diagnosis, or treatment decisions. Always consult qualified professionals
-              for medical advice.
-            </Text>
-            <Text style={styles.modalText}>
-              Your messages are sent to Anthropic's Claude API using your API key. Anthropic's
-              usage policy applies. DUB_AI does not store or access your conversations.
-            </Text>
-            <TouchableOpacity style={styles.modalButton} onPress={acknowledgeDisclaimer}>
-              <Text style={styles.modalButtonText}>I Understand</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
       <AnthropicConsentModal
-        visible={showConsentModal || (!showDisclaimer && apiKeyConfigured && !consentGranted)}
+        visible={showConsentModal || (apiKeyConfigured && !consentGranted)}
         onConsent={handleAnthropicConsent}
       />
+
+      {/* Sprint 8 Fix 4: Subtle info icon replacing persistent banner */}
+      {apiKeyConfigured && (
+        <View style={styles.infoIconRow}>
+          <TouchableOpacity
+            onPress={() => setShowInfoTooltip(!showInfoTooltip)}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel="Coach DUB information"
+          >
+            <Ionicons name="information-circle-outline" size={18} color={Colors.secondaryText} />
+          </TouchableOpacity>
+          {showInfoTooltip && (
+            <View style={styles.infoTooltip}>
+              <Text style={styles.infoTooltipText}>
+                Coach DUB provides wellness guidance, not medical advice.
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {isOffline && apiKeyConfigured && (
         <View style={styles.offlineNotice}>
@@ -381,6 +362,7 @@ export default function CoachScreen() {
         }}
       />
     </KeyboardAvoidingView>
+    </ScreenWrapper>
   );
 }
 
@@ -523,44 +505,25 @@ const styles = StyleSheet.create({
   sendButtonDisabled: {
     backgroundColor: Colors.divider,
   },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    justifyContent: 'center',
+  // Sprint 8 Fix 4: Info icon + tooltip
+  infoIconRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    padding: 24,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    gap: 8,
   },
-  modalContent: {
+  infoTooltip: {
     backgroundColor: Colors.cardBackground,
-    borderRadius: 16,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    flex: 1,
   },
-  modalTitle: {
-    color: Colors.text,
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  modalText: {
+  infoTooltipText: {
     color: Colors.secondaryText,
-    fontSize: 14,
-    lineHeight: 22,
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  modalButton: {
-    backgroundColor: Colors.accent,
-    borderRadius: 12,
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  modalButtonText: {
-    color: Colors.primaryBackground,
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 11,
+    fontStyle: 'italic',
   },
   // C2: Suggestions pill
   suggestionsPill: {

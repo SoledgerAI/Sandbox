@@ -331,6 +331,8 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
           hide_calories: false,
           consent_date: consent.consent_date,
           consent_version: consent.consent_version,
+          user_agreement_accepted: true,
+          user_agreement_date: consent.consent_date,
         }),
         storageSet(STORAGE_KEYS.TIER, DEFAULT_TIER),
         storageSet(STORAGE_KEYS.TAGS_ENABLED, enabledTags),
@@ -603,22 +605,28 @@ function Step1Consent({
           We need a few details to personalize your experience.
         </Text>
 
-        {/* Consent */}
+        {/* Consent — Sprint 8 Fix 4: Comprehensive user agreement */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Privacy & Consent</Text>
+          <Text style={styles.sectionTitle}>User Agreement</Text>
           <Text style={styles.consentText}>
-            DUB_AI collects health data that you choose to log. This data is stored on your device.
-            When you use the AI Coach, your data is transmitted to a third-party AI service (Anthropic).
+            By using DUB_AI Tracker, you agree to the following:
+          </Text>
+          <Text style={styles.consentText}>
+            {'\u2022'} Coach DUB is an AI-powered wellness assistant, not a medical professional. It does not diagnose, treat, or prescribe.{'\n'}
+            {'\u2022'} Health data you log is stored locally on your device.{'\n'}
+            {'\u2022'} When using Coach DUB, a summary of your data is sent to Anthropic (a third-party AI service) for processing. Raw device data is never transmitted.{'\n'}
+            {'\u2022'} This app is not a substitute for professional medical advice, diagnosis, or treatment.{'\n'}
+            {'\u2022'} You assume responsibility for health decisions made using information from this app.
           </Text>
           <Checkbox
             checked={healthConsent}
             onToggle={() => onHealthConsent(!healthConsent)}
-            label="I consent to the collection and processing of my health data as described in the Privacy Policy."
+            label="I accept the User Agreement and consent to the collection and processing of my health data."
           />
           <Checkbox
             checked={aiConsent}
             onToggle={() => onAiConsent(!aiConsent)}
-            label="I understand that Coach messages are processed by a third-party AI service."
+            label="I understand that Coach DUB is AI-powered and that my messages are processed by a third-party AI service."
           />
           <Checkbox
             checked={ageConsent}

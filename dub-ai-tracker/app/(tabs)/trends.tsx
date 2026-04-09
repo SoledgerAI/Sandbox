@@ -15,13 +15,13 @@ import {
 } from 'react-native';
 import { useScrollToTop } from '@react-navigation/native';
 import { router } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Colors } from '../../src/constants/colors';
 import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
 import { useTrendsData, TrendDataSet } from '../../src/hooks/useTrendsData';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { useBloodworkSummaries, type BloodworkMarkerSummary } from '../../src/hooks/useBloodworkTrends';
 import { useStorage } from '../../src/hooks/useStorage';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { STORAGE_KEYS } from '../../src/utils/storage';
 import { LineChart } from '../../src/components/charts/LineChart';
 import { BarChart } from '../../src/components/charts/BarChart';
@@ -262,7 +262,6 @@ const TAG_TO_CATEGORY: Record<string, string> = {
 };
 
 export default function TrendsScreen() {
-  const insets = useSafeAreaInsets();
   // Fix 3: Scroll-to-top on tab re-tap
   const chartListRef = useRef<FlatList>(null);
   useScrollToTop(chartListRef);
@@ -386,9 +385,10 @@ export default function TrendsScreen() {
   );
 
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
+      <View style={styles.header}>
         <Text style={styles.title}>Trends</Text>
       </View>
 
@@ -554,6 +554,7 @@ export default function TrendsScreen() {
         }
       />
     </View>
+    </ScreenWrapper>
   );
 }
 
@@ -638,7 +639,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 16,
-    paddingTop: 60,
+    paddingTop: 12,
     paddingBottom: 8,
   },
   title: {

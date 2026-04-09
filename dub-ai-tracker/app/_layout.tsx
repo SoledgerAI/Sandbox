@@ -6,7 +6,7 @@
 // - Single init effect: check onboarding, navigate if needed
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { AppState, AppStateStatus, Text, View } from 'react-native';
+import { Animated, AppState, AppStateStatus, Text, View } from 'react-native';
 import { Stack, router, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -24,8 +24,14 @@ import type { AppSettings } from '../src/types/profile';
 // Keep splash screen visible until initialization completes
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
+const SPLASH_MIN_MS = 2500;
+const SPLASH_FADE_MS = 500;
+
 export default function RootLayout() {
   const [initDone, setInitDone] = useState(false);
+  const [splashMinTimeMet, setSplashMinTimeMet] = useState(false);
+  const [showFadeOverlay, setShowFadeOverlay] = useState(false);
+  const fadeAnim = useRef(new Animated.Value(1)).current;
   const navigationState = useRootNavigationState();
 
   // D8-001: Privacy screen overlay driven by AppState + setting
@@ -35,6 +41,14 @@ export default function RootLayout() {
   // D8-002: Triple-tap quick-hide gesture
   const [quickHideActive, setQuickHideActive] = useState(false);
   const tapTimestampsRef = useRef<number[]>([]);
+
+  // Sprint 8 Fix 3: Splash minimum display timer
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setSplashMinTimeMet(true);
+    }, SPLASH_MIN_MS);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Load privacy_screen_enabled setting
   useEffect(() => {
@@ -112,7 +126,6 @@ export default function RootLayout() {
       } finally {
         if (!cancelled) {
           setInitDone(true);
-          SplashScreen.hideAsync().catch(() => {});
         }
       }
     }
@@ -120,11 +133,23 @@ export default function RootLayout() {
     return () => { cancelled = true; };
   }, [navigationState?.key]);
 
-  // Fix 15: Removed immediate hideAsync — splash stays until init completes
-  // (allows branded splash screen to display properly)
+  // Sprint 8 Fix 3: Hide splash only when BOTH init AND min timer are met, then fade
+  useEffect(() => {
+    if (initDone && splashMinTimeMet) {
+      SplashScreen.hideAsync().catch(() => {});
+      // Show fade overlay to smooth the transition
+      setShowFadeOverlay(true);
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: SPLASH_FADE_MS,
+        useNativeDriver: true,
+      }).start(() => {
+        setShowFadeOverlay(false);
+      });
+    }
+  }, [initDone, splashMinTimeMet, fadeAnim]);
 
-  // Hard deadline: force past init after 5 seconds, no matter what.
-  // Uses BOTH setTimeout AND RAF for redundancy.
+  // Hard deadline: force past init after 8 seconds (2.5s splash + margin)
   useEffect(() => {
     let cancelled = false;
 
@@ -132,17 +157,16 @@ export default function RootLayout() {
       if (cancelled) return;
       cancelled = true;
       setInitDone(true);
-      SplashScreen.hideAsync().catch(() => {});
+      setSplashMinTimeMet(true);
     }
 
-    // Primary: setTimeout
-    const timer = setTimeout(forceReady, 5000);
+    const timer = setTimeout(forceReady, 8000);
 
     // Backup: RAF polling
     const start = Date.now();
     function rafCheck() {
       if (cancelled) return;
-      if (Date.now() - start >= 5000) {
+      if (Date.now() - start >= 8000) {
         forceReady();
         return;
       }
@@ -181,7 +205,7 @@ export default function RootLayout() {
           </View>
 
           {/* Loading overlay — covers Stack until init completes */}
-          {!initDone && (
+          {(!initDone || !splashMinTimeMet) && (
             <View
               style={{
                 position: 'absolute',
@@ -198,6 +222,27 @@ export default function RootLayout() {
               <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '600', marginBottom: 16 }}>DUB</Text>
               <LoadingIndicator size="large" />
             </View>
+          )}
+
+          {/* Sprint 8 Fix 3: Fade overlay — smooth transition from splash */}
+          {showFadeOverlay && (
+            <Animated.View
+              style={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 101,
+                backgroundColor: Colors.primaryBackground,
+                alignItems: 'center',
+                justifyContent: 'center',
+                opacity: fadeAnim,
+              }}
+              pointerEvents="none"
+            >
+              <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '600' }}>DUB</Text>
+            </Animated.View>
           )}
 
           {/* D8-001 / D8-002: Privacy + quick-hide overlay */}

@@ -6,6 +6,7 @@ import { FlatList, StyleSheet, Text, TouchableOpacity, View } from 'react-native
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { LICENSES, groupByLicense } from '../../src/constants/licenses';
 import type { LicenseEntry } from '../../src/constants/licenses';
 
@@ -58,6 +59,7 @@ export default function LicensesScreen() {
   };
 
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
@@ -79,6 +81,7 @@ export default function LicensesScreen() {
         contentContainerStyle={styles.listContent}
       />
     </View>
+    </ScreenWrapper>
   );
 }
 
@@ -86,7 +89,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: Colors.primaryBackground,
-    paddingTop: 60,
+    paddingTop: 12,
   },
   header: {
     flexDirection: 'row',

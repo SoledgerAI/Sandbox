@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { Colors } from '../../src/constants/colors';
 import { FTCDisclosure } from '../../src/components/marketplace/FTCDisclosure';
 import { MARKETPLACE_PRODUCTS } from '../../src/components/marketplace/productData';
@@ -27,6 +28,7 @@ export default function ProductDetailScreen() {
 
   if (!product) {
     return (
+      <ScreenWrapper>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
@@ -39,6 +41,7 @@ export default function ProductDetailScreen() {
           <Text style={styles.emptyText}>Product not found.</Text>
         </View>
       </View>
+      </ScreenWrapper>
     );
   }
 
@@ -69,6 +72,7 @@ export default function ProductDetailScreen() {
   };
 
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
@@ -138,6 +142,7 @@ export default function ProductDetailScreen() {
         </TouchableOpacity>
       </ScrollView>
     </View>
+    </ScreenWrapper>
   );
 }
 
@@ -147,7 +152,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 8,
   },

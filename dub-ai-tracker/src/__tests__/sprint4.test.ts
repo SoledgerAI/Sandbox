@@ -343,14 +343,13 @@ describe('Fix 14: Biometric Auto-Trigger', () => {
 // ============================================================
 
 describe('Fix 15: Splash Screen Brand Moment', () => {
-  it('Immediate hideAsync on mount is removed', () => {
+  it('Splash hides only when both init and min timer are met', () => {
     const source = require('fs').readFileSync(
       require('path').resolve(__dirname, '../../app/_layout.tsx'),
       'utf8',
     );
-    // Should NOT have standalone useEffect that just calls SplashScreen.hideAsync
-    // The one in init() is fine — the standalone mount one should be gone
-    expect(source).toContain('Removed immediate hideAsync');
+    // Sprint 8: Splash waits for both conditions
+    expect(source).toContain('initDone && splashMinTimeMet');
   });
 
   it('Loading overlay shows DUB branding', () => {

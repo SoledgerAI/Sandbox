@@ -18,7 +18,6 @@ import {
   TextInput,
   Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
@@ -42,6 +41,7 @@ import { todayDateString } from '../../src/utils/dayBoundary';
 import { getActiveDate, setActiveDate as setContextDate, resetToToday, isBackfilling } from '../../src/services/dateContextService';
 import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { useToast } from '../../src/contexts/ToastContext';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 
 // ============================================================
 // Date Helpers
@@ -165,7 +165,6 @@ interface RecentEntry {
 // ============================================================
 
 export default function LogScreen() {
-  const insets = useSafeAreaInsets();
   // Fix 3: Scroll-to-top on tab re-tap
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
@@ -588,10 +587,11 @@ export default function LogScreen() {
   );
 
   return (
+    <ScreenWrapper>
     <ScrollView
       ref={scrollRef}
       style={styles.container}
-      contentContainerStyle={[styles.content, { paddingTop: insets.top + 12 }]}
+      contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       refreshControl={
         <RefreshControl
@@ -895,6 +895,7 @@ export default function LogScreen() {
         </>
       )}
     </ScrollView>
+    </ScreenWrapper>
   );
 }
 
@@ -905,7 +906,7 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: Spacing.lg,
-    paddingTop: Spacing.jumbo,
+    paddingTop: 12,
     paddingBottom: Spacing.xxl,
   },
   header: {

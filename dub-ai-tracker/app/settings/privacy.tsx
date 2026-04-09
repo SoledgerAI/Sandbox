@@ -5,6 +5,7 @@ import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-nati
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 
 const SECTIONS = [
   {
@@ -78,6 +79,7 @@ Company: SoledgerAI Inc.`,
 
 export default function PrivacyPolicyScreen() {
   return (
+    <ScreenWrapper>
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
@@ -97,12 +99,13 @@ export default function PrivacyPolicyScreen() {
         </View>
       ))}
     </ScrollView>
+    </ScreenWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.primaryBackground },
-  content: { padding: 16, paddingTop: 60, paddingBottom: 40 },
+  content: { padding: 16, paddingTop: 12, paddingBottom: 40 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -40,13 +40,6 @@ export function DataContextBanner({ tagsLogged, hasApiKey }: DataContextBannerPr
 
   return (
     <View>
-      {/* Persistent AI disclaimer — D7-007 fix */}
-      <View style={styles.disclaimerBar}>
-        <Ionicons name="information-circle-outline" size={14} color={Colors.secondaryText} />
-        <Text style={styles.disclaimerText}>
-          Coach DUB is an AI assistant, not a medical professional. This is not a substitute for professional medical advice.
-        </Text>
-      </View>
       <TouchableOpacity
         style={styles.banner}
         onPress={() => setExpanded(!expanded)}
@@ -110,21 +103,5 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     fontSize: 11,
     lineHeight: 16,
-  },
-  disclaimerBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    backgroundColor: Colors.cardBackground,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
-    gap: 6,
-  },
-  disclaimerText: {
-    color: Colors.secondaryText,
-    fontSize: 11,
-    flex: 1,
-    fontStyle: 'italic',
   },
 });

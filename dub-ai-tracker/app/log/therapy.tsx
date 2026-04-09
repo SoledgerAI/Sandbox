@@ -2,6 +2,7 @@
 // Phase 10: Sleep and Mood Logging
 
 import { StyleSheet, View, Text, TouchableOpacity } from 'react-native';
+import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
@@ -10,6 +11,7 @@ import { TherapyLogger } from '../../src/components/logging/TherapyLogger';
 
 export default function TherapyScreen() {
   return (
+    <ScreenWrapper>
     <View style={styles.container}>
       <View style={styles.header}>
         <TouchableOpacity
@@ -26,6 +28,7 @@ export default function TherapyScreen() {
       <DateContextBanner />
       <TherapyLogger />
     </View>
+    </ScreenWrapper>
   );
 }
 
@@ -38,7 +41,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingTop: 56,
+    paddingTop: 12,
     paddingHorizontal: 16,
     paddingBottom: 8,
   },

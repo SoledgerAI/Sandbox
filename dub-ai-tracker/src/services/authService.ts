@@ -128,10 +128,10 @@ export type LockTimeout = 0 | 60 | 300 | 900; // seconds: immediately, 1min, 5mi
 
 export async function getLockTimeout(): Promise<LockTimeout> {
   const val = await getSecure('dub.lock_timeout' as any);
+  if (val === '0') return 0;
   if (val === '60') return 60;
-  if (val === '300') return 300;
   if (val === '900') return 900;
-  return 0; // default: immediately
+  return 300; // default: 5 minutes — prevents doom loop on quick app switches
 }
 
 export async function setLockTimeout(timeout: LockTimeout): Promise<void> {
