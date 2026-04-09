@@ -139,6 +139,7 @@ export default function ProfileScreen() {
         { id: 'export', icon: 'download-outline', label: 'Data Export', route: '/settings/export' },
         { id: 'feedback', icon: 'chatbox-ellipses-outline', label: 'Feedback Log', route: '/settings/feedback' },
         { id: 'habits', icon: 'checkbox-outline', label: 'Daily Habits', route: '/settings/habits' },
+        { id: 'allergy-profile', icon: 'alert-circle-outline', label: 'Allergy Profile', route: '/settings/allergy-profile' },
       ],
     },
     {

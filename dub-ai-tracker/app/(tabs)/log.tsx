@@ -91,6 +91,13 @@ const CATEGORY_SECTIONS: CategorySection[] = [
     ],
   },
   {
+    title: 'HEALTH',
+    items: [
+      { label: 'Doctor Visits', icon: 'medkit-outline', route: '/log/doctor', storageKey: STORAGE_KEYS.LOG_DOCTOR_VISITS, searchTerms: 'doctor visit appointment physical checkup dentist therapist psychiatrist specialist' },
+      { label: 'Allergies', icon: 'alert-circle-outline', route: '/log/allergies', storageKey: STORAGE_KEYS.LOG_ALLERGIES, searchTerms: 'allergy allergies pollen dust congestion sneezing severity symptoms' },
+    ],
+  },
+  {
     title: 'BODY',
     items: [
       { label: 'Weight & Body', icon: 'scale-outline', route: '/log/body', searchTerms: 'weight body measurements scale bmi' },
@@ -256,6 +263,25 @@ export default function LogScreen() {
       entries['/log/habits'] = {
         label: `${done}/${habits.length} done`,
         time: '',
+      };
+    }
+
+    // Load doctor visits (not date-keyed — single array)
+    const doctorVisits = await storageGet<{ visit_type: string; visit_date: string; timestamp: string }[]>(STORAGE_KEYS.LOG_DOCTOR_VISITS);
+    if (doctorVisits?.length) {
+      const last = doctorVisits[doctorVisits.length - 1];
+      entries['/log/doctor'] = {
+        label: last.visit_type.replace(/_/g, ' '),
+        time: last.visit_date,
+      };
+    }
+
+    // Load allergies (date-keyed)
+    const allergyLog = await storageGet<{ severity: string; timestamp: string }>(dateKey(STORAGE_KEYS.LOG_ALLERGIES, dateStr));
+    if (allergyLog) {
+      entries['/log/allergies'] = {
+        label: allergyLog.severity.charAt(0).toUpperCase() + allergyLog.severity.slice(1),
+        time: new Date(allergyLog.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       };
     }
 

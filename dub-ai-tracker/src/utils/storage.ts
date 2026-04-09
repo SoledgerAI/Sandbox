@@ -47,6 +47,8 @@ export const STORAGE_KEYS = {
   LOG_BP: 'dub.log.bp',
   LOG_HABITS: 'dub.log.habits',
   LOG_REPS: 'dub.log.reps',
+  LOG_DOCTOR_VISITS: 'dub.log.doctor_visits',
+  LOG_ALLERGIES: 'dub.log.allergies',
   LOG_CUSTOM: 'dub.log.custom',
 
   // Aggregates and Caches
@@ -98,6 +100,9 @@ export const STORAGE_KEYS = {
   INGREDIENT_FLAGS: 'dub.settings.ingredient_flags',
   USER_MACROS: 'dub.settings.user_macros',
   SETTINGS_HABITS: 'dub.settings.habits',
+
+  // Allergy Profile
+  PROFILE_ALLERGIES: 'dub.profile.allergies',
 
   // Activity Logger
   RECENT_ACTIVITIES: 'dub.recent_activities',

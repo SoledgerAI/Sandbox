@@ -31,6 +31,7 @@ import { shareDailySummary } from '../../src/components/sharing/DailySummaryCard
 import { MissedDayCard } from '../../src/components/dashboard/MissedDayCard';
 import { CoachDubBadge } from '../../src/components/dashboard/CoachDubBadge';
 import { StreakBadge } from '../../src/components/dashboard/StreakBadge';
+import { DoctorFollowUpCard } from '../../src/components/dashboard/DoctorFollowUpCard';
 import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import type { DeferredSetupKey } from '../../src/hooks/useDeferredSetup';
 
@@ -312,6 +313,9 @@ export default function DashboardScreen() {
 
       {/* Missed Day Backfill Nudge — Prompt 14 */}
       <MissedDayCard />
+
+      {/* Doctor Follow-up Reminders — Sprint 17 */}
+      <DoctorFollowUpCard />
 
       {/* Body Card */}
       <BodyCard />

@@ -49,7 +49,10 @@ import type {
   HabitEntry,
   HabitDefinition,
   BodyweightRepEntry,
+  DoctorVisitEntry,
+  AllergyLogEntry,
 } from '../types';
+import { DOCTOR_VISIT_TYPES } from '../types';
 import { todayDateString } from '../utils/dayBoundary';
 
 
@@ -79,6 +82,8 @@ const THERAPY_KEYWORDS = ['therapy', 'therapist', 'mental health', 'counseling']
 const INGREDIENT_KEYWORDS = ['ingredient', 'flag', 'additive', 'sweetener', 'sugar', 'msg', 'artificial'];
 const HABIT_KEYWORDS = ['habit', 'routine', 'checklist', 'daily', 'brush', 'floss', 'bed', 'cream', 'self care'];
 const REP_KEYWORDS = ['rep', 'reps', 'pushup', 'push-up', 'pullup', 'pull-up', 'situp', 'sit-up', 'jumping jack', 'squat', 'bodyweight', 'calisthenics'];
+const DOCTOR_KEYWORDS = ['doctor', 'appointment', 'visit', 'follow-up', 'followup', 'checkup', 'dentist', 'physical', 'specialist', 'psychiatrist', 'optometrist', 'dermatologist'];
+const ALLERGY_KEYWORDS = ['allergy', 'allergies', 'allergen', 'pollen', 'congestion', 'sneezing', 'antihistamine', 'zyrtec', 'flonase', 'claritin'];
 
 function messageMatchesKeywords(message: string, keywords: string[]): boolean {
   const lower = message.toLowerCase();
@@ -521,6 +526,75 @@ export async function buildCoachContext(userMessage: string): Promise<{
 
   // Mood trend detection — safety-critical, always computed
   const moodTrend = await evaluateMoodTrend();
+
+  // Doctor visits — follow-ups always included, last visits conditional
+  {
+    const doctorVisits = await storageGet<DoctorVisitEntry[]>(STORAGE_KEYS.LOG_DOCTOR_VISITS);
+    if (doctorVisits && doctorVisits.length > 0) {
+      // Always include upcoming follow-ups (within 30 days)
+      const todayDate = new Date(today + 'T00:00:00');
+      const followUps = doctorVisits
+        .filter((v) => {
+          if (!v.follow_up_date) return false;
+          const fuDate = new Date(v.follow_up_date + 'T00:00:00');
+          const diffDays = Math.ceil((fuDate.getTime() - todayDate.getTime()) / 86400000);
+          return diffDays >= 0 && diffDays <= 30;
+        })
+        .map((v) => {
+          const typeDef = DOCTOR_VISIT_TYPES.find((t) => t.type === v.visit_type);
+          const label = v.visit_type === 'specialist' && v.specialist_type
+            ? sanitizeForPrompt(v.specialist_type, 50)
+            : typeDef?.label ?? v.visit_type;
+          return `[DOCTOR FOLLOWUP] ${label} due ${v.follow_up_date}`;
+        });
+      for (const fu of followUps) {
+        conditionalSections.push(fu);
+      }
+
+      // Conditional: last visit per type
+      if (messageMatchesKeywords(userMessage, DOCTOR_KEYWORDS)) {
+        const lastPerType = new Map<string, string>();
+        for (const v of doctorVisits) {
+          const typeDef = DOCTOR_VISIT_TYPES.find((t) => t.type === v.visit_type);
+          const label = typeDef?.label?.split(' ')[0] ?? v.visit_type;
+          const existing = lastPerType.get(label);
+          if (!existing || v.visit_date > existing) {
+            lastPerType.set(label, v.visit_date);
+          }
+        }
+        const parts = Array.from(lastPerType.entries())
+          .map(([type, date]) => `${type}:${date}`)
+          .join(' ');
+        if (parts) {
+          conditionalSections.push(`[LAST VISITS] ${parts}`);
+        }
+      }
+    }
+  }
+
+  // Allergy status — today's log always included if exists, profile conditional
+  {
+    const allergyLog = await storageGet<AllergyLogEntry>(dateKey(STORAGE_KEYS.LOG_ALLERGIES, today));
+    if (allergyLog) {
+      const symptomList = allergyLog.symptoms
+        .map((s) => s.replace(/_/g, ' '))
+        .join(',');
+      const medPart = allergyLog.medication_taken && allergyLog.medication_name
+        ? ` — took ${sanitizeForPrompt(allergyLog.medication_name, 100)}`
+        : allergyLog.medication_taken ? ' — took medication' : '';
+      conditionalSections.push(
+        `[ALLERGIES] ${allergyLog.severity}${symptomList ? ` — ${symptomList}` : ''}${medPart}`,
+      );
+    }
+
+    if (messageMatchesKeywords(userMessage, ALLERGY_KEYWORDS)) {
+      const allergyProfile = await storageGet<string[]>(STORAGE_KEYS.PROFILE_ALLERGIES);
+      if (allergyProfile && allergyProfile.length > 0) {
+        const sanitized = allergyProfile.map((a) => sanitizeForPrompt(a, 50)).join(',');
+        conditionalSections.push(`[ALLERGY PROFILE] ${sanitized}`);
+      }
+    }
+  }
 
   // P2-05: Active milestone for coach context
   const activeMilestone = await getActiveMilestone(consistencyData);

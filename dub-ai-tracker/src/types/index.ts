@@ -539,6 +539,83 @@ export interface BodyweightRepEntry {
   notes: string | null;
 }
 
+// -- DOCTOR VISITS --
+
+export type DoctorVisitType =
+  | 'general_physical'
+  | 'psychiatrist'
+  | 'therapist'
+  | 'dentist'
+  | 'dermatologist'
+  | 'optometrist'
+  | 'ob_gyn'
+  | 'urgent_care'
+  | 'specialist';
+
+export const DOCTOR_VISIT_TYPES: { type: DoctorVisitType; label: string; icon: string; color: string }[] = [
+  { type: 'general_physical', label: 'General / Physical', icon: 'medkit-outline', color: '#4CAF50' },
+  { type: 'psychiatrist', label: 'Psychiatrist', icon: 'brain-outline', color: '#7E57C2' },
+  { type: 'therapist', label: 'Therapist', icon: 'chatbubbles-outline', color: '#42A5F5' },
+  { type: 'dentist', label: 'Dentist', icon: 'happy-outline', color: '#26C6DA' },
+  { type: 'dermatologist', label: 'Dermatologist', icon: 'hand-left-outline', color: '#FF7043' },
+  { type: 'optometrist', label: 'Optometrist', icon: 'eye-outline', color: '#5C6BC0' },
+  { type: 'ob_gyn', label: 'OB-GYN', icon: 'flower-outline', color: '#EC407A' },
+  { type: 'urgent_care', label: 'Urgent Care / Sick Visit', icon: 'alert-circle-outline', color: '#EF5350' },
+  { type: 'specialist', label: 'Specialist', icon: 'person-outline', color: '#FFA726' },
+];
+
+export interface DoctorVisitEntry {
+  id: string;
+  timestamp: string; // ISO datetime (when entry was created)
+  visit_type: DoctorVisitType;
+  visit_date: string; // ISO date (YYYY-MM-DD)
+  doctor_name: string | null;
+  location: string | null;
+  notes: string | null; // max 500 chars
+  follow_up_date: string | null; // ISO date (YYYY-MM-DD)
+  specialist_type: string | null; // free-text, only when visit_type === 'specialist'
+}
+
+// -- ALLERGY TRACKING --
+
+export type AllergySeverity = 'none' | 'mild' | 'moderate' | 'severe';
+
+export const ALLERGY_SEVERITY_OPTIONS: { value: AllergySeverity; label: string; color: string }[] = [
+  { value: 'none', label: 'None', color: '#4CAF50' },
+  { value: 'mild', label: 'Mild', color: '#D4A843' },
+  { value: 'moderate', label: 'Moderate', color: '#FF9800' },
+  { value: 'severe', label: 'Severe', color: '#EF5350' },
+];
+
+export type AllergySymptom =
+  | 'congestion'
+  | 'sneezing'
+  | 'itchy_eyes'
+  | 'headache'
+  | 'fatigue'
+  | 'skin_reaction'
+  | 'breathing_difficulty';
+
+export const ALLERGY_SYMPTOM_OPTIONS: { value: AllergySymptom; label: string }[] = [
+  { value: 'congestion', label: 'Congestion' },
+  { value: 'sneezing', label: 'Sneezing' },
+  { value: 'itchy_eyes', label: 'Itchy Eyes' },
+  { value: 'headache', label: 'Headache' },
+  { value: 'fatigue', label: 'Fatigue' },
+  { value: 'skin_reaction', label: 'Skin Reaction' },
+  { value: 'breathing_difficulty', label: 'Breathing Difficulty' },
+];
+
+export interface AllergyLogEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  severity: AllergySeverity;
+  symptoms: AllergySymptom[];
+  medication_taken: boolean;
+  medication_name: string | null; // free-text, e.g. "Zyrtec, Flonase"
+  notes: string | null;
+}
+
 // -- FASTING --
 
 export type FastingProtocol = '16:8' | '18:6' | '20:4' | 'custom';
