@@ -51,9 +51,16 @@ import type {
   BodyweightRepEntry,
   DoctorVisitEntry,
   AllergyLogEntry,
+  MeditationEntry,
+  SocialConnectionEntry,
+  SunlightEntry,
+  MobilityEntry,
+  JournalEntry,
 } from '../types';
-import { DOCTOR_VISIT_TYPES } from '../types';
+import { DOCTOR_VISIT_TYPES, MOBILITY_TYPES } from '../types';
+import { calculateSleepAdherence } from '../utils/sleepAdherence';
 import { todayDateString } from '../utils/dayBoundary';
+import { getCachedCompliance, getComplianceTrend } from '../services/complianceEngine';
 
 
 function pastDateString(daysAgo: number): string {
@@ -84,6 +91,12 @@ const HABIT_KEYWORDS = ['habit', 'routine', 'checklist', 'daily', 'brush', 'flos
 const REP_KEYWORDS = ['rep', 'reps', 'pushup', 'push-up', 'pullup', 'pull-up', 'situp', 'sit-up', 'jumping jack', 'squat', 'bodyweight', 'calisthenics'];
 const DOCTOR_KEYWORDS = ['doctor', 'appointment', 'visit', 'follow-up', 'followup', 'checkup', 'dentist', 'physical', 'specialist', 'psychiatrist', 'optometrist', 'dermatologist'];
 const ALLERGY_KEYWORDS = ['allergy', 'allergies', 'allergen', 'pollen', 'congestion', 'sneezing', 'antihistamine', 'zyrtec', 'flonase', 'claritin'];
+const MEDITATION_KEYWORDS = ['meditat', 'mindful', 'breathwork', 'breathing', 'calm', 'body scan', 'loving-kindness'];
+const SOCIAL_KEYWORDS = ['social', 'connection', 'friend', 'family', 'lonely', 'isolation', 'community', 'relationship'];
+const SUNLIGHT_KEYWORDS = ['sunlight', 'outdoor', 'outside', 'nature', 'sun', 'vitamin d', 'fresh air'];
+const MOBILITY_KEYWORDS = ['stretch', 'mobility', 'foam roll', 'yoga', 'flexibility', 'sauna', 'ice bath', 'recovery', 'massage'];
+const JOURNAL_KEYWORDS = ['journal', 'writing', 'diary', 'reflect', 'reflection'];
+const SLEEP_SCHEDULE_KEYWORDS = ['sleep schedule', 'bedtime', 'wake time', 'sleep routine', 'sleep adherence'];
 
 function messageMatchesKeywords(message: string, keywords: string[]): boolean {
   const lower = message.toLowerCase();
@@ -107,7 +120,7 @@ function sanitizeForPrompt(input: string, maxLength: number = 100): string {
   return clean.trim();
 }
 
-// Therapy note firewall: throws if therapy content leaks into context
+// Therapy & privacy firewall: throws if therapy content or private journal text leaks into context
 function assertNoTherapyContent(contextString: string): void {
   // Check for therapy storage key patterns beyond boolean
   const therapyPatterns = [
@@ -119,6 +132,11 @@ function assertNoTherapyContent(contextString: string): void {
     if (contextString.includes(pattern)) {
       throw new Error(`THERAPY FIREWALL: therapy content "${pattern}" detected in Coach context`);
     }
+  }
+  // Sprint 19: Private journal entries must never appear in context
+  // (We only include "[JOURNAL] N entry today" for non-private entries, never text content)
+  if (contextString.includes('"private":true') && contextString.includes('dub.log.journal')) {
+    throw new Error('JOURNAL FIREWALL: private journal content detected in Coach context');
   }
 }
 
@@ -231,6 +249,32 @@ export async function buildCoachContext(userMessage: string): Promise<{
 
   // Conditional sections
   const conditionalSections: string[] = [];
+
+  // Sprint 18: Always include today's compliance score
+  {
+    const todayCompliance = await getCachedCompliance(today);
+    if (todayCompliance.total > 0) {
+      const missed = todayCompliance.items
+        .filter((i) => !i.completed)
+        .map((i) => i.label.split(' ')[0]) // Short form: first word of label
+        .join(', ');
+      conditionalSections.push(
+        `[COMPLIANCE ${today}] ${todayCompliance.percentage.toFixed(0)}% (${todayCompliance.completed}/${todayCompliance.total})${missed ? ` missed: ${missed}` : ''}`,
+      );
+
+      // 7-day average + trend
+      const trend = await getComplianceTrend();
+      if (trend.current7dAvg > 0) {
+        conditionalSections.push(
+          `[COMPLIANCE 7d avg] ${trend.current7dAvg.toFixed(0)}%`,
+        );
+        const sign = trend.delta >= 0 ? '+' : '';
+        conditionalSections.push(
+          `[COMPLIANCE TREND] ${trend.trend} (${sign}${trend.delta.toFixed(0)}% vs prior 7d)`,
+        );
+      }
+    }
+  }
 
   // Always compute 7-day weight average (P1 redesign: weight context is always-include)
   const weightRolling = await compute7DayRolling(today);
@@ -592,6 +636,122 @@ export async function buildCoachContext(userMessage: string): Promise<{
       if (allergyProfile && allergyProfile.length > 0) {
         const sanitized = allergyProfile.map((a) => sanitizeForPrompt(a, 50)).join(',');
         conditionalSections.push(`[ALLERGY PROFILE] ${sanitized}`);
+      }
+    }
+  }
+
+  // Sprint 19: Meditation context
+  {
+    const medEntries = await storageGet<MeditationEntry[]>(dateKey(STORAGE_KEYS.LOG_MEDITATION, today));
+    if (medEntries && medEntries.length > 0) {
+      const totalMin = medEntries.reduce((s, e) => s + e.duration_minutes, 0);
+      const types = [...new Set(medEntries.map((e) => e.type === 'custom' && e.custom_type ? sanitizeForPrompt(e.custom_type, 30) : e.type))];
+      // Calculate streak
+      let streak = 0;
+      for (let i = 0; i < 30; i++) {
+        const date = pastDateString(i);
+        const dayData = i === 0 ? medEntries : await storageGet<MeditationEntry[]>(dateKey(STORAGE_KEYS.LOG_MEDITATION, date));
+        if (dayData && (Array.isArray(dayData) ? dayData.length > 0 : true)) {
+          streak++;
+        } else {
+          break;
+        }
+      }
+      conditionalSections.push(
+        `[MEDITATION ${today}] ${totalMin}min ${types.join(',')}${streak > 1 ? `, streak:${streak}d` : ''}`,
+      );
+    }
+  }
+
+  // Sprint 19: Social connection context (7-day window)
+  if (messageMatchesKeywords(userMessage, SOCIAL_KEYWORDS)) {
+    let totalConnections = 0;
+    let qualitySum = 0;
+    for (let i = 0; i < 7; i++) {
+      const date = pastDateString(i);
+      const dayData = await storageGet<SocialConnectionEntry[]>(dateKey(STORAGE_KEYS.LOG_SOCIAL, date));
+      if (dayData && dayData.length > 0) {
+        totalConnections += dayData.length;
+        qualitySum += dayData.reduce((s, e) => s + e.quality, 0);
+      }
+    }
+    if (totalConnections > 0) {
+      const avgQuality = (qualitySum / totalConnections).toFixed(1);
+      conditionalSections.push(
+        `[SOCIAL 7d] ${totalConnections} connections, avg quality:${avgQuality}`,
+      );
+    }
+  }
+
+  // Sprint 19: Sunlight context
+  {
+    const sunEntries = await storageGet<SunlightEntry[]>(dateKey(STORAGE_KEYS.LOG_SUNLIGHT, today));
+    if (sunEntries && sunEntries.length > 0) {
+      const totalMin = sunEntries.reduce((s, e) => s + e.duration_minutes, 0);
+      const hasNature = sunEntries.some((e) => e.nature);
+      conditionalSections.push(
+        `[SUNLIGHT ${today}] ${totalMin}min outdoors (nature:${hasNature ? 'yes' : 'no'})`,
+      );
+    }
+  }
+
+  // Sprint 19: Mobility context (7-day window)
+  if (messageMatchesKeywords(userMessage, MOBILITY_KEYWORDS)) {
+    let totalSessions = 0;
+    let totalMin = 0;
+    const allTypes = new Set<string>();
+    for (let i = 0; i < 7; i++) {
+      const date = pastDateString(i);
+      const dayData = await storageGet<MobilityEntry[]>(dateKey(STORAGE_KEYS.LOG_MOBILITY, date));
+      if (dayData && dayData.length > 0) {
+        totalSessions += dayData.length;
+        totalMin += dayData.reduce((s, e) => s + e.duration_minutes, 0);
+        for (const e of dayData) {
+          const label = e.type === 'custom' && e.custom_type
+            ? sanitizeForPrompt(e.custom_type, 30)
+            : (MOBILITY_TYPES.find((t) => t.value === e.type)?.label ?? e.type);
+          allTypes.add(label.toLowerCase());
+        }
+      }
+    }
+    if (totalSessions > 0) {
+      conditionalSections.push(
+        `[MOBILITY 7d] ${totalSessions} sessions, ${totalMin}min total (${[...allTypes].join(',')})`,
+      );
+    }
+  }
+
+  // Sprint 19: Journal context — ONLY non-private entries, firewalled
+  {
+    const journalEntries = await storageGet<JournalEntry[]>(dateKey(STORAGE_KEYS.LOG_JOURNAL, today));
+    if (journalEntries && journalEntries.length > 0) {
+      // Only mention that journaling happened — never include content
+      // Private entries: completely invisible to Coach
+      const nonPrivateCount = journalEntries.filter((e) => !e.private).length;
+      const privateCount = journalEntries.filter((e) => e.private).length;
+      if (nonPrivateCount > 0) {
+        conditionalSections.push(
+          `[JOURNAL] ${nonPrivateCount} entry today (content NOT included in context)`,
+        );
+      }
+      // Private entries are NEVER mentioned — same firewall as therapy notes
+    }
+  }
+
+  // Sprint 19: Sleep schedule adherence
+  {
+    if (sleepEntry?.bedtime || sleepEntry?.wake_time) {
+      const adh = await calculateSleepAdherence(sleepEntry?.bedtime ?? null, sleepEntry?.wake_time ?? null);
+      if (adh) {
+        const bedPart = adh.bedtimeAdherence
+          ? `bedtime:${adh.bedtimeAdherence.diffMinutes > 0 ? '+' : ''}${adh.bedtimeAdherence.diffMinutes}min(${adh.bedtimeAdherence.label})`
+          : '';
+        const wakePart = adh.wakeAdherence
+          ? `wake:${adh.wakeAdherence.diffMinutes > 0 ? '+' : ''}${adh.wakeAdherence.diffMinutes}min(${adh.wakeAdherence.label})`
+          : '';
+        conditionalSections.push(
+          `[SLEEP SCHEDULE] ${[bedPart, wakePart].filter(Boolean).join(' ')}`,
+        );
       }
     }
   }

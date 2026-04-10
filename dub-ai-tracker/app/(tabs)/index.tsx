@@ -32,6 +32,7 @@ import { MissedDayCard } from '../../src/components/dashboard/MissedDayCard';
 import { CoachDubBadge } from '../../src/components/dashboard/CoachDubBadge';
 import { StreakBadge } from '../../src/components/dashboard/StreakBadge';
 import { DoctorFollowUpCard } from '../../src/components/dashboard/DoctorFollowUpCard';
+import { ComplianceCard } from '../../src/components/dashboard/ComplianceCard';
 import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import type { DeferredSetupKey } from '../../src/hooks/useDeferredSetup';
 
@@ -262,6 +263,9 @@ export default function DashboardScreen() {
 
       {/* Sprint 15: Streak Badge */}
       <StreakBadge />
+
+      {/* Sprint 18: Daily Compliance Scorecard */}
+      <ComplianceCard />
 
       {/* Deferred Setup Card (one at a time, Days 1-4) */}
       {activeCard && (

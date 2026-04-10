@@ -377,6 +377,13 @@ export default function SettingsScreen() {
           route: '/settings/tags',
         },
         {
+          id: 'daily-goals',
+          icon: 'checkbox-outline',
+          label: 'Daily Goals',
+          subtitle: 'Define your compliance scorecard',
+          route: '/settings/daily-goals',
+        },
+        {
           id: 'devices',
           icon: 'watch-outline',
           label: 'Devices',

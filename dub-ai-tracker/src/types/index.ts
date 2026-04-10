@@ -153,11 +153,136 @@ export interface GratitudeEntry {
   items: string[]; // 1-3 items
 }
 
+export type MeditationType =
+  | 'guided'
+  | 'unguided'
+  | 'box_breathing'
+  | 'body_scan'
+  | 'loving_kindness'
+  | 'custom';
+
 export interface MeditationEntry {
+  id: string;
   duration_minutes: number;
-  type: 'guided' | 'unguided' | 'breathing' | 'body_scan';
+  type: MeditationType;
+  custom_type: string | null; // free-text when type === 'custom'
   timestamp: string; // ISO datetime
+  notes: string | null; // max 300 chars
+}
+
+// -- SOCIAL CONNECTION --
+
+export type SocialConnectionType = 'in_person' | 'phone_call' | 'video_call' | 'group_activity';
+
+export const SOCIAL_CONNECTION_TYPES: { value: SocialConnectionType; label: string; icon: string }[] = [
+  { value: 'in_person', label: 'In Person', icon: 'people-outline' },
+  { value: 'phone_call', label: 'Phone Call', icon: 'call-outline' },
+  { value: 'video_call', label: 'Video Call', icon: 'videocam-outline' },
+  { value: 'group_activity', label: 'Group Activity', icon: 'people-circle-outline' },
+];
+
+export interface SocialConnectionEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  type: SocialConnectionType;
+  who: string | null; // first name only, privacy
+  duration_minutes: number;
+  quality: number; // 1-5 (drained to energized)
   notes: string | null;
+}
+
+// -- SUNLIGHT / OUTDOORS --
+
+export type SunlightActivityType =
+  | 'walk'
+  | 'hike'
+  | 'yard_work'
+  | 'outdoor_exercise'
+  | 'just_outside'
+  | 'custom';
+
+export const SUNLIGHT_ACTIVITY_TYPES: { value: SunlightActivityType; label: string; icon: string }[] = [
+  { value: 'walk', label: 'Walk', icon: 'walk-outline' },
+  { value: 'hike', label: 'Hike', icon: 'trail-sign-outline' },
+  { value: 'yard_work', label: 'Yard Work', icon: 'flower-outline' },
+  { value: 'outdoor_exercise', label: 'Outdoor Exercise', icon: 'fitness-outline' },
+  { value: 'just_outside', label: 'Just Outside', icon: 'sunny-outline' },
+  { value: 'custom', label: 'Custom', icon: 'create-outline' },
+];
+
+export interface SunlightEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  duration_minutes: number;
+  type: SunlightActivityType;
+  custom_type: string | null; // free-text when type === 'custom'
+  nature: boolean; // park, trail, beach vs. parking lot, city sidewalk
+}
+
+// -- STRETCHING / MOBILITY --
+
+export type MobilityType =
+  | 'stretching'
+  | 'foam_rolling'
+  | 'yoga'
+  | 'massage'
+  | 'ice_bath'
+  | 'sauna'
+  | 'cold_shower'
+  | 'custom';
+
+export const MOBILITY_TYPES: { value: MobilityType; label: string; icon: string }[] = [
+  { value: 'stretching', label: 'Stretching', icon: 'body-outline' },
+  { value: 'foam_rolling', label: 'Foam Rolling', icon: 'ellipse-outline' },
+  { value: 'yoga', label: 'Yoga', icon: 'leaf-outline' },
+  { value: 'massage', label: 'Massage', icon: 'hand-left-outline' },
+  { value: 'ice_bath', label: 'Ice Bath', icon: 'snow-outline' },
+  { value: 'sauna', label: 'Sauna', icon: 'flame-outline' },
+  { value: 'cold_shower', label: 'Cold Shower', icon: 'water-outline' },
+  { value: 'custom', label: 'Custom', icon: 'create-outline' },
+];
+
+export type MobilityFocusArea =
+  | 'upper_body'
+  | 'lower_body'
+  | 'back'
+  | 'neck'
+  | 'hips'
+  | 'full_body';
+
+export const MOBILITY_FOCUS_AREAS: { value: MobilityFocusArea; label: string }[] = [
+  { value: 'upper_body', label: 'Upper Body' },
+  { value: 'lower_body', label: 'Lower Body' },
+  { value: 'back', label: 'Back' },
+  { value: 'neck', label: 'Neck' },
+  { value: 'hips', label: 'Hips' },
+  { value: 'full_body', label: 'Full Body' },
+];
+
+export interface MobilityEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  type: MobilityType;
+  custom_type: string | null; // free-text when type === 'custom'
+  duration_minutes: number;
+  focus_areas: MobilityFocusArea[];
+}
+
+// -- JOURNAL --
+
+export interface JournalEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  text: string; // max 2000 chars
+  mood_score: number | null; // 1-5, same scale as MoodEntry
+  private: boolean; // default true — private entries excluded from Coach context and data export
+}
+
+// -- SLEEP SCHEDULE --
+
+export interface SleepScheduleSettings {
+  target_bedtime: string | null; // HH:MM 24-hour format, e.g. "22:30"
+  target_wake_time: string | null; // HH:MM 24-hour format, e.g. "06:00"
 }
 
 export type StressTrigger = 'work' | 'relationships' | 'health' | 'finance' | 'family' | 'other';
@@ -614,6 +739,80 @@ export interface AllergyLogEntry {
   medication_taken: boolean;
   medication_name: string | null; // free-text, e.g. "Zyrtec, Flonase"
   notes: string | null;
+}
+
+// -- DAILY COMPLIANCE --
+
+export type DailyGoalId =
+  | 'log_food'
+  | 'hit_calorie_target'
+  | 'hit_protein_target'
+  | 'log_water'
+  | 'exercise'
+  | 'pushups'
+  | 'pullups'
+  | 'situps'
+  | 'log_weight'
+  | 'log_sleep'
+  | 'take_supplements'
+  | 'complete_habits'
+  | 'log_allergy_status'
+  | 'steps_goal'
+  | 'meditate'
+  | 'social_connection'
+  | 'sunlight'
+  | 'mobility'
+  | 'journal'
+  | 'sleep_adherence';
+
+export interface DailyGoalDefinition {
+  id: DailyGoalId;
+  label: string;
+  icon: string;
+}
+
+export const ALL_DAILY_GOALS: DailyGoalDefinition[] = [
+  { id: 'log_food', label: 'Log food (at least 1 entry)', icon: 'restaurant-outline' },
+  { id: 'hit_calorie_target', label: 'Hit calorie target (within 10%)', icon: 'flame-outline' },
+  { id: 'hit_protein_target', label: 'Hit protein target (within 10%)', icon: 'barbell-outline' },
+  { id: 'log_water', label: 'Log water (hit daily goal)', icon: 'water-outline' },
+  { id: 'exercise', label: 'Exercise (at least 1 session)', icon: 'bicycle-outline' },
+  { id: 'pushups', label: 'Push-ups (any reps logged)', icon: 'body-outline' },
+  { id: 'pullups', label: 'Pull-ups (any reps logged)', icon: 'arrow-up-outline' },
+  { id: 'situps', label: 'Sit-ups (any reps logged)', icon: 'fitness-outline' },
+  { id: 'log_weight', label: 'Log weight', icon: 'scale-outline' },
+  { id: 'log_sleep', label: 'Log sleep', icon: 'moon-outline' },
+  { id: 'take_supplements', label: 'Take supplements (all scheduled doses)', icon: 'medkit-outline' },
+  { id: 'complete_habits', label: 'Complete daily habits (all checked)', icon: 'checkbox-outline' },
+  { id: 'log_allergy_status', label: 'Log allergy status', icon: 'leaf-outline' },
+  { id: 'steps_goal', label: 'Steps goal (hit HealthKit step target)', icon: 'footsteps-outline' },
+  { id: 'meditate', label: 'Meditate (at least 1 session)', icon: 'leaf-outline' },
+  { id: 'social_connection', label: 'Social connection (at least 1 entry)', icon: 'people-outline' },
+  { id: 'sunlight', label: 'Sunlight (at least 15 min outdoors)', icon: 'sunny-outline' },
+  { id: 'mobility', label: 'Stretch / mobility (at least 1 session)', icon: 'body-outline' },
+  { id: 'journal', label: 'Journal (at least 1 entry)', icon: 'book-outline' },
+  { id: 'sleep_adherence', label: 'Sleep schedule adherence (75%+)', icon: 'alarm-outline' },
+];
+
+export const DEFAULT_DAILY_GOALS: DailyGoalId[] = [
+  'log_food',
+  'log_water',
+  'exercise',
+  'complete_habits',
+];
+
+export interface ComplianceItem {
+  id: DailyGoalId;
+  label: string;
+  completed: boolean;
+  detail?: string;
+}
+
+export interface ComplianceResult {
+  completed: number;
+  total: number;
+  percentage: number;
+  items: ComplianceItem[];
 }
 
 // -- FASTING --

@@ -113,8 +113,17 @@ const CATEGORY_SECTIONS: CategorySection[] = [
       { label: 'Mood', icon: 'happy-outline', route: '/log/mood', storageKey: STORAGE_KEYS.LOG_MOOD, searchTerms: 'mood feeling emotion mental' },
       { label: 'Stress', icon: 'pulse-outline', route: '/log/stress', searchTerms: 'stress anxiety tension' },
       { label: 'Gratitude', icon: 'heart-outline', route: '/log/gratitude', searchTerms: 'gratitude thankful journal' },
-      { label: 'Meditation', icon: 'leaf-outline', route: '/log/meditation', searchTerms: 'meditation mindfulness breathe calm' },
+      { label: 'Meditation', icon: 'leaf-outline', route: '/log/meditation', storageKey: STORAGE_KEYS.LOG_MEDITATION, searchTerms: 'meditation mindfulness breathe calm breathwork box breathing body scan' },
+      { label: 'Journal', icon: 'book-outline', route: '/log/journal', storageKey: STORAGE_KEYS.LOG_JOURNAL, searchTerms: 'journal writing diary free-form' },
       { label: 'Therapy', icon: 'chatbubbles-outline', route: '/log/therapy', searchTerms: 'therapy counseling therapist session' },
+    ],
+  },
+  {
+    title: 'WELLNESS',
+    items: [
+      { label: 'Social Connection', icon: 'people-outline', route: '/log/social', storageKey: STORAGE_KEYS.LOG_SOCIAL, searchTerms: 'social connection friends family phone call video group' },
+      { label: 'Sunlight / Outdoors', icon: 'sunny-outline', route: '/log/sunlight', storageKey: STORAGE_KEYS.LOG_SUNLIGHT, searchTerms: 'sunlight outdoors nature walk hike sun vitamin d' },
+      { label: 'Stretching / Mobility', icon: 'body-outline', route: '/log/mobility', storageKey: STORAGE_KEYS.LOG_MOBILITY, searchTerms: 'stretching mobility foam roll yoga massage ice bath sauna recovery' },
     ],
   },
   {
@@ -283,6 +292,43 @@ export default function LogScreen() {
         label: allergyLog.severity.charAt(0).toUpperCase() + allergyLog.severity.slice(1),
         time: new Date(allergyLog.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       };
+    }
+
+    // Sprint 19: Load meditation (now array)
+    const medEntries = await storageGet<{ duration_minutes: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_MEDITATION, dateStr));
+    if (Array.isArray(medEntries) && medEntries.length > 0) {
+      const totalMin = medEntries.reduce((s, m) => s + m.duration_minutes, 0);
+      entries['/log/meditation'] = { label: `${totalMin} min total`, time: `${medEntries.length} session${medEntries.length > 1 ? 's' : ''}` };
+    }
+
+    // Sprint 19: Load social connections
+    const socialEntries = await storageGet<{ type: string; who: string | null; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_SOCIAL, dateStr));
+    if (socialEntries?.length) {
+      const last = socialEntries[socialEntries.length - 1];
+      entries['/log/social'] = {
+        label: last.type.replace(/_/g, ' ') + (last.who ? ` with ${last.who}` : ''),
+        time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+      };
+    }
+
+    // Sprint 19: Load sunlight
+    const sunEntries = await storageGet<{ duration_minutes: number; nature: boolean; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_SUNLIGHT, dateStr));
+    if (sunEntries?.length) {
+      const totalMin = sunEntries.reduce((s, e) => s + e.duration_minutes, 0);
+      entries['/log/sunlight'] = { label: `${totalMin} min outdoors`, time: '' };
+    }
+
+    // Sprint 19: Load mobility
+    const mobEntries = await storageGet<{ type: string; duration_minutes: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_MOBILITY, dateStr));
+    if (mobEntries?.length) {
+      const totalMin = mobEntries.reduce((s, e) => s + e.duration_minutes, 0);
+      entries['/log/mobility'] = { label: `${totalMin} min`, time: `${mobEntries.length} session${mobEntries.length > 1 ? 's' : ''}` };
+    }
+
+    // Sprint 19: Load journal
+    const journalEntries = await storageGet<{ text: string; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_JOURNAL, dateStr));
+    if (journalEntries?.length) {
+      entries['/log/journal'] = { label: `${journalEntries.length} entr${journalEntries.length > 1 ? 'ies' : 'y'}`, time: '' };
     }
 
     setLastEntries(entries);

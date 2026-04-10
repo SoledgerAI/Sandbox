@@ -4,8 +4,8 @@
 // NEVER from raw dub.log.* keys per Chart Performance Strategy.
 
 import { useState, useEffect, useCallback } from 'react';
-import { storageGet, storageList, STORAGE_KEYS } from '../utils/storage';
-import type { DailySummary, WeeklySummary } from '../types';
+import { storageGet, storageList, dateKey, STORAGE_KEYS } from '../utils/storage';
+import type { DailySummary, WeeklySummary, ComplianceResult } from '../types';
 import type { TimeRange, ChartDataPoint } from '../components/charts/types';
 
 // Monthly summary mirrors weekly but at month granularity
@@ -46,6 +46,7 @@ export interface TrendDataSet {
   workoutCount: ChartDataPoint[];
   glucose: ChartDataPoint[];
   bpSystolic: ChartDataPoint[];
+  compliance: ChartDataPoint[];
   // Year-over-year data (same fields, last year's period)
   yoyCalories: ChartDataPoint[];
   yoyWeight: ChartDataPoint[];
@@ -58,7 +59,7 @@ const EMPTY_DATASET: TrendDataSet = {
   calories: [], protein: [], carbs: [], fat: [],
   caloriesBurned: [], water: [], caffeine: [], steps: [],
   activeMinutes: [], sleepHours: [], sleepQuality: [],
-  mood: [], energy: [], anxiety: [], weight: [], recovery: [], workoutCount: [], glucose: [], bpSystolic: [],
+  mood: [], energy: [], anxiety: [], weight: [], recovery: [], workoutCount: [], glucose: [], bpSystolic: [], compliance: [],
   yoyCalories: [], yoyWeight: [], yoySleep: [], yoyMood: [],
   hasYoYData: false,
 };
@@ -173,6 +174,16 @@ async function loadDailyData(
       pushIfNotNull(result.recovery, dailyToChartPoint(summary, 'recovery_score'));
       pushIfNotNull(result.glucose, dailyToChartPoint(summary, 'glucose_avg_mg_dl'));
       pushIfNotNull(result.bpSystolic, dailyToChartPoint(summary, 'bp_systolic_avg'));
+
+      // Load compliance score for this date
+      const complianceData = await storageGet<ComplianceResult>(dateKey(STORAGE_KEYS.COMPLIANCE, date));
+      if (complianceData && complianceData.total > 0) {
+        result.compliance.push({
+          label: shortDate(date),
+          value: complianceData.percentage,
+          date,
+        });
+      }
     }
 
     // Collect YoY data

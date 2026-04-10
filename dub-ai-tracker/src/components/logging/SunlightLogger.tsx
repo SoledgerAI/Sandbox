@@ -1,5 +1,5 @@
-// Meditation & Breathwork logging — Sprint 19 expansion
-// Array storage, expanded types, quick-log presets, daily total, streak
+// Sunlight / Outdoors logging — Sprint 19
+// Duration, type, nature toggle, quick-log presets, daily total
 
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
+  Switch,
   Alert,
   KeyboardAvoidingView,
   Platform,
@@ -18,83 +19,37 @@ import { Colors } from '../../constants/colors';
 import {
   storageGet,
   storageSet,
-  storageAppend,
   STORAGE_KEYS,
   dateKey,
 } from '../../utils/storage';
-import type { MeditationEntry, MeditationType } from '../../types';
+import type { SunlightEntry, SunlightActivityType } from '../../types';
+import { SUNLIGHT_ACTIVITY_TYPES } from '../../types';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { getActiveDate } from '../../services/dateContextService';
-import { todayDateString } from '../../utils/dayBoundary';
 
-const MEDITATION_TYPES: { value: MeditationType; label: string; icon: string }[] = [
-  { value: 'guided', label: 'Guided', icon: 'headset-outline' },
-  { value: 'unguided', label: 'Unguided', icon: 'leaf-outline' },
-  { value: 'box_breathing', label: 'Box Breathing', icon: 'cloudy-outline' },
-  { value: 'body_scan', label: 'Body Scan', icon: 'body-outline' },
-  { value: 'loving_kindness', label: 'Loving-Kindness', icon: 'heart-outline' },
-  { value: 'custom', label: 'Custom', icon: 'create-outline' },
-];
+const QUICK_PRESETS = [15, 30, 60];
 
-const QUICK_PRESETS = [5, 10, 20];
+function generateId(): string {
+  return `sun_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
 
-interface MeditationLoggerProps {
+interface SunlightLoggerProps {
   onEntryLogged?: () => void;
 }
 
-function generateId(): string {
-  return `med_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-}
-
-export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
-  const [entries, setEntries] = useState<MeditationEntry[]>([]);
-  const [duration, setDuration] = useState('');
-  const [selectedType, setSelectedType] = useState<MeditationType>('guided');
+export function SunlightLogger({ onEntryLogged }: SunlightLoggerProps) {
+  const [entries, setEntries] = useState<SunlightEntry[]>([]);
+  const [selectedType, setSelectedType] = useState<SunlightActivityType>('walk');
   const [customType, setCustomType] = useState('');
-  const [notes, setNotes] = useState('');
+  const [duration, setDuration] = useState('');
+  const [nature, setNature] = useState(false);
   const [timestamp, setTimestamp] = useState(new Date());
-  const [streak, setStreak] = useState(0);
 
   const loadData = useCallback(async () => {
     const activeDate = getActiveDate();
-    const key = dateKey(STORAGE_KEYS.LOG_MEDITATION, activeDate);
-    const stored = await storageGet<MeditationEntry | MeditationEntry[]>(key);
-    // Migration: old format was single object, new is array
-    if (stored) {
-      if (Array.isArray(stored)) {
-        setEntries(stored);
-      } else {
-        // Migrate single entry to array
-        const migrated: MeditationEntry = {
-          ...stored,
-          id: (stored as any).id ?? generateId(),
-          custom_type: (stored as any).custom_type ?? null,
-        };
-        setEntries([migrated]);
-      }
-    } else {
-      setEntries([]);
-    }
-
-    // Calculate streak
-    let streakCount = 0;
-    const today = todayDateString();
-    for (let i = 0; i < 365; i++) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-      const dayKey = dateKey(STORAGE_KEYS.LOG_MEDITATION, dateStr);
-      const dayData = dateStr === activeDate ? stored : await storageGet<MeditationEntry | MeditationEntry[]>(dayKey);
-      const hasSession = dayData != null && (Array.isArray(dayData) ? dayData.length > 0 : true);
-      if (hasSession) {
-        streakCount++;
-      } else {
-        // Allow skipping today if it's the active date and nothing logged yet
-        if (i === 0 && dateStr === today) continue;
-        break;
-      }
-    }
-    setStreak(streakCount);
+    const key = dateKey(STORAGE_KEYS.LOG_SUNLIGHT, activeDate);
+    const stored = await storageGet<SunlightEntry[]>(key);
+    setEntries(stored ?? []);
   }, []);
 
   useEffect(() => {
@@ -102,37 +57,37 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
   }, [loadData]);
 
   const dailyTotal = entries.reduce((s, e) => s + e.duration_minutes, 0);
+  const hasNatureToday = entries.some((e) => e.nature);
 
-  const logMeditation = useCallback(async (presetMinutes?: number) => {
+  const logSunlight = useCallback(async (presetMinutes?: number) => {
     const dur = presetMinutes ?? parseInt(duration, 10);
-    if (isNaN(dur) || dur <= 0 || dur > 120) {
-      Alert.alert('Invalid Duration', 'Please enter 1-120 minutes.');
+    if (isNaN(dur) || dur < 1 || dur > 480) {
+      Alert.alert('Invalid Duration', 'Please enter 1-480 minutes.');
       return;
     }
 
-    const newEntry: MeditationEntry = {
+    const newEntry: SunlightEntry = {
       id: generateId(),
+      timestamp: timestamp.toISOString(),
       duration_minutes: dur,
       type: selectedType,
       custom_type: selectedType === 'custom' ? (customType.trim() || null) : null,
-      timestamp: timestamp.toISOString(),
-      notes: notes.trim().slice(0, 300) || null,
+      nature,
     };
 
     const activeDate = getActiveDate();
-    const key = dateKey(STORAGE_KEYS.LOG_MEDITATION, activeDate);
+    const key = dateKey(STORAGE_KEYS.LOG_SUNLIGHT, activeDate);
     const updated = [...entries, newEntry];
     await storageSet(key, updated);
     setEntries(updated);
     setDuration('');
-    setNotes('');
     setCustomType('');
     onEntryLogged?.();
-  }, [duration, selectedType, customType, notes, entries, onEntryLogged, timestamp]);
+  }, [duration, selectedType, customType, nature, entries, onEntryLogged, timestamp]);
 
   const deleteEntry = useCallback(async (id: string) => {
     const activeDate = getActiveDate();
-    const key = dateKey(STORAGE_KEYS.LOG_MEDITATION, activeDate);
+    const key = dateKey(STORAGE_KEYS.LOG_SUNLIGHT, activeDate);
     const updated = entries.filter((e) => e.id !== id);
     await storageSet(key, updated);
     setEntries(updated);
@@ -142,19 +97,17 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
 
-      {/* Daily Summary */}
-      {(entries.length > 0 || streak > 0) && (
+      {/* Daily summary */}
+      {entries.length > 0 && (
         <View style={styles.summaryBar}>
-          {entries.length > 0 && (
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryNumber}>{dailyTotal}</Text>
+            <Text style={styles.summaryUnit}>min outdoors</Text>
+          </View>
+          {hasNatureToday && (
             <View style={styles.summaryItem}>
-              <Text style={styles.summaryNumber}>{dailyTotal}</Text>
-              <Text style={styles.summaryUnit}>min today</Text>
-            </View>
-          )}
-          {streak > 0 && (
-            <View style={styles.summaryItem}>
-              <Text style={styles.summaryNumber}>{streak}</Text>
-              <Text style={styles.summaryUnit}>day streak</Text>
+              <Ionicons name="leaf" size={20} color="#4CAF50" />
+              <Text style={[styles.summaryUnit, { color: '#4CAF50' }]}>Nature day</Text>
             </View>
           )}
         </View>
@@ -167,10 +120,10 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
           <TouchableOpacity
             key={d}
             style={styles.quickPresetBtn}
-            onPress={() => logMeditation(d)}
+            onPress={() => logSunlight(d)}
             activeOpacity={0.7}
           >
-            <Ionicons name="leaf-outline" size={16} color={Colors.primaryBackground} />
+            <Ionicons name="sunny-outline" size={16} color={Colors.primaryBackground} />
             <Text style={styles.quickPresetText}>{d} min</Text>
           </TouchableOpacity>
         ))}
@@ -179,9 +132,9 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
       <TimestampPicker value={timestamp} onChange={setTimestamp} />
 
       {/* Type selector */}
-      <Text style={styles.sectionTitle}>Type</Text>
+      <Text style={styles.sectionTitle}>Activity Type</Text>
       <View style={styles.typeGrid}>
-        {MEDITATION_TYPES.map((t) => (
+        {SUNLIGHT_ACTIVITY_TYPES.map((t) => (
           <TouchableOpacity
             key={t.value}
             style={[styles.typeBtn, selectedType === t.value && styles.typeBtnActive]}
@@ -189,7 +142,7 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
           >
             <Ionicons
               name={t.icon as any}
-              size={22}
+              size={20}
               color={selectedType === t.value ? Colors.primaryBackground : Colors.secondaryText}
             />
             <Text style={[styles.typeLabel, selectedType === t.value && styles.typeLabelActive]}>
@@ -201,10 +154,10 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
 
       {selectedType === 'custom' && (
         <TextInput
-          style={styles.customTypeInput}
+          style={styles.input}
           value={customType}
           onChangeText={setCustomType}
-          placeholder="Custom type name"
+          placeholder="Custom activity name"
           placeholderTextColor={Colors.secondaryText}
           maxLength={50}
         />
@@ -212,66 +165,56 @@ export function MeditationLogger({ onEntryLogged }: MeditationLoggerProps) {
 
       {/* Duration */}
       <Text style={styles.sectionTitle}>Duration (minutes)</Text>
-      <View style={styles.durationRow}>
-        {[5, 10, 15, 20, 30, 45, 60].map((d) => (
-          <TouchableOpacity
-            key={d}
-            style={[styles.durationBtn, duration === String(d) && styles.durationBtnActive]}
-            onPress={() => setDuration(String(d))}
-          >
-            <Text style={[styles.durationText, duration === String(d) && styles.durationTextActive]}>
-              {d}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
       <TextInput
-        style={styles.customInput}
+        style={styles.input}
         value={duration}
         onChangeText={setDuration}
-        placeholder="Or enter custom minutes (1-120)"
+        placeholder="Enter minutes (1-480)"
         placeholderTextColor={Colors.secondaryText}
         keyboardType="number-pad"
       />
 
-      {/* Notes */}
-      <Text style={styles.sectionTitle}>Notes (optional, max 300 chars)</Text>
-      <TextInput
-        style={styles.notesInput}
-        value={notes}
-        onChangeText={(t) => setNotes(t.slice(0, 300))}
-        placeholder="How was your session?"
-        placeholderTextColor={Colors.secondaryText}
-        multiline
-        numberOfLines={3}
-        maxLength={300}
-      />
+      {/* Nature toggle */}
+      <View style={styles.natureRow}>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.natureTitle}>Natural Setting?</Text>
+          <Text style={styles.natureSubtitle}>Park, trail, beach vs. parking lot, sidewalk</Text>
+        </View>
+        <Switch
+          value={nature}
+          onValueChange={setNature}
+          trackColor={{ false: Colors.elevated, true: '#4CAF50' }}
+          thumbColor={nature ? '#FFFFFF' : Colors.secondaryText}
+        />
+      </View>
 
       {/* Log button */}
       <TouchableOpacity
         style={[styles.logBtn, !duration && styles.logBtnDisabled]}
-        onPress={() => logMeditation()}
+        onPress={() => logSunlight()}
         disabled={!duration}
         activeOpacity={0.7}
       >
         <Ionicons name="checkmark-circle" size={20} color={Colors.primaryBackground} />
-        <Text style={styles.logBtnText}>Log Meditation</Text>
+        <Text style={styles.logBtnText}>Log Sunlight</Text>
       </TouchableOpacity>
 
       {/* Today's entries */}
       {entries.length > 0 && (
         <>
-          <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Today's Sessions</Text>
+          <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Today's Outdoor Time</Text>
           {entries.map((e) => {
-            const typeLabel = MEDITATION_TYPES.find((t) => t.value === e.type)?.label ?? e.custom_type ?? e.type;
+            const typeLabel = SUNLIGHT_ACTIVITY_TYPES.find((t) => t.value === e.type)?.label ?? e.custom_type ?? e.type;
             return (
               <View key={e.id} style={styles.entryCard}>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.entryType}>{typeLabel} — {e.duration_minutes} min</Text>
+                  <Text style={styles.entryType}>
+                    {typeLabel} — {e.duration_minutes} min
+                    {e.nature ? ' \uD83C\uDF3F' : ''}
+                  </Text>
                   <Text style={styles.entryTime}>
                     {new Date(e.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}
                   </Text>
-                  {e.notes && <Text style={styles.entryNotes} numberOfLines={1}>{e.notes}</Text>}
                 </View>
                 <TouchableOpacity onPress={() => deleteEntry(e.id)} hitSlop={8}>
                   <Ionicons name="trash-outline" size={18} color={Colors.danger} />
@@ -300,9 +243,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     justifyContent: 'center',
   },
-  summaryItem: { alignItems: 'center' },
+  summaryItem: { alignItems: 'center', gap: 4 },
   summaryNumber: { color: Colors.accent, fontSize: 24, fontWeight: '700' },
-  summaryUnit: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
+  summaryUnit: { color: Colors.secondaryText, fontSize: 12 },
   sectionTitle: { color: Colors.text, fontSize: 16, fontWeight: '600', marginBottom: 10 },
   quickRow: { flexDirection: 'row', gap: 10, marginBottom: 20 },
   quickPresetBtn: {
@@ -322,15 +265,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: Colors.inputBackground,
     borderRadius: 12,
-    paddingVertical: 14,
-    gap: 6,
+    paddingVertical: 12,
+    gap: 4,
     borderWidth: 2,
     borderColor: 'transparent',
   },
   typeBtnActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
   typeLabel: { color: Colors.secondaryText, fontSize: 11, fontWeight: '500', textAlign: 'center' },
   typeLabelActive: { color: Colors.primaryBackground },
-  customTypeInput: {
+  input: {
     backgroundColor: Colors.inputBackground,
     borderRadius: 10,
     paddingHorizontal: 16,
@@ -339,46 +282,18 @@ const styles = StyleSheet.create({
     fontSize: 15,
     borderWidth: 1,
     borderColor: Colors.divider,
-    marginBottom: 16,
+    marginBottom: 20,
   },
-  durationRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 },
-  durationBtn: {
+  natureRow: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: Colors.inputBackground,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: Colors.divider,
-  },
-  durationBtnActive: { backgroundColor: Colors.accent, borderColor: Colors.accent },
-  durationText: { color: Colors.text, fontSize: 15, fontWeight: '600' },
-  durationTextActive: { color: Colors.primaryBackground },
-  customInput: {
-    backgroundColor: Colors.inputBackground,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: Colors.text,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: Colors.divider,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 14,
     marginBottom: 24,
   },
-  notesInput: {
-    backgroundColor: Colors.inputBackground,
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    color: Colors.text,
-    fontSize: 15,
-    borderWidth: 1,
-    borderColor: Colors.divider,
-    minHeight: 80,
-    textAlignVertical: 'top',
-    marginBottom: 24,
-  },
+  natureTitle: { color: Colors.text, fontSize: 15, fontWeight: '600' },
+  natureSubtitle: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
   logBtn: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -400,5 +315,4 @@ const styles = StyleSheet.create({
   },
   entryType: { color: Colors.text, fontSize: 14, fontWeight: '600' },
   entryTime: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
-  entryNotes: { color: Colors.secondaryText, fontSize: 12, marginTop: 2, fontStyle: 'italic' },
 });

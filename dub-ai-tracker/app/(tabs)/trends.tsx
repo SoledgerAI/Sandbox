@@ -207,6 +207,16 @@ const CHART_CONFIGS: ChartConfig[] = [
     unit: '/100',
   },
 
+  // Compliance
+  {
+    id: 'compliance',
+    title: 'Daily Compliance',
+    category: 'Compliance',
+    type: 'line',
+    dataKey: 'compliance',
+    unit: '%',
+  },
+
   // Mood (3-axis)
   {
     id: 'mood',
@@ -237,7 +247,7 @@ const CHART_CONFIGS: ChartConfig[] = [
 
 
 // MASTER-51: Category filter pills
-const CATEGORY_FILTERS = ['All', 'Nutrition', 'Hydration', 'Fitness', 'Body', 'Bloodwork', 'Sleep', 'Recovery', 'Mood', 'Substances'] as const;
+const CATEGORY_FILTERS = ['All', 'Nutrition', 'Hydration', 'Fitness', 'Body', 'Bloodwork', 'Sleep', 'Recovery', 'Compliance', 'Mood', 'Substances'] as const;
 type CategoryFilter = typeof CATEGORY_FILTERS[number];
 
 // MASTER-104: Extended tag-to-category mapping for all tag types
@@ -301,6 +311,10 @@ export default function TrendsScreen() {
     if (cats.size === 0 && (enabledTags ?? []).length > 0) {
       cats.add('Nutrition');
       cats.add('Hydration');
+    }
+    // Compliance is always available (not tied to a specific tag)
+    if (cats.size > 0) {
+      cats.add('Compliance');
     }
     return cats;
   }, [enabledTags]);

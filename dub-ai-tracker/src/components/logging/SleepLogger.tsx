@@ -28,6 +28,7 @@ import { RepeatLastEntry } from './RepeatLastEntry';
 import { DateTimePicker } from '../common/DateTimePicker';
 import { todayDateString } from '../../utils/dayBoundary';
 import { getActiveDate } from '../../services/dateContextService';
+import { calculateSleepAdherence } from '../../utils/sleepAdherence';
 
 
 const QUALITY_LABELS: Record<number, string> = {
@@ -45,6 +46,11 @@ interface SleepLoggerProps {
 export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
   const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<SleepEntry>('sleep.tracking');
   const [entry, setEntry] = useState<SleepEntry | null>(null);
+  const [adherence, setAdherence] = useState<{
+    overallScore: number;
+    bedtimeAdherence: { score: number; diffMinutes: number; label: string } | null;
+    wakeAdherence: { score: number; diffMinutes: number; label: string } | null;
+  } | null>(null);
 
   // Form state — DateTimePicker replaces manual HH:MM inputs
   const defaultBedtime = (() => { const d = new Date(); d.setDate(d.getDate() - 1); d.setHours(22, 0, 0, 0); return d; })();
@@ -65,6 +71,11 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
     const stored = await storageGet<SleepEntry>(key);
     if (stored) {
       setEntry(stored);
+      // Calculate adherence if schedule is set
+      if (stored.bedtime || stored.wake_time) {
+        const adh = await calculateSleepAdherence(stored.bedtime, stored.wake_time);
+        setAdherence(adh);
+      }
     }
   }, []);
 
@@ -214,6 +225,33 @@ export function SleepLogger({ onEntryLogged }: SleepLoggerProps) {
               <Text style={styles.summaryLabel}>Notes</Text>
               <Text style={[styles.summaryValue, { flex: 1 }]} numberOfLines={2}>{entry.notes}</Text>
             </View>
+          )}
+          {adherence && (
+            <>
+              <View style={{ height: 1, backgroundColor: Colors.divider, width: '100%', marginVertical: 10 }} />
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Schedule Adherence</Text>
+                <Text style={[styles.summaryValue, { color: adherence.overallScore >= 75 ? Colors.success : adherence.overallScore >= 50 ? Colors.warning : Colors.danger }]}>
+                  {adherence.overallScore}%
+                </Text>
+              </View>
+              {adherence.bedtimeAdherence && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Bedtime</Text>
+                  <Text style={styles.summaryValue}>
+                    {adherence.bedtimeAdherence.diffMinutes > 0 ? '+' : ''}{adherence.bedtimeAdherence.diffMinutes}min ({adherence.bedtimeAdherence.label})
+                  </Text>
+                </View>
+              )}
+              {adherence.wakeAdherence && (
+                <View style={styles.summaryRow}>
+                  <Text style={styles.summaryLabel}>Wake</Text>
+                  <Text style={styles.summaryValue}>
+                    {adherence.wakeAdherence.diffMinutes > 0 ? '+' : ''}{adherence.wakeAdherence.diffMinutes}min ({adherence.wakeAdherence.label})
+                  </Text>
+                </View>
+              )}
+            </>
           )}
         </View>
         <TouchableOpacity style={styles.deleteBtn} onPress={clearEntry}>
