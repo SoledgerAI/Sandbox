@@ -62,8 +62,8 @@ describe('Daily Goals Configuration', () => {
     expect(result).toHaveLength(3);
   });
 
-  it('ALL_DAILY_GOALS has 20 entries', () => {
-    expect(ALL_DAILY_GOALS).toHaveLength(20);
+  it('ALL_DAILY_GOALS has 22 entries', () => {
+    expect(ALL_DAILY_GOALS).toHaveLength(22);
   });
 
   it('DEFAULT_DAILY_GOALS has 4 entries', () => {

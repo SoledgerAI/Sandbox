@@ -356,6 +356,8 @@ describe('Coach Context — Wave 1-3 Data Sources', () => {
   it('glucose conditional section appears on glucose keywords', async () => {
     const today = new Date();
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    // Sprint 21: Must enable category for context to include it
+    await AsyncStorage.setItem('dub.settings.enabled_categories', JSON.stringify(['glucose']));
     await AsyncStorage.setItem(`dub.log.glucose.${dateStr}`, JSON.stringify([
       { reading_mg_dl: 110, timing: 'post_meal', timestamp: new Date().toISOString() },
     ]));
@@ -366,6 +368,8 @@ describe('Coach Context — Wave 1-3 Data Sources', () => {
   it('BP conditional section appears on bp keywords', async () => {
     const today = new Date();
     const dateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    // Sprint 21: Must enable category for context to include it
+    await AsyncStorage.setItem('dub.settings.enabled_categories', JSON.stringify(['blood_pressure']));
     await AsyncStorage.setItem(`dub.log.bp.${dateStr}`, JSON.stringify([
       { systolic: 130, diastolic: 85, pulse_bpm: 75, timestamp: new Date().toISOString() },
     ]));

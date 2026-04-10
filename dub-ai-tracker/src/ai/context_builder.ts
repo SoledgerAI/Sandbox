@@ -57,8 +57,14 @@ import type {
   MobilityEntry,
   JournalEntry,
 } from '../types';
+import type {
+  PerimenopauseEntry,
+  BreastfeedingEntry,
+  ElectInCategoryId,
+} from '../types';
 import { DOCTOR_VISIT_TYPES, MOBILITY_TYPES } from '../types';
 import { calculateSleepAdherence } from '../utils/sleepAdherence';
+import { getEnabledCategories } from '../utils/categoryElection';
 import { todayDateString } from '../utils/dayBoundary';
 import { getCachedCompliance, getComplianceTrend } from '../services/complianceEngine';
 
@@ -97,6 +103,9 @@ const SUNLIGHT_KEYWORDS = ['sunlight', 'outdoor', 'outside', 'nature', 'sun', 'v
 const MOBILITY_KEYWORDS = ['stretch', 'mobility', 'foam roll', 'yoga', 'flexibility', 'sauna', 'ice bath', 'recovery', 'massage'];
 const JOURNAL_KEYWORDS = ['journal', 'writing', 'diary', 'reflect', 'reflection'];
 const SLEEP_SCHEDULE_KEYWORDS = ['sleep schedule', 'bedtime', 'wake time', 'sleep routine', 'sleep adherence'];
+const RECIPE_KEYWORDS = ['recipe', 'recipes', 'cook', 'cooking', 'meal prep', 'meatloaf', 'batch', 'ingredient'];
+const PERIMENOPAUSE_KEYWORDS = ['perimenopause', 'menopause', 'hot flash', 'night sweat', 'brain fog', 'hormone'];
+const BREASTFEEDING_KEYWORDS = ['breastfeed', 'nursing', 'pumping', 'lactation', 'feeding', 'breast milk', 'bottle feed'];
 
 function messageMatchesKeywords(message: string, keywords: string[]): boolean {
   const lower = message.toLowerCase();
@@ -754,6 +763,150 @@ export async function buildCoachContext(userMessage: string): Promise<{
         );
       }
     }
+  }
+
+  // Sprint 20: Recipe awareness
+  {
+    // Show recipe entries logged today
+    const todayFoods = foods.filter((f) => f.source === 'recipe');
+    if (todayFoods.length > 0) {
+      for (const rf of todayFoods) {
+        const n = rf.computed_nutrition;
+        conditionalSections.push(
+          `[RECIPE ${today}] ${sanitizeForPrompt(rf.food_item.name, 80)}(${n?.calories ?? 0}cal,${Math.round(n?.protein_g ?? 0)}p,${Math.round(n?.carbs_g ?? 0)}c,${Math.round(n?.fat_g ?? 0)}f)`,
+        );
+      }
+    }
+
+    // Show recipe library summary when relevant
+    if (messageMatchesKeywords(userMessage, RECIPE_KEYWORDS)) {
+      const { getMyRecipes } = require('../utils/recipeLibrary');
+      const allRecipes = await getMyRecipes();
+      if (allRecipes.length > 0) {
+        const top3 = allRecipes
+          .filter((r: any) => r.timesLogged > 0)
+          .sort((a: any, b: any) => b.timesLogged - a.timesLogged)
+          .slice(0, 3)
+          .map((r: any) => `${sanitizeForPrompt(r.name, 40)}(${r.timesLogged}x)`)
+          .join(', ');
+        const topPart = top3 ? `, top: ${top3}` : '';
+        conditionalSections.push(`[RECIPES] ${allRecipes.length} saved${topPart}`);
+      }
+    }
+  }
+
+  // Sprint 21: Category-aware context — only include elect-in data if enabled
+  const enabledCats = await getEnabledCategories();
+  const isCatEnabled = (id: ElectInCategoryId) => enabledCats.includes(id);
+
+  // Sprint 21: Perimenopause context (only if enabled and logged)
+  if (isCatEnabled('perimenopause')) {
+    const periEntry = await storageGet<PerimenopauseEntry>(dateKey(STORAGE_KEYS.LOG_PERIMENOPAUSE, today));
+    if (periEntry) {
+      const sevLabel = (flashes: { severity: string }[]) => {
+        if (flashes.length === 0) return '';
+        const counts: Record<string, number> = {};
+        for (const f of flashes) counts[f.severity] = (counts[f.severity] ?? 0) + 1;
+        const dom = Object.entries(counts).sort((a, b) => b[1] - a[1])[0];
+        return `(${dom[0]})`;
+      };
+      const parts = [
+        `hot flashes:${periEntry.hot_flashes_count}${sevLabel(periEntry.hot_flashes)}`,
+        `night sweats:${periEntry.night_sweats ? `yes(${periEntry.night_sweats_severity})` : 'no'}`,
+        `brain fog:${periEntry.brain_fog}/5`,
+        `joint pain:${periEntry.joint_pain}/5${periEntry.joint_pain_areas.length > 0 ? `(${periEntry.joint_pain_areas.join(',')})` : ''}`,
+        `energy:${periEntry.energy_level}/5`,
+      ];
+      conditionalSections.push(`[PERIMENOPAUSE ${today}] ${parts.join(' ')}`);
+    }
+
+    // 7-day trend
+    if (messageMatchesKeywords(userMessage, PERIMENOPAUSE_KEYWORDS)) {
+      let totalFlashes = 0;
+      let daysWithData = 0;
+      for (let i = 0; i < 7; i++) {
+        const d = pastDateString(i);
+        const entry = await storageGet<PerimenopauseEntry>(dateKey(STORAGE_KEYS.LOG_PERIMENOPAUSE, d));
+        if (entry) {
+          totalFlashes += entry.hot_flashes_count;
+          daysWithData++;
+        }
+      }
+      if (daysWithData > 1) {
+        const avg = (totalFlashes / daysWithData).toFixed(1);
+        conditionalSections.push(`[PERIMENOPAUSE 7d] hot flash avg:${avg}/day, ${daysWithData} days logged`);
+      }
+    }
+  }
+
+  // Sprint 21: Breastfeeding context (only if enabled and logged)
+  if (isCatEnabled('breastfeeding')) {
+    const bfEntries = await storageGet<BreastfeedingEntry[]>(dateKey(STORAGE_KEYS.LOG_BREASTFEEDING, today));
+    if (bfEntries && bfEntries.length > 0) {
+      const totalMin = bfEntries.reduce((s, e) => s + e.duration_minutes, 0);
+      const pumpedOz = bfEntries
+        .filter((e) => e.type === 'pumping' && e.output_amount != null)
+        .reduce((s, e) => s + (e.output_amount ?? 0), 0);
+      const lastFeed = bfEntries[bfEntries.length - 1];
+      const hoursAgo = ((Date.now() - new Date(lastFeed.timestamp).getTime()) / 3600000).toFixed(1);
+      const parts = [
+        `${bfEntries.length} sessions`,
+        `${totalMin}min total`,
+        pumpedOz > 0 ? `pumped:${pumpedOz.toFixed(1)}oz` : null,
+        `last feed:${hoursAgo}h ago`,
+      ].filter(Boolean);
+      conditionalSections.push(`[BREASTFEEDING ${today}] ${parts.join(', ')}`);
+    }
+
+    // 7-day trend
+    if (messageMatchesKeywords(userMessage, BREASTFEEDING_KEYWORDS)) {
+      let totalSessions = 0;
+      let totalPumped = 0;
+      let daysWithData = 0;
+      for (let i = 0; i < 7; i++) {
+        const d = pastDateString(i);
+        const entries = await storageGet<BreastfeedingEntry[]>(dateKey(STORAGE_KEYS.LOG_BREASTFEEDING, d));
+        if (entries && entries.length > 0) {
+          totalSessions += entries.length;
+          totalPumped += entries
+            .filter((e) => e.type === 'pumping' && e.output_amount != null)
+            .reduce((s, e) => s + (e.output_amount ?? 0), 0);
+          daysWithData++;
+        }
+      }
+      if (daysWithData > 0) {
+        const avgSessions = (totalSessions / daysWithData).toFixed(0);
+        const avgPumped = (totalPumped / daysWithData).toFixed(1);
+        conditionalSections.push(
+          `[BREASTFEEDING 7d] avg ${avgSessions} sessions/day${totalPumped > 0 ? `, ${avgPumped}oz pumped/day` : ''}`,
+        );
+      }
+    }
+  }
+
+  // Sprint 21: Filter out elect-in category data from conditionalSections if category is disabled
+  // Blood pressure context (already conditional on BP_KEYWORDS, but now also gated on category)
+  if (!isCatEnabled('blood_pressure')) {
+    const bpIdx = conditionalSections.findIndex((s) => s.startsWith('[BP TODAY]'));
+    if (bpIdx >= 0) conditionalSections.splice(bpIdx, 1);
+  }
+  if (!isCatEnabled('glucose')) {
+    const gIdx = conditionalSections.findIndex((s) => s.startsWith('[GLUCOSE TODAY]'));
+    if (gIdx >= 0) conditionalSections.splice(gIdx, 1);
+  }
+  if (!isCatEnabled('bloodwork')) {
+    const bwIdx = conditionalSections.findIndex((s) => s.startsWith('[BLOODWORK'));
+    if (bwIdx >= 0) conditionalSections.splice(bwIdx, 1);
+  }
+  if (!isCatEnabled('allergies')) {
+    const aIdx = conditionalSections.findIndex((s) => s.startsWith('[ALLERGIES]'));
+    if (aIdx >= 0) conditionalSections.splice(aIdx, 1);
+    const apIdx = conditionalSections.findIndex((s) => s.startsWith('[ALLERGY PROFILE]'));
+    if (apIdx >= 0) conditionalSections.splice(apIdx, 1);
+  }
+  if (!isCatEnabled('cycle_tracking')) {
+    const cIdx = conditionalSections.findIndex((s) => s.startsWith('[CYCLE]'));
+    if (cIdx >= 0) conditionalSections.splice(cIdx, 1);
   }
 
   // P2-05: Active milestone for coach context

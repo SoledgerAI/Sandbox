@@ -132,7 +132,9 @@ export default function ProfileScreen() {
     {
       title: '',
       items: [
+        { id: 'categories', icon: 'grid-outline', label: 'My Categories', route: '/settings/categories' },
         { id: 'foods', icon: 'restaurant-outline', label: 'My Foods', route: '/settings/taste' },
+        { id: 'recipes', icon: 'book-outline', label: 'My Recipes', route: '/settings/recipes' },
         { id: 'supplements', icon: 'flask-outline', label: 'My Supplements', route: '/log/supplements' },
         { id: 'devices', icon: 'watch-outline', label: 'Devices', route: '/settings/devices' },
         { id: 'healthreport', icon: 'document-text-outline', label: 'Health Report', route: '/settings/healthreport' },

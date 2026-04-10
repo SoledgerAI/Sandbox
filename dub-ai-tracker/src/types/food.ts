@@ -138,3 +138,53 @@ export interface RecipeIngredient {
   quantity: number;
   computed_nutrition: NutritionInfo;
 }
+
+// Sprint 20: My Recipes — user-created recipe library
+
+export type RecipeUnit =
+  | 'lbs' | 'oz' | 'g' | 'kg'
+  | 'cups' | 'tbsp' | 'tsp'
+  | 'whole' | 'slices' | 'cans' | 'pieces';
+
+export interface MyRecipeIngredient {
+  name: string;
+  amount: number;
+  unit: RecipeUnit;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface RecipeMacros {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface MyRecipe {
+  id: string;
+  name: string;
+  ingredients: MyRecipeIngredient[];
+  totalServings: number;
+  totalWeight?: number; // total recipe weight in grams (optional, for weight-based portioning)
+  macrosPerServing: RecipeMacros;
+  totalMacros: RecipeMacros;
+  timesLogged: number;
+  lastLogged: string | null;
+  createdAt: string;
+  updatedAt: string;
+  photo_uri?: string;
+}
+
+export type RecipePortionMethod = 'percentage' | 'servings' | 'weight';
+
+export interface RecipeLogEntry {
+  recipeId: string;
+  recipeName: string;
+  portionMethod: RecipePortionMethod;
+  portionValue: number; // percentage (5-100), serving count (0.25+), or weight in g/oz
+  portionLabel: string; // e.g., "30% of batch", "1.5 servings", "200g"
+  macros: RecipeMacros;
+}

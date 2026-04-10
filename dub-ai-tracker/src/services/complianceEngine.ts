@@ -22,7 +22,10 @@ import type {
   SunlightEntry,
   MobilityEntry,
   JournalEntry,
+  BreastfeedingEntry,
+  PerimenopauseEntry,
 } from '../types';
+import { isCategoryEnabled } from '../utils/categoryElection';
 import {
   ALL_DAILY_GOALS as GOAL_DEFS,
   DEFAULT_DAILY_GOALS as DEFAULT_GOALS,
@@ -107,6 +110,8 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
     sunlightEntries,
     mobilityEntries,
     journalEntries,
+    breastfeedingEntries,
+    perimenopauseEntry,
   ] = await Promise.all([
     storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, date)),
     storageGet<WaterEntry[]>(dateKey(STORAGE_KEYS.LOG_WATER, date)),
@@ -124,6 +129,8 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
     storageGet<SunlightEntry[]>(dateKey(STORAGE_KEYS.LOG_SUNLIGHT, date)),
     storageGet<MobilityEntry[]>(dateKey(STORAGE_KEYS.LOG_MOBILITY, date)),
     storageGet<JournalEntry[]>(dateKey(STORAGE_KEYS.LOG_JOURNAL, date)),
+    storageGet<BreastfeedingEntry[]>(dateKey(STORAGE_KEYS.LOG_BREASTFEEDING, date)),
+    storageGet<PerimenopauseEntry>(dateKey(STORAGE_KEYS.LOG_PERIMENOPAUSE, date)),
   ]);
 
   const foods = foodEntries ?? [];
@@ -327,6 +334,24 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
           item.completed = false;
           item.detail = 'No sleep logged';
         }
+        break;
+      }
+      case 'breastfeeding_logged': {
+        // Only evaluate if category is enabled; skip silently if not
+        const bfEnabled = await isCategoryEnabled('breastfeeding');
+        if (!bfEnabled) continue; // skip this goal entirely
+        const bfSessions = breastfeedingEntries ?? [];
+        item.completed = bfSessions.length > 0;
+        item.detail = bfSessions.length > 0
+          ? `${bfSessions.length} session${bfSessions.length > 1 ? 's' : ''}`
+          : 'No session logged';
+        break;
+      }
+      case 'perimenopause_logged': {
+        const periEnabled = await isCategoryEnabled('perimenopause');
+        if (!periEnabled) continue;
+        item.completed = perimenopauseEntry != null;
+        item.detail = perimenopauseEntry ? 'Entry completed' : 'Not logged';
         break;
       }
     }

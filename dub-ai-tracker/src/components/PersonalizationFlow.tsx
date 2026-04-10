@@ -36,6 +36,7 @@ import {
   setUserZip,
 } from '../services/onboardingService';
 import { storageSet, STORAGE_KEYS, asyncWithTimeout } from '../utils/storage';
+import { applySexAwareDefaults } from '../utils/categoryElection';
 import { getDefaultTagsForTier } from '../constants/tags';
 import { DEFAULT_TIER } from '../constants/tiers';
 import {
@@ -370,6 +371,25 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
       // Sprint 11: Save selected supplements from onboarding
       if (selectedSupplements.length > 0) {
         writes.push(storageSet(STORAGE_KEYS.MY_SUPPLEMENTS, selectedSupplements));
+      }
+
+      // Sprint 21: Sex-aware category defaults
+      if (sex) {
+        writes.push(
+          applySexAwareDefaults(sex).then(({ showPrompt }) => {
+            if (showPrompt) {
+              // Alert shown after navigation completes (non-blocking)
+              setTimeout(() => {
+                const { Alert } = require('react-native');
+                Alert.alert(
+                  'Cycle Tracking Enabled',
+                  "We've enabled Cycle Tracking for you. You can also enable Breastfeeding and Perimenopause tracking in My Categories anytime.",
+                  [{ text: 'Got it' }],
+                );
+              }, 1500);
+            }
+          }),
+        );
       }
 
       // Master timeout: race ALL saves against a hard deadline.

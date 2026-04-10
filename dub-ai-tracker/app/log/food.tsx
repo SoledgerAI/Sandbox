@@ -33,6 +33,8 @@ import { PhotoFoodEntry } from '../../src/components/logging/PhotoFoodEntry';
 import { FoodScanResult, type LogEntry } from '../../src/components/logging/FoodScanResult';
 import { scanFood, type FoodScanResult as ScanResultData, type MultiItemScanResult } from '../../src/services/foodScanService';
 import { getSavedFoods, incrementTimesLogged, type SavedFood } from '../../src/utils/foodLibrary';
+import { getMyRecipes } from '../../src/utils/recipeLibrary';
+import type { MyRecipe } from '../../src/types/food';
 import { Button } from '../../src/components/common/Button';
 import { TimestampPicker } from '../../src/components/common/TimestampPicker';
 import { RepeatLastEntry } from '../../src/components/logging/RepeatLastEntry';
@@ -96,6 +98,7 @@ export default function FoodLogScreen() {
   const [scanPhotoUri, setScanPhotoUri] = useState<string | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
   const [myFoods, setMyFoods] = useState<SavedFood[]>([]);
+  const [myRecipes, setMyRecipes] = useState<MyRecipe[]>([]);
 
   useEffect(() => {
     loadIngredientFlags().then(setIngredientFlags);
@@ -107,12 +110,15 @@ export default function FoodLogScreen() {
     });
     // Load My Foods
     getSavedFoods().then(setMyFoods);
+    // Load My Recipes
+    getMyRecipes().then(setMyRecipes);
   }, []);
 
-  // Refresh My Foods when returning to search screen
+  // Refresh My Foods and My Recipes when returning to search screen
   useEffect(() => {
     if (screen === 'search') {
       getSavedFoods().then(setMyFoods);
+      getMyRecipes().then(setMyRecipes);
     }
   }, [screen]);
 
@@ -659,6 +665,39 @@ export default function FoodLogScreen() {
                   <View style={styles.myFoodCalCol}>
                     <Text style={styles.myFoodCal}>{food.nutrition.calories}</Text>
                     <Text style={styles.myFoodCalUnit}>cal</Text>
+                  </View>
+                  <Ionicons name="add-circle" size={24} color={Colors.accent} style={{ marginLeft: 8 }} />
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
+
+          {/* Sprint 20: My Recipes section */}
+          {myRecipes.length > 0 && (
+            <View style={styles.myFoodsSection}>
+              <View style={styles.myFoodsHeader}>
+                <Ionicons name="book" size={14} color={Colors.accent} />
+                <Text style={styles.myFoodsTitle}>My Recipes</Text>
+              </View>
+              {myRecipes.slice(0, 3).map((recipe) => (
+                <TouchableOpacity
+                  key={recipe.id}
+                  style={styles.myFoodRow}
+                  onPress={() => router.push(`/settings/recipe-log?recipeId=${recipe.id}` as any)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.myFoodInfo}>
+                    <Text style={styles.myFoodName} numberOfLines={1}>
+                      {recipe.name}
+                    </Text>
+                    <Text style={styles.myFoodServing} numberOfLines={1}>
+                      {recipe.totalServings} serving{recipe.totalServings !== 1 ? 's' : ''}
+                      {recipe.timesLogged > 0 ? ` \u2022 Logged ${recipe.timesLogged}x` : ''}
+                    </Text>
+                  </View>
+                  <View style={styles.myFoodCalCol}>
+                    <Text style={styles.myFoodCal}>{recipe.macrosPerServing.calories}</Text>
+                    <Text style={styles.myFoodCalUnit}>cal/srv</Text>
                   </View>
                   <Ionicons name="add-circle" size={24} color={Colors.accent} style={{ marginLeft: 8 }} />
                 </TouchableOpacity>

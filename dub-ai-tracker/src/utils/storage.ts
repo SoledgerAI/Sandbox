@@ -53,6 +53,8 @@ export const STORAGE_KEYS = {
   LOG_SUNLIGHT: 'dub.log.sunlight',
   LOG_MOBILITY: 'dub.log.mobility',
   LOG_JOURNAL: 'dub.log.journal',
+  LOG_PERIMENOPAUSE: 'dub.log.perimenopause',
+  LOG_BREASTFEEDING: 'dub.log.breastfeeding',
   LOG_CUSTOM: 'dub.log.custom',
 
   // Aggregates and Caches
@@ -106,9 +108,15 @@ export const STORAGE_KEYS = {
   SETTINGS_HABITS: 'dub.settings.habits',
   SETTINGS_DAILY_GOALS: 'dub.settings.daily_goals',
   SETTINGS_SLEEP_SCHEDULE: 'dub.settings.sleep_schedule',
+  SETTINGS_ENABLED_CATEGORIES: 'dub.settings.enabled_categories',
+  SETTINGS_LOG_SECTIONS_COLLAPSED: 'dub.settings.log_sections_collapsed',
+  SETTINGS_QUICK_ACCESS: 'dub.settings.quick_access',
 
   // Compliance
   COMPLIANCE: 'dub.compliance',
+
+  // Recipes
+  MY_RECIPES: 'dub.recipes',
 
   // Allergy Profile
   PROFILE_ALLERGIES: 'dub.profile.allergies',

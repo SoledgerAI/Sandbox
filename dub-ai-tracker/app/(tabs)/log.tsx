@@ -1,5 +1,5 @@
-// Log tab — Strava-inspired category list with last entry preview (Sprint 9)
-// Clean, well-spaced, succinct. Every element earns its space.
+// Log tab — Sprint 21: Collapsible domain groups + elect-in categories + quick access
+// Reorganized from flat list into structured sections with persisted collapse state
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -13,6 +13,8 @@ import {
   RefreshControl,
   TextInput,
   Platform,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +30,19 @@ import { todayDateString } from '../../src/utils/dayBoundary';
 import { getActiveDate, setActiveDate as setContextDate, resetToToday } from '../../src/services/dateContextService';
 import { DateContextBanner } from '../../src/components/DateContextBanner';
 import ScreenWrapper from '../../src/components/common/ScreenWrapper';
+import {
+  getEnabledCategories,
+  getCollapsedSections,
+  toggleSectionCollapsed,
+  getQuickAccessCategories,
+} from '../../src/utils/categoryElection';
+import type { ElectInCategoryId } from '../../src/types';
+import type { DeviceSyncState } from '../../src/types/profile';
+
+// Enable LayoutAnimation on Android
+if (Platform.OS === 'android') {
+  UIManager.setLayoutAnimationEnabledExperimental?.(true);
+}
 
 // ============================================================
 // Date Helpers
@@ -56,92 +71,146 @@ function shiftDate(dateStr: string, offset: number): string {
 }
 
 // ============================================================
-// Category Definitions — Strava-inspired flat list
+// Category Item + Section Definitions
 // ============================================================
 
 interface CategoryItem {
+  id: string; // unique key for quick access matching
   label: string;
   icon: string;
   route: string;
-  storageKey?: string; // for loading last entry
+  storageKey?: string;
   searchTerms: string;
+  electInCategory?: ElectInCategoryId; // if item belongs to an elect-in category
 }
 
-interface CategorySection {
+interface SectionDef {
+  id: string;
   title: string;
+  alwaysVisible: boolean; // false = only show if at least one item visible
   items: CategoryItem[];
 }
 
-const CATEGORY_SECTIONS: CategorySection[] = [
+const SECTION_DEFS: SectionDef[] = [
   {
+    id: 'nutrition',
     title: 'NUTRITION',
+    alwaysVisible: true,
     items: [
-      { label: 'Food', icon: 'restaurant-outline', route: '/log/food', storageKey: STORAGE_KEYS.LOG_FOOD, searchTerms: 'food nutrition meal calories macros' },
-      { label: 'Drinks', icon: 'water-outline', route: '/log/water', storageKey: STORAGE_KEYS.LOG_WATER, searchTerms: 'water hydration drink beverages' },
-      { label: 'Caffeine', icon: 'cafe-outline', route: '/log/caffeine', searchTerms: 'caffeine coffee tea energy' },
-      { label: 'Supplements', icon: 'flask-outline', route: '/log/supplements', storageKey: STORAGE_KEYS.LOG_SUPPLEMENTS, searchTerms: 'supplements vitamins medication pills' },
+      { id: 'food', label: 'Food Log', icon: 'restaurant-outline', route: '/log/food', storageKey: STORAGE_KEYS.LOG_FOOD, searchTerms: 'food nutrition meal calories macros ai scan' },
+      { id: 'recipes', label: 'My Recipes', icon: 'book-outline', route: '/settings/recipes', searchTerms: 'recipe recipes cook cooking meal prep batch' },
+      { id: 'my_foods', label: 'My Foods', icon: 'star-outline', route: '/settings/taste', searchTerms: 'my foods favorites saved custom' },
+      { id: 'water', label: 'Drinks', icon: 'water-outline', route: '/log/water', storageKey: STORAGE_KEYS.LOG_WATER, searchTerms: 'water hydration drink beverages coffee tea alcohol' },
+      { id: 'supplements', label: 'Supplements', icon: 'flask-outline', route: '/log/supplements', storageKey: STORAGE_KEYS.LOG_SUPPLEMENTS, searchTerms: 'supplements vitamins medication pills' },
     ],
   },
   {
-    title: 'FITNESS',
+    id: 'movement',
+    title: 'MOVEMENT',
+    alwaysVisible: true,
     items: [
-      { label: 'Exercise', icon: 'fitness-outline', route: '/log/workout', storageKey: STORAGE_KEYS.LOG_WORKOUT, searchTerms: 'workout exercise cardio run' },
-      { label: 'Strength', icon: 'barbell-outline', route: '/log/strength', searchTerms: 'strength weight lifting gym' },
-      { label: 'Bodyweight Reps', icon: 'body-outline', route: '/log/reps', storageKey: STORAGE_KEYS.LOG_REPS, searchTerms: 'bodyweight reps pushups pullups situps jumping jacks squats calisthenics' },
+      { id: 'workout', label: 'Exercise', icon: 'fitness-outline', route: '/log/workout', storageKey: STORAGE_KEYS.LOG_WORKOUT, searchTerms: 'workout exercise cardio run sports' },
+      { id: 'reps', label: 'Bodyweight Reps', icon: 'body-outline', route: '/log/reps', storageKey: STORAGE_KEYS.LOG_REPS, searchTerms: 'bodyweight reps pushups pullups situps jumping jacks squats calisthenics' },
+      { id: 'mobility', label: 'Stretching & Mobility', icon: 'body-outline', route: '/log/mobility', storageKey: STORAGE_KEYS.LOG_MOBILITY, searchTerms: 'stretching mobility foam roll yoga massage ice bath sauna cold shower recovery' },
+      { id: 'strava', label: 'Strava', icon: 'bicycle-outline', route: '/settings/devices', searchTerms: 'strava cycling running activity sync' },
     ],
   },
   {
-    title: 'HEALTH',
+    id: 'mind_wellness',
+    title: 'MIND & WELLNESS',
+    alwaysVisible: true,
     items: [
-      { label: 'Doctor Visits', icon: 'medkit-outline', route: '/log/doctor', storageKey: STORAGE_KEYS.LOG_DOCTOR_VISITS, searchTerms: 'doctor visit appointment physical checkup dentist therapist psychiatrist specialist' },
-      { label: 'Allergies', icon: 'alert-circle-outline', route: '/log/allergies', storageKey: STORAGE_KEYS.LOG_ALLERGIES, searchTerms: 'allergy allergies pollen dust congestion sneezing severity symptoms' },
+      { id: 'mood', label: 'Mood', icon: 'happy-outline', route: '/log/mood', storageKey: STORAGE_KEYS.LOG_MOOD, searchTerms: 'mood feeling emotion mental' },
+      { id: 'stress', label: 'Stress', icon: 'pulse-outline', route: '/log/stress', searchTerms: 'stress anxiety tension' },
+      { id: 'meditation', label: 'Meditation & Breathwork', icon: 'leaf-outline', route: '/log/meditation', storageKey: STORAGE_KEYS.LOG_MEDITATION, searchTerms: 'meditation mindfulness breathe calm breathwork box breathing body scan' },
+      { id: 'journal', label: 'Journaling', icon: 'book-outline', route: '/log/journal', storageKey: STORAGE_KEYS.LOG_JOURNAL, searchTerms: 'journal writing diary free-form private' },
+      { id: 'gratitude', label: 'Gratitude', icon: 'heart-outline', route: '/log/gratitude', searchTerms: 'gratitude thankful journal' },
+      { id: 'therapy', label: 'Therapy', icon: 'chatbubbles-outline', route: '/log/therapy', searchTerms: 'therapy counseling therapist session' },
+      { id: 'social', label: 'Social Connection', icon: 'people-outline', route: '/log/social', storageKey: STORAGE_KEYS.LOG_SOCIAL, searchTerms: 'social connection friends family phone call video group' },
     ],
   },
   {
-    title: 'BODY',
+    id: 'daily_habits',
+    title: 'DAILY HABITS',
+    alwaysVisible: true,
     items: [
-      { label: 'Weight & Body', icon: 'scale-outline', route: '/log/body', searchTerms: 'weight body measurements scale bmi' },
-      { label: 'Sleep', icon: 'moon-outline', route: '/log/sleep', searchTerms: 'sleep rest bedtime wake hours' },
-      { label: 'Blood Pressure', icon: 'heart-circle-outline', route: '/log/bloodpressure', searchTerms: 'blood pressure bp systolic diastolic' },
-      { label: 'Glucose', icon: 'fitness-outline', route: '/log/glucose', searchTerms: 'blood glucose sugar diabetes a1c' },
-      { label: 'Bloodwork', icon: 'water-outline', route: '/log/bloodwork', searchTerms: 'bloodwork labs markers cholesterol iron' },
+      { id: 'habits', label: 'Daily Habits', icon: 'checkbox-outline', route: '/log/habits', storageKey: STORAGE_KEYS.LOG_HABITS, searchTerms: 'habits daily checklist routine brush floss bed cream' },
     ],
   },
   {
-    title: 'MIND',
+    id: 'sleep',
+    title: 'SLEEP',
+    alwaysVisible: true,
     items: [
-      { label: 'Mood', icon: 'happy-outline', route: '/log/mood', storageKey: STORAGE_KEYS.LOG_MOOD, searchTerms: 'mood feeling emotion mental' },
-      { label: 'Stress', icon: 'pulse-outline', route: '/log/stress', searchTerms: 'stress anxiety tension' },
-      { label: 'Gratitude', icon: 'heart-outline', route: '/log/gratitude', searchTerms: 'gratitude thankful journal' },
-      { label: 'Meditation', icon: 'leaf-outline', route: '/log/meditation', storageKey: STORAGE_KEYS.LOG_MEDITATION, searchTerms: 'meditation mindfulness breathe calm breathwork box breathing body scan' },
-      { label: 'Journal', icon: 'book-outline', route: '/log/journal', storageKey: STORAGE_KEYS.LOG_JOURNAL, searchTerms: 'journal writing diary free-form' },
-      { label: 'Therapy', icon: 'chatbubbles-outline', route: '/log/therapy', searchTerms: 'therapy counseling therapist session' },
+      { id: 'sleep_log', label: 'Sleep Log', icon: 'moon-outline', route: '/log/sleep', searchTerms: 'sleep rest bedtime wake hours quality' },
+      { id: 'sleep_schedule', label: 'Sleep Schedule Adherence', icon: 'alarm-outline', route: '/settings/sleep-schedule', searchTerms: 'sleep schedule adherence bedtime wake routine' },
     ],
   },
   {
-    title: 'WELLNESS',
+    id: 'medical',
+    title: 'MEDICAL',
+    alwaysVisible: true,
     items: [
-      { label: 'Social Connection', icon: 'people-outline', route: '/log/social', storageKey: STORAGE_KEYS.LOG_SOCIAL, searchTerms: 'social connection friends family phone call video group' },
-      { label: 'Sunlight / Outdoors', icon: 'sunny-outline', route: '/log/sunlight', storageKey: STORAGE_KEYS.LOG_SUNLIGHT, searchTerms: 'sunlight outdoors nature walk hike sun vitamin d' },
-      { label: 'Stretching / Mobility', icon: 'body-outline', route: '/log/mobility', storageKey: STORAGE_KEYS.LOG_MOBILITY, searchTerms: 'stretching mobility foam roll yoga massage ice bath sauna recovery' },
+      { id: 'doctor', label: 'Doctor Visits', icon: 'medkit-outline', route: '/log/doctor', storageKey: STORAGE_KEYS.LOG_DOCTOR_VISITS, searchTerms: 'doctor visit appointment physical checkup dentist therapist psychiatrist specialist follow-up' },
     ],
   },
   {
-    title: 'LIFESTYLE',
+    id: 'health_metrics',
+    title: 'HEALTH METRICS',
+    alwaysVisible: false,
     items: [
-      { label: 'Daily Habits', icon: 'checkbox-outline', route: '/log/habits', storageKey: STORAGE_KEYS.LOG_HABITS, searchTerms: 'habits daily checklist routine brush floss bed cream' },
-      { label: 'Substances', icon: 'wine-outline', route: '/log/substances', searchTerms: 'substances alcohol cannabis tobacco sobriety' },
-      { label: 'Cycle', icon: 'flower-outline', route: '/log/cycle', searchTerms: 'cycle period menstrual ovulation reproductive' },
-      { label: 'Digestive', icon: 'nutrition-outline', route: '/log/digestive', searchTerms: 'digestive gut stomach bowel bristol' },
-      { label: 'Injury', icon: 'bandage-outline', route: '/log/injury', searchTerms: 'injury pain hurt sore recovery' },
-      { label: 'Sexual Health', icon: 'heart-half-outline', route: '/log/sexual', searchTerms: 'sexual activity intimacy' },
-      { label: 'Personal Care', icon: 'sparkles-outline', route: '/log/personalcare', searchTerms: 'self care hygiene skincare grooming personal' },
-      { label: 'Custom', icon: 'pricetag-outline', route: '/log/custom', searchTerms: 'custom tag create' },
+      { id: 'blood_pressure', label: 'Blood Pressure', icon: 'heart-circle-outline', route: '/log/bloodpressure', searchTerms: 'blood pressure bp systolic diastolic', electInCategory: 'blood_pressure' },
+      { id: 'glucose', label: 'Glucose', icon: 'fitness-outline', route: '/log/glucose', searchTerms: 'blood glucose sugar diabetes a1c', electInCategory: 'glucose' },
+      { id: 'bloodwork', label: 'Bloodwork', icon: 'water-outline', route: '/log/bloodwork', searchTerms: 'bloodwork labs markers cholesterol iron', electInCategory: 'bloodwork' },
+      { id: 'allergies', label: 'Allergies', icon: 'alert-circle-outline', route: '/log/allergies', storageKey: STORAGE_KEYS.LOG_ALLERGIES, searchTerms: 'allergy allergies pollen dust congestion sneezing severity symptoms', electInCategory: 'allergies' },
+    ],
+  },
+  {
+    id: 'womens_health',
+    title: "WOMEN'S HEALTH",
+    alwaysVisible: false,
+    items: [
+      { id: 'cycle', label: 'Cycle Tracking', icon: 'flower-outline', route: '/log/cycle', searchTerms: 'cycle period menstrual ovulation reproductive', electInCategory: 'cycle_tracking' },
+      { id: 'breastfeeding', label: 'Breastfeeding', icon: 'heart-outline', route: '/log/breastfeeding', searchTerms: 'breastfeeding nursing pumping bottle feeding baby', electInCategory: 'breastfeeding' },
+      { id: 'perimenopause', label: 'Perimenopause', icon: 'thermometer-outline', route: '/log/perimenopause', searchTerms: 'perimenopause menopause hot flash night sweat brain fog joint pain', electInCategory: 'perimenopause' },
+    ],
+  },
+  {
+    id: 'substances',
+    title: 'SUBSTANCES',
+    alwaysVisible: false,
+    items: [
+      { id: 'substances_log', label: 'Hemp / Cannabis', icon: 'wine-outline', route: '/log/substances', searchTerms: 'substances hemp cannabis terpenes strains monitor reduce quit alcohol tobacco sobriety', electInCategory: 'substances' },
+    ],
+  },
+  {
+    id: 'other_electin',
+    title: 'OTHER',
+    alwaysVisible: false,
+    items: [
+      { id: 'sexual_health', label: 'Sexual Health', icon: 'heart-half-outline', route: '/log/sexual', searchTerms: 'sexual activity intimacy', electInCategory: 'sexual_health' },
+      { id: 'injuries', label: 'Injuries', icon: 'bandage-outline', route: '/log/injury', searchTerms: 'injury pain hurt sore recovery', electInCategory: 'injuries' },
     ],
   },
 ];
 
-const ALL_CATEGORY_ITEMS: CategoryItem[] = CATEGORY_SECTIONS.flatMap((s) => s.items);
+const ALL_CATEGORY_ITEMS: CategoryItem[] = SECTION_DEFS.flatMap((s) => s.items);
+
+// Quick access default categories with icons and routes
+const QUICK_ACCESS_MAP: Record<string, { icon: string; route: string; label: string }> = {
+  food: { icon: 'restaurant-outline', route: '/log/food', label: 'Food' },
+  water: { icon: 'water-outline', route: '/log/water', label: 'Water' },
+  workout: { icon: 'fitness-outline', route: '/log/workout', label: 'Exercise' },
+  mood: { icon: 'happy-outline', route: '/log/mood', label: 'Mood' },
+  habits: { icon: 'checkbox-outline', route: '/log/habits', label: 'Habits' },
+  sleep_log: { icon: 'moon-outline', route: '/log/sleep', label: 'Sleep' },
+  supplements: { icon: 'flask-outline', route: '/log/supplements', label: 'Supps' },
+  meditation: { icon: 'leaf-outline', route: '/log/meditation', label: 'Meditate' },
+  reps: { icon: 'body-outline', route: '/log/reps', label: 'Reps' },
+  social: { icon: 'people-outline', route: '/log/social', label: 'Social' },
+  journal: { icon: 'book-outline', route: '/log/journal', label: 'Journal' },
+  stress: { icon: 'pulse-outline', route: '/log/stress', label: 'Stress' },
+};
 
 // ============================================================
 // Last Entry type
@@ -195,12 +264,33 @@ export default function LogScreen() {
   // Last entries per category
   const [lastEntries, setLastEntries] = useState<Record<string, LastEntry>>({});
 
-  // Sex setting for Cycle visibility
-  const [showCycle, setShowCycle] = useState(true);
+  // Elect-in categories
+  const [enabledCategories, setEnabledCategories] = useState<ElectInCategoryId[]>([]);
+
+  // Collapsible sections
+  const [collapsedSections, setCollapsedSections] = useState<string[]>([]);
+
+  // Quick access
+  const [quickAccessIds, setQuickAccessIds] = useState<string[]>(['food', 'water', 'workout', 'mood', 'habits']);
+
+  // Strava connected
+  const [stravaConnected, setStravaConnected] = useState(false);
 
   const loadData = useCallback(async () => {
     const dateStr = selectedDate;
     const entries: Record<string, LastEntry> = {};
+
+    // Load elect-in categories, collapsed state, quick access, strava in parallel
+    const [enabled, collapsed, quickAccess, strava] = await Promise.all([
+      getEnabledCategories(),
+      getCollapsedSections(),
+      getQuickAccessCategories(),
+      storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_STRAVA),
+    ]);
+    setEnabledCategories(enabled);
+    setCollapsedSections(collapsed);
+    setQuickAccessIds(quickAccess);
+    setStravaConnected(strava?.connected === true);
 
     // Load food
     const foods = await storageGet<{ food_item: { name: string }; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_FOOD, dateStr));
@@ -294,14 +384,14 @@ export default function LogScreen() {
       };
     }
 
-    // Sprint 19: Load meditation (now array)
+    // Load meditation (array)
     const medEntries = await storageGet<{ duration_minutes: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_MEDITATION, dateStr));
     if (Array.isArray(medEntries) && medEntries.length > 0) {
       const totalMin = medEntries.reduce((s, m) => s + m.duration_minutes, 0);
       entries['/log/meditation'] = { label: `${totalMin} min total`, time: `${medEntries.length} session${medEntries.length > 1 ? 's' : ''}` };
     }
 
-    // Sprint 19: Load social connections
+    // Load social connections
     const socialEntries = await storageGet<{ type: string; who: string | null; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_SOCIAL, dateStr));
     if (socialEntries?.length) {
       const last = socialEntries[socialEntries.length - 1];
@@ -311,33 +401,40 @@ export default function LogScreen() {
       };
     }
 
-    // Sprint 19: Load sunlight
+    // Load sunlight
     const sunEntries = await storageGet<{ duration_minutes: number; nature: boolean; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_SUNLIGHT, dateStr));
     if (sunEntries?.length) {
       const totalMin = sunEntries.reduce((s, e) => s + e.duration_minutes, 0);
       entries['/log/sunlight'] = { label: `${totalMin} min outdoors`, time: '' };
     }
 
-    // Sprint 19: Load mobility
+    // Load mobility
     const mobEntries = await storageGet<{ type: string; duration_minutes: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_MOBILITY, dateStr));
     if (mobEntries?.length) {
       const totalMin = mobEntries.reduce((s, e) => s + e.duration_minutes, 0);
       entries['/log/mobility'] = { label: `${totalMin} min`, time: `${mobEntries.length} session${mobEntries.length > 1 ? 's' : ''}` };
     }
 
-    // Sprint 19: Load journal
+    // Load journal
     const journalEntries = await storageGet<{ text: string; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_JOURNAL, dateStr));
     if (journalEntries?.length) {
       entries['/log/journal'] = { label: `${journalEntries.length} entr${journalEntries.length > 1 ? 'ies' : 'y'}`, time: '' };
     }
 
-    setLastEntries(entries);
+    // Load breastfeeding
+    const bfEntries = await storageGet<{ type: string; duration_minutes: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_BREASTFEEDING, dateStr));
+    if (bfEntries?.length) {
+      const totalMin = bfEntries.reduce((s, e) => s + e.duration_minutes, 0);
+      entries['/log/breastfeeding'] = { label: `${bfEntries.length} sessions, ${totalMin} min`, time: '' };
+    }
 
-    // Check sex setting for Cycle visibility
-    const settings = await storageGet<Record<string, unknown>>(STORAGE_KEYS.SETTINGS);
-    const profile = await storageGet<{ sex?: string }>(STORAGE_KEYS.PROFILE);
-    const sex = profile?.sex;
-    setShowCycle(sex !== 'male');
+    // Load perimenopause
+    const periEntry = await storageGet<{ hot_flashes_count: number; energy_level: number }>(dateKey(STORAGE_KEYS.LOG_PERIMENOPAUSE, dateStr));
+    if (periEntry) {
+      entries['/log/perimenopause'] = { label: `${periEntry.hot_flashes_count} hot flashes, energy ${periEntry.energy_level}/5`, time: '' };
+    }
+
+    setLastEntries(entries);
   }, [selectedDate]);
 
   useEffect(() => {
@@ -373,6 +470,40 @@ export default function LogScreen() {
     setSelectedDateLocal(todayDateString());
   }, []);
 
+  // Toggle section collapsed/expanded
+  const handleToggleSection = useCallback(async (sectionId: string) => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    const nowCollapsed = await toggleSectionCollapsed(sectionId);
+    setCollapsedSections((prev) =>
+      nowCollapsed
+        ? [...prev, sectionId]
+        : prev.filter((id) => id !== sectionId),
+    );
+  }, []);
+
+  // Build visible sections based on elect-in state + strava
+  const visibleSections = useMemo(() => {
+    return SECTION_DEFS.map((section) => {
+      // Filter items: remove elect-in items whose category is not enabled
+      const visibleItems = section.items.filter((item) => {
+        // Strava: only visible if connected
+        if (item.id === 'strava' && !stravaConnected) return false;
+        // Elect-in items: only visible if category enabled
+        if (item.electInCategory) {
+          return enabledCategories.includes(item.electInCategory);
+        }
+        return true;
+      });
+
+      return { ...section, items: visibleItems };
+    }).filter((section) => {
+      // Always-visible sections always show
+      if (section.alwaysVisible) return true;
+      // Elect-in sections: only show if at least one item is visible
+      return section.items.length > 0;
+    });
+  }, [enabledCategories, stravaConnected]);
+
   // Search filtering
   const searchResults = useMemo(() => {
     if (!searchQuery.trim()) return null;
@@ -381,17 +512,6 @@ export default function LogScreen() {
       (item) => item.label.toLowerCase().includes(q) || item.searchTerms.includes(q),
     );
   }, [searchQuery]);
-
-  // Filter sections for visibility (Cycle based on sex)
-  const visibleSections = useMemo(() => {
-    return CATEGORY_SECTIONS.map((section) => ({
-      ...section,
-      items: section.items.filter((item) => {
-        if (item.route === '/log/cycle' && !showCycle) return false;
-        return true;
-      }),
-    }));
-  }, [showCycle]);
 
   const renderCategoryRow = (item: CategoryItem) => {
     const lastEntry = lastEntries[item.route];
@@ -409,12 +529,37 @@ export default function LogScreen() {
           <Text style={styles.categoryName}>{item.label}</Text>
           <Text style={styles.categoryLastEntry} numberOfLines={1}>
             {lastEntry
-              ? `Last: ${lastEntry.label}, ${lastEntry.time}`
+              ? `Last: ${lastEntry.label}${lastEntry.time ? `, ${lastEntry.time}` : ''}`
               : 'No entries today'}
           </Text>
         </View>
         <Ionicons name="chevron-forward" size={16} color={Colors.secondaryText} />
       </TouchableOpacity>
+    );
+  };
+
+  const renderQuickAccess = () => {
+    const items = quickAccessIds
+      .map((id) => QUICK_ACCESS_MAP[id])
+      .filter(Boolean);
+    if (items.length === 0) return null;
+
+    return (
+      <View style={styles.quickAccessRow}>
+        {items.map((item) => (
+          <TouchableOpacity
+            key={item.route}
+            style={styles.quickAccessBtn}
+            onPress={() => router.push(item.route as any)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.quickAccessIconWrap}>
+              <Ionicons name={item.icon as any} size={22} color={Colors.accent} />
+            </View>
+            <Text style={styles.quickAccessLabel} numberOfLines={1}>{item.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
     );
   };
 
@@ -436,6 +581,13 @@ export default function LogScreen() {
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>Log</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/settings/categories' as any)}
+            hitSlop={12}
+            style={styles.headerGear}
+          >
+            <Ionicons name="settings-outline" size={22} color={Colors.accent} />
+          </TouchableOpacity>
         </View>
 
         {/* Backfill Banner */}
@@ -460,12 +612,15 @@ export default function LogScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* Quick Access */}
+        {!searchQuery && renderQuickAccess()}
+
         {/* Search Bar */}
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={18} color={Colors.secondaryText} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search..."
+            placeholder="Search categories..."
             placeholderTextColor={Colors.divider}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -489,15 +644,31 @@ export default function LogScreen() {
             )}
           </View>
         ) : (
-          /* Category List */
-          visibleSections.map((section) => (
-            <View key={section.title} style={styles.sectionContainer}>
-              <Text style={styles.sectionHeader}>{section.title}</Text>
-              <View style={styles.sectionList}>
-                {section.items.map((item) => renderCategoryRow(item))}
+          /* Collapsible Sections */
+          visibleSections.map((section) => {
+            const isCollapsed = collapsedSections.includes(section.id);
+            return (
+              <View key={section.id} style={styles.sectionContainer}>
+                <TouchableOpacity
+                  style={styles.sectionHeaderRow}
+                  onPress={() => handleToggleSection(section.id)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.sectionHeader}>{section.title}</Text>
+                  <Ionicons
+                    name={isCollapsed ? 'chevron-down' : 'chevron-up'}
+                    size={16}
+                    color={Colors.accent}
+                  />
+                </TouchableOpacity>
+                {!isCollapsed && (
+                  <View style={styles.sectionList}>
+                    {section.items.map((item) => renderCategoryRow(item))}
+                  </View>
+                )}
               </View>
-            </View>
-          ))
+            );
+          })
         )}
 
         <View style={{ height: 24 }} />
@@ -517,12 +688,48 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.xxl,
   },
   header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginBottom: Spacing.md,
+  },
+  headerGear: {
+    padding: 4,
   },
   title: {
     color: Colors.text,
     fontSize: FontSize['2xl'],
     fontWeight: FontWeight.bold,
+  },
+
+  // Quick Access
+  quickAccessRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    marginBottom: 12,
+  },
+  quickAccessBtn: {
+    alignItems: 'center',
+    minWidth: 56,
+  },
+  quickAccessIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(212, 168, 67, 0.12)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+  },
+  quickAccessLabel: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    fontWeight: '500',
+    textAlign: 'center',
   },
 
   // Date Navigator
@@ -582,24 +789,30 @@ const styles = StyleSheet.create({
     paddingVertical: 24,
   },
 
-  // Section Headers
+  // Collapsible Section Headers
   sectionContainer: {
     marginBottom: 0,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 20,
+    marginBottom: 10,
+    marginLeft: 4,
+    marginRight: 4,
   },
   sectionHeader: {
     color: Colors.accent,
     fontSize: 12,
     fontWeight: '600',
     letterSpacing: 1.5,
-    marginTop: 24,
-    marginBottom: 10,
-    marginLeft: 4,
   },
   sectionList: {
     gap: 8,
   },
 
-  // Category Rows — Strava-inspired
+  // Category Rows
   categoryRow: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -741,6 +741,120 @@ export interface AllergyLogEntry {
   notes: string | null;
 }
 
+// -- PERIMENOPAUSE --
+
+export type PerimenopauseSeverity = 'mild' | 'moderate' | 'severe';
+
+export type JointPainArea =
+  | 'hands'
+  | 'knees'
+  | 'hips'
+  | 'shoulders'
+  | 'back'
+  | 'feet'
+  | 'general';
+
+export const JOINT_PAIN_AREAS: { value: JointPainArea; label: string }[] = [
+  { value: 'hands', label: 'Hands' },
+  { value: 'knees', label: 'Knees' },
+  { value: 'hips', label: 'Hips' },
+  { value: 'shoulders', label: 'Shoulders' },
+  { value: 'back', label: 'Back' },
+  { value: 'feet', label: 'Feet' },
+  { value: 'general', label: 'General' },
+];
+
+export interface HotFlashEntry {
+  severity: PerimenopauseSeverity;
+}
+
+export interface PerimenopauseEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  date: string; // YYYY-MM-DD
+  hot_flashes_count: number; // 0-20
+  hot_flashes: HotFlashEntry[]; // severity per flash
+  night_sweats: boolean;
+  night_sweats_severity: PerimenopauseSeverity | null; // null if no night sweats
+  mood_shifts: number; // 1-5 (stable to highly variable)
+  sleep_disruption: number; // 1-5 (none to severe)
+  brain_fog: number; // 1-5 (clear to severe)
+  joint_pain: number; // 1-5 (none to severe)
+  joint_pain_areas: JointPainArea[];
+  cycle_irregularity_days: number | null; // days since last period (manual or auto)
+  energy_level: number; // 1-5 (exhausted to energized)
+  notes: string | null; // max 500 chars
+}
+
+// -- BREASTFEEDING --
+
+export type BreastfeedingType = 'nursing' | 'pumping' | 'bottle';
+
+export type NursingSide = 'left' | 'right' | 'both';
+
+export type VolumeUnit = 'oz' | 'ml';
+
+export interface BreastfeedingEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  type: BreastfeedingType;
+  side: NursingSide | null; // only for nursing
+  duration_minutes: number; // 1-120
+  output_amount: number | null; // oz or ml (pumping)
+  output_unit: VolumeUnit | null;
+  bottle_amount: number | null; // oz or ml (bottle)
+  bottle_unit: VolumeUnit | null;
+  timer_start: string | null; // ISO datetime, for running timer
+  timer_end: string | null; // ISO datetime
+  notes: string | null; // max 300 chars
+}
+
+// -- ELECT-IN CATEGORIES --
+
+export type ElectInCategoryId =
+  | 'blood_pressure'
+  | 'glucose'
+  | 'bloodwork'
+  | 'allergies'
+  | 'cycle_tracking'
+  | 'breastfeeding'
+  | 'perimenopause'
+  | 'sexual_health'
+  | 'substances'
+  | 'injuries';
+
+export type ElectInCategoryGroup = 'health_metrics' | 'womens_health' | 'other';
+
+export interface ElectInCategoryDefinition {
+  id: ElectInCategoryId;
+  label: string;
+  description: string;
+  group: ElectInCategoryGroup;
+  icon: string;
+}
+
+export const ELECT_IN_CATEGORY_GROUPS: { id: ElectInCategoryGroup; label: string }[] = [
+  { id: 'health_metrics', label: 'Health Metrics' },
+  { id: 'womens_health', label: "Women's Health" },
+  { id: 'other', label: 'Other' },
+];
+
+export const ALL_ELECT_IN_CATEGORIES: ElectInCategoryDefinition[] = [
+  // Health Metrics
+  { id: 'blood_pressure', label: 'Blood Pressure', description: 'Track systolic/diastolic readings', group: 'health_metrics', icon: 'heart-circle-outline' },
+  { id: 'glucose', label: 'Glucose', description: 'Track blood sugar levels', group: 'health_metrics', icon: 'fitness-outline' },
+  { id: 'bloodwork', label: 'Bloodwork', description: 'Record lab results and panels', group: 'health_metrics', icon: 'water-outline' },
+  { id: 'allergies', label: 'Allergies', description: 'Daily severity, symptoms, medication', group: 'health_metrics', icon: 'alert-circle-outline' },
+  // Women's Health
+  { id: 'cycle_tracking', label: 'Cycle Tracking', description: 'Period, ovulation, symptoms', group: 'womens_health', icon: 'flower-outline' },
+  { id: 'breastfeeding', label: 'Breastfeeding', description: 'Session duration, side, frequency, output tracking', group: 'womens_health', icon: 'heart-outline' },
+  { id: 'perimenopause', label: 'Perimenopause', description: 'Hot flashes, night sweats, mood shifts, sleep disruption, brain fog, joint pain', group: 'womens_health', icon: 'thermometer-outline' },
+  // Other
+  { id: 'sexual_health', label: 'Sexual Health', description: 'Activity, protection, notes', group: 'other', icon: 'heart-half-outline' },
+  { id: 'substances', label: 'Substances', description: 'Hemp/cannabis, terpenes, monitor/reduce/quit workflows', group: 'other', icon: 'wine-outline' },
+  { id: 'injuries', label: 'Injuries', description: 'Type, body area, severity, recovery', group: 'other', icon: 'bandage-outline' },
+];
+
 // -- DAILY COMPLIANCE --
 
 export type DailyGoalId =
@@ -763,7 +877,9 @@ export type DailyGoalId =
   | 'sunlight'
   | 'mobility'
   | 'journal'
-  | 'sleep_adherence';
+  | 'sleep_adherence'
+  | 'breastfeeding_logged'
+  | 'perimenopause_logged';
 
 export interface DailyGoalDefinition {
   id: DailyGoalId;
@@ -792,6 +908,8 @@ export const ALL_DAILY_GOALS: DailyGoalDefinition[] = [
   { id: 'mobility', label: 'Stretch / mobility (at least 1 session)', icon: 'body-outline' },
   { id: 'journal', label: 'Journal (at least 1 entry)', icon: 'book-outline' },
   { id: 'sleep_adherence', label: 'Sleep schedule adherence (75%+)', icon: 'alarm-outline' },
+  { id: 'breastfeeding_logged', label: 'Breastfeeding (at least 1 session)', icon: 'heart-outline' },
+  { id: 'perimenopause_logged', label: 'Perimenopause (daily entry)', icon: 'thermometer-outline' },
 ];
 
 export const DEFAULT_DAILY_GOALS: DailyGoalId[] = [
