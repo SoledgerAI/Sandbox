@@ -145,6 +145,9 @@ export const STORAGE_KEYS = {
   // Sprint 25: Hydration Goal
   SETTINGS_HYDRATION_GOAL: 'dub.settings.hydration_goal',
 
+  // Sprint 26: Centralized Unit Preferences
+  SETTINGS_UNITS: 'dub.settings.units',
+
   // Strength Logger
   STRENGTH_MODE_PREF: 'dub.strength.mode_pref',
 

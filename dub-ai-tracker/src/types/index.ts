@@ -1427,6 +1427,27 @@ export function ozToHydration(oz: number, unit: HydrationUnit): number {
   }
 }
 
+// -- CENTRALIZED UNIT PREFERENCES (Sprint 26) --
+
+export type TemperatureUnit = 'F' | 'C';
+export type HeightUnit = 'ft-in' | 'cm';
+
+export interface UnitSettings {
+  weight: WeightUnit;           // 'lbs' | 'kg'
+  height: HeightUnit;           // 'ft-in' | 'cm'
+  temperature: TemperatureUnit; // 'F' | 'C'
+  water: HydrationUnit;         // 'cups' | 'oz' | 'ml'
+  bodyMeasurements: MeasurementUnit; // 'in' | 'cm'
+}
+
+export const DEFAULT_UNIT_SETTINGS: UnitSettings = {
+  weight: 'lbs',
+  height: 'ft-in',
+  temperature: 'F',
+  water: 'oz',
+  bodyMeasurements: 'in',
+};
+
 // -- FASTING --
 
 export type FastingProtocol = '16:8' | '18:6' | '20:4' | 'custom';

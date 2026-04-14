@@ -1,10 +1,9 @@
-// Settings > About / Legal
-// Phase 17: Settings and Profile Management
-// App version, legal links, privacy policy, terms of service, data deletion
+// Settings > About
+// Sprint 26: App info, powered by SoledgerAI, links, feedback
 
 import { useState, useEffect } from 'react';
 import {
-  Alert,
+  Linking,
   ScrollView,
   StyleSheet,
   Switch,
@@ -16,17 +15,13 @@ import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import ScreenWrapper from '../../src/components/common/ScreenWrapper';
-import { storageClearAll, storageGet, storageSet, storageList, STORAGE_KEYS } from '../../src/utils/storage';
-import { deleteSecure, setSecure, SECURE_KEYS } from '../../src/services/secureStorageService';
-import { logAuditEvent } from '../../src/utils/audit';
-import { cacheDirectory, deleteAsync, readDirectoryAsync } from 'expo-file-system/legacy';
+import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import Constants from 'expo-constants';
 
-const APP_VERSION = '1.1.0';
-const BUILD_NUMBER = Constants.expoConfig?.ios?.buildNumber ?? Constants.expoConfig?.extra?.buildNumber ?? '1';
+const APP_VERSION = Constants.expoConfig?.version ?? '1.1.0';
+const BUILD_NUMBER = Constants.expoConfig?.ios?.buildNumber ?? Constants.expoConfig?.extra?.buildNumber ?? '2';
 
 export default function AboutScreen() {
-  const [deleting, setDeleting] = useState(false);
   const [hideCalories, setHideCalories] = useState(false);
 
   useEffect(() => {
@@ -41,242 +36,109 @@ export default function AboutScreen() {
     await storageSet(STORAGE_KEYS.SETTINGS, { ...settings, hide_calories: value });
   }
 
-  function handleDeleteData() {
-    Alert.alert(
-      'Delete All Data',
-      'This will permanently delete all your DUB_AI data including your profile, logs, settings, and API key. Audit logs are retained for compliance.\n\nThis cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'I understand, delete my data',
-          style: 'destructive',
-          onPress: () => confirmDelete(),
-        },
-      ],
-    );
-  }
-
-  async function confirmDelete() {
-    Alert.alert(
-      'Final Confirmation',
-      'Are you absolutely sure? All your health data will be permanently deleted.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete Everything',
-          style: 'destructive',
-          onPress: async () => {
-            setDeleting(true);
-            try {
-              await logAuditEvent('DATA_DELETION_INITIATED', {});
-
-              // SEC-10: Delete cached photo files before clearing references
-              try {
-                const foodKeys = await storageList('dub.log.food.');
-                for (const key of foodKeys) {
-                  const raw = await storageGet<Array<{ photo_uri?: string | null }>>(key);
-                  if (raw) {
-                    for (const entry of raw) {
-                      if (entry.photo_uri) {
-                        await deleteAsync(entry.photo_uri, { idempotent: true }).catch(() => {});
-                      }
-                    }
-                  }
-                }
-                // Clean cache and tmp directories
-                if (cacheDirectory) {
-                  const cacheFiles = await readDirectoryAsync(cacheDirectory).catch(() => [] as string[]);
-                  for (const file of cacheFiles) {
-                    if (file.match(/\.(jpg|jpeg|png|heic)$/i)) {
-                      await deleteAsync(cacheDirectory + file, { idempotent: true }).catch(() => {});
-                    }
-                  }
-                }
-              } catch {
-                // Best-effort photo cleanup
-              }
-
-              // Clear all AsyncStorage dub.* keys
-              await storageClearAll();
-
-              // Clear all secure store keys (including lock timeout)
-              try {
-                await deleteSecure(SECURE_KEYS.ANTHROPIC_API_KEY);
-                await deleteSecure(SECURE_KEYS.APP_LOCK_ENABLED);
-                await deleteSecure(SECURE_KEYS.AUTH_PIN_HASH);
-                await deleteSecure(SECURE_KEYS.AUTH_METHOD);
-                await deleteSecure(SECURE_KEYS.USER_SEX);
-                await deleteSecure(SECURE_KEYS.ONBOARDING_COMPLETE);
-                await deleteSecure(SECURE_KEYS.CONSENT_RECORD);
-                // Lock timeout key (stored outside SECURE_KEYS constant)
-                await deleteSecure('dub.lock_timeout' as any);
-              } catch {
-                // Keys may not exist
-              }
-
-              await logAuditEvent('DATA_DELETION_COMPLETED', {});
-
-              // CCPA: Store deletion confirmation timestamp (survives deletion)
-              const deletionTimestamp = new Date().toISOString();
-              await setSecure('dub_ai_deletion_confirmed' as any, deletionTimestamp);
-
-              Alert.alert(
-                'Data Deleted',
-                `All your DUB_AI data has been permanently deleted on ${new Date().toLocaleDateString()} at ${new Date().toLocaleTimeString()}. The app will restart at onboarding.`,
-                [
-                  {
-                    text: 'OK',
-                    onPress: () => router.replace('/onboarding'),
-                  },
-                ],
-              );
-            } catch {
-              Alert.alert('Error', 'Failed to delete data. Please try again.');
-            } finally {
-              setDeleting(false);
-            }
-          },
-        },
-      ],
-    );
-  }
-
   return (
     <ScreenWrapper>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={24} color={Colors.text} />
-        </TouchableOpacity>
-        <Text style={styles.title}>About</Text>
-        <View style={{ width: 24 }} />
-      </View>
-
-      {/* App Info */}
-      <View style={styles.appCard}>
-        <Text style={styles.appName}>DUB_AI Tracker</Text>
-        <Text style={styles.appVersion}>Version {APP_VERSION} (build {BUILD_NUMBER})</Text>
-        <Text style={styles.appDesc}>
-          Your personal health and wellness tracking companion, powered by AI.
-        </Text>
-      </View>
-
-      {/* Privacy & Data */}
-      <Text style={styles.sectionTitle}>Privacy & Data</Text>
-      <View style={styles.privacyCard}>
-        <Text style={styles.privacyItem}>
-          All health data is stored locally on your device. Nothing is uploaded to SoledgerAI servers.
-        </Text>
-        <Text style={styles.privacyItem}>
-          Your API key is stored in encrypted secure storage (iOS Keychain) and never leaves your device.
-        </Text>
-        <Text style={styles.privacyItem}>
-          When you use Coach DUB, your health context and messages are sent to Anthropic's Claude API for processing. Anthropic's usage policy applies.
-        </Text>
-        <Text style={styles.privacyItem}>
-          DUB_AI does not collect, transmit, or sell your personal data. You can delete all data at any time below.
-        </Text>
-      </View>
-
-      {/* Display Preferences */}
-      <Text style={styles.sectionTitle}>Display</Text>
-      <View style={styles.privacyCard}>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <View style={{ flex: 1, marginRight: 12 }}>
-            <Text style={[styles.privacyItem, { marginBottom: 2 }]}>Hide Calorie Totals</Text>
-            <Text style={{ color: Colors.secondaryText, fontSize: 12 }}>
-              Show nutrient breakdown without calorie counts
-            </Text>
-          </View>
-          <Switch
-            value={hideCalories}
-            onValueChange={toggleHideCalories}
-            trackColor={{ false: Colors.divider, true: Colors.accent }}
-            thumbColor={Colors.text}
-          />
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7}>
+            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          </TouchableOpacity>
+          <Text style={styles.title}>About</Text>
+          <View style={{ width: 24 }} />
         </View>
-      </View>
 
-      {/* Legal Links */}
-      <Text style={styles.sectionTitle}>Legal</Text>
-      <LinkRow
-        icon="document-text-outline"
-        label="Privacy Policy"
-        subtitle="How we handle your data"
-        onPress={() => router.push('/settings/privacy')}
-      />
-      <LinkRow
-        icon="shield-outline"
-        label="Terms of Service"
-        subtitle="Terms and conditions"
-        onPress={() => {
-          Alert.alert('Terms of Service', 'Terms of service will be available at launch.');
-        }}
-      />
-      <LinkRow
-        icon="hand-left-outline"
-        label="Third-Party Data Processing"
-        subtitle="Anthropic API data disclosure"
-        onPress={() => {
-          Alert.alert(
-            'Third-Party Data Processing',
-            'When you use the AI Coach feature, your health data and messages are transmitted to Anthropic, PBC for processing. Anthropic processes this data to generate Coach responses.\n\nData transmitted includes: profile summary, today\'s logged data, 7-day statistics, and your messages.\n\nTherapy notes are NEVER transmitted.',
-          );
-        }}
-      />
-      <LinkRow
-        icon="document-outline"
-        label="Open Source Licenses"
-        subtitle="Third-party library licenses"
-        onPress={() => router.push('/settings/licenses')}
-      />
-
-      {/* Support */}
-      <Text style={styles.sectionTitle}>Support</Text>
-      <LinkRow
-        icon="help-circle-outline"
-        label="Help & FAQ"
-        subtitle="Common questions and troubleshooting"
-        onPress={() => {
-          Alert.alert('Help & FAQ', 'Help documentation will be available at launch.');
-        }}
-      />
-      <LinkRow
-        icon="mail-outline"
-        label="Contact Support"
-        subtitle="Get help with DUB_AI"
-        onPress={() => {
-          Alert.alert('Contact Support', 'Support contact information will be available at launch.');
-        }}
-      />
-
-      {/* Data Deletion */}
-      <Text style={styles.sectionTitle}>Data Management</Text>
-      <TouchableOpacity
-        style={styles.deleteCard}
-        onPress={handleDeleteData}
-        disabled={deleting}
-        activeOpacity={0.7}
-      >
-        <Ionicons name="trash-outline" size={22} color={Colors.danger} />
-        <View style={styles.deleteInfo}>
-          <Text style={styles.deleteLabel}>Delete My Data</Text>
-          <Text style={styles.deleteDesc}>
-            Permanently delete all stored data. This cannot be undone.
+        {/* App Info */}
+        <View style={styles.appCard}>
+          <Text style={styles.appName}>DUB Tracker</Text>
+          <Text style={styles.appVersion}>Version {APP_VERSION} (build {BUILD_NUMBER})</Text>
+          <Text style={styles.poweredBy}>Powered by SoledgerAI</Text>
+          <Text style={styles.appDesc}>
+            Your personal health and wellness tracking companion, powered by AI.
           </Text>
         </View>
-        <Ionicons name="chevron-forward" size={18} color={Colors.danger} />
-      </TouchableOpacity>
 
-      <Text style={styles.auditNote}>
-        Audit logs are retained for compliance even after data deletion, as disclosed
-        in the privacy policy. Audit logs contain no health data.
-      </Text>
+        {/* Privacy & Data */}
+        <Text style={styles.sectionTitle}>Privacy & Data</Text>
+        <View style={styles.privacyCard}>
+          <Text style={styles.privacyItem}>
+            All health data is stored locally on your device. Nothing is uploaded to SoledgerAI servers.
+          </Text>
+          <Text style={styles.privacyItem}>
+            Your API key is stored in encrypted secure storage (iOS Keychain) and never leaves your device.
+          </Text>
+          <Text style={styles.privacyItem}>
+            When you use Coach DUB, your health context and messages are sent to Anthropic's Claude API for processing. Anthropic's usage policy applies.
+          </Text>
+          <Text style={styles.privacyItem}>
+            DUB Tracker does not collect, transmit, or sell your personal data.
+          </Text>
+        </View>
 
-      <Text style={styles.copyright}>
-        DUB_AI Tracker v{APP_VERSION}
-      </Text>
-    </ScrollView>
+        {/* Display Preferences */}
+        <Text style={styles.sectionTitle}>Display</Text>
+        <View style={styles.privacyCard}>
+          <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View style={{ flex: 1, marginRight: 12 }}>
+              <Text style={[styles.privacyItem, { marginBottom: 2 }]}>Hide Calorie Totals</Text>
+              <Text style={{ color: Colors.secondaryText, fontSize: 12 }}>
+                Show nutrient breakdown without calorie counts
+              </Text>
+            </View>
+            <Switch
+              value={hideCalories}
+              onValueChange={toggleHideCalories}
+              trackColor={{ false: Colors.divider, true: Colors.accent }}
+              thumbColor={Colors.text}
+            />
+          </View>
+        </View>
+
+        {/* Links */}
+        <Text style={styles.sectionTitle}>Links</Text>
+        <LinkRow
+          icon="globe-outline"
+          label="dubtracker.ai"
+          subtitle="Visit our website"
+          onPress={() => Linking.openURL('https://dubtracker.ai')}
+        />
+        <LinkRow
+          icon="document-text-outline"
+          label="Privacy Policy"
+          subtitle="How we handle your data"
+          onPress={() => router.push('/settings/privacy')}
+        />
+        <LinkRow
+          icon="shield-outline"
+          label="Terms of Service"
+          subtitle="Terms and conditions"
+          onPress={() => Linking.openURL('https://dubtracker.ai/terms')}
+        />
+        <LinkRow
+          icon="document-outline"
+          label="Open Source Licenses"
+          subtitle="Third-party library licenses"
+          onPress={() => router.push('/settings/licenses')}
+        />
+
+        {/* Support */}
+        <Text style={styles.sectionTitle}>Support</Text>
+        <LinkRow
+          icon="mail-outline"
+          label="Send Feedback"
+          subtitle="Let us know how we can improve"
+          onPress={() => Linking.openURL('mailto:jwilliams@soledgerai.com?subject=DUB Tracker Feedback')}
+        />
+        <LinkRow
+          icon="hand-left-outline"
+          label="Third-Party Data Processing"
+          subtitle="Anthropic API data disclosure"
+          onPress={() => router.push('/settings/privacy')}
+        />
+
+        <Text style={styles.copyright}>
+          DUB Tracker v{APP_VERSION} | Powered by SoledgerAI
+        </Text>
+      </ScrollView>
     </ScreenWrapper>
   );
 }
@@ -323,6 +185,7 @@ const styles = StyleSheet.create({
   },
   appName: { color: Colors.accentText, fontSize: 22, fontWeight: 'bold' },
   appVersion: { color: Colors.secondaryText, fontSize: 14, marginTop: 4 },
+  poweredBy: { color: Colors.accent, fontSize: 13, fontWeight: '600', marginTop: 6 },
   appDesc: {
     color: Colors.secondaryText,
     fontSize: 13,
@@ -361,32 +224,11 @@ const styles = StyleSheet.create({
   linkInfo: { flex: 1 },
   linkLabel: { color: Colors.text, fontSize: 15, fontWeight: '500' },
   linkSubtitle: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
-  deleteCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 8,
-    gap: 10,
-    borderWidth: 1,
-    borderColor: Colors.danger,
-  },
-  deleteInfo: { flex: 1 },
-  deleteLabel: { color: Colors.dangerText, fontSize: 15, fontWeight: '600' },
-  deleteDesc: { color: Colors.secondaryText, fontSize: 12, marginTop: 2 },
-  auditNote: {
-    color: Colors.secondaryText,
-    fontSize: 11,
-    lineHeight: 16,
-    marginTop: 8,
-    marginBottom: 24,
-    fontStyle: 'italic',
-  },
   copyright: {
     color: Colors.secondaryText,
     fontSize: 12,
     textAlign: 'center',
+    marginTop: 16,
     marginBottom: 16,
   },
 });

@@ -130,34 +130,48 @@ export default function ProfileScreen() {
 
   const menuSections: MenuSection[] = [
     {
-      title: '',
+      title: 'Account',
       items: [
+        { id: 'profile', icon: 'person-outline', label: 'Edit Profile', route: '/settings/profile' },
+        { id: 'apikey', icon: 'key-outline', label: 'API Key', route: '/settings/apikey' },
+        { id: 'tier', icon: 'diamond-outline', label: 'Engagement Tier', route: '/settings/tier' },
+      ],
+    },
+    {
+      title: 'Preferences',
+      items: [
+        { id: 'units', icon: 'options-outline', label: 'Units', route: '/settings/units' },
         { id: 'categories', icon: 'grid-outline', label: 'My Categories', route: '/settings/categories' },
+        { id: 'notifications', icon: 'notifications-outline', label: 'Notifications', route: '/settings/notifications' },
+        { id: 'habits', icon: 'checkbox-outline', label: 'Daily Habits', route: '/settings/habits' },
         { id: 'foods', icon: 'restaurant-outline', label: 'My Foods', route: '/settings/taste' },
         { id: 'recipes', icon: 'book-outline', label: 'My Recipes', route: '/settings/recipes' },
         { id: 'supplements', icon: 'flask-outline', label: 'My Supplements', route: '/log/supplements' },
         { id: 'devices', icon: 'watch-outline', label: 'Devices', route: '/settings/devices' },
-        { id: 'healthreport', icon: 'document-text-outline', label: 'Health Report', route: '/settings/healthreport' },
-        { id: 'export', icon: 'download-outline', label: 'Data Export', route: '/settings/export' },
-        { id: 'feedback', icon: 'chatbox-ellipses-outline', label: 'Feedback Log', route: '/settings/feedback' },
-        { id: 'habits', icon: 'checkbox-outline', label: 'Daily Habits', route: '/settings/habits' },
         { id: 'allergy-profile', icon: 'alert-circle-outline', label: 'Allergy Profile', route: '/settings/allergy-profile' },
       ],
     },
     {
-      title: '',
+      title: 'Data',
       items: [
-        { id: 'notifications', icon: 'notifications-outline', label: 'Notifications', route: '/settings/notifications' },
-        { id: 'security', icon: 'shield-checkmark-outline', label: 'Security', route: '/settings' },
-        { id: 'agreement', icon: 'document-text-outline', label: 'User Agreement', route: '/settings/agreement' },
+        { id: 'export', icon: 'download-outline', label: 'Export My Data', route: '/settings/export' },
+        { id: 'healthreport', icon: 'document-text-outline', label: 'Health Report', route: '/settings/healthreport' },
+        { id: 'data', icon: 'server-outline', label: 'Data Management', route: '/settings/data' },
+      ],
+    },
+    {
+      title: 'Support',
+      items: [
         { id: 'about', icon: 'information-circle-outline', label: 'About', route: '/settings/about' },
+        { id: 'feedback', icon: 'chatbox-ellipses-outline', label: 'Feedback Log', route: '/settings/feedback' },
+        { id: 'agreement', icon: 'document-text-outline', label: 'User Agreement', route: '/settings/agreement' },
+        { id: 'crisis', icon: 'call-outline', label: '988 Crisis Support', route: '/settings/crisis-support' },
       ],
     },
   ];
 
   const dangerItems: MenuItem[] = [
     { id: 'reset', icon: 'refresh-outline', label: 'Reset Onboarding', onPress: handleResetOnboarding, danger: true },
-    { id: 'delete', icon: 'trash-outline', label: 'Delete All Data', onPress: handleDeleteAllData, danger: true },
   ];
 
   return (
@@ -196,6 +210,9 @@ export default function ProfileScreen() {
         {/* Menu Sections */}
         {menuSections.map((section, sIdx) => (
           <View key={sIdx} style={styles.menuSection}>
+            {section.title ? (
+              <Text style={styles.sectionTitle}>{section.title.toUpperCase()}</Text>
+            ) : null}
             {section.items.map((item) => (
               <TouchableOpacity
                 key={item.id}
@@ -228,6 +245,7 @@ export default function ProfileScreen() {
           ))}
         </View>
 
+        <Text style={styles.versionText}>DUB Tracker v1.1.0</Text>
         <View style={{ height: 40 }} />
       </ScrollView>
     </ScreenWrapper>
@@ -320,5 +338,19 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
     marginBottom: 4,
     marginLeft: 4,
+  },
+  sectionTitle: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.8,
+    marginBottom: 6,
+    marginLeft: 4,
+  },
+  versionText: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    textAlign: 'center',
+    marginTop: 16,
   },
 });

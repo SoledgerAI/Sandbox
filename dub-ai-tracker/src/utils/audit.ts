@@ -20,7 +20,8 @@ export type AuditEventType =
   | 'DEVICE_REVOKED'
   | 'DATA_DELETION_INITIATED'
   | 'DATA_DELETION_COMPLETED'
-  | 'HEALTH_REPORT_GENERATED';
+  | 'HEALTH_REPORT_GENERATED'
+  | 'DATA_CLEAR_CATEGORY';
 
 export interface AuditEntry {
   timestamp: string; // ISO datetime

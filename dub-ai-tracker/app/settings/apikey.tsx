@@ -38,8 +38,8 @@ export default function ApiKeyScreen() {
     if (exists) {
       const key = await getApiKey();
       if (key) {
-        // Show first 7 chars + dots (masked display)
-        setMaskedKey(`${key.substring(0, 7)}${'•'.repeat(8)}`);
+        // Show masked display with last 4 chars visible
+        setMaskedKey(`${'•'.repeat(12)}${key.slice(-4)}`);
       }
     } else {
       setMaskedKey('');
@@ -126,6 +126,14 @@ export default function ApiKeyScreen() {
         <Text style={styles.securityText}>
           Your API key is stored in the device's secure enclave and never transmitted
           except to the Anthropic API. It is never stored in app storage or logs.
+        </Text>
+      </View>
+
+      <View style={styles.infoBox}>
+        <Ionicons name="key-outline" size={18} color={Colors.accent} />
+        <Text style={styles.infoText}>
+          DUB Tracker uses your personal Anthropic API key for Coach DUB.
+          Get your key at console.anthropic.com
         </Text>
       </View>
 
