@@ -458,6 +458,7 @@ export type CyclePhase = 'menstrual' | 'follicular' | 'ovulation' | 'luteal';
 
 export type PeriodSymptom = 'cramps' | 'bloating' | 'headache' | 'fatigue' | 'mood_changes';
 
+/** Legacy CycleEntry — pre-Sprint 24. Kept for backward compat in storage reads. */
 export interface CycleEntry {
   period_start: string | null; // ISO date
   flow_level: FlowLevel | null;
@@ -465,6 +466,119 @@ export interface CycleEntry {
   computed_phase: CyclePhase | null;
   cycle_day: number | null;
   notes: string | null;
+}
+
+// Sprint 24: Enhanced Cycle Tracker
+
+export type PeriodStatus = 'started' | 'ongoing' | 'ended' | 'spotting' | 'none';
+
+/** 1-5 flow scale: light / medium / heavy / very heavy / flooding */
+export type FlowScale = 1 | 2 | 3 | 4 | 5;
+
+export type CrampSeverity = 'mild' | 'moderate' | 'severe';
+
+export type CycleSymptom =
+  | 'cramps'
+  | 'bloating'
+  | 'breast_tenderness'
+  | 'headache'
+  | 'back_pain'
+  | 'fatigue'
+  | 'acne'
+  | 'mood_swings'
+  | 'food_cravings'
+  | 'insomnia'
+  | 'nausea'
+  | 'digestive_issues'
+  | 'other';
+
+export const CYCLE_SYMPTOM_OPTIONS: { value: CycleSymptom; label: string; icon: string }[] = [
+  { value: 'cramps', label: 'Cramps', icon: 'flash-outline' },
+  { value: 'bloating', label: 'Bloating', icon: 'water-outline' },
+  { value: 'breast_tenderness', label: 'Breast Tenderness', icon: 'ellipse-outline' },
+  { value: 'headache', label: 'Headache', icon: 'alert-circle-outline' },
+  { value: 'back_pain', label: 'Back Pain', icon: 'body-outline' },
+  { value: 'fatigue', label: 'Fatigue', icon: 'bed-outline' },
+  { value: 'acne', label: 'Acne', icon: 'ellipsis-horizontal-circle-outline' },
+  { value: 'mood_swings', label: 'Mood Swings', icon: 'happy-outline' },
+  { value: 'food_cravings', label: 'Food Cravings', icon: 'restaurant-outline' },
+  { value: 'insomnia', label: 'Insomnia', icon: 'moon-outline' },
+  { value: 'nausea', label: 'Nausea', icon: 'medical-outline' },
+  { value: 'digestive_issues', label: 'Diarrhea / Constipation', icon: 'fitness-outline' },
+  { value: 'other', label: 'Other', icon: 'create-outline' },
+];
+
+export type CervicalMucusType = 'dry' | 'sticky' | 'creamy' | 'watery' | 'egg_white' | 'not_checked';
+
+export const CERVICAL_MUCUS_OPTIONS: { value: CervicalMucusType; label: string }[] = [
+  { value: 'dry', label: 'Dry' },
+  { value: 'sticky', label: 'Sticky' },
+  { value: 'creamy', label: 'Creamy' },
+  { value: 'watery', label: 'Watery' },
+  { value: 'egg_white', label: 'Egg White' },
+  { value: 'not_checked', label: 'Not Checked' },
+];
+
+export type OvulationTestResult = 'positive' | 'negative' | 'not_taken';
+
+export interface CycleEntryV2 {
+  date: string; // YYYY-MM-DD
+  period_status: PeriodStatus;
+  flow_level: FlowScale | null; // only when period_status is started/ongoing
+  symptoms: CycleSymptomEntry[];
+  cervical_mucus: CervicalMucusType | null; // optional
+  basal_body_temp: number | null; // optional, F or C based on user pref
+  basal_body_temp_unit: 'F' | 'C' | null;
+  intimacy: boolean | null; // optional, private — therapy firewall pattern
+  ovulation_test: OvulationTestResult | null; // optional
+  notes: string | null; // 500 char max
+  // Backward compat: keep legacy fields for migration
+  period_start?: string | null;
+  computed_phase?: CyclePhase | null;
+  cycle_day?: number | null;
+}
+
+export interface CycleSymptomEntry {
+  symptom: CycleSymptom;
+  severity: CrampSeverity | null; // only for 'cramps'
+  other_text: string | null; // only for 'other'
+}
+
+export interface CyclePrediction {
+  next_period_start: string; // YYYY-MM-DD
+  fertile_window_start: string; // YYYY-MM-DD
+  fertile_window_end: string; // YYYY-MM-DD
+  average_cycle_length: number;
+  average_period_duration: number;
+  cycles_analyzed: number;
+}
+
+// Sprint 24: Notification Reminder Settings
+
+export type WaterReminderInterval = 1 | 2 | 3;
+
+export interface NotificationSettings {
+  master_enabled: boolean;
+  daily_logging: {
+    enabled: boolean;
+    time: string; // HH:MM
+  };
+  morning_checkin: {
+    enabled: boolean;
+    time: string; // HH:MM
+  };
+  medication_reminders: {
+    enabled: boolean;
+  };
+  water_reminders: {
+    enabled: boolean;
+    interval_hours: WaterReminderInterval;
+    start_time: string; // HH:MM
+    end_time: string; // HH:MM
+  };
+  doctor_followup: {
+    enabled: boolean;
+  };
 }
 
 // -- DIGESTIVE HEALTH --
@@ -1220,7 +1334,8 @@ export type DailyGoalId =
   | 'migraine_logged'
   | 'mood_logged'
   | 'body_measurement_logged'
-  | 'medications_logged';
+  | 'medications_logged'
+  | 'cycle_logged';
 
 export interface DailyGoalDefinition {
   id: DailyGoalId;
@@ -1255,6 +1370,7 @@ export const ALL_DAILY_GOALS: DailyGoalDefinition[] = [
   { id: 'mood_logged', label: 'Mood & mental health (daily entry)', icon: 'happy-outline' },
   { id: 'body_measurement_logged', label: 'Body measurements (weekly entry)', icon: 'resize-outline' },
   { id: 'medications_logged', label: 'Medications (daily adherence)', icon: 'medical-outline' },
+  { id: 'cycle_logged', label: 'Cycle tracking (daily entry)', icon: 'flower-outline' },
 ];
 
 export const DEFAULT_DAILY_GOALS: DailyGoalId[] = [

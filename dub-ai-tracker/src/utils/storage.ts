@@ -139,6 +139,9 @@ export const STORAGE_KEYS = {
   SETTINGS_BODY_MEAS_UNIT: 'dub.settings.body_meas_unit',
   SETTINGS_MEDICATION_LIST: 'dub.settings.medication_list',
 
+  // Sprint 24: Notification Reminders Settings
+  SETTINGS_NOTIFICATIONS: 'dub.settings.notifications',
+
   // Strength Logger
   STRENGTH_MODE_PREF: 'dub.strength.mode_pref',
 

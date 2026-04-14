@@ -28,6 +28,7 @@ import type {
   MoodMentalEntry,
   BodyMeasurementEntry,
   MedicationEntry,
+  CycleEntryV2,
 } from '../types';
 import { isCategoryEnabled } from '../utils/categoryElection';
 import {
@@ -120,6 +121,7 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
     moodMentalEntry,
     bodyMeasurementEntry,
     medicationEntry,
+    cycleEntry,
   ] = await Promise.all([
     storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, date)),
     storageGet<WaterEntry[]>(dateKey(STORAGE_KEYS.LOG_WATER, date)),
@@ -143,6 +145,7 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
     storageGet<MoodMentalEntry>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, date)),
     storageGet<BodyMeasurementEntry>(dateKey(STORAGE_KEYS.LOG_BODY_MEASUREMENTS, date)),
     storageGet<MedicationEntry>(dateKey(STORAGE_KEYS.LOG_MEDICATIONS, date)),
+    storageGet<CycleEntryV2>(dateKey(STORAGE_KEYS.LOG_CYCLE, date)),
   ]);
 
   const foods = foodEntries ?? [];
@@ -406,6 +409,28 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
         } else {
           item.completed = false;
           item.detail = 'No medications logged';
+        }
+        break;
+      }
+      case 'cycle_logged': {
+        // Category-gated — auto-skip if disabled
+        const cycleEnabled = await isCategoryEnabled('cycle_tracking');
+        if (!cycleEnabled) continue;
+        if (cycleEntry) {
+          // V2 entry: check period_status is set (even 'none' counts as logged)
+          const hasStatus = (cycleEntry as CycleEntryV2).period_status != null;
+          // Legacy entry: check any field
+          const hasLegacy = (cycleEntry as any).flow_level != null || (cycleEntry as any).period_start != null;
+          item.completed = hasStatus || hasLegacy;
+          if (item.completed) {
+            const status = (cycleEntry as CycleEntryV2).period_status;
+            item.detail = status ? `Status: ${status}` : 'Entry logged';
+          } else {
+            item.detail = 'Not logged';
+          }
+        } else {
+          item.completed = false;
+          item.detail = 'Not logged';
         }
         break;
       }

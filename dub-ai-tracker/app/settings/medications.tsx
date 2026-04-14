@@ -25,6 +25,7 @@ import { PremiumButton } from '../../src/components/common/PremiumButton';
 import { hapticSuccess, hapticSelection } from '../../src/utils/haptics';
 import { useToast } from '../../src/contexts/ToastContext';
 import { getMedicationList, saveMedicationList } from '../../src/utils/medicationList';
+import { onMedicationListChanged } from '../../src/services/notificationService';
 import type { MedicationDefinition, MedicationFrequency } from '../../src/types';
 import { MEDICATION_FREQUENCY_OPTIONS } from '../../src/types';
 
@@ -88,6 +89,7 @@ export default function MedicationSettingsScreen() {
       );
       setMedications(updated);
       await saveMedicationList(updated);
+      onMedicationListChanged().catch(() => {});
       showToast('Medication updated', 'success');
     } else {
       // Add new
@@ -101,6 +103,7 @@ export default function MedicationSettingsScreen() {
       const updated = [...medications, newMed];
       setMedications(updated);
       await saveMedicationList(updated);
+      onMedicationListChanged().catch(() => {});
       showToast('Medication added', 'success');
     }
 
@@ -132,6 +135,7 @@ export default function MedicationSettingsScreen() {
             const updated = medications.filter((m) => m.id !== id);
             setMedications(updated);
             await saveMedicationList(updated);
+            onMedicationListChanged().catch(() => {});
             hapticSelection();
             showToast('Medication removed', 'info');
           },

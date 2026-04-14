@@ -114,7 +114,8 @@ jest.mock('expo-notifications', () => ({
   getAllScheduledNotificationsAsync: jest.fn(() => Promise.resolve([])),
   setNotificationChannelAsync: jest.fn(() => Promise.resolve()),
   AndroidImportance: { DEFAULT: 3, LOW: 2, HIGH: 4 },
-  SchedulableTriggerInputTypes: { DAILY: 'daily' },
+  SchedulableTriggerInputTypes: { DAILY: 'daily', DATE: 'date' },
+  setBadgeCountAsync: jest.fn(() => Promise.resolve()),
 }));
 
 // ============================================================
@@ -367,6 +368,21 @@ jest.mock('react-native/Libraries/Utilities/Platform', () => ({
   OS: 'ios',
   select: jest.fn((obj) => obj.ios ?? obj.default),
 }));
+
+// Also inject Platform into the react-native module for `import { Platform } from 'react-native'`
+const RN = require('react-native');
+if (!RN.Platform || !RN.Platform.OS) {
+  RN.Platform = { OS: 'ios', select: (obj) => obj.ios ?? obj.default };
+}
+if (!RN.UIManager) {
+  RN.UIManager = { setLayoutAnimationEnabledExperimental: undefined };
+}
+if (!RN.LayoutAnimation) {
+  RN.LayoutAnimation = {
+    configureNext: jest.fn(),
+    Presets: { easeInEaseOut: {} },
+  };
+}
 
 // ============================================================
 // Global fetch mock

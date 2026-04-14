@@ -21,6 +21,7 @@ import { ToastProvider } from '../src/contexts/ToastContext';
 import { ThemeProvider } from '../src/contexts/ThemeContext';
 import { isOnboardingComplete } from '../src/services/onboardingService';
 import { handleStravaCallback } from '../src/services/strava';
+import { onAppLaunchSync } from '../src/services/notificationService';
 import type { AppSettings } from '../src/types/profile';
 
 // Keep splash screen visible until initialization completes
@@ -72,6 +73,10 @@ export default function RootLayout() {
         // MASTER-62: Process offline queue when app returns to foreground
         processQueue().catch((error) => {
           console.warn('Queue sync failed:', error);
+        });
+        // Sprint 24: Re-sync notifications on foreground (iOS clears them on update)
+        onAppLaunchSync().catch((error) => {
+          console.warn('Notification sync failed:', error);
         });
       } else if (nextState === 'inactive' || nextState === 'background') {
         if (privacyEnabledRef.current) {

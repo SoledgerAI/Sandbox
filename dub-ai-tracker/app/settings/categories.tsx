@@ -23,6 +23,7 @@ import {
   getEnabledCategories,
   toggleCategory,
 } from '../../src/utils/categoryElection';
+import { onCategoryEnabled, onCategoryDisabled } from '../../src/services/notificationService';
 import {
   ALL_ELECT_IN_CATEGORIES,
   ELECT_IN_CATEGORY_GROUPS,
@@ -54,6 +55,12 @@ export default function MyCategoriesScreen() {
         ? [...prev, categoryId]
         : prev.filter((id) => id !== categoryId),
     );
+    // Sprint 24: Sync notification scheduling when categories change
+    if (nowEnabled) {
+      onCategoryEnabled(categoryId).catch(() => {});
+    } else {
+      onCategoryDisabled(categoryId).catch(() => {});
+    }
     const cat = ALL_ELECT_IN_CATEGORIES.find((c) => c.id === categoryId);
     if (cat) {
       showToast(

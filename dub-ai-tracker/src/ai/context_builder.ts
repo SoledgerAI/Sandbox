@@ -65,6 +65,7 @@ import type {
   ElectInCategoryId,
   BodyMeasurementEntry,
   MedicationEntry,
+  CycleEntryV2,
 } from '../types';
 import { DOCTOR_VISIT_TYPES, MOBILITY_TYPES } from '../types';
 import { calculateSleepAdherence } from '../utils/sleepAdherence';
@@ -396,14 +397,55 @@ export async function buildCoachContext(userMessage: string): Promise<{
     }
   }
 
-  // Cycle phase (conditional)
+  // Cycle phase (conditional) — Sprint 24 enhanced
+  // Include: cycle day, period status, reported symptoms (last 3 days)
+  // EXCLUDE: intimacy, cervical_mucus, ovulation_test (too private for AI context)
   let cyclePhase: string | null = null;
   if (messageMatchesKeywords(userMessage, CYCLE_KEYWORDS)) {
-    const cycleEntry = await storageGet<CycleEntry>(dateKey(STORAGE_KEYS.LOG_CYCLE, today));
-    if (cycleEntry?.computed_phase) {
-      cyclePhase = cycleEntry.computed_phase;
-      conditionalSections.push(`[CYCLE] Phase: ${cyclePhase} Day: ${cycleEntry.cycle_day ?? '?'}`);
+    const cycleEntry = await storageGet<CycleEntryV2>(dateKey(STORAGE_KEYS.LOG_CYCLE, today));
+    if (cycleEntry) {
+      // V2 enhanced entry
+      if (cycleEntry.period_status) {
+        const parts: string[] = [`Status: ${cycleEntry.period_status}`];
+        if (cycleEntry.flow_level) parts.push(`Flow: ${cycleEntry.flow_level}/5`);
+
+        // Include symptoms (NOT intimacy, cervical_mucus, or ovulation_test)
+        if (cycleEntry.symptoms && cycleEntry.symptoms.length > 0) {
+          const symptomNames = cycleEntry.symptoms.map((s: any) =>
+            typeof s === 'string' ? s : s.symptom,
+          );
+          parts.push(`Symptoms: ${symptomNames.join(', ')}`);
+        }
+
+        conditionalSections.push(`[CYCLE] ${parts.join(' | ')}`);
+      }
+      // Legacy fallback
+      if ((cycleEntry as any).computed_phase && !cycleEntry.period_status) {
+        cyclePhase = (cycleEntry as any).computed_phase;
+        conditionalSections.push(`[CYCLE] Phase: ${cyclePhase} Day: ${(cycleEntry as any).cycle_day ?? '?'}`);
+      }
+
+      // Load last 3 days of symptoms for trend context
+      const recentSymptoms: string[] = [];
+      for (let i = 1; i <= 3; i++) {
+        const pastDate = pastDateString(i);
+        const pastEntry = await storageGet<CycleEntryV2>(dateKey(STORAGE_KEYS.LOG_CYCLE, pastDate));
+        if (pastEntry?.symptoms && pastEntry.symptoms.length > 0) {
+          const names = pastEntry.symptoms.map((s: any) =>
+            typeof s === 'string' ? s : s.symptom,
+          );
+          recentSymptoms.push(`${pastDate}: ${names.join(', ')}`);
+        }
+      }
+      if (recentSymptoms.length > 0) {
+        conditionalSections.push(`[CYCLE 3D SYMPTOMS] ${recentSymptoms.join(' | ')}`);
+      }
     }
+
+    // Safety instruction for cycle data
+    conditionalSections.push(
+      '[CYCLE SAFETY] Cycle data is provided for wellness context only. Never make fertility predictions or contraception recommendations. Direct all reproductive health questions to a healthcare provider.',
+    );
   }
 
   // Sobriety goals — ALWAYS included (safety-critical, MASTER-03)
