@@ -62,8 +62,8 @@ describe('Daily Goals Configuration', () => {
     expect(result).toHaveLength(3);
   });
 
-  it('ALL_DAILY_GOALS has 22 entries', () => {
-    expect(ALL_DAILY_GOALS).toHaveLength(22);
+  it('ALL_DAILY_GOALS has 24 entries (Sprint 22: +migraine_logged, +mood_logged)', () => {
+    expect(ALL_DAILY_GOALS).toHaveLength(24);
   });
 
   it('DEFAULT_DAILY_GOALS has 4 entries', () => {
@@ -271,15 +271,18 @@ describe('Compliance Engine', () => {
     expect(result.items[0].detail).toBe('Severity: mild');
   });
 
-  it('handles all 20 goals enabled with no data', async () => {
+  it('handles all goals enabled with no data (category-gated goals skipped)', async () => {
     const allGoalIds = ALL_DAILY_GOALS.map((g) => g.id);
     await setEnabledGoals(allGoalIds);
 
     const result = await calculateDailyCompliance(TEST_DATE);
-    expect(result.total).toBe(20);
+    // Category-gated goals (breastfeeding, perimenopause, migraine) are skipped
+    // when their categories aren't enabled, so total = ALL - 3 gated
+    const expectedTotal = allGoalIds.length - 3; // 3 category-gated goals skipped
+    expect(result.total).toBe(expectedTotal);
     expect(result.completed).toBe(0);
     expect(result.percentage).toBe(0);
-    expect(result.items).toHaveLength(20);
+    expect(result.items).toHaveLength(expectedTotal);
   });
 });
 

@@ -809,6 +809,204 @@ export interface BreastfeedingEntry {
   notes: string | null; // max 300 chars
 }
 
+// -- MIGRAINE --
+
+export type MigraineSymptom =
+  | 'throbbing_pulsating'
+  | 'aura'
+  | 'light_sensitivity'
+  | 'sound_sensitivity'
+  | 'nausea_vomiting'
+  | 'dizziness'
+  | 'neck_stiffness'
+  | 'brain_fog'
+  | 'tingling_numbness'
+  | 'eye_pain'
+  | 'other';
+
+export const MIGRAINE_SYMPTOM_OPTIONS: { value: MigraineSymptom; label: string }[] = [
+  { value: 'throbbing_pulsating', label: 'Throbbing/pulsating pain' },
+  { value: 'aura', label: 'Aura (visual disturbances)' },
+  { value: 'light_sensitivity', label: 'Light sensitivity' },
+  { value: 'sound_sensitivity', label: 'Sound sensitivity' },
+  { value: 'nausea_vomiting', label: 'Nausea/vomiting' },
+  { value: 'dizziness', label: 'Dizziness' },
+  { value: 'neck_stiffness', label: 'Neck stiffness' },
+  { value: 'brain_fog', label: 'Brain fog' },
+  { value: 'tingling_numbness', label: 'Tingling/numbness' },
+  { value: 'eye_pain', label: 'Eye pain' },
+  { value: 'other', label: 'Other' },
+];
+
+export type MigraineHeadLocation =
+  | 'left_side'
+  | 'right_side'
+  | 'front_forehead'
+  | 'back_of_head'
+  | 'behind_eyes'
+  | 'all_over';
+
+export const MIGRAINE_HEAD_LOCATION_OPTIONS: { value: MigraineHeadLocation; label: string }[] = [
+  { value: 'left_side', label: 'Left side' },
+  { value: 'right_side', label: 'Right side' },
+  { value: 'front_forehead', label: 'Front/forehead' },
+  { value: 'back_of_head', label: 'Back of head' },
+  { value: 'behind_eyes', label: 'Behind eyes' },
+  { value: 'all_over', label: 'All over' },
+];
+
+export type MigraineTrigger =
+  | 'stress'
+  | 'poor_sleep'
+  | 'skipped_meal'
+  | 'weather_barometric'
+  | 'bright_lights'
+  | 'strong_smells'
+  | 'alcohol'
+  | 'caffeine'
+  | 'hormonal_changes'
+  | 'exercise_exertion'
+  | 'certain_foods'
+  | 'medication_overuse'
+  | 'other';
+
+export const MIGRAINE_TRIGGER_OPTIONS: { value: MigraineTrigger; label: string }[] = [
+  { value: 'stress', label: 'Stress' },
+  { value: 'poor_sleep', label: 'Poor sleep / sleep change' },
+  { value: 'skipped_meal', label: 'Skipped meal / dehydration' },
+  { value: 'weather_barometric', label: 'Weather / barometric pressure change' },
+  { value: 'bright_lights', label: 'Bright lights / screens' },
+  { value: 'strong_smells', label: 'Strong smells' },
+  { value: 'alcohol', label: 'Alcohol' },
+  { value: 'caffeine', label: 'Caffeine (too much or withdrawal)' },
+  { value: 'hormonal_changes', label: 'Hormonal changes' },
+  { value: 'exercise_exertion', label: 'Exercise / physical exertion' },
+  { value: 'certain_foods', label: 'Certain foods' },
+  { value: 'medication_overuse', label: 'Medication overuse' },
+  { value: 'other', label: 'Other' },
+];
+
+export interface MigraineEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  date: string; // YYYY-MM-DD
+  occurred: boolean;
+  start_time: string | null;
+  end_time: string | null;
+  total_duration_minutes: number | null;
+  severity: number | null; // 1-10
+  symptoms: MigraineSymptom[];
+  symptom_other_text: string | null;
+  location_on_head: MigraineHeadLocation[];
+  triggers: MigraineTrigger[];
+  trigger_other_text: string | null;
+  zip_code: string | null;
+  medication_taken: boolean;
+  medication_name: string | null;
+  medication_time: string | null;
+  relief_rating: number | null; // 1-5
+  notes: string | null; // max 500 chars
+}
+
+// -- MOOD & MENTAL HEALTH --
+
+export type MoodEmotion =
+  | 'happy' | 'grateful' | 'calm' | 'confident' | 'motivated'
+  | 'sad' | 'anxious' | 'irritable' | 'overwhelmed' | 'lonely'
+  | 'angry' | 'hopeless' | 'numb' | 'restless' | 'fearful';
+
+export const MOOD_EMOTION_OPTIONS: { value: MoodEmotion; label: string; valence: 'positive' | 'negative' }[] = [
+  { value: 'happy', label: 'Happy', valence: 'positive' },
+  { value: 'grateful', label: 'Grateful', valence: 'positive' },
+  { value: 'calm', label: 'Calm', valence: 'positive' },
+  { value: 'confident', label: 'Confident', valence: 'positive' },
+  { value: 'motivated', label: 'Motivated', valence: 'positive' },
+  { value: 'sad', label: 'Sad', valence: 'negative' },
+  { value: 'anxious', label: 'Anxious', valence: 'negative' },
+  { value: 'irritable', label: 'Irritable', valence: 'negative' },
+  { value: 'overwhelmed', label: 'Overwhelmed', valence: 'negative' },
+  { value: 'lonely', label: 'Lonely', valence: 'negative' },
+  { value: 'angry', label: 'Angry', valence: 'negative' },
+  { value: 'hopeless', label: 'Hopeless', valence: 'negative' },
+  { value: 'numb', label: 'Numb', valence: 'negative' },
+  { value: 'restless', label: 'Restless', valence: 'negative' },
+  { value: 'fearful', label: 'Fearful', valence: 'negative' },
+];
+
+export type MoodTrigger =
+  | 'work_career'
+  | 'relationship_issues'
+  | 'financial_stress'
+  | 'health_concerns'
+  | 'poor_sleep'
+  | 'social_isolation'
+  | 'family_conflict'
+  | 'major_life_change'
+  | 'grief_loss'
+  | 'weather_seasonal'
+  | 'hormonal_changes'
+  | 'substance_use'
+  | 'news_world_events'
+  | 'other';
+
+export const MOOD_TRIGGER_OPTIONS: { value: MoodTrigger; label: string }[] = [
+  { value: 'work_career', label: 'Work/career stress' },
+  { value: 'relationship_issues', label: 'Relationship issues' },
+  { value: 'financial_stress', label: 'Financial stress' },
+  { value: 'health_concerns', label: 'Health concerns' },
+  { value: 'poor_sleep', label: 'Poor sleep' },
+  { value: 'social_isolation', label: 'Social isolation' },
+  { value: 'family_conflict', label: 'Family conflict' },
+  { value: 'major_life_change', label: 'Major life change' },
+  { value: 'grief_loss', label: 'Grief/loss' },
+  { value: 'weather_seasonal', label: 'Weather/seasonal' },
+  { value: 'hormonal_changes', label: 'Hormonal changes' },
+  { value: 'substance_use', label: 'Substance use' },
+  { value: 'news_world_events', label: 'News/world events' },
+  { value: 'other', label: 'Other' },
+];
+
+export type CopingStrategy =
+  | 'exercise'
+  | 'meditation_breathing'
+  | 'talked_to_someone'
+  | 'journaling'
+  | 'time_outdoors'
+  | 'music_art'
+  | 'professional_support'
+  | 'rest_sleep'
+  | 'other';
+
+export const COPING_STRATEGY_OPTIONS: { value: CopingStrategy; label: string }[] = [
+  { value: 'exercise', label: 'Exercise' },
+  { value: 'meditation_breathing', label: 'Meditation/breathing' },
+  { value: 'talked_to_someone', label: 'Talked to someone' },
+  { value: 'journaling', label: 'Journaling' },
+  { value: 'time_outdoors', label: 'Time outdoors' },
+  { value: 'music_art', label: 'Music/art' },
+  { value: 'professional_support', label: 'Professional support' },
+  { value: 'rest_sleep', label: 'Rest/sleep' },
+  { value: 'other', label: 'Other' },
+];
+
+export interface MoodMentalEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  date: string; // YYYY-MM-DD
+  overall_mood: number; // 1-10
+  energy_level: number; // 1-5
+  anxiety_level: number; // 1-5
+  stress_level: number; // 1-5
+  mental_clarity: number; // 1-5
+  emotions: MoodEmotion[];
+  triggers: MoodTrigger[];
+  trigger_other_text: string | null;
+  coping_used: CopingStrategy[];
+  coping_other_text: string | null;
+  sleep_quality_last_night: number | null; // 1-5, null if already logged
+  notes: string | null; // max 500 chars
+}
+
 // -- ELECT-IN CATEGORIES --
 
 export type ElectInCategoryId =
@@ -821,7 +1019,8 @@ export type ElectInCategoryId =
   | 'perimenopause'
   | 'sexual_health'
   | 'substances'
-  | 'injuries';
+  | 'injuries'
+  | 'migraine_tracking';
 
 export type ElectInCategoryGroup = 'health_metrics' | 'womens_health' | 'other';
 
@@ -845,6 +1044,7 @@ export const ALL_ELECT_IN_CATEGORIES: ElectInCategoryDefinition[] = [
   { id: 'glucose', label: 'Glucose', description: 'Track blood sugar levels', group: 'health_metrics', icon: 'fitness-outline' },
   { id: 'bloodwork', label: 'Bloodwork', description: 'Record lab results and panels', group: 'health_metrics', icon: 'water-outline' },
   { id: 'allergies', label: 'Allergies', description: 'Daily severity, symptoms, medication', group: 'health_metrics', icon: 'alert-circle-outline' },
+  { id: 'migraine_tracking', label: 'Migraine Tracking', description: 'Severity, symptoms, triggers, medication, weather correlation', group: 'health_metrics', icon: 'flash-outline' },
   // Women's Health
   { id: 'cycle_tracking', label: 'Cycle Tracking', description: 'Period, ovulation, symptoms', group: 'womens_health', icon: 'flower-outline' },
   { id: 'breastfeeding', label: 'Breastfeeding', description: 'Session duration, side, frequency, output tracking', group: 'womens_health', icon: 'heart-outline' },
@@ -879,7 +1079,9 @@ export type DailyGoalId =
   | 'journal'
   | 'sleep_adherence'
   | 'breastfeeding_logged'
-  | 'perimenopause_logged';
+  | 'perimenopause_logged'
+  | 'migraine_logged'
+  | 'mood_logged';
 
 export interface DailyGoalDefinition {
   id: DailyGoalId;
@@ -910,6 +1112,8 @@ export const ALL_DAILY_GOALS: DailyGoalDefinition[] = [
   { id: 'sleep_adherence', label: 'Sleep schedule adherence (75%+)', icon: 'alarm-outline' },
   { id: 'breastfeeding_logged', label: 'Breastfeeding (at least 1 session)', icon: 'heart-outline' },
   { id: 'perimenopause_logged', label: 'Perimenopause (daily entry)', icon: 'thermometer-outline' },
+  { id: 'migraine_logged', label: 'Migraine (daily entry)', icon: 'flash-outline' },
+  { id: 'mood_logged', label: 'Mood & mental health (daily entry)', icon: 'happy-outline' },
 ];
 
 export const DEFAULT_DAILY_GOALS: DailyGoalId[] = [

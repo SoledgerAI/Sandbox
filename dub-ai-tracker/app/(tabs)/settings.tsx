@@ -444,6 +444,18 @@ export default function SettingsScreen() {
       ],
     },
     {
+      title: 'SUPPORT',
+      items: [
+        {
+          id: 'crisis-support',
+          icon: 'heart-outline',
+          label: 'Crisis Support',
+          subtitle: '988 Suicide & Crisis Lifeline',
+          route: '/settings/crisis-support',
+        },
+      ],
+    },
+    {
       title: 'ABOUT',
       items: [
         {

@@ -24,6 +24,8 @@ import type {
   JournalEntry,
   BreastfeedingEntry,
   PerimenopauseEntry,
+  MigraineEntry,
+  MoodMentalEntry,
 } from '../types';
 import { isCategoryEnabled } from '../utils/categoryElection';
 import {
@@ -112,6 +114,8 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
     journalEntries,
     breastfeedingEntries,
     perimenopauseEntry,
+    migraineEntry,
+    moodMentalEntry,
   ] = await Promise.all([
     storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, date)),
     storageGet<WaterEntry[]>(dateKey(STORAGE_KEYS.LOG_WATER, date)),
@@ -131,6 +135,8 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
     storageGet<JournalEntry[]>(dateKey(STORAGE_KEYS.LOG_JOURNAL, date)),
     storageGet<BreastfeedingEntry[]>(dateKey(STORAGE_KEYS.LOG_BREASTFEEDING, date)),
     storageGet<PerimenopauseEntry>(dateKey(STORAGE_KEYS.LOG_PERIMENOPAUSE, date)),
+    storageGet<MigraineEntry>(dateKey(STORAGE_KEYS.LOG_MIGRAINE, date)),
+    storageGet<MoodMentalEntry>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, date)),
   ]);
 
   const foods = foodEntries ?? [];
@@ -352,6 +358,23 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
         if (!periEnabled) continue;
         item.completed = perimenopauseEntry != null;
         item.detail = perimenopauseEntry ? 'Entry completed' : 'Not logged';
+        break;
+      }
+      case 'migraine_logged': {
+        const migEnabled = await isCategoryEnabled('migraine_tracking');
+        if (!migEnabled) continue;
+        item.completed = migraineEntry != null;
+        item.detail = migraineEntry
+          ? (migraineEntry.occurred ? `Severity ${migraineEntry.severity}/10` : 'No migraine today')
+          : 'Not logged';
+        break;
+      }
+      case 'mood_logged': {
+        // CORE goal — not category-gated
+        item.completed = moodMentalEntry != null;
+        item.detail = moodMentalEntry
+          ? `Mood ${moodMentalEntry.overall_mood}/10`
+          : 'Not logged';
         break;
       }
     }

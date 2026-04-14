@@ -485,8 +485,8 @@ describe('Elect-In Category Types', () => {
     }
   });
 
-  it('10 elect-in categories defined', () => {
-    expect(ALL_ELECT_IN_CATEGORIES).toHaveLength(10);
+  it('11 elect-in categories defined (Sprint 22: +migraine_tracking)', () => {
+    expect(ALL_ELECT_IN_CATEGORIES).toHaveLength(11);
   });
 
   it('3 category groups defined', () => {

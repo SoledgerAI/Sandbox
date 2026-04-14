@@ -60,6 +60,8 @@ import type {
 import type {
   PerimenopauseEntry,
   BreastfeedingEntry,
+  MigraineEntry,
+  MoodMentalEntry,
   ElectInCategoryId,
 } from '../types';
 import { DOCTOR_VISIT_TYPES, MOBILITY_TYPES } from '../types';
@@ -106,6 +108,8 @@ const SLEEP_SCHEDULE_KEYWORDS = ['sleep schedule', 'bedtime', 'wake time', 'slee
 const RECIPE_KEYWORDS = ['recipe', 'recipes', 'cook', 'cooking', 'meal prep', 'meatloaf', 'batch', 'ingredient'];
 const PERIMENOPAUSE_KEYWORDS = ['perimenopause', 'menopause', 'hot flash', 'night sweat', 'brain fog', 'hormone'];
 const BREASTFEEDING_KEYWORDS = ['breastfeed', 'nursing', 'pumping', 'lactation', 'feeding', 'breast milk', 'bottle feed'];
+const MIGRAINE_KEYWORDS = ['migraine', 'headache', 'aura', 'head pain', 'trigger', 'barometric'];
+const MOOD_MENTAL_KEYWORDS = ['mood', 'mental', 'anxiety', 'stress', 'emotion', 'coping', 'energy', 'clarity'];
 
 function messageMatchesKeywords(message: string, keywords: string[]): boolean {
   const lower = message.toLowerCase();
@@ -884,6 +888,100 @@ export async function buildCoachContext(userMessage: string): Promise<{
     }
   }
 
+  // Sprint 22: Migraine context (only if enabled and logged)
+  if (isCatEnabled('migraine_tracking')) {
+    const migEntry = await storageGet<MigraineEntry>(dateKey(STORAGE_KEYS.LOG_MIGRAINE, today));
+    if (migEntry) {
+      if (migEntry.occurred) {
+        const parts = [
+          `severity:${migEntry.severity}/10`,
+          migEntry.symptoms.length > 0 ? `symptoms:${migEntry.symptoms.join(',')}` : null,
+          migEntry.triggers.length > 0 ? `triggers:${migEntry.triggers.join(',')}` : null,
+          migEntry.medication_taken ? `meds:${migEntry.medication_name ?? 'yes'}(relief:${migEntry.relief_rating}/5)` : null,
+          migEntry.zip_code ? `zip:${migEntry.zip_code}` : null,
+        ].filter(Boolean);
+        conditionalSections.push(`[MIGRAINE ${today}] ${parts.join(' ')}`);
+      } else {
+        conditionalSections.push(`[MIGRAINE ${today}] no migraine`);
+      }
+    }
+
+    // 7-day summary
+    if (messageMatchesKeywords(userMessage, MIGRAINE_KEYWORDS)) {
+      let count = 0;
+      let totalSeverity = 0;
+      const allTriggers = new Map<string, number>();
+      const allSymptoms = new Map<string, number>();
+      let lastZip: string | null = null;
+      for (let i = 0; i < 7; i++) {
+        const d = pastDateString(i);
+        const entry = await storageGet<MigraineEntry>(dateKey(STORAGE_KEYS.LOG_MIGRAINE, d));
+        if (entry?.occurred) {
+          count++;
+          totalSeverity += entry.severity ?? 0;
+          for (const t of entry.triggers) allTriggers.set(t, (allTriggers.get(t) ?? 0) + 1);
+          for (const s of entry.symptoms) allSymptoms.set(s, (allSymptoms.get(s) ?? 0) + 1);
+          if (entry.zip_code) lastZip = entry.zip_code;
+        }
+      }
+      if (count > 0) {
+        const avgSev = (totalSeverity / count).toFixed(1);
+        const topTriggers = [...allTriggers.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t).join(',');
+        const topSymptoms = [...allSymptoms.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([s]) => s).join(',');
+        const zipPart = lastZip ? ` zip:${lastZip}` : '';
+        conditionalSections.push(
+          `[MIGRAINE 7d] ${count} migraines, avg severity:${avgSev}${topTriggers ? ` top triggers:${topTriggers}` : ''}${topSymptoms ? ` top symptoms:${topSymptoms}` : ''}${zipPart}`,
+        );
+      }
+    }
+  }
+
+  // Sprint 22: Mood & Mental Health context — CORE, always included when logged
+  {
+    const moodMentalEntry = await storageGet<MoodMentalEntry>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, today));
+    if (moodMentalEntry) {
+      // PRIVACY: Never include raw notes in Coach context
+      const parts = [
+        `mood:${moodMentalEntry.overall_mood}/10`,
+        `energy:${moodMentalEntry.energy_level}/5`,
+        `anxiety:${moodMentalEntry.anxiety_level}/5`,
+        `stress:${moodMentalEntry.stress_level}/5`,
+        `clarity:${moodMentalEntry.mental_clarity}/5`,
+        moodMentalEntry.emotions.length > 0 ? `emotions:${moodMentalEntry.emotions.join(',')}` : null,
+        moodMentalEntry.triggers.length > 0 ? `triggers:${moodMentalEntry.triggers.join(',')}` : null,
+        moodMentalEntry.coping_used.length > 0 ? `coping:${moodMentalEntry.coping_used.join(',')}` : null,
+      ].filter(Boolean);
+      conditionalSections.push(`[MOOD_MENTAL ${today}] ${parts.join(' ')}`);
+      tagsLogged.push('mood.mental');
+    }
+
+    // 7-day trend
+    if (messageMatchesKeywords(userMessage, MOOD_MENTAL_KEYWORDS)) {
+      let totalMood = 0;
+      let daysWithData = 0;
+      const allEmotions = new Map<string, number>();
+      const allMoodTriggers = new Map<string, number>();
+      for (let i = 0; i < 7; i++) {
+        const d = pastDateString(i);
+        const entry = await storageGet<MoodMentalEntry>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, d));
+        if (entry) {
+          totalMood += entry.overall_mood;
+          daysWithData++;
+          for (const e of entry.emotions) allEmotions.set(e, (allEmotions.get(e) ?? 0) + 1);
+          for (const t of entry.triggers) allMoodTriggers.set(t, (allMoodTriggers.get(t) ?? 0) + 1);
+        }
+      }
+      if (daysWithData > 1) {
+        const avgMood = (totalMood / daysWithData).toFixed(1);
+        const topEmotions = [...allEmotions.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([e]) => e).join(',');
+        const topTriggers = [...allMoodTriggers.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t).join(',');
+        conditionalSections.push(
+          `[MOOD_MENTAL 7d] avg mood:${avgMood}/10, ${daysWithData} days${topEmotions ? ` top emotions:${topEmotions}` : ''}${topTriggers ? ` top triggers:${topTriggers}` : ''}`,
+        );
+      }
+    }
+  }
+
   // Sprint 21: Filter out elect-in category data from conditionalSections if category is disabled
   // Blood pressure context (already conditional on BP_KEYWORDS, but now also gated on category)
   if (!isCatEnabled('blood_pressure')) {
@@ -908,6 +1006,18 @@ export async function buildCoachContext(userMessage: string): Promise<{
     const cIdx = conditionalSections.findIndex((s) => s.startsWith('[CYCLE]'));
     if (cIdx >= 0) conditionalSections.splice(cIdx, 1);
   }
+  if (!isCatEnabled('migraine_tracking')) {
+    for (let idx = conditionalSections.length - 1; idx >= 0; idx--) {
+      if (conditionalSections[idx].startsWith('[MIGRAINE')) {
+        conditionalSections.splice(idx, 1);
+      }
+    }
+  }
+
+  // Sprint 22: SAFETY GUARDRAIL — always present in Coach context
+  conditionalSections.push(
+    '[SAFETY] If the user expresses thoughts of self-harm, suicide, or crisis, do NOT attempt to counsel them. Respond with empathy and immediately direct them to the 988 Suicide & Crisis Lifeline (call or text 988, or chat at 988lifeline.org). You are a wellness tracker, not a therapist.',
+  );
 
   // P2-05: Active milestone for coach context
   const activeMilestone = await getActiveMilestone(consistencyData);

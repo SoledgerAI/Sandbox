@@ -121,6 +121,7 @@ const SECTION_DEFS: SectionDef[] = [
     alwaysVisible: true,
     items: [
       { id: 'mood', label: 'Mood', icon: 'happy-outline', route: '/log/mood', storageKey: STORAGE_KEYS.LOG_MOOD, searchTerms: 'mood feeling emotion mental' },
+      { id: 'mood_mental', label: 'Mood & Mental Health', icon: 'brain-outline', route: '/log/mood-mental', storageKey: STORAGE_KEYS.LOG_MOOD_MENTAL, searchTerms: 'mood mental health anxiety stress emotions coping crisis 988' },
       { id: 'stress', label: 'Stress', icon: 'pulse-outline', route: '/log/stress', searchTerms: 'stress anxiety tension' },
       { id: 'meditation', label: 'Meditation & Breathwork', icon: 'leaf-outline', route: '/log/meditation', storageKey: STORAGE_KEYS.LOG_MEDITATION, searchTerms: 'meditation mindfulness breathe calm breathwork box breathing body scan' },
       { id: 'journal', label: 'Journaling', icon: 'book-outline', route: '/log/journal', storageKey: STORAGE_KEYS.LOG_JOURNAL, searchTerms: 'journal writing diary free-form private' },
@@ -163,6 +164,7 @@ const SECTION_DEFS: SectionDef[] = [
       { id: 'glucose', label: 'Glucose', icon: 'fitness-outline', route: '/log/glucose', searchTerms: 'blood glucose sugar diabetes a1c', electInCategory: 'glucose' },
       { id: 'bloodwork', label: 'Bloodwork', icon: 'water-outline', route: '/log/bloodwork', searchTerms: 'bloodwork labs markers cholesterol iron', electInCategory: 'bloodwork' },
       { id: 'allergies', label: 'Allergies', icon: 'alert-circle-outline', route: '/log/allergies', storageKey: STORAGE_KEYS.LOG_ALLERGIES, searchTerms: 'allergy allergies pollen dust congestion sneezing severity symptoms', electInCategory: 'allergies' },
+      { id: 'migraine', label: 'Migraine Tracker', icon: 'flash-outline', route: '/log/migraine', storageKey: STORAGE_KEYS.LOG_MIGRAINE, searchTerms: 'migraine headache aura trigger severity medication weather zip code', electInCategory: 'migraine_tracking' },
     ],
   },
   {
@@ -432,6 +434,24 @@ export default function LogScreen() {
     const periEntry = await storageGet<{ hot_flashes_count: number; energy_level: number }>(dateKey(STORAGE_KEYS.LOG_PERIMENOPAUSE, dateStr));
     if (periEntry) {
       entries['/log/perimenopause'] = { label: `${periEntry.hot_flashes_count} hot flashes, energy ${periEntry.energy_level}/5`, time: '' };
+    }
+
+    // Load migraine
+    const migraineEntry = await storageGet<{ occurred: boolean; severity: number | null }>(dateKey(STORAGE_KEYS.LOG_MIGRAINE, dateStr));
+    if (migraineEntry) {
+      entries['/log/migraine'] = {
+        label: migraineEntry.occurred ? `Severity ${migraineEntry.severity}/10` : 'No migraine',
+        time: '',
+      };
+    }
+
+    // Load mood & mental health
+    const moodMentalEntry = await storageGet<{ overall_mood: number; energy_level: number }>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, dateStr));
+    if (moodMentalEntry) {
+      entries['/log/mood-mental'] = {
+        label: `Mood ${moodMentalEntry.overall_mood}/10, Energy ${moodMentalEntry.energy_level}/5`,
+        time: '',
+      };
     }
 
     setLastEntries(entries);

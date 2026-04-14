@@ -55,6 +55,8 @@ export const STORAGE_KEYS = {
   LOG_JOURNAL: 'dub.log.journal',
   LOG_PERIMENOPAUSE: 'dub.log.perimenopause',
   LOG_BREASTFEEDING: 'dub.log.breastfeeding',
+  LOG_MIGRAINE: 'dub.log.migraine',
+  LOG_MOOD_MENTAL: 'dub.log.mood_mental',
   LOG_CUSTOM: 'dub.log.custom',
 
   // Aggregates and Caches
@@ -126,6 +128,9 @@ export const STORAGE_KEYS = {
 
   // Weather Cache
   WEATHER_CACHE: 'dub.weather.current',
+
+  // Last zip code for migraine weather correlation
+  SETTINGS_LAST_ZIP_CODE: 'dub.settings.last_zip_code',
 
   // Strength Logger
   STRENGTH_MODE_PREF: 'dub.strength.mode_pref',
