@@ -166,6 +166,11 @@ export const STORAGE_KEYS = {
 
   // EOD skip counts (adaptive suppression)
   EOD_SKIP_COUNTS: 'dub.eod.skip_counts',
+
+  // Sprint 27: Previously missing keys (magic string audit)
+  LOCK_TIMEOUT: 'dub.lock_timeout',
+  THEME_MODE: 'dub.settings.theme_mode',
+  AUDIT_PREFIX: 'dub.audit',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

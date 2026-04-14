@@ -1,13 +1,9 @@
-// Expanded Onboarding: 9-screen flow (F-07 remediation)
-// Screen 1: Consent + Name + Pronouns
-// Screen 2: Biological Sex
-// Screen 3: Date of Birth
-// Screen 4: Height (feet + inches, stored as total inches)
-// Screen 5: Weight (lbs, stored as lbs)
-// Screen 6: Activity Level
-// Screen 7: Primary Goal
-// Screen 8: What You Track (tags)
-// Screen 9: Zip Code
+// Sprint 27: Onboarding Overhaul — 16-screen flow
+// Screens 1-12: Original profile setup (value prop, consent, sex, DOB, height, weight, activity, goal, tags, supplements, zip, summary)
+// Screen 13: Category Selection (elect-in categories)
+// Screen 14: Notification Permissions
+// Screen 15: API Key Setup (BYOK)
+// Screen 16: First Log Prompt (navigate to logger, marks onboarding complete)
 
 import { useState, useCallback, useRef } from 'react';
 import {
@@ -24,6 +20,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
+import { router } from 'expo-router';
 import { Colors } from '../constants/colors';
 import { ProgressBar } from './common/ProgressBar';
 import { Button } from './common/Button';
@@ -35,8 +32,8 @@ import {
   setUserSex,
   setUserZip,
 } from '../services/onboardingService';
-import { storageSet, STORAGE_KEYS, asyncWithTimeout } from '../utils/storage';
-import { applySexAwareDefaults } from '../utils/categoryElection';
+import { storageSet, storageGet, STORAGE_KEYS, asyncWithTimeout } from '../utils/storage';
+import { applySexAwareDefaults, setEnabledCategories } from '../utils/categoryElection';
 import { getDefaultTagsForTier } from '../constants/tags';
 import { DEFAULT_TIER } from '../constants/tiers';
 import {
@@ -45,6 +42,13 @@ import {
   timingEmoji,
   getSupplementInfo,
 } from '../data/supplementLibrary';
+import {
+  ALL_ELECT_IN_CATEGORIES,
+  ELECT_IN_CATEGORY_GROUPS,
+} from '../types';
+import type { ElectInCategoryId } from '../types';
+import { requestPermissions } from '../services/notifications';
+import { validateKeyFormat, testApiKey, setApiKey, isApiKeySet } from '../services/apiKeyService';
 import type {
   BiologicalSex,
   Pronouns,
@@ -60,7 +64,7 @@ if (Platform.OS === 'android') {
   UIManager.setLayoutAnimationEnabledExperimental?.(true);
 }
 
-const TOTAL_STEPS = 12; // +1 value prop, +1 supplements, +1 summary
+const TOTAL_STEPS = 16; // 12 original + category selection + notifications + API key + first log
 const CONSENT_VERSION = '1.0';
 
 // ── Activity Level Options ──
@@ -154,6 +158,18 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
   // Step 10: Supplements (Sprint 11)
   const [selectedSupplements, setSelectedSupplements] = useState<string[]>([]);
 
+  // Step 13: Category Selection (Sprint 27)
+  const [enabledCategories, setEnabledCategoriesState] = useState<ElectInCategoryId[]>([]);
+
+  // Step 14: Notification Permissions (Sprint 27)
+  const [notifPermissionGranted, setNotifPermissionGranted] = useState(false);
+  const [notifDeclined, setNotifDeclined] = useState(false);
+
+  // Step 15: API Key (Sprint 27)
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [apiKeyTestState, setApiKeyTestState] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [apiKeyError, setApiKeyError] = useState('');
+
   // Validation
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -221,14 +237,24 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
     return Object.keys(newErrors).length === 0;
   }
 
+  // Pre-select category defaults based on sex (Sprint 27)
+  function applyCategoryDefaults(selectedSex: BiologicalSex) {
+    if (selectedSex === 'female') {
+      setEnabledCategoriesState((prev) => {
+        const defaults: ElectInCategoryId[] = ['cycle_tracking'];
+        const merged = [...new Set([...prev, ...defaults])];
+        return merged;
+      });
+    }
+  }
+
   function handleStepContinue() {
-    // Final step: delegate directly to handleFinish (has its own guard)
+    // Final step (16): handled by first log prompt buttons directly
     if (step === TOTAL_STEPS) {
-      handleFinish();
-      return;
+      return; // first log prompt handles its own navigation
     }
 
-    // Steps 1-11: debounce guard for step transitions
+    // Steps 1-15: debounce guard for step transitions
     if (isNavigating.current) return;
     isNavigating.current = true;
     setTimeout(() => { isNavigating.current = false; }, 500);
@@ -242,7 +268,10 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
         if (validateStep2()) goForward();
         break;
       case 3: // Biological Sex
-        if (validateStep3()) goForward();
+        if (validateStep3()) {
+          applyCategoryDefaults(sex!);
+          goForward();
+        }
         break;
       case 4: // Date of Birth
         if (validateStep4()) goForward();
@@ -257,6 +286,12 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
         break;
       case 11: // Zip Code
         if (validateStep10()) goForward();
+        break;
+      case 12: // Summary — proceed to category selection
+      case 13: // Category Selection — always valid
+      case 14: // Notification Permissions — always valid
+      case 15: // API Key — always valid (skip allowed)
+        goForward();
         break;
     }
   }
@@ -347,7 +382,7 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
         storageSet(STORAGE_KEYS.PROFILE, profile),
         storageSet(STORAGE_KEYS.SETTINGS, {
           units: 'imperial',
-          notification_enabled: false,
+          notification_enabled: notifPermissionGranted,
           notification_cadence: null,
           eod_questionnaire_time: null,
           privacy_screen_enabled: false,
@@ -373,12 +408,21 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
         writes.push(storageSet(STORAGE_KEYS.MY_SUPPLEMENTS, selectedSupplements));
       }
 
-      // Sprint 21: Sex-aware category defaults
-      if (sex) {
+      // Sprint 27: Save elected categories from onboarding
+      if (enabledCategories.length > 0) {
+        writes.push(setEnabledCategories(enabledCategories));
+      }
+
+      // Sprint 27: Save notification decline preference
+      if (notifDeclined) {
+        writes.push(storageSet(STORAGE_KEYS.NOTIFICATION_PREFS, { onboarding_declined: true }));
+      }
+
+      // Sprint 21: Sex-aware category defaults (only if user didn't already configure categories)
+      if (sex && enabledCategories.length === 0) {
         writes.push(
           applySexAwareDefaults(sex).then(({ showPrompt }) => {
             if (showPrompt) {
-              // Alert shown after navigation completes (non-blocking)
               setTimeout(() => {
                 const { Alert } = require('react-native');
                 Alert.alert(
@@ -429,6 +473,7 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
     heightFeet, heightInches, heightUnitMetric, heightCm,
     weightLbs, weightUnitMetric, weightKg,
     activityLevel, enabledTags, zip, selectedSupplements,
+    enabledCategories, notifPermissionGranted, notifDeclined,
   ]);
 
   // ── Button state per step ──
@@ -446,13 +491,57 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
       case 9: return true; // Tags can be empty (user chooses)
       case 10: return true; // Supplements — optional
       case 11: return true; // Zip is optional
-      case 12: return true; // Summary — always can finish
+      case 12: return true; // Summary — always can continue
+      case 13: return true; // Category selection — always valid
+      case 14: return true; // Notification permissions — always valid
+      case 15: return true; // API key — always valid (skip allowed)
+      case 16: return true; // First log prompt — handled by buttons
       default: return false;
     }
   }
 
   const isLastStep = step === TOTAL_STEPS;
-  const buttonTitle = isLastStep ? 'Start Tracking' : step === 1 ? 'Get Started' : 'Continue';
+  const hideFooterButton = step === TOTAL_STEPS; // First log prompt has its own buttons
+  const buttonTitle = step === 12 ? 'Continue' : step === 1 ? 'Get Started' : 'Continue';
+
+  // Sprint 27: Handle first log prompt navigation
+  const handleFirstLog = useCallback(async (logType: 'sleep' | 'food' | 'mood') => {
+    if (isNavigating.current) return;
+    isNavigating.current = true;
+    setSaving(true);
+    try {
+      await handleFinish();
+      // handleFinish calls onComplete which triggers navigation away from onboarding
+      // After a brief delay, navigate to the chosen logger
+      setTimeout(() => {
+        switch (logType) {
+          case 'sleep': router.push('/log/sleep'); break;
+          case 'food': router.push('/log/food'); break;
+          case 'mood': router.push('/log/mood-mental'); break;
+        }
+      }, 300);
+    } catch {
+      // handleFinish has its own fallback — just reset state
+    } finally {
+      setSaving(false);
+      isNavigating.current = false;
+    }
+  }, [handleFinish]);
+
+  // Sprint 27: Skip onboarding from first log prompt without logging
+  const handleSkipFirstLog = useCallback(async () => {
+    if (isNavigating.current) return;
+    isNavigating.current = true;
+    setSaving(true);
+    try {
+      await handleFinish();
+    } catch {
+      // handleFinish has its own fallback
+    } finally {
+      setSaving(false);
+      isNavigating.current = false;
+    }
+  }, [handleFinish]);
 
   return (
     <View style={styles.container}>
@@ -472,7 +561,21 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
           <ProgressBar currentStep={step} totalSteps={TOTAL_STEPS} />
           <Text style={styles.stepCounter}>Step {step} of {TOTAL_STEPS}</Text>
         </View>
-        <View style={styles.backArrowSpacer} />
+        {/* Skip button on steps after Screen 1 (Sprint 27) */}
+        {step > 1 && step < TOTAL_STEPS ? (
+          <TouchableOpacity
+            style={styles.skipButton}
+            onPress={() => {
+              LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+              setStep(TOTAL_STEPS); // Jump to first log prompt
+            }}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.skipButtonText}>Skip</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.backArrowSpacer} />
+        )}
       </View>
 
       <View style={styles.screen}>
@@ -594,16 +697,85 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
             getAge={getAge}
           />
         )}
+        {step === 13 && (
+          <Step13Categories
+            enabledCategories={enabledCategories}
+            onToggle={(catId: ElectInCategoryId) => {
+              setEnabledCategoriesState((prev) =>
+                prev.includes(catId) ? prev.filter((id) => id !== catId) : [...prev, catId],
+              );
+            }}
+            sex={sex}
+          />
+        )}
+        {step === 14 && (
+          <Step14Notifications
+            granted={notifPermissionGranted}
+            declined={notifDeclined}
+            onEnable={async () => {
+              const granted = await requestPermissions();
+              setNotifPermissionGranted(granted);
+              if (!granted) setNotifDeclined(true);
+            }}
+            onDecline={() => {
+              setNotifDeclined(true);
+              goForward();
+            }}
+          />
+        )}
+        {step === 15 && (
+          <Step15ApiKey
+            keyInput={apiKeyInput}
+            onKeyChange={setApiKeyInput}
+            testState={apiKeyTestState}
+            error={apiKeyError}
+            onTest={async () => {
+              setApiKeyTestState('testing');
+              setApiKeyError('');
+              try {
+                const fmt = validateKeyFormat(apiKeyInput.trim());
+                if (!fmt.valid) {
+                  setApiKeyTestState('error');
+                  setApiKeyError(fmt.error || 'Invalid key format');
+                  return;
+                }
+                const result = await testApiKey(apiKeyInput.trim());
+                if (result.valid) {
+                  await setApiKey(apiKeyInput.trim());
+                  setApiKeyTestState('success');
+                } else {
+                  setApiKeyTestState('error');
+                  setApiKeyError(result.error || 'Key validation failed');
+                }
+              } catch {
+                setApiKeyTestState('error');
+                setApiKeyError('Network error — check connection');
+              }
+            }}
+            onSkip={() => goForward()}
+          />
+        )}
+        {step === 16 && (
+          <Step16FirstLog
+            saving={saving}
+            onLogSleep={() => handleFirstLog('sleep')}
+            onLogFood={() => handleFirstLog('food')}
+            onLogMood={() => handleFirstLog('mood')}
+            onSkip={handleSkipFirstLog}
+          />
+        )}
       </View>
 
-      <View style={styles.footer}>
-        <Button
-          title={buttonTitle}
-          onPress={handleStepContinue}
-          disabled={!canContinue()}
-          loading={isLastStep && saving}
-        />
-      </View>
+      {!hideFooterButton && (
+        <View style={styles.footer}>
+          <Button
+            title={buttonTitle}
+            onPress={handleStepContinue}
+            disabled={!canContinue()}
+            loading={saving}
+          />
+        </View>
+      )}
     </View>
   );
 }
@@ -623,10 +795,10 @@ function StepValueProp() {
   return (
     <View style={[styles.scrollContent, { flex: 1, justifyContent: 'center' }]}>
       <Text style={[styles.screenTitle, { fontSize: 32, textAlign: 'center' }]}>
-        Welcome to DUB
+        Welcome to DUB Tracker
       </Text>
       <Text style={[styles.screenSubtitle, { textAlign: 'center', marginBottom: 32 }]}>
-        Your complete health dashboard
+        Your personal wellness companion
       </Text>
 
       <View style={{ gap: 16 }}>
@@ -1433,6 +1605,276 @@ function StepSummary({
 }
 
 // ════════════════════════════════════════════════════
+// Step 13: Category Selection (Sprint 27)
+// ════════════════════════════════════════════════════
+
+function Step13Categories({
+  enabledCategories, onToggle, sex,
+}: {
+  enabledCategories: ElectInCategoryId[];
+  onToggle: (catId: ElectInCategoryId) => void;
+  sex: BiologicalSex | null;
+}) {
+  return (
+    <ScrollView
+      contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
+      showsVerticalScrollIndicator={false}
+    >
+      <Text style={styles.screenTitle}>Specialized Categories</Text>
+      <Text style={styles.screenSubtitle}>
+        Enable additional tracking categories. You can always change these later in Settings {'>'} My Categories.
+      </Text>
+
+      {ELECT_IN_CATEGORY_GROUPS.map((group) => {
+        const cats = ALL_ELECT_IN_CATEGORIES.filter((c) => c.group === group.id);
+        if (cats.length === 0) return null;
+        return (
+          <View key={group.id} style={{ marginBottom: 20 }}>
+            <Text style={styles.sectionLabel}>{group.label}</Text>
+            {cats.map((cat) => {
+              const isEnabled = enabledCategories.includes(cat.id);
+              return (
+                <TouchableOpacity
+                  key={cat.id}
+                  style={[styles.optionRowCompact, isEnabled && styles.optionRowCompactSelected]}
+                  onPress={() => onToggle(cat.id)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={isEnabled ? 'checkbox' : 'square-outline'}
+                    size={22}
+                    color={isEnabled ? Colors.accent : Colors.secondaryText}
+                  />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={[styles.optionLabelCompact, isEnabled && { color: Colors.accent }]}>
+                      {cat.label}
+                    </Text>
+                    <Text style={styles.optionSubCompact}>{cat.description}</Text>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        );
+      })}
+    </ScrollView>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// Step 14: Notification Permissions (Sprint 27)
+// ════════════════════════════════════════════════════
+
+function Step14Notifications({
+  granted, declined, onEnable, onDecline,
+}: {
+  granted: boolean;
+  declined: boolean;
+  onEnable: () => void;
+  onDecline: () => void;
+}) {
+  return (
+    <View style={[styles.scrollContent, { flex: 1, justifyContent: 'center' }]}>
+      <View style={{ alignItems: 'center', marginBottom: 32 }}>
+        <Ionicons name="notifications-outline" size={64} color={Colors.accent} />
+      </View>
+
+      <Text style={[styles.screenTitle, { textAlign: 'center' }]}>
+        Stay on Track
+      </Text>
+      <Text style={[styles.screenSubtitle, { textAlign: 'center', marginBottom: 40 }]}>
+        Daily reminders help you build consistent tracking habits. We'll only notify you when it matters.
+      </Text>
+
+      {granted ? (
+        <View style={{ alignItems: 'center', gap: 12 }}>
+          <Ionicons name="checkmark-circle" size={48} color={Colors.success} />
+          <Text style={[styles.screenSubtitle, { textAlign: 'center', color: Colors.successText }]}>
+            Notifications enabled!
+          </Text>
+        </View>
+      ) : declined ? (
+        <View style={{ alignItems: 'center', gap: 8 }}>
+          <Text style={[styles.helperText, { textAlign: 'center' }]}>
+            No problem — you can enable reminders anytime in Settings.
+          </Text>
+        </View>
+      ) : (
+        <View style={{ gap: 12, paddingHorizontal: 16 }}>
+          <TouchableOpacity
+            style={[styles.selectCard, styles.selectCardActive, { justifyContent: 'center' }]}
+            onPress={onEnable}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="notifications" size={22} color={Colors.accent} />
+            <Text style={[styles.selectCardLabel, styles.selectCardLabelActive]}>Enable Reminders</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.selectCard, { justifyContent: 'center' }]}
+            onPress={onDecline}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.selectCardLabel}>Maybe Later</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// Step 15: API Key Setup (Sprint 27)
+// ════════════════════════════════════════════════════
+
+function Step15ApiKey({
+  keyInput, onKeyChange, testState, error, onTest, onSkip,
+}: {
+  keyInput: string;
+  onKeyChange: (v: string) => void;
+  testState: 'idle' | 'testing' | 'success' | 'error';
+  error: string;
+  onTest: () => void;
+  onSkip: () => void;
+}) {
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={120}
+    >
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: 120 }]}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={{ alignItems: 'center', marginBottom: 16 }}>
+          <Ionicons name="key-outline" size={48} color={Colors.accent} />
+        </View>
+
+        <Text style={[styles.screenTitle, { textAlign: 'center' }]}>
+          Power Your AI Coach
+        </Text>
+        <Text style={[styles.screenSubtitle, { textAlign: 'center' }]}>
+          Coach DUB uses your own Anthropic API key (BYOK) — your data is sent directly to Anthropic, never through our servers.
+        </Text>
+
+        {testState === 'success' ? (
+          <View style={{ alignItems: 'center', gap: 12, marginTop: 16 }}>
+            <Ionicons name="checkmark-circle" size={48} color={Colors.success} />
+            <Text style={[styles.screenSubtitle, { color: Colors.successText, textAlign: 'center' }]}>
+              API key saved and verified!
+            </Text>
+          </View>
+        ) : (
+          <>
+            <View style={{ marginTop: 16 }}>
+              <Input
+                label="Anthropic API Key"
+                value={keyInput}
+                onChangeText={onKeyChange}
+                placeholder="sk-ant-..."
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                error={error || undefined}
+              />
+            </View>
+
+            <View style={{ gap: 12, marginTop: 16 }}>
+              <TouchableOpacity
+                style={[styles.selectCard, styles.selectCardActive, { justifyContent: 'center' }]}
+                onPress={onTest}
+                disabled={!keyInput.trim() || testState === 'testing'}
+                activeOpacity={0.7}
+              >
+                {testState === 'testing' ? (
+                  <Text style={[styles.selectCardLabel, styles.selectCardLabelActive]}>Verifying...</Text>
+                ) : (
+                  <>
+                    <Ionicons name="shield-checkmark-outline" size={20} color={Colors.accent} />
+                    <Text style={[styles.selectCardLabel, styles.selectCardLabelActive]}>Verify & Save Key</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.selectCard, { justifyContent: 'center' }]}
+                onPress={onSkip}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.selectCardLabel}>Skip for Now</Text>
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.helperText, { textAlign: 'center', marginTop: 12 }]}>
+              You can set up your API key anytime in Settings {'>'} Coach DUB.
+            </Text>
+          </>
+        )}
+      </ScrollView>
+    </KeyboardAvoidingView>
+  );
+}
+
+// ════════════════════════════════════════════════════
+// Step 16: First Log Prompt (Sprint 27)
+// ════════════════════════════════════════════════════
+
+function Step16FirstLog({
+  saving, onLogSleep, onLogFood, onLogMood, onSkip,
+}: {
+  saving: boolean;
+  onLogSleep: () => void;
+  onLogFood: () => void;
+  onLogMood: () => void;
+  onSkip: () => void;
+}) {
+  const FIRST_LOG_OPTIONS = [
+    { label: 'How did you sleep?', icon: 'moon-outline', onPress: onLogSleep },
+    { label: 'Log a meal', icon: 'restaurant-outline', onPress: onLogFood },
+    { label: "How's your mood?", icon: 'happy-outline', onPress: onLogMood },
+  ];
+
+  return (
+    <View style={[styles.scrollContent, { flex: 1, justifyContent: 'center' }]}>
+      <Text style={[styles.screenTitle, { textAlign: 'center', fontSize: 28 }]}>
+        Let's log your first entry!
+      </Text>
+      <Text style={[styles.screenSubtitle, { textAlign: 'center', marginBottom: 32 }]}>
+        Pick one to get started. You can log more anytime from the Log tab.
+      </Text>
+
+      <View style={{ gap: 14, paddingHorizontal: 8 }}>
+        {FIRST_LOG_OPTIONS.map((opt) => (
+          <TouchableOpacity
+            key={opt.label}
+            style={[styles.firstLogCard]}
+            onPress={opt.onPress}
+            disabled={saving}
+            activeOpacity={0.7}
+          >
+            <Ionicons name={opt.icon as any} size={32} color={Colors.accent} />
+            <Text style={styles.firstLogLabel}>{opt.label}</Text>
+            <Ionicons name="chevron-forward" size={20} color={Colors.secondaryText} />
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      <TouchableOpacity
+        style={{ marginTop: 24, alignItems: 'center', padding: 12 }}
+        onPress={onSkip}
+        disabled={saving}
+        activeOpacity={0.7}
+      >
+        <Text style={[styles.helperText, { fontSize: 14, fontStyle: 'normal' }]}>
+          {saving ? 'Setting up...' : 'Skip — go to dashboard'}
+        </Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+// ════════════════════════════════════════════════════
 // Inline Checkbox
 // ════════════════════════════════════════════════════
 
@@ -1803,5 +2245,36 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     fontSize: 11,
     marginTop: 2,
+  },
+
+  // Sprint 27: Skip button
+  skipButton: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  skipButtonText: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+
+  // Sprint 27: First log prompt cards
+  firstLogCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    borderColor: Colors.accent,
+    gap: 16,
+  },
+  firstLogLabel: {
+    color: Colors.accentText,
+    fontSize: 18,
+    fontWeight: '600',
+    flex: 1,
   },
 });

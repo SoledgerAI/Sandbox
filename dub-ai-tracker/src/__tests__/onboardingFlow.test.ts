@@ -1,7 +1,7 @@
 // Sprint 2 Fix 2 + Fix 3: Onboarding Value Prop + Summary Screen tests
 
 describe('PersonalizationFlow step structure', () => {
-  it('TOTAL_STEPS is 12 (9 original + value prop + supplements + summary)', () => {
+  it('TOTAL_STEPS is 16 (12 original + categories + notifications + API key + first log)', () => {
     // Read the source to verify the constant
     const fs = require('fs');
     const path = require('path');
@@ -9,7 +9,7 @@ describe('PersonalizationFlow step structure', () => {
       path.resolve(__dirname, '../components/PersonalizationFlow.tsx'),
       'utf-8',
     );
-    expect(source).toContain('const TOTAL_STEPS = 12');
+    expect(source).toContain('const TOTAL_STEPS = 16');
   });
 });
 
