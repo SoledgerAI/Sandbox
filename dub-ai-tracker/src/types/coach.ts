@@ -95,6 +95,10 @@ export interface CoachContext {
   calorie_target: number | null;
   recovery_score: number | null;
   consistency_28d_pct: number;
+  /** Sprint 25: 7-day compliance average percentage, null if no data */
+  compliance_7d_avg: number | null;
+  /** Sprint 25: Hydration goal progress string, null if no goal set */
+  hydration_goal_progress: string | null;
   active_correlations: PatternInsight[];
   active_injuries: InjurySummary[];
   latest_bloodwork: BloodworkSummary | null;

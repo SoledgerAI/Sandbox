@@ -1,6 +1,7 @@
 // Dashboard screen -- daily overview
 // Phase 5: Dashboard Layout
 // P1-08: Deferred setup cards (Days 1-4 after onboarding)
+// Sprint 25: Dashboard Overhaul — Daily Snapshot, Priorities, Coach, Reminders, Streaks
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Pressable } from 'react-native';
@@ -13,6 +14,8 @@ import { FontSize, FontWeight } from '../../src/constants/typography';
 import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
 import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
 import type { AppSettings } from '../../src/types/profile';
+import type { ComplianceResult, HydrationGoalSettings } from '../../src/types';
+import type { ChatMessage } from '../../src/types/coach';
 import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { useDeferredSetup } from '../../src/hooks/useDeferredSetup';
 import { useMoodTrend } from '../../src/hooks/useMoodTrend';
@@ -33,6 +36,15 @@ import { CoachDubBadge } from '../../src/components/dashboard/CoachDubBadge';
 import { StreakBadge } from '../../src/components/dashboard/StreakBadge';
 import { DoctorFollowUpCard } from '../../src/components/dashboard/DoctorFollowUpCard';
 import { ComplianceCard } from '../../src/components/dashboard/ComplianceCard';
+import { DailySnapshotCard } from '../../src/components/dashboard/DailySnapshotCard';
+import { TodaysPrioritiesCard } from '../../src/components/dashboard/TodaysPrioritiesCard';
+import { RecentCoachCard } from '../../src/components/dashboard/RecentCoachCard';
+import { UpcomingRemindersCard } from '../../src/components/dashboard/UpcomingRemindersCard';
+import { ActiveStreaksCard } from '../../src/components/dashboard/ActiveStreaksCard';
+import { calculateAllStreaks, type CategoryStreak } from '../../src/utils/streakCalculator';
+import { refreshCompliance } from '../../src/services/complianceEngine';
+import { todayDateString } from '../../src/utils/dayBoundary';
+import { hydrationToOz } from '../../src/types';
 import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import type { DeferredSetupKey } from '../../src/hooks/useDeferredSetup';
 
@@ -75,6 +87,13 @@ export default function DashboardScreen() {
   const [hideCalories, setHideCalories] = useState(false);
   const [showScoreInfo, setShowScoreInfo] = useState(false);
 
+  // Sprint 25: New dashboard state
+  const [compliance, setCompliance] = useState<ComplianceResult | null>(null);
+  const [lastCoachMessage, setLastCoachMessage] = useState<ChatMessage | null>(null);
+  const [activeStreaks, setActiveStreaks] = useState<CategoryStreak[]>([]);
+  const [waterGoalOz, setWaterGoalOz] = useState(64);
+  const [dashboardReady, setDashboardReady] = useState(false);
+
   // Fix 1: Determine if dashboard is empty (no data logged today)
   const isDashboardEmpty =
     summary.calories_consumed === 0 &&
@@ -100,14 +119,45 @@ export default function DashboardScreen() {
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
 
+  // Sprint 25: Load dashboard extras in parallel
+  const loadDashboardExtras = useCallback(async () => {
+    const today = todayDateString();
+    const [complianceResult, coachHistory, streakSummary, hydrationGoal] = await Promise.all([
+      refreshCompliance(today),
+      storageGet<ChatMessage[]>(STORAGE_KEYS.COACH_HISTORY),
+      calculateAllStreaks(),
+      storageGet<HydrationGoalSettings>(STORAGE_KEYS.SETTINGS_HYDRATION_GOAL),
+    ]);
+
+    setCompliance(complianceResult);
+
+    // Find last assistant message from today
+    if (coachHistory && coachHistory.length > 0) {
+      const lastAssistant = [...coachHistory].reverse().find(
+        (m) => m.role === 'assistant' && m.content,
+      );
+      setLastCoachMessage(lastAssistant ?? null);
+    }
+
+    setActiveStreaks(streakSummary.streaks);
+
+    // Calculate water goal in oz
+    if (hydrationGoal) {
+      setWaterGoalOz(Math.round(hydrationToOz(hydrationGoal.daily_goal, hydrationGoal.unit)));
+    }
+
+    setDashboardReady(true);
+  }, []);
+
   // F-02: Refresh all data when tab gains focus
   useFocusEffect(
     useCallback(() => {
       refresh();
+      loadDashboardExtras();
       storageGet<Partial<AppSettings>>(STORAGE_KEYS.SETTINGS).then((s) => {
         setHideCalories(s?.hide_calories ?? false);
       });
-    }, [refresh]),
+    }, [refresh, loadDashboardExtras]),
   );
 
   const handleSetUp = useCallback((key: DeferredSetupKey) => {
@@ -224,45 +274,65 @@ export default function DashboardScreen() {
         </View>
       )}
 
-      {/* Score Ring */}
-      <View style={styles.ringContainer}>
-        <ScoreRing score={scoreValue} />
-        {isFirstWeek && (
-          <Text style={styles.scoreFirstUseLabel}>
-            Your Daily Score — tracks how closely you hit your targets today.
-          </Text>
-        )}
-        <Pressable
-          style={styles.scoreInfoToggle}
-          onPress={() => setShowScoreInfo(!showScoreInfo)}
-          accessibilityRole="button"
-          accessibilityLabel={showScoreInfo ? 'Hide score explanation' : 'How your daily score works'}
-        >
-          <Ionicons name="information-circle-outline" size={16} color={Colors.accentText} />
-          <Text style={styles.scoreInfoToggleText}>
-            {showScoreInfo ? 'Hide' : 'How is this calculated?'}
-          </Text>
-        </Pressable>
-        {showScoreInfo && (
-          <View style={styles.scoreInfoBox}>
-            <Text style={styles.scoreInfoTitle}>How Your Daily Score Works</Text>
-            <Text style={styles.scoreInfoText}>
-              Your Daily Score (0–100) measures how closely today's logging matches your personal targets. It factors in:
+      {/* Sprint 25: Daily Snapshot Card — top of dashboard (replaces inline score ring for returning users) */}
+      {dashboardReady && !isDashboardEmpty && (
+        <DailySnapshotCard
+          greeting={greeting}
+          dateDisplay={dateDisplay}
+          compliancePct={compliance?.percentage ?? 0}
+          streak={streak}
+          summary={summary}
+          waterGoalOz={waterGoalOz}
+          enabledTags={enabledTags}
+        />
+      )}
+
+      {/* Score Ring — show when dashboard has no snapshot data or for empty state */}
+      {(isDashboardEmpty || !dashboardReady) && (
+        <View style={styles.ringContainer}>
+          <ScoreRing score={scoreValue} />
+          {isFirstWeek && (
+            <Text style={styles.scoreFirstUseLabel}>
+              Your Daily Score — tracks how closely you hit your targets today.
             </Text>
-            <Text style={styles.scoreInfoText}>{'\u2022'} Calorie accuracy — how close you are to your daily target</Text>
-            <Text style={styles.scoreInfoText}>{'\u2022'} Protein target — meeting your protein goal</Text>
-            <Text style={styles.scoreInfoText}>{'\u2022'} Hydration — water intake relative to your goal</Text>
-            <Text style={styles.scoreInfoText}>{'\u2022'} Activity — whether you logged movement today</Text>
-            <Text style={styles.scoreInfoText}>{'\u2022'} Logging consistency — completing your daily check-in</Text>
-            <Text style={[styles.scoreInfoText, { marginTop: 8 }]}>
-              Each factor is weighted based on your selected goals. The score resets each day.
+          )}
+          <Pressable
+            style={styles.scoreInfoToggle}
+            onPress={() => setShowScoreInfo(!showScoreInfo)}
+            accessibilityRole="button"
+            accessibilityLabel={showScoreInfo ? 'Hide score explanation' : 'How your daily score works'}
+          >
+            <Ionicons name="information-circle-outline" size={16} color={Colors.accentText} />
+            <Text style={styles.scoreInfoToggleText}>
+              {showScoreInfo ? 'Hide' : 'How is this calculated?'}
             </Text>
-          </View>
-        )}
-      </View>
+          </Pressable>
+          {showScoreInfo && (
+            <View style={styles.scoreInfoBox}>
+              <Text style={styles.scoreInfoTitle}>How Your Daily Score Works</Text>
+              <Text style={styles.scoreInfoText}>
+                Your Daily Score (0–100) measures how closely today's logging matches your personal targets. It factors in:
+              </Text>
+              <Text style={styles.scoreInfoText}>{'\u2022'} Calorie accuracy — how close you are to your daily target</Text>
+              <Text style={styles.scoreInfoText}>{'\u2022'} Protein target — meeting your protein goal</Text>
+              <Text style={styles.scoreInfoText}>{'\u2022'} Hydration — water intake relative to your goal</Text>
+              <Text style={styles.scoreInfoText}>{'\u2022'} Activity — whether you logged movement today</Text>
+              <Text style={styles.scoreInfoText}>{'\u2022'} Logging consistency — completing your daily check-in</Text>
+              <Text style={[styles.scoreInfoText, { marginTop: 8 }]}>
+                Each factor is weighted based on your selected goals. The score resets each day.
+              </Text>
+            </View>
+          )}
+        </View>
+      )}
 
       {/* Sprint 15: Streak Badge */}
       <StreakBadge />
+
+      {/* Sprint 25: Today's Priorities — unlogged compliance goals */}
+      {dashboardReady && (
+        <TodaysPrioritiesCard compliance={compliance} />
+      )}
 
       {/* Sprint 18: Daily Compliance Scorecard */}
       <ComplianceCard />
@@ -307,8 +377,21 @@ export default function DashboardScreen() {
         </TouchableOpacity>
       )}
 
+      {/* Sprint 25: Recent Coach Interaction */}
+      {dashboardReady && (
+        <RecentCoachCard lastMessage={lastCoachMessage} />
+      )}
+
+      {/* Sprint 25: Upcoming Reminders */}
+      {dashboardReady && <UpcomingRemindersCard />}
+
       {/* Streak Counter */}
       <StreakCounter streak={streak} />
+
+      {/* Sprint 25: Active Streaks */}
+      {dashboardReady && activeStreaks.length > 0 && (
+        <ActiveStreaksCard streaks={activeStreaks} />
+      )}
 
       {/* Milestone Card — one at a time, earned moments only (P2-05) */}
       {milestone && (
@@ -326,6 +409,19 @@ export default function DashboardScreen() {
 
       {/* Recovery Score */}
       <RecoveryCard />
+
+      {/* Sprint 25: Insights link */}
+      {dashboardReady && !isDashboardEmpty && (
+        <TouchableOpacity
+          style={styles.insightsLink}
+          onPress={() => router.push('/insights')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="analytics-outline" size={20} color={Colors.accentText} />
+          <Text style={styles.insightsLinkText}>View Insights & Trends</Text>
+          <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+        </TouchableOpacity>
+      )}
 
       {/* Fix 8: Stale data indicator */}
       {timeAgo.text ? (
@@ -502,6 +598,24 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: FontWeight.semibold,
+  },
+  // Sprint 25: Insights link
+  insightsLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: Spacing.md,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  insightsLinkText: {
+    flex: 1,
+    color: Colors.accentText,
+    fontSize: 14,
+    fontWeight: '600',
   },
   // Fix 8: Time ago
   timeAgo: {

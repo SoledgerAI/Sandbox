@@ -1394,6 +1394,39 @@ export interface ComplianceResult {
   items: ComplianceItem[];
 }
 
+// -- HYDRATION GOAL (Sprint 25) --
+
+export type HydrationUnit = 'cups' | 'oz' | 'ml';
+
+export interface HydrationGoalSettings {
+  daily_goal: number; // in the selected unit
+  unit: HydrationUnit;
+}
+
+export const HYDRATION_UNIT_OPTIONS: { value: HydrationUnit; label: string; defaultGoal: number }[] = [
+  { value: 'cups', label: 'Cups', defaultGoal: 8 },
+  { value: 'oz', label: 'Ounces', defaultGoal: 64 },
+  { value: 'ml', label: 'Milliliters', defaultGoal: 1900 },
+];
+
+/** Convert a hydration amount to ounces (canonical storage unit for water entries). */
+export function hydrationToOz(amount: number, unit: HydrationUnit): number {
+  switch (unit) {
+    case 'cups': return amount * 8; // 1 cup = 8 oz
+    case 'oz': return amount;
+    case 'ml': return amount / 29.5735;
+  }
+}
+
+/** Convert ounces to a hydration unit. */
+export function ozToHydration(oz: number, unit: HydrationUnit): number {
+  switch (unit) {
+    case 'cups': return oz / 8;
+    case 'oz': return oz;
+    case 'ml': return oz * 29.5735;
+  }
+}
+
 // -- FASTING --
 
 export type FastingProtocol = '16:8' | '18:6' | '20:4' | 'custom';

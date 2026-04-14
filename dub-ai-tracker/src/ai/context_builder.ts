@@ -165,12 +165,29 @@ export async function buildCoachContext(userMessage: string): Promise<{
   const today = todayDateString();
 
   // Always-load data (sobriety goals are safety-critical — MASTER-03)
-  const [profile, tier, sobrietyGoalEntries, consistencyData] = await Promise.all([
+  const [profile, tier, sobrietyGoalEntries, consistencyData, compliance7dData, hydrationGoalData] = await Promise.all([
     storageGet<UserProfile>(STORAGE_KEYS.PROFILE),
     storageGet<EngagementTier>(STORAGE_KEYS.TIER),
     storageGet<SobrietyGoal[]>(STORAGE_KEYS.SOBRIETY),
     computeConsistency(),
+    // Sprint 25: load 7-day compliance scores
+    (async () => {
+      const scores: number[] = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const cached = await storageGet<{ percentage: number; total: number }>(dateKey(STORAGE_KEYS.COMPLIANCE, ds));
+        if (cached && cached.total > 0) scores.push(cached.percentage);
+      }
+      return scores.length > 0 ? Math.round(scores.reduce((a, b) => a + b, 0) / scores.length) : null;
+    })(),
+    // Sprint 25: load hydration goal settings
+    storageGet<{ daily_goal: number; unit: string }>(STORAGE_KEYS.SETTINGS_HYDRATION_GOAL),
   ]);
+  const compliance7dAvg: number | null = compliance7dData ?? null;
+  // Sprint 25: hydration goal progress (compute after loading water entries below)
+  let hydrationGoalProgress: string | null = null;
 
   const currentTier = tier ?? 'balanced';
 
@@ -239,6 +256,22 @@ export async function buildCoachContext(userMessage: string): Promise<{
     sleep_quality: sleepEntry?.quality ?? null,
     tags_logged: tagsLogged,
   };
+
+  // Sprint 25: Compute hydration goal progress for coach context
+  if (hydrationGoalData) {
+    const waterOz = todayData.water_oz;
+    const goalUnit = hydrationGoalData.unit as 'cups' | 'oz' | 'ml';
+    const goalAmount = hydrationGoalData.daily_goal;
+    // Convert goal to oz for comparison
+    let goalOz: number;
+    switch (goalUnit) {
+      case 'cups': goalOz = goalAmount * 8; break;
+      case 'ml': goalOz = goalAmount / 29.5735; break;
+      default: goalOz = goalAmount;
+    }
+    const pct = goalOz > 0 ? Math.round((waterOz / goalOz) * 100) : 0;
+    hydrationGoalProgress = `${pct}% of daily goal (${Math.round(waterOz)}/${Math.round(goalOz)} oz)`;
+  }
 
   // Compute BMR/TDEE/Calorie Target (MASTER-22: Coach must use target, not TDEE)
   let bmr: number | null = null;
@@ -1197,6 +1230,9 @@ export async function buildCoachContext(userMessage: string): Promise<{
     calorie_target: calorieTarget,
     recovery_score: recoveryScore?.total_score ?? null,
     consistency_28d_pct: consistencyPct(consistencyData),
+    // Sprint 25: trend summaries for enhanced coach context
+    compliance_7d_avg: compliance7dAvg,
+    hydration_goal_progress: hydrationGoalProgress,
     active_correlations: activePatterns,
     active_injuries: injuries,
     latest_bloodwork: bloodwork,

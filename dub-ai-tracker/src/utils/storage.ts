@@ -142,6 +142,9 @@ export const STORAGE_KEYS = {
   // Sprint 24: Notification Reminders Settings
   SETTINGS_NOTIFICATIONS: 'dub.settings.notifications',
 
+  // Sprint 25: Hydration Goal
+  SETTINGS_HYDRATION_GOAL: 'dub.settings.hydration_goal',
+
   // Strength Logger
   STRENGTH_MODE_PREF: 'dub.strength.mode_pref',
 
