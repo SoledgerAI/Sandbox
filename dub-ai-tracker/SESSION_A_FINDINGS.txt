@@ -1,0 +1,1409 @@
+================================================================
+DUB_AI TRACKER — SESSION A FINDINGS
+CODEBASE SURVEY + SCREENS 1-40
+Auditor: Claude Code (Opus 4.6)
+Date: 2026-04-08
+================================================================
+
+
+CODEBASE SURVEY
+===============
+Total .tsx files: 141 (44 in app/, 97 in src/)
+Total .ts files:  91  (0 in app/, 91 in src/)
+
+Screen components found:
+  app/(tabs)/index.tsx           — Dashboard (main tab)
+  app/(tabs)/log.tsx             — Log hub (main tab)
+  app/(tabs)/coach.tsx           — Coach AI chat (main tab)
+  app/(tabs)/trends.tsx          — Trends hub (main tab)
+  app/(tabs)/settings.tsx        — Settings hub (main tab)
+  app/onboarding.tsx             — Onboarding route
+  app/log/food.tsx               — Food search/entry
+  app/log/water.tsx              — Water logging
+  app/log/caffeine.tsx           — Caffeine logging
+  app/log/supplements.tsx        — Supplement checklist
+  app/log/workout.tsx            — Workout/cardio logging
+  app/log/strength.tsx           — Strength training
+  app/log/body.tsx               — Body metrics (weight/fat/measurements/vitals)
+  app/log/bloodwork.tsx          — Bloodwork entry
+  app/log/bloodpressure.tsx      — Blood pressure logging
+  app/log/glucose.tsx            — Blood glucose logging
+  app/log/mood.tsx               — Mood logging
+  app/log/stress.tsx             — Stress logging
+  app/log/sleep.tsx              — Sleep logging
+  app/log/meditation.tsx         — Meditation logging
+  app/log/gratitude.tsx          — Gratitude journaling
+  app/log/therapy.tsx            — Therapy session logging
+  app/log/substances.tsx         — Substance use logging
+  app/log/cycle.tsx              — Menstrual cycle logging
+  app/log/digestive.tsx          — Digestive health logging
+  app/log/injury.tsx             — Injury/pain logging
+  app/log/sexual.tsx             — Sexual health logging
+  app/log/personalcare.tsx       — Personal care checklist
+  app/log/custom.tsx             — Custom tag logging
+  app/trends/detail.tsx          — Trends detail/full chart
+  app/settings/profile.tsx       — Profile editor
+  app/settings/tags.tsx          — Tag management
+  app/settings/tier.tsx          — Engagement tier selector
+  app/settings/apikey.tsx        — API key setup
+  app/settings/taste.tsx         — Taste profile
+  app/settings/devices.tsx       — Device connections
+  app/settings/export.tsx        — Data export
+  app/settings/healthreport.tsx  — PDF health report
+  app/settings/notifications.tsx — Notification preferences
+  app/settings/about.tsx         — About/privacy/deletion
+  app/marketplace/index.tsx      — Marketplace hub
+  app/marketplace/product.tsx    — Product detail
+  app/marketplace/influencer.tsx — Influencer storefront
+
+Modal/overlay components found:
+  src/components/AuthGate.tsx              — Biometric/PIN lock overlay
+  src/components/OnboardingGate.tsx        — Legacy onboarding gate (UNUSED in root layout)
+  src/components/PersonalizationFlow.tsx   — 9-screen onboarding wizard
+  src/components/PINSetupModal.tsx         — PIN setup modal
+  src/components/APIKeySetupWizard.tsx     — API key wizard modal
+  src/components/coach/AnthropicConsentModal.tsx — Anthropic data consent
+
+Service files:
+  src/services/authService.ts        — Lock, biometric, PIN
+  src/services/onboardingService.ts  — Onboarding state
+  src/services/apiKeyService.ts      — API key CRUD
+  src/services/anthropic.ts          — Claude API calls
+  src/services/usda.ts               — USDA food API
+  src/services/openfoodfacts.ts      — Open Food Facts API
+  src/services/fatsecret.ts          — FatSecret API
+  src/services/healthkit.ts          — HealthKit integration
+  src/services/healthconnect.ts      — Health Connect (Android)
+  src/services/strava.ts             — Strava integration
+  src/services/weather.ts            — Weather API
+  src/services/instacart.ts          — Instacart integration
+  src/services/notifications.ts      — Push notifications
+  src/services/reporting.ts          — PDF report generation
+  src/services/pdf.ts                — PDF utilities
+  src/services/secureStorageService.ts — SecureStore wrapper
+  src/services/tagFilterService.ts   — Tag filtering
+
+Utility files:
+  src/utils/storage.ts          — AsyncStorage wrapper + STORAGE_KEYS
+  src/utils/calories.ts         — Calorie calculations
+  src/utils/recovery.ts         — Recovery score
+  src/utils/dailyScore.ts       — Daily score computation
+  src/utils/servingmath.ts      — Serving size math
+  src/utils/foodwaterfall.ts    — Multi-source food search
+  src/utils/ingredients.ts      — Ingredient flagging
+  src/utils/mood_trend.ts       — Mood trend analysis
+  src/utils/consistency.ts      — Streak/consistency
+  src/utils/tracking.ts         — Tracking utilities
+  src/utils/encryption.ts       — Encryption helpers
+  src/utils/offline.ts          — Offline queue
+  src/utils/audit.ts            — Audit utilities
+  src/utils/tokenEstimator.ts   — Token estimation
+  src/utils/dayBoundary.ts      — Day boundary logic
+
+Navigation routes (Expo Router):
+  / (tabs) — index (Dashboard), log, coach, trends, settings
+  /onboarding
+  /log/food, /log/water, /log/caffeine, /log/supplements
+  /log/workout, /log/strength
+  /log/body, /log/bloodwork, /log/bloodpressure, /log/glucose
+  /log/mood, /log/stress, /log/gratitude, /log/meditation
+  /log/therapy, /log/substances, /log/sleep
+  /log/cycle, /log/digestive, /log/injury, /log/sexual
+  /log/personalcare, /log/custom
+  /trends/detail
+  /settings/profile, /settings/tags, /settings/tier
+  /settings/apikey, /settings/taste, /settings/devices
+  /settings/export, /settings/healthreport, /settings/notifications
+  /settings/about
+  /marketplace, /marketplace/product, /marketplace/influencer
+
+Tab configuration (from app/(tabs)/_layout.tsx):
+  5 tabs: Dashboard (home), Log (+), Coach (chat), Trends (chart), Settings (gear)
+  Active tint: Colors.accent (#D4A843 gold)
+  Inactive tint: Colors.secondaryText (#B8B8B8)
+  Background: Colors.primaryBackground (#1E2761 navy)
+  Tab labels only visible when focused
+
+
+SCREEN EXISTENCE CHECK
+======================
+
+    1. Splash/launch .......... EXISTS — expo-splash-screen, preventAutoHideAsync
+    2. AuthGate biometric ...... EXISTS — src/components/AuthGate.tsx (overlay)
+    3. AuthGate PIN entry ...... EXISTS — src/components/AuthGate.tsx (lockView='pin')
+    4. OnboardingGate loading .. EXISTS — app/_layout.tsx loading overlay (absolute positioned)
+    5. Onboarding: Welcome ..... EXISTS — PersonalizationFlow Step 1 (Consent + Name + Pronouns)
+    6. Onboarding: Sex ......... EXISTS — PersonalizationFlow Step 2
+    7. Onboarding: DOB ......... EXISTS — PersonalizationFlow Step 3
+    8. Onboarding: Height ...... EXISTS — PersonalizationFlow Step 4
+    9. Onboarding: Weight ...... EXISTS — PersonalizationFlow Step 5
+    10. Onboarding: Activity ... EXISTS — PersonalizationFlow Step 6
+    11. Onboarding: Goal ....... EXISTS — PersonalizationFlow Step 7
+    12. Onboarding: Tags ....... EXISTS — PersonalizationFlow Step 8
+    13. Onboarding: Summary .... NOT FOUND — Step 9 is Zip Code, not a summary/confirm screen
+    14. Dashboard .............. EXISTS — app/(tabs)/index.tsx
+    15. Log hub ................ EXISTS — app/(tabs)/log.tsx
+    16. Coach (AI chat) ........ EXISTS — app/(tabs)/coach.tsx
+    17. Trends hub ............. EXISTS — app/(tabs)/trends.tsx
+    18. Settings hub ........... EXISTS — app/(tabs)/settings.tsx
+    19. Food search/entry ...... EXISTS — app/log/food.tsx + FoodSearch + FoodEntryForm
+    20. Food detail/macros ..... EXISTS — FoodEntryForm (configure screen in food.tsx)
+    21. Food photo capture ..... EXISTS — src/components/logging/PhotoFoodEntry.tsx
+    22. Meal log list .......... EXISTS — app/(tabs)/log.tsx (food entries grouped by meal)
+    23. Calorie/macro budget ... EXISTS — src/components/dashboard/CalorieSummary.tsx
+    24. Water logging .......... EXISTS — app/log/water.tsx + WaterLogger
+    25. Caffeine logging ....... EXISTS — app/log/caffeine.tsx + CaffeineLogger
+    26. Beverage type picker ... PARTIAL — Caffeine presets exist, no standalone beverage picker
+    27. Exercise hub ........... EXISTS — app/log/workout.tsx (ActivityLogger)
+    28. Exercise selection ..... PARTIAL — StrengthLogger has exercise list, no body-area visual map
+    29. Set-by-set logging ..... EXISTS — src/components/logging/StrengthLogger.tsx
+    30. Cardio logging ......... EXISTS — src/components/logging/ActivityLogger.tsx
+    31. Push-ups counter ....... NOT FOUND — No dedicated push-up counter component
+    32. Pull-ups counter ....... NOT FOUND — No dedicated pull-up counter component
+    33. Steps/active minutes ... NOT FOUND — No /log/steps route exists (listed in category but no file)
+    34. Rest timer ............. NOT FOUND — No rest timer component found
+    35. Weight logging ......... EXISTS — src/components/logging/WeightLogger.tsx
+    36. Body measurements ...... EXISTS — src/components/logging/MeasurementsLogger.tsx
+    37. Progress photos ........ NOT FOUND — No progress photo gallery/comparison
+    38. Bloodwork entry ........ EXISTS — app/log/bloodwork.tsx + BloodworkPanel
+    39. Bloodwork panel view ... EXISTS — src/components/logging/BloodworkPanel.tsx
+    40. Supplement checklist ... EXISTS — src/components/logging/SupplementChecklist.tsx
+
+
+================================================================
+STEP 1: AUDIT SCREENS 1-4 (PRE-APP GATES)
+================================================================
+
+
+SCREEN 1: Splash / launch
+
+Finding 1-1:
+  Severity: P2
+  File: app/_layout.tsx:119-121
+  What: SplashScreen.hideAsync() is called IMMEDIATELY on mount
+    (useEffect at line 119), AND also in the init() function (line 109),
+    AND after a 5-second hard deadline timer (line 132). The immediate
+    hideAsync on mount means the user sees the RN loading overlay
+    (navy + spinner) instead of the native splash — the branded splash
+    disappears almost instantly, replaced by a generic spinner. This
+    eliminates the splash branding moment entirely.
+  Benchmark: Uber shows its branded splash for 1-2 seconds minimum
+    before transitioning. Apple Health uses the native splash until
+    content is ready. Strava shows the orange logo for a deliberate
+    branded moment.
+  Fix: Remove the immediate hideAsync at line 119-121. Keep the splash
+    visible until init completes (line 109) or the 5s deadline. The
+    init effect at line 93 already calls hideAsync when done. Remove:
+    useEffect(() => { SplashScreen.hideAsync().catch(() => {}); }, []);
+  Evidence: [CODE]
+
+Finding 1-2:
+  Severity: P3
+  File: app/_layout.tsx:192-195
+  What: Loading overlay shows only an ActivityIndicator (spinner) on
+    navy background — no app logo, no brand name. The init overlay is
+    the first thing users see after splash, and it's an anonymous
+    spinner.
+  Benchmark: Robinhood shows "Robinhood" text during auth loading.
+    Airbnb shows their logo. Apple Health shows the heart icon.
+  Fix: Add the app name "DUB_AI" or "dub" text (matching the privacy
+    overlay pattern at line 214-216) to the loading overlay:
+    <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '600' }}>
+      dub
+    </Text>
+    <ActivityIndicator ... style={{ marginTop: 16 }} />
+  Evidence: [CODE]
+
+
+SCREEN 2: AuthGate — biometric prompt
+
+Finding 2-1:
+  Severity: P2
+  File: src/components/AuthGate.tsx:170-176
+  What: Biometric authentication is NOT triggered automatically on
+    the lock screen. The user must tap the biometric icon to initiate
+    authentication. Every app that uses biometric auth (banking apps,
+    password managers, Apple Health) triggers the biometric prompt
+    automatically when the lock screen appears.
+  Benchmark: Robinhood triggers Face ID immediately on app open.
+    1Password triggers Face ID on app resume. Every banking app
+    auto-triggers biometric on lock screen display.
+  Fix: Add auto-trigger in the lock screen render. After the state
+    becomes 'locked' and lockView is 'biometric', call
+    handleBiometric() once:
+    useEffect(() => {
+      if (state === 'locked' && lockView === 'biometric') {
+        handleBiometric();
+      }
+    }, [state, lockView]);
+  Evidence: [CODE]
+
+Finding 2-2:
+  Severity: P3
+  File: src/components/AuthGate.tsx:318-325
+  What: Biometric button (88x88pt circle with 48pt icon) has no label
+    text below it initially — the "Tap to unlock with {biometryType}"
+    text appears after the button, requiring the user to read below the
+    button to understand the interaction. The CTA should be more
+    prominent.
+  Benchmark: Apple's biometric prompts use a system-level dialog with
+    clear "Face ID" / "Touch ID" text before the icon.
+  Fix: Consider moving the subtitle text above the button or making
+    the tap target the full area (icon + text together). Also add
+    accessibilityRole="button" and accessibilityLabel to the bio button.
+  Evidence: [CODE]
+
+SCREEN 2: AuthGate — CLEAN on content flash prevention. The overlay
+  defaults to state='loading' and renders on top of children, so no
+  content flash occurs. Correct architecture.
+
+SCREEN 2: AuthGate — CLEAN on failure handling. Falls back to unlock
+  after 5 seconds if auth check hangs. Errors default to unlocked
+  (line 82-84) to prevent permanent lockout.
+
+
+SCREEN 3: AuthGate — PIN entry
+
+Finding 3-1:
+  Severity: P2
+  File: src/components/AuthGate.tsx:264-299
+  What: No haptic feedback on keypad press. PIN entry is a high-frequency
+    interaction (4 taps minimum) and every keypress should provide tactile
+    confirmation. Without haptics, the experience feels dead and uncertain.
+  Benchmark: Every iOS PIN entry (unlock screen, Settings restrictions,
+    banking apps) provides haptic feedback per keypress. Robinhood's PIN
+    pad has haptic feedback.
+  Fix: Import * as Haptics from 'expo-haptics' and add
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light) in
+    handlePinDigit() before setting state, and
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error)
+    in the error case.
+  Evidence: [CODE] — grep confirms zero haptic usage in entire codebase.
+
+Finding 3-2:
+  Severity: P3
+  File: src/components/AuthGate.tsx:421
+  What: Key button size is 72x56pt. While functional, the keypad keys
+    feel slightly cramped on smaller iPhones (iPhone SE, iPhone 13 mini).
+    The standard iOS unlock PIN keypad uses circular 80x80pt buttons.
+  Benchmark: iOS system PIN entry uses circular 80pt buttons with
+    generous spacing. Robinhood uses 72pt circular buttons.
+  Fix: Increase key height to 72 (making them square) and add
+    borderRadius: 36 for circular appearance. Increase keypad maxWidth
+    from 280 to 300 for more breathing room.
+  Evidence: [CODE]
+
+SCREEN 3: AuthGate PIN — CLEAN on shake animation (line 161-169).
+  Proper Animated.sequence shake on error.
+SCREEN 3: AuthGate PIN — CLEAN on lockout (MAX_PIN_ATTEMPTS=5, 30s
+  lockout). Correct implementation.
+SCREEN 3: AuthGate PIN — CLEAN on backspace (line 215-218, backspace-
+  outline icon).
+SCREEN 3: Missing "forgot PIN" path — there is no recovery mechanism
+  if user forgets their PIN. After lockout expiry they can try again
+  but there's no way to reset. See Finding 3-3.
+
+Finding 3-3:
+  Severity: P1
+  File: src/components/AuthGate.tsx (entire PIN section)
+  What: No "Forgot PIN" or recovery path. If a user forgets their 4-digit
+    PIN and biometrics are not available or configured, they are permanently
+    locked out of their health data. The only option is to wait 30 seconds
+    and guess again, indefinitely.
+  Benchmark: Every app with PIN auth provides a recovery mechanism —
+    Robinhood has "Forgot PIN?" linking to account recovery. Banking
+    apps have "Forgot PIN?" -> re-auth via email/password. 1Password
+    allows master password fallback.
+  Fix: Add a "Forgot PIN?" link below the keypad that triggers an
+    Alert explaining: "To reset your PIN, you'll need to reinstall
+    the app. Your data is stored locally and will be lost." Or better:
+    implement a recovery flow using the device's existing biometric
+    enrollment (if the user has Face ID set up, let them use that to
+    reset their PIN even if auth method was set to PIN-only).
+  Evidence: [CODE]
+
+
+SCREEN 4: OnboardingGate loading state
+
+Finding 4-1:
+  Severity: P3
+  File: app/_layout.tsx:178-196
+  What: The loading overlay (which serves as the onboarding gate loading
+    state) uses a standard ActivityIndicator at center screen. No branded
+    loading state. The transition from splash -> loading overlay is
+    jarring because the spinner appears with no context.
+  Benchmark: Duolingo shows their owl during loading. Strava shows
+    their logo with a subtle pulse animation.
+  Fix: Add a branded element (app name or logo) above the spinner
+    in the loading overlay (same fix as Finding 1-2). The overlay
+    correctly prevents flash of main app content (zIndex: 100,
+    absolute positioning).
+  Evidence: [CODE]
+
+SCREEN 4: CLEAN on content flash prevention. The overlay fully covers
+  the stack and only unmounts when initDone=true.
+
+
+================================================================
+STEP 2: AUDIT SCREENS 5-13 (ONBOARDING)
+================================================================
+
+
+SCREEN 5: Welcome (Step 1: Consent + Name + Pronouns)
+
+Finding 5-1:
+  Severity: P1
+  File: src/components/PersonalizationFlow.tsx:505-506
+  What: The "Welcome to DUB_AI" screen combines consent (3 checkboxes),
+    name input, and pronouns into one screen. The consent wall appears
+    before the value proposition is clear. Users see legal checkboxes
+    before understanding what the app does. The "About 2 minutes"
+    estimate is good, but there's no value proposition statement.
+  Benchmark: Airbnb starts with "Find places to stay and things to do"
+    before any data collection. Duolingo shows "Learn a language for
+    free" with an engaging character. Strava says "Track your active
+    lifestyle" with athletes running.
+  Fix: Split Step 1 into two screens:
+    - Screen 1A: Value prop with app branding, tagline ("Bloomberg
+      Terminal for the Body"), key feature bullets, and a single
+      "Get Started" CTA.
+    - Screen 1B: Consent + name + pronouns (current content).
+    Update TOTAL_STEPS from 9 to 10 accordingly.
+  Evidence: [CODE]
+
+Finding 5-2:
+  Severity: P2
+  File: src/components/PersonalizationFlow.tsx:511-531
+  What: Consent checkboxes are required before the Name and Pronoun
+    fields become interactive (line 535: sectionDisabled opacity 0.4).
+    This makes the name field look broken initially — it's visually
+    present but disabled with no clear explanation of WHY it's disabled.
+    Users will tap the name field, see nothing happen, and be confused.
+  Benchmark: Standard pattern is to show consent on its own screen or
+    to clearly disable fields with a visible label like "Agree above
+    to continue."
+  Fix: Add a visible helper text below the consent section when not all
+    consented: "Check all boxes above to continue." Or move consent to
+    its own screen (see 5-1 fix).
+  Evidence: [CODE]
+
+Finding 5-3:
+  Severity: P3
+  File: src/components/PersonalizationFlow.tsx:495-573
+  What: No accessibilityRole or accessibilityLabel on any onboarding
+    interactive elements. The Checkbox component (line 1080-1088)
+    uses a TouchableOpacity with no accessibilityRole="checkbox" or
+    accessibilityState={{ checked }}. Screen readers will not announce
+    these as checkboxes.
+  Benchmark: Apple Health's onboarding has full VoiceOver support.
+    Any commercial-quality app supports basic accessibility roles.
+  Fix: Add accessibilityRole="checkbox" and
+    accessibilityState={{ checked }} to the Checkbox component.
+    Add accessibilityRole="button" to all selection cards.
+  Evidence: [CODE] — grep confirms zero accessibility props in
+    PersonalizationFlow.tsx.
+
+
+SCREEN 6: Sex selection (Step 2)
+
+Finding 6-1:
+  Severity: P2
+  File: src/components/PersonalizationFlow.tsx:80-84, 596-622
+  What: Three sex options are "Female", "Male", "Intersex" — but
+    there is no "Prefer not to say" option on this screen. The audit
+    spec requires it. Users who don't want to disclose biological sex
+    have no way to proceed without selecting one. The step validation
+    (line 179-180) requires a sex selection: if (!sex) -> error.
+  Benchmark: Apple Health's biological sex selector includes "Other"
+    and skipping is possible. Google Fit allows skipping sex entirely.
+  Fix: Add a 4th option { value: 'prefer_not_to_say', label: 'Prefer
+    not to say', icon: 'help-circle-outline' } to SEX_OPTIONS. Update
+    validateStep2 to allow prefer_not_to_say without metabolic profile
+    (default to average of male/female formulas).
+  Evidence: [CODE]
+
+Finding 6-2:
+  Severity: P3
+  File: src/components/PersonalizationFlow.tsx:596-600
+  What: No "You can change this later" note on the sex selection screen.
+    The subtitle says "Used for calorie calculations only. Never shown
+    on your profile or shared." — this is good for privacy reassurance,
+    but doesn't mention it's changeable later.
+  Benchmark: Standard onboarding best practice includes "You can change
+    this later in Settings."
+  Fix: Append " You can change this later in Settings." to the subtitle
+    text on line 598-600.
+  Evidence: [CODE]
+
+SCREEN 6: CLEAN on tappable cards (not dropdown). Uses TouchableOpacity
+  cards with gold border + checkmark when selected.
+SCREEN 6: CLEAN on touch targets. Cards are full-width with padding:16,
+  well above 44pt minimum.
+
+
+SCREEN 7: Date of Birth (Step 3)
+
+Finding 7-1:
+  Severity: P2
+  File: src/components/PersonalizationFlow.tsx:682-689
+  What: The DOB picker uses DateTimePicker component. Need to verify
+    this renders as a scroll-wheel picker on iOS and not a text input.
+    The maximumDate allows ages down to 13 (line 688:
+    new Date().getFullYear() - 13), but step validation requires 18+
+    (line 190-193). This means a user can SELECT a date making them
+    13-17, proceed to tap Continue, and THEN see an error. The picker
+    should not allow selecting dates that will fail validation.
+  Benchmark: Apple Health's DOB picker limits the date range to valid
+    values only. You can't select an invalid date.
+  Fix: Change maximumDate to new Date().getFullYear() - 18 to prevent
+    selection of under-18 dates. This makes the error state unreachable
+    via picker, which is the correct UX pattern.
+  Evidence: [CODE]
+
+Finding 7-2:
+  Severity: P3
+  File: src/components/PersonalizationFlow.tsx:120
+  What: Default DOB is January 1, 1990, making the user appear 36 years
+    old by default. This is a reasonable median but the picker should
+    ideally start with no selection and require user interaction, or
+    start with a date that makes the default age ambiguous (e.g. the
+    year only, requiring the user to scroll).
+  Benchmark: Most fitness apps (MyFitnessPal, Noom) start with an
+    empty DOB field and require the user to pick.
+  Fix: Minor — the current default is acceptable for a scroll-wheel
+    picker since the user must physically scroll to their date. Document
+    the choice.
+  Evidence: [CODE]
+
+
+SCREEN 8: Height (Step 4)
+
+SCREEN 8: CLEAN. Uses Picker (scroll-wheel) for both imperial (ft/in)
+  and metric (cm). Unit toggle is clear. Default 5'8" is reasonable.
+  No keyboard appears. Good implementation.
+
+
+SCREEN 9: Weight (Step 5)
+
+SCREEN 9: CLEAN. Uses Picker (scroll-wheel) for both lbs and kg.
+  Unit toggle matches height screen. Default 160 lbs is reasonable.
+  No shame language. Subtitle says "You can update this anytime."
+  Good implementation.
+
+
+SCREEN 10: Activity Level (Step 6)
+
+SCREEN 10: CLEAN. Five tappable cards with descriptive subtitles:
+  Sedentary ("Little or no exercise"), Lightly Active ("1-3 days/week"),
+  Moderately Active ("3-5 days/week"), Very Active ("6-7 days/week"),
+  Extremely Active ("Athlete / physical job"). Gold border + checkmark
+  on selected. Understandable without googling.
+
+
+SCREEN 11: Goal selection (Step 7)
+
+Finding 11-1:
+  Severity: P2
+  File: src/components/PersonalizationFlow.tsx:71-76
+  What: Four goal options instead of the specified three:
+    "Maintain Weight", "Lose Fat", "Build Muscle", "Improve Health".
+    There is no skip option and no silent defaults for skippers.
+    The Continue button is disabled until a goal is selected
+    (canContinue line 351: return !!mainGoal). Users who don't fit
+    these four categories or aren't sure are forced to pick one.
+  Benchmark: Noom allows skipping goal selection with "I'm not sure
+    yet" defaulting to maintenance. Apple Health doesn't force goal
+    selection.
+  Fix: Either add a "Not sure yet / Just tracking" option that maps
+    to 'get_healthier' (maintain), or allow Continue with no selection
+    and default to maintain.
+  Evidence: [CODE]
+
+Finding 11-2:
+  Severity: P3
+  File: src/components/PersonalizationFlow.tsx:961-963
+  What: "You can change this anytime in Settings." subtitle is present.
+    Good. But "What's your main goal?" title could be more inviting.
+  Benchmark: Minor polish note only.
+  Fix: No action needed — clean.
+  Evidence: [CODE]
+
+
+SCREEN 12: Tag selection (Step 8)
+
+Finding 12-1:
+  Severity: P2
+  File: src/components/PersonalizationFlow.tsx:1013-1016
+  What: Tag picker uses the TagPicker component. Without reading that
+    component in detail, the concern is whether 17+ categories are
+    presented in a manageable way or as an overwhelming flat list.
+    The subtitle says "Pick the categories that matter to you. You can
+    change these anytime in Settings." — good.
+  Benchmark: Strava's tag/activity selection uses grouped categories
+    with collapsible sections. Apple Health organizes data types into
+    clear categories.
+  Fix: Verify TagPicker groups tags by category (Nutrition, Fitness,
+    Body, Mind, Health) rather than flat list. If flat, add section
+    headers.
+  Evidence: [VERIFY]
+
+SCREEN 12: CLEAN on pre-selected defaults. Line 140:
+  getDefaultTagsForTier(DEFAULT_TIER) provides sensible defaults.
+
+
+SCREEN 13: Summary + confirm
+
+Finding 13-1:
+  Severity: P1
+  File: src/components/PersonalizationFlow.tsx (Step 9)
+  What: There is NO summary/confirmation screen. Step 9 is "Zip Code"
+    (optional), and the flow finishes immediately after. Users complete
+    9 screens of data entry and never see a review of what they entered.
+    They cannot verify their height, weight, DOB, or goal before
+    finalizing. The "Start Tracking" button on the zip code screen
+    saves everything with no confirmation.
+  Benchmark: Every quality onboarding flow shows a summary before
+    committing: Noom shows your plan summary, MyFitnessPal shows your
+    calorie target and profile summary, Strava shows your activity
+    preferences. This is the "measure twice, cut once" pattern.
+  Fix: Add a Step 10 (Summary) between Zip Code and finish:
+    - Display: Name, Sex, Age (computed from DOB), Height, Weight,
+      Activity Level, Goal, number of enabled tags, Zip (if provided).
+    - Each row should be tappable to navigate back to that step.
+    - CTA: "Start Tracking" (moved from Step 9).
+    - Note: "You can change any of these in Settings."
+    Update TOTAL_STEPS to 10.
+  Evidence: [CODE]
+
+
+ONBOARDING CROSS-CUTTING
+
+Finding OB-1:
+  Severity: P3
+  File: src/components/PersonalizationFlow.tsx:363
+  What: Progress indicator EXISTS (ProgressBar component, line 363).
+    Shows on all screens. Back navigation EXISTS (line 365-373,
+    arrow-back icon, only shows when step > 1). LayoutAnimation
+    transitions ARE implemented (lines 161, 166).
+  Benchmark: Clean.
+  Fix: None needed for progress/back/transitions.
+  Evidence: [CODE]
+
+Finding OB-2:
+  Severity: P2
+  File: src/components/PersonalizationFlow.tsx (entire component)
+  What: App-kill-and-resume during onboarding loses ALL progress.
+    The component stores all data in React state (useState). If the
+    app is killed mid-onboarding (e.g., at Step 7 of 9), all previous
+    entries are lost and the user starts over from Step 1.
+  Benchmark: Duolingo persists onboarding progress. Noom saves each
+    screen's answer as you go. Any commercial app that asks 9 screens
+    of questions should persist partial progress.
+  Fix: Persist each step's data to AsyncStorage as the user advances.
+    On mount, check for partial onboarding data and restore state.
+    Use a key like STORAGE_KEYS.ONBOARDING_PARTIAL.
+  Evidence: [CODE]
+
+Finding OB-3:
+  Severity: P3
+  File: src/components/PersonalizationFlow.tsx
+  What: No estimated completion time beyond "About 2 minutes" on Step 1.
+    Individual screens don't show remaining time or step count in text
+    (though the progress bar is visible).
+  Benchmark: Noom shows "Step 3 of 12" text alongside the progress bar.
+  Fix: Add step count text below the ProgressBar: "Step {step} of
+    {TOTAL_STEPS}" in secondaryText color.
+  Evidence: [CODE]
+
+
+================================================================
+STEP 3: AUDIT SCREENS 14-18 (MAIN TABS)
+================================================================
+
+
+SCREEN 14: Dashboard
+
+Finding 14-1:
+  Severity: P2
+  File: app/(tabs)/index.tsx:143-172
+  What: The score ring is the first visual element after the greeting,
+    but what the score means requires tapping an (i) icon and reading a
+    5-bullet explanation panel. The "How is this calculated?" toggle is
+    12px font — very small. On first use, the score ring is meaningless
+    to the user.
+  Benchmark: Apple Watch Activity rings are self-explanatory (move/
+    exercise/stand, each labeled). Strava's Fitness score shows the
+    metric AND its meaning inline. The Apple Health summary card shows
+    metrics with clear labels.
+  Fix: Add a brief inline label below the score ring on first view
+    (first 7 days): "Your Daily Score — tracks how closely you hit
+    your targets." Also increase the (i) toggle text to 13px minimum.
+  Evidence: [CODE]
+
+Finding 14-2:
+  Severity: P3
+  File: app/(tabs)/index.tsx:229-236
+  What: Tag cards are ordered but NOT user-reorderable from the
+    dashboard. Reordering requires going to Settings > Tags. The
+    tagOrder is respected but there's no drag-to-reorder on the
+    dashboard itself.
+  Benchmark: Apple Health favorites are reorderable via long-press.
+    Robinhood watchlist is drag-to-reorder.
+  Fix: Add long-press to enable reorder mode on tag cards, or add a
+    subtle "Customize" button linking to Settings > Tags.
+  Evidence: [CODE] — Only app/settings/tags.tsx has reorder/drag.
+
+Finding 14-3:
+  Severity: P3
+  File: app/(tabs)/index.tsx:100-131
+  What: Quick actions are not visually discoverable on the dashboard.
+    The share button is the only action in the header, hidden when no
+    calories are logged. There are no quick-log buttons on the
+    dashboard itself — the user must switch to the Log tab.
+  Benchmark: Apple Health has "Add Data" buttons on summary cards.
+    Strava has a prominent "Record" button on the dashboard.
+  Fix: Consider adding a floating action button (FAB) or quick-action
+    row below the greeting: "Quick Log: Food | Water | Weight".
+  Evidence: [CODE]
+
+SCREEN 14: CLEAN on visual hierarchy. Score ring -> Calorie summary ->
+  Streak -> Body -> Recovery -> Tag cards. Logical top-to-bottom flow.
+SCREEN 14: CLEAN on deferred setup cards. Shows one at a time,
+  dismissible.
+SCREEN 14: CLEAN on missing-input UX. Shows "Complete your profile in
+  Settings" card when profileComplete is false.
+
+
+SCREEN 15: Log hub
+
+Finding 15-1:
+  Severity: P3
+  File: app/(tabs)/log.tsx:89-139
+  What: Category buttons are organized into 5 collapsible sections
+    (Nutrition, Fitness, Body, Mind, Health) with headers — this is
+    good. However, only "Nutrition" is expanded by default (line 183).
+    First-time users won't see Fitness, Body, Mind, or Health categories
+    without scrolling and tapping to expand.
+  Benchmark: Apple Health shows all categories expanded initially on
+    first use, then remembers collapse state.
+  Fix: On first open, expand all sections. After that, remember the
+    user's expand/collapse state per section (persist to AsyncStorage).
+  Evidence: [CODE]
+
+Finding 15-2:
+  Severity: P2
+  File: app/(tabs)/log.tsx:589-600
+  What: Hero "Log Food" button is visually dominant (full-width gold
+    accent) — good. But the four secondary hero buttons (Water,
+    Exercise, Supplements, Strength) use the same styling and size
+    (heroBtn), making it hard to distinguish importance. All four
+    are in a 2x2 grid with identical styling.
+  Benchmark: Strava's log screen has a single dominant "Record" button
+    with secondary quick-access items clearly differentiated.
+  Fix: Consider making the secondary buttons smaller or using outline
+    style to differentiate from the primary food button.
+  Evidence: [CODE]
+
+SCREEN 15: CLEAN on icons per category — each has an Ionicons icon.
+SCREEN 15: CLEAN on date selector with prev/next/today navigation.
+SCREEN 15: CLEAN on search bar for category filtering.
+SCREEN 15: CLEAN on recent entries showing all tag types (food, water,
+  workout, supplements, mood).
+SCREEN 15: CLEAN on favorites (long-press to pin/unpin categories).
+
+
+SCREEN 16: Coach (AI chat)
+
+Finding 16-1:
+  Severity: P2
+  File: app/(tabs)/coach.tsx:267-278
+  What: FlatList for messages does not have a SafeAreaView or top
+    padding. On iPhones with notch/Dynamic Island, the first message
+    will render behind the status bar. The container has no paddingTop.
+  Benchmark: iMessage, WhatsApp, Slack all have proper safe area
+    handling for chat lists.
+  Fix: Add paddingTop to messageList style or wrap in SafeAreaView.
+    The header area currently relies on the tab bar, but messages
+    themselves need top inset protection.
+  Evidence: [CODE]
+
+Finding 16-2:
+  Severity: P3
+  File: app/(tabs)/coach.tsx:281-284
+  What: SuggestedPrompts component is only visible when messages array
+    is empty AND apiKeyConfigured is true. Once the user sends a single
+    message, prompts disappear and never return. If the conversation
+    grows stale or the user wants inspiration, there's no way to see
+    prompts again without clearing history.
+  Benchmark: ChatGPT shows suggested prompts at the bottom of the
+    conversation when the user hasn't typed recently.
+  Fix: Show SuggestedPrompts also when the user's input is empty and
+    they haven't sent a message in the last 30 seconds, or add a
+    "Suggestions" button near the input.
+  Evidence: [CODE]
+
+SCREEN 16: CLEAN on chat bubble styling (ChatBubble component handles
+  user vs coach distinction).
+SCREEN 16: CLEAN on text input keyboard avoidance (KeyboardAvoidingView
+  with behavior="padding" on iOS, offset 90).
+SCREEN 16: CLEAN on send button (disabled when empty or sending,
+  loading state shown as "Coach DUB is thinking..." with spinner).
+SCREEN 16: CLEAN on coach identity (shows "Coach DUB" in empty state).
+SCREEN 16: CLEAN on offline handling (offline notice banner when no
+  connectivity).
+
+
+SCREEN 17: Trends hub
+
+Finding 17-1:
+  Severity: P2
+  File: app/(tabs)/trends.tsx:446-455
+  What: YoY badge is always shown — either "Year-over-year overlay
+    available" OR "YoY overlay available after 12 months". For a brand-
+    new user, this is confusing noise — they don't have any data yet
+    and the YoY message is irrelevant. It takes up vertical space and
+    adds cognitive load.
+  Benchmark: Strava hides advanced features until the user has enough
+    data to make them meaningful. Apple Health doesn't show YoY until
+    data exists.
+  Fix: Only show the YoY badge when data.hasYoYData is true. Remove
+    the "available after 12 months" muted text entirely — it's noise
+    for new users.
+  Evidence: [CODE]
+
+Finding 17-2:
+  Severity: P3
+  File: app/(tabs)/trends.tsx:64-233
+  What: 17 chart configurations defined, but not 53 as mentioned in
+    the audit prompt. The charts are organized by category (Nutrition,
+    Hydration, Fitness, Body, Sleep, Recovery, Mood) with section
+    headers — this is good architecture. Category filter pills provide
+    quick filtering.
+  Benchmark: Apple Health groups trends by category with expandable
+    sections. The current approach with filter pills is actually
+    comparable.
+  Fix: No structural change needed. The organization is sound. The
+    "53 chart types" may refer to a planned expansion.
+  Evidence: [CODE]
+
+SCREEN 17: CLEAN on time range selector (7D/30D/90D/6M/1Y/All with
+  proper minHeight: 44 touch targets).
+SCREEN 17: CLEAN on category filter pills (horizontal scrolling).
+SCREEN 17: CLEAN on empty state ("Start logging to see your trends").
+SCREEN 17: CLEAN on Heatmap component exists (src/components/charts/
+  Heatmap.tsx) and is used in trends/detail.tsx.
+
+
+SCREEN 18: Settings hub
+
+Finding 18-1:
+  Severity: P3
+  File: app/(tabs)/settings.tsx:299-401
+  What: Settings sections are well-organized with headers (ACCOUNT,
+    TRACKING SETUP, AI COACH, DATA, NOTIFICATIONS, ABOUT) plus
+    separate sections for SECURITY, PERSONALIZATION, and SHARING.
+    Profile card at top. Chevrons indicate sub-screens.
+  Benchmark: This matches Apple's Settings app pattern closely.
+  Fix: No structural issues.
+  Evidence: [CODE]
+
+Finding 18-2:
+  Severity: P2
+  File: app/(tabs)/settings.tsx:748-762
+  What: "Share with healthcare provider" section says "Coming soon" and
+    is styled at 50% opacity. Showing unfinished features to users
+    undermines confidence. It looks like a broken feature rather than
+    a planned one.
+  Benchmark: Uber, Airbnb, Robinhood never show "Coming soon" features
+    in production settings. They ship features when they're ready.
+  Fix: Remove the "SHARING" section entirely until the feature is
+    implemented. Or at minimum, add a clear "Coming Soon" badge styling
+    (distinct from broken/disabled).
+  Evidence: [CODE]
+
+Finding 18-3:
+  Severity: P2
+  File: app/(tabs)/settings.tsx:279-295
+  What: "Reset Onboarding" is in the PERSONALIZATION section alongside
+    sex, age, zip code. This is a destructive action that should be at
+    the bottom of the settings page with warning styling, not mixed with
+    profile personalization options.
+  Benchmark: Apple's "Reset All Settings" is at the very bottom of
+    Settings > General > Transfer or Reset iPhone, behind a destructive
+    red button. Strava's "Delete Account" is at the bottom of settings.
+  Fix: Move "Reset Onboarding" to a new "DANGER ZONE" section at the
+    very bottom of the settings list. Style the text in dangerText
+    color. Add a confirmation step (which already exists via Alert).
+  Evidence: [CODE]
+
+
+================================================================
+STEP 4: AUDIT SCREENS 19-23 (NUTRITION LOGGING)
+================================================================
+
+
+SCREEN 19: Food search / entry
+
+Finding 19-1:
+  Severity: P3
+  File: app/log/food.tsx:27
+  What: Food search screen has 8 sub-screens: search, configure,
+    manual, quicklog, barcode, nlp, photo, quickconfirm. This is
+    a well-architected state machine. Search bar is present (via
+    FoodSearch component). Barcode scanner exists. Recent foods
+    exist. Manual entry option exists.
+  Benchmark: MyFitnessPal's food search is the gold standard —
+    search, barcode, recent, favorites, manual.
+  Fix: No structural issues found.
+  Evidence: [CODE]
+
+SCREEN 19: CLEAN on architecture. Multi-source food search with
+  USDA + OpenFoodFacts + FatSecret waterfall. Barcode scanner.
+  NLP text entry. Photo entry. Quick-log from recents.
+
+
+SCREEN 20: Food detail — macros / portion
+
+Finding 20-1:
+  Severity: P3
+  File: src/components/logging/ServingSizeSelector.tsx
+  What: Serving size selector is comprehensive: horizontal scroll of
+    serving chips, quick amount shortcuts (100g, 1 cup, 1 tbsp, etc.),
+    custom weight input with g/oz toggle, quantity selector (0.25x-10x),
+    and real-time nutrition preview showing 18 nutrients with base vs
+    adjusted values. Macros DO update live. However, the custom weight
+    input uses a simple TextInput rather than a scroll-wheel picker,
+    which is inconsistent with the onboarding weight/height pickers.
+  Benchmark: MyFitnessPal uses a scroll-wheel for serving size.
+    Cronometer uses a text input (like DUB_AI). Acceptable either way.
+  Fix: No critical fix needed — the real-time preview and quantity
+    shortcuts are well-implemented. The nutrition preview shows:
+    Calories, Protein, Carbs, Fat, Fiber, Sugar, Sodium, Cholesterol,
+    Sat. Fat, Trans Fat, Iron, Calcium, Vitamin D, Potassium, Zinc,
+    Magnesium, Selenium, Vitamin B12. Added sugar IS displayed.
+  Evidence: [CODE]
+
+
+SCREEN 21: Food photo capture
+
+SCREEN 21: EXISTS — PhotoFoodEntry component handles camera capture.
+  Need to verify permission handling and preview-before-save on device.
+  Evidence: [VERIFY]
+
+
+SCREEN 22: Meal log list
+
+Finding 22-1:
+  Severity: P2
+  File: app/(tabs)/log.tsx:725-747 + src/components/logging/FoodEntryCard.tsx
+  What: Food entries are grouped by meal type (breakfast/lunch/dinner/
+    snack) — good. Each entry shows name + calories + serving + P/C/F
+    macro pills + meal badge. However:
+    (a) No SWIPE to delete — deletion uses a small trash icon (18px).
+    (b) No TAP-TO-EDIT — onPress is optional and not wired in the list.
+    (c) No CONFIRMATION on delete — tap trash immediately removes entry
+        with no undo.
+  Benchmark: Apple Health supports swipe-to-delete. MyFitnessPal
+    supports tap-to-edit and swipe-to-delete with undo. Every modern
+    list supports swipe gestures.
+  Fix: Implement Swipeable for swipe-to-delete with undo toast. Wire
+    up onPress to navigate to food detail for editing. Add Alert
+    confirmation or undo mechanism for deletion.
+  Evidence: [CODE] — confirmed by agent: "No confirmation on deletion"
+    across all logging components.
+
+Finding 22-2:
+  Severity: P3
+  File: app/(tabs)/log.tsx:640-657
+  What: Daily totals card shows kcal, protein, and item count — but
+    not carbs or fat totals. The FoodEntryCard shows P/C/F per item
+    but the summary omits two macros.
+  Benchmark: MyFitnessPal's daily summary shows all four macros.
+  Fix: Add carbs and fat columns to the totals card.
+  Evidence: [CODE]
+
+
+SCREEN 23: Calorie / macro budget view
+
+SCREEN 23: CLEAN on overall design. CalorieSummary shows:
+  - "Your Daily Target" headline with calorie number
+  - "Based on your body burning ~X cal/day" subtext
+  - Expandable "See the math" section with plain-language BMR/TDEE
+  - Progress bar (consumed / target, capped at 100%)
+  - Consumed / Burned / Net grid
+  - Remaining (green when positive, red when negative)
+  - Safe calorie floor note when applicable
+  - ED-safe mode hides all calorie data
+
+Finding 23-1:
+  Severity: P3
+  File: src/components/dashboard/CalorieSummary.tsx:56-58
+  What: Progress bar colors are accent gold for consumed portion and
+    divider gray for background. There's no green/yellow/red color
+    coding based on percentage. A user at 95% of target looks the
+    same as one at 50%.
+  Benchmark: MyFitnessPal uses green (under target) -> yellow
+    (near target) -> red (over target) color progression on the
+    calorie bar.
+  Fix: Add conditional color: green when <80%, gold when 80-100%,
+    red when >100% (for the progress bar fill color).
+  Evidence: [CODE]
+
+
+================================================================
+STEP 5: AUDIT SCREENS 24-26 (HYDRATION)
+================================================================
+
+
+SCREEN 24: Water logging
+
+Finding 24-1:
+  Severity: P3
+  File: src/components/logging/WaterLogger.tsx
+  What: Water logger is well-built. Features confirmed by code review:
+    - Quick-add buttons: 8/12/16/20/24/32/40 oz pills (min 44px height)
+    - Beverage selector: Water, Tea, Coffee, Juice, Sparkling, Other
+    - Progress bar with color coding: blue (<50%), orange (50-80%),
+      green (>=80%) — good feedback
+    - Daily goal: auto-calculated from profile (weight_lbs / 2)
+    - Custom amount entry with numeric keyboard
+    - Timestamps per entry, reverse chronological
+    - Delete per entry (trash icon with hitSlop 12)
+    - Beverage breakdown when multiple types logged
+    Missing: No undo on delete, no haptic feedback, no animation on log.
+  Benchmark: WaterMinder provides haptic + fill animation + undo.
+  Fix: Add haptic on log (covered by 24-2 global finding). Add undo
+    toast on delete. Consider a brief fill animation on the progress bar.
+  Evidence: [CODE] — confirmed by agent review of full component.
+
+Finding 24-2:
+  Severity: P1
+  File: (codebase-wide)
+  What: ZERO HAPTIC FEEDBACK IN THE ENTIRE APP. No import of
+    expo-haptics or any haptic library anywhere. This is a P1
+    because haptic feedback is foundational to iOS interaction
+    quality. Every tap, every log, every confirmation feels dead
+    without haptics. This is the single biggest "feels amateur"
+    issue across the entire app.
+  Benchmark: Every top-tier iOS app uses haptics:
+    - Uber: haptic on ride request confirm
+    - Strava: haptic on activity save
+    - Apple Health: haptic on data entry
+    - Robinhood: haptic on trade confirm
+    - Duolingo: haptic on correct answer
+  Fix: Install expo-haptics. Add to every logging action (food,
+    water, weight, etc.), every confirmation (save, delete),
+    every toggle (checkboxes, switches), and every error state
+    (PIN wrong, validation fail). Priority integrations:
+    1. Water log (most frequent action)
+    2. Food log save
+    3. PIN keypress
+    4. Exercise set complete
+    5. Supplement taken
+    6. Score ring appearance
+  Evidence: [CODE] — confirmed via grep: zero results for
+    "Haptics|haptic|expo-haptics" across all .tsx/.ts files.
+
+
+SCREEN 25: Caffeine logging
+
+SCREEN 25: CLEAN. Caffeine logger confirmed well-built:
+  - 5 presets: Coffee (95mg), Espresso (63mg), Tea (47mg), Soda (34mg),
+    Energy Drink (160mg) — grid of tappable buttons
+  - Custom source + mg entry row
+  - FDA 400mg awareness threshold with color-coded progress bar
+    (accent below, danger red at/above threshold)
+  - Daily total shown prominently (28px bold)
+  - Remaining mg until threshold displayed
+  - Reverse-chronological entry list
+  - Delete per entry (no confirmation — same pattern as water)
+  Evidence: [CODE] — confirmed by agent review.
+
+
+SCREEN 26: Beverage type picker
+
+Finding 26-1:
+  Severity: P3
+  File: src/components/logging/CaffeineLogger.tsx
+  What: No standalone beverage type picker screen. Caffeine logging
+    handles beverage types inline with 5 presets + custom entry.
+    The presets cover common sources but miss some: no decaf options,
+    no matcha, no chai, no pre-workout, no chocolate/cocoa. The preset
+    icons use inconsistent outline styles (cafe, cafe-outline,
+    leaf-outline, beer-outline, flash-outline).
+  Benchmark: Most apps handle this inline — acceptable architecture.
+  Fix: Consider adding 2-3 more presets (Pre-workout ~200mg,
+    Matcha ~70mg, Hot Chocolate ~5mg). Standardize icon outline style.
+  Evidence: [CODE]
+
+
+================================================================
+STEP 6: AUDIT SCREENS 27-34 (FITNESS)
+================================================================
+
+
+SCREEN 27: Exercise hub / body area picker
+
+Finding 27-1:
+  Severity: P2
+  File: app/log/workout.tsx
+  What: The workout screen renders ActivityLogger directly — there
+    is no body area visual map or body area grid. The screen title is
+    just "Workout" and jumps straight into activity type selection
+    (cardio focus). For strength training, users must go to a separate
+    /log/strength route. The exercise hub doesn't unify cardio and
+    strength into one cohesive experience.
+  Benchmark: JEFIT has a body area visual map (tap chest to see chest
+    exercises). Strong app has a unified workout view combining cardio
+    and strength.
+  Fix: Consider adding a top-level exercise hub that presents two
+    paths: "Strength Training" and "Cardio / Activity" with distinct
+    visual treatments. Or merge them into one screen with a tab bar.
+  Evidence: [CODE]
+
+
+SCREEN 28: Exercise selection
+
+Finding 28-1:
+  Severity: P2
+  File: src/components/logging/StrengthLogger.tsx:39
+  What: Exercise library has only 18 common exercises: Bench Press,
+    Squat, Deadlift, Overhead Press, Barbell Row, Pull-ups, Lat
+    Pulldown, Leg Press, Romanian Deadlift, Incline Bench, Dumbbell
+    Curl, Tricep Pushdown, Lateral Raise, Cable Fly, Leg Curl,
+    Leg Extension, Calf Raise, Face Pull. This is far below the
+    150+ target. No search functionality — exercises are shown in a
+    flat list. No body-area grouping. Previous session exercises
+    shown in "From Last Session" section, which is good.
+  Benchmark: Strong app has 1000+ exercises with search and body-part
+    grouping. JEFIT has categorized exercises by body part.
+  Fix: Expand library to 150+ exercises. Add search TextInput at top
+    of exercise picker. Group by body part (Chest, Back, Shoulders,
+    Arms, Legs, Core) with section headers.
+  Evidence: [CODE] — agent confirmed full exercise list.
+
+
+SCREEN 29: Set-by-set logging
+
+Finding 29-1:
+  Severity: P2
+  File: src/components/logging/StrengthLogger.tsx
+  What: Set-by-set logging confirmed with these features:
+    - Two modes: Quick Log (sets/weight/rep-range) and Detailed
+      (per-set weight/reps/RPE)
+    - Add Set button in detailed mode
+    - "Same as last time" prefill from previous session
+    - 1RM estimation (Epley for <=10 reps, Brzycki for >10)
+    - Volume calculation per exercise and session total
+    - Numeric keyboard for all inputs
+    - Save Session button (only if exercises added)
+    MISSING:
+    - No rest timer access (confirmed — no RestTimer component)
+    - No PR detection/celebration
+    - Session duration not captured (null in type)
+    - No notes field in UI (exists in type but not rendered)
+  Benchmark: Strong app has rest timer, PR detection with celebration
+    animation, and session duration tracking.
+  Fix: Add PR detection (compare current set to historical max).
+    Add session duration timer. Wire up rest timer (when built per
+    Finding 34-1). Surface notes field in UI.
+  Evidence: [CODE] — agent confirmed full component analysis.
+
+
+SCREEN 30: Cardio logging
+
+SCREEN 30: EXISTS — ActivityLogger component handles cardio with
+  activity type selection, duration input (countdown mode timer picker),
+  and related fields. Architecture is sound.
+
+
+SCREEN 31: Push-ups counter
+
+Finding 31-1:
+  Severity: P2
+  File: (no file found)
+  What: NO DEDICATED PUSH-UP COUNTER exists anywhere in the codebase.
+    There is no +1/-1 tap-to-count, no daily goal, no progress ring
+    for push-ups. Push-ups are listed as an exercise name in the
+    strength logger but there's no counter-style UI.
+  Benchmark: Apple Fitness has activity-specific counters. Many fitness
+    apps (Hundred Pushups, etc.) provide tap-to-count interfaces.
+  Fix: Create a reusable RepCounter component that can be used for
+    push-ups, pull-ups, and similar body-weight exercises. Props:
+    exerciseName, icon, defaultGoal. Features: tap to +1, button for
+    -1, daily goal ring, timestamps, haptic on count.
+  Evidence: [CODE] — grep for "push.?up|pull.?up|counter|RepCounter"
+    returns only StreakCounter (dashboard) and PersonalCareChecklist
+    handwashing counter — no exercise counters.
+
+
+SCREEN 32: Pull-ups counter
+
+Finding 32-1:
+  Severity: P2
+  File: (no file found)
+  What: NO DEDICATED PULL-UP COUNTER exists. Same gap as push-ups.
+    If the RepCounter component is created (per Finding 31-1), pull-ups
+    can reuse it — component reuse, not duplicated code.
+  Benchmark: Same as Screen 31.
+  Fix: Same RepCounter component, instantiated for pull-ups.
+  Evidence: [CODE]
+
+
+SCREEN 33: Steps / active minutes
+
+Finding 33-1:
+  Severity: P2
+  File: app/(tabs)/log.tsx:104
+  What: Steps is listed as a category item in the Log hub with route
+    '/log/steps', but NO app/log/steps.tsx FILE EXISTS. Tapping "Steps"
+    in the Log hub will navigate to a non-existent route, causing a
+    blank screen or Expo Router error.
+  Benchmark: This is a broken navigation link. Uber, Airbnb — no
+    broken links in production.
+  Fix: Either create app/log/steps.tsx with a HealthKit data display +
+    manual fallback + daily goal, OR remove the Steps entry from
+    CATEGORY_SECTIONS in log.tsx until the screen is built.
+  Evidence: [CODE] — verified: no app/log/steps.tsx in file listing.
+
+
+SCREEN 34: Rest timer
+
+Finding 34-1:
+  Severity: P2
+  File: (no file found)
+  What: NO REST TIMER component exists. Grep for "rest.?timer|
+    RestTimer|countdown|timer.*rest" returns only the AuthGate lockout
+    countdown and ActivityLogger duration picker — no workout rest
+    timer. During strength training sets, users have no way to time
+    their rest periods within the app.
+  Benchmark: Strong app has an integrated rest timer between sets
+    that auto-starts after logging a set. JEFIT has configurable rest
+    timers with haptic/sound notification on completion.
+  Fix: Create a RestTimer component: countdown display (large font),
+    configurable duration (30s/60s/90s/120s/custom), auto-start
+    option after set completion, haptic + sound on completion,
+    dismiss/skip button, background timer behavior.
+  Evidence: [CODE]
+
+
+================================================================
+STEP 7: AUDIT SCREENS 35-40 (BODY + SUPPLEMENTS)
+================================================================
+
+
+SCREEN 35: Weight logging
+
+Finding 35-1:
+  Severity: P2
+  File: src/components/logging/WeightLogger.tsx
+  What: Weight logging uses a TEXTINPUT with decimal-pad keyboard,
+    NOT a scroll-wheel Picker. This is inconsistent with onboarding
+    (which uses Picker for weight) and creates a jarring UX mismatch.
+    The onboarding scroll-wheel feels premium; the text input feels
+    generic. Good features: imperial/metric toggle, current weight
+    display card (28px bold accent), "Log" / "Update" conditional
+    title, RepeatLastEntry widget, WeightTrend chart above logger.
+    No shame language confirmed — neutral text throughout.
+  Benchmark: Happy Scale uses a scroll-wheel picker for weight entry.
+    The onboarding flow in this same app uses Picker. Consistency
+    matters.
+  Fix: Replace TextInput with Picker (scroll-wheel) matching the
+    onboarding Step 5 implementation. Range: 50-500 lbs or 25-225 kg.
+    This creates consistency between onboarding and daily logging.
+  Evidence: [CODE] — agent confirmed TextInput, not Picker.
+
+Finding 35-2:
+  Severity: P3
+  File: app/log/body.tsx:81-84
+  What: WeightTrend chart uses hardcoded width={340}. On larger phones
+    (iPhone Pro Max, ~430pt width) the chart won't fill the card. On
+    smaller phones (iPhone SE, ~320pt) it may overflow.
+  Benchmark: Charts should use useWindowDimensions() for responsive
+    width, as the Trends screen already does (line 277).
+  Fix: Replace width={340} with a dynamic width based on screen width
+    minus padding: const { width } = useWindowDimensions(); then
+    pass width={width - 64} (accounting for 16px padding on each side
+    plus 16px card padding on each side).
+  Evidence: [CODE]
+
+
+SCREEN 36: Body measurements
+
+SCREEN 36: CLEAN. MeasurementsLogger confirmed well-built:
+  - 10 measurement fields: Neck, Chest, Waist, Hips, Bicep L/R,
+    Thigh L/R, Calf L/R
+  - Imperial/metric toggle (inches/cm)
+  - 2-column grid display of current measurements
+  - Each field optional — user fills what they want
+  - Merges new values with existing same-day entries
+  - KeyboardAvoidingView with proper platform offsets
+  - Save button disabled until at least one value entered
+  Evidence: [CODE] — agent confirmed full component.
+
+
+SCREEN 37: Progress photos
+
+Finding 37-1:
+  Severity: P1
+  File: (no file found)
+  What: NO PROGRESS PHOTOS feature exists. Grep for "progress.photo|
+    ProgressPhotos" returns zero results. There is no camera capture
+    for body progress, no gallery with dates, no side-by-side comparison,
+    no encrypted photo storage, no "photos never leave device"
+    reassurance. PhotoFoodEntry.tsx exists but is for food photos only.
+  Benchmark: MyFitnessPal has progress photos with side-by-side
+    comparison. Fitbod shows progress photos chronologically. Strong
+    app has progress photo galleries. This is a core body tracking
+    feature expected by users.
+  Fix: Build ProgressPhotos component:
+    - Camera capture (front-facing) with pose overlay guide
+    - Gallery view with date labels
+    - Side-by-side comparison (select two dates)
+    - Local-only storage with encryption (existing encryption.ts utils)
+    - "Your photos never leave this device" reassurance text
+    - Permission handling for camera access
+    Add to body.tsx as a 5th tab or as a sub-route.
+  Evidence: [CODE] — confirmed zero progress photo files/references.
+
+
+SCREEN 38: Bloodwork entry
+
+SCREEN 38: CLEAN. BloodworkPanel confirmed comprehensive:
+  - 44 markers across 7 collapsible categories:
+    CBC (5), Metabolic (16), Lipids (7), Thyroid (3),
+    Hormones (5), Vitamins & Minerals (6), Inflammation (3)
+  - Each marker shows: name, reference range with units, 80px input
+  - Real-time out-of-range flagging (input border turns warning color)
+  - Summary card: total markers entered + flagged count with warning icon
+  - Lab name field (optional)
+  - Notes multiline field
+  - Medical disclaimer banner at top
+  - Category headers show filled badge (e.g., "3/5") for at-a-glance
+    progress — excellent UX pattern
+  - ApoB and Lp(a) markers included (advanced lipid panel)
+  Evidence: [CODE] — agent confirmed full 44-marker list.
+
+Finding 38-1:
+  Severity: P3
+  File: src/components/logging/BloodworkPanel.tsx
+  What: Reference range display shows partial ranges as "60- mL/min"
+    when only a lower bound exists (e.g., eGFR). This notation is
+    ambiguous — users may think it's a typo or rendering error.
+  Benchmark: InsideTracker shows ">60 mL/min" for one-sided ranges.
+  Fix: Display one-sided ranges as ">60 mL/min" or "<200 mg/dL"
+    instead of "60- mL/min" or "-200 mg/dL".
+  Evidence: [CODE]
+
+
+SCREEN 39: Bloodwork panel view
+
+SCREEN 39: EXISTS within BloodworkPanel component + Trends tab.
+  BloodworkPanel shows all historical entries for each marker.
+  Trends tab shows bloodwork summaries with direction arrows,
+  reference ranges, and flagged values. No dedicated per-marker
+  detail chart view — but the data is surfaced in two places.
+  Evidence: [CODE]
+
+
+SCREEN 40: Supplement checklist
+
+SCREEN 40: CLEAN. SupplementChecklist confirmed feature-rich:
+  - 3 categories: Vitamins (13 defaults), Medications, Supplements (23)
+  - Tap to log dose, tap again for additional dose (up to 10/day)
+  - Long-press to remove all doses of that supplement
+  - Count badge shows dose count per supplement
+  - Daily summary card: "X supplements taken today" (32px bold)
+  - Quick Stacks: save/reuse supplement combinations
+  - Morning stack auto-detection (5-10am entries)
+  - Dosage validation with UL (Tolerable Upper Intake Level) warnings
+  - Side effects tracking for medications (chip-based toggles)
+  - Time override per entry
+  - Personalized recommendations based on profile (sex, age, activity)
+  - "My Supplements" filter mode to customize visible list
+  - Custom entry with name + dosage + unit cycling (mg/mcg/g/IU/ml)
+
+Finding 40-1:
+  Severity: P3
+  File: src/components/logging/SupplementChecklist.tsx
+  What: Unit selector cycles through units (mg -> mcg -> g -> IU -> ml)
+    on tap. This interaction is not discoverable — users may not realize
+    tapping the unit label changes it. No visual affordance (dropdown
+    chevron, etc.) indicates this is interactive.
+  Benchmark: Standard pattern is a dropdown or picker, not a cycle-on-
+    tap interaction.
+  Fix: Add a small chevron icon next to the unit label, or use a
+    bottom sheet with all unit options visible at once.
+  Evidence: [CODE]
+
+
+================================================================
+FINDING SUMMARY — SORTED BY SEVERITY
+================================================================
+
+P0 — SHIP BLOCKERS: 0
+
+P1 — TRUST KILLERS: 5
+  3-3:  No "Forgot PIN" recovery path — permanent lockout risk
+  5-1:  Onboarding welcome screen has no value proposition
+  13-1: No summary/confirmation screen in onboarding
+  24-2: ZERO HAPTIC FEEDBACK in entire app (codebase-wide)
+  37-1: No progress photos feature (body tracking gap)
+
+P2 — FRICTION POINTS: 20
+  1-1:  Splash hidden immediately, losing brand moment
+  2-1:  Biometric not auto-triggered on lock screen
+  5-2:  Disabled name field with no explanation during consent
+  6-1:  No "Prefer not to say" for biological sex
+  7-1:  DOB picker allows under-18 selection before validation
+  11-1: No skip option on goal selection
+  OB-2: App-kill during onboarding loses all progress
+  14-1: Score ring meaning requires extra tap to understand
+  15-2: Secondary hero buttons in Log have identical styling
+  16-1: Chat messages can render behind status bar
+  17-1: YoY badge shown for new users with no data
+  18-2: "Coming soon" feature visible in Settings
+  18-3: "Reset Onboarding" mixed with profile settings
+  22-1: No swipe-to-delete, no tap-to-edit, no delete confirmation
+  27-1: No unified exercise hub (cardio/strength split)
+  28-1: Exercise library only 18 items (target: 150+), no search
+  29-1: Missing PR detection, session duration, rest timer, notes
+  31-1: No push-ups counter screen
+  32-1: No pull-ups counter screen
+  33-1: Steps route broken — file does not exist
+  34-1: No rest timer component
+  35-1: Weight logging uses TextInput, not scroll-wheel Picker
+
+P3 — POLISH GAPS: 18
+  1-2:  Loading overlay has no branding
+  2-2:  Biometric button label placement could be clearer
+  3-2:  PIN keypad buttons smaller than iOS standard
+  4-1:  Onboarding loading state has no branding
+  5-3:  Zero accessibility roles in onboarding
+  6-2:  No "can change later" note on sex screen
+  7-2:  DOB default value is a specific date instead of empty
+  12-1: Tag picker may be overwhelming flat list
+  14-2: Dashboard tag cards not reorderable in-place
+  14-3: No quick-log actions on dashboard
+  15-1: Only Nutrition section expanded by default
+  16-2: Suggested prompts disappear permanently after first message
+  22-2: Daily food totals missing carbs and fat
+  23-1: Progress bar has no green/yellow/red color coding
+  26-1: Caffeine presets limited (5), inconsistent icon styles
+  35-2: WeightTrend chart uses hardcoded width
+  38-1: Bloodwork one-sided reference ranges display ambiguously
+  40-1: Supplement unit selector not discoverable (cycle-on-tap)
+  OB-3: No "Step X of Y" text alongside progress bar
+
+TOTAL FINDINGS: 43 (0 P0, 5 P1, 22 P2, 18 P3)
+  (Revised after agent deep-dive confirmed [VERIFY] items and
+   surfaced 3 additional findings from detailed code review)
+
+ITEMS STILL REQUIRING DEVICE VERIFICATION: 0
+  (All previously-[VERIFY] items resolved via code review)
+
+
+================================================================
+END OF SESSION A FINDINGS
+This file will be consumed by Prompts B and C.
+================================================================

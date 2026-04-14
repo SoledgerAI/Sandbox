@@ -26,7 +26,7 @@ interface FoodScanResultProps {
   photoUri: string | null;
   mealType: MealType;
   timestamp: Date;
-  onLog: (entry: LogEntry) => void | Promise<void>;
+  onLog: (entries: LogEntry[]) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -111,11 +111,12 @@ export function FoodScanResult({
     if (saving) return;
     setSaving(true);
     try {
+      const entries: LogEntry[] = [];
       if (isMultiItem && multiItems) {
-        // Log all selected items
+        // Batch all selected items
         for (const idx of Array.from(selectedItems).sort()) {
           const item = multiItems[idx];
-          await onLog({
+          entries.push({
             foodName: item.foodName,
             brand: item.brand,
             servingSize: item.servingSize,
@@ -127,7 +128,7 @@ export function FoodScanResult({
           });
         }
       } else {
-        await onLog({
+        entries.push({
           foodName,
           brand: result.brand,
           servingSize,
@@ -145,6 +146,7 @@ export function FoodScanResult({
           },
         });
       }
+      await onLog(entries);
     } finally {
       setSaving(false);
     }

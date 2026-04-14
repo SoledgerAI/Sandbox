@@ -278,82 +278,110 @@ export default function FoodLogScreen() {
     }
   }, []);
 
-  // Sprint 10: Handle scan result log
-  const handleScanLog = useCallback(async (entry: LogEntry) => {
-    const sourceId = `scan:${Date.now()}`;
-
-    const foodItem: FoodItem = {
-      source: 'ai_photo',
-      source_id: sourceId,
-      name: entry.foodName,
-      brand: entry.brand,
-      barcode: null,
-      nutrition_per_100g: {
-        calories: entry.nutrition.calories,
-        protein_g: entry.nutrition.protein,
-        carbs_g: entry.nutrition.carbs,
-        fat_g: entry.nutrition.fat,
-        fiber_g: entry.nutrition.fiber,
-        sugar_g: null,
-        added_sugar_g: entry.nutrition.addedSugar,
-        sodium_mg: null,
-        cholesterol_mg: null,
-        saturated_fat_g: null,
-        trans_fat_g: null,
-        potassium_mg: null,
-        vitamin_d_mcg: null,
-        calcium_mg: null,
-        iron_mg: null,
-      },
-      serving_sizes: [{ description: entry.servingSize, unit: 'each', gram_weight: 0, quantity: 1 }],
-      default_serving_index: 0,
-      ingredients: null,
-      last_accessed: new Date().toISOString(),
-    };
-
-    const serving = foodItem.serving_sizes[0];
+  // Sprint 10: Handle scan result log (batch-save, single navigation)
+  const handleScanLog = useCallback(async (entries: LogEntry[]) => {
+    const today = getActiveDate();
+    const key = dateKey(STORAGE_KEYS.LOG_FOOD, today);
 
     try {
-      await saveEntry({
-        meal_type: entry.mealType,
-        food_item: foodItem,
-        serving,
-        quantity: 1,
-        computed_nutrition: {
-          calories: entry.nutrition.calories,
-          protein_g: entry.nutrition.protein,
-          carbs_g: entry.nutrition.carbs,
-          fat_g: entry.nutrition.fat,
-          fiber_g: entry.nutrition.fiber,
-          sugar_g: null,
-          added_sugar_g: entry.nutrition.addedSugar,
-          sodium_mg: null,
-          cholesterol_mg: null,
-          saturated_fat_g: null,
-          trans_fat_g: null,
-          potassium_mg: null,
-          vitamin_d_mcg: null,
-          calcium_mg: null,
-          iron_mg: null,
-        },
-        source: 'ai_photo',
-        photo_uri: entry.photoUri,
-        photo_confidence: entry.confidence,
-        flagged_ingredients: [],
-        notes: entry.isEstimate ? 'AI estimate' : 'Nutrition label scan',
+      const existing = (await storageGet<FoodEntry[]>(key)) ?? [];
+
+      const newEntries: FoodEntry[] = entries.map((entry) => {
+        const sourceId = `scan:${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+        const serving = { description: entry.servingSize, unit: 'each' as const, gram_weight: 0, quantity: 1 };
+        return {
+          id: `food_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          timestamp: entryTimestamp.toISOString(),
+          meal_type: entry.mealType,
+          food_item: {
+            source: 'ai_photo' as const,
+            source_id: sourceId,
+            name: entry.foodName,
+            brand: entry.brand,
+            barcode: null,
+            nutrition_per_100g: {
+              calories: entry.nutrition.calories,
+              protein_g: entry.nutrition.protein,
+              carbs_g: entry.nutrition.carbs,
+              fat_g: entry.nutrition.fat,
+              fiber_g: entry.nutrition.fiber,
+              sugar_g: null,
+              added_sugar_g: entry.nutrition.addedSugar,
+              sodium_mg: null,
+              cholesterol_mg: null,
+              saturated_fat_g: null,
+              trans_fat_g: null,
+              potassium_mg: null,
+              vitamin_d_mcg: null,
+              calcium_mg: null,
+              iron_mg: null,
+            },
+            serving_sizes: [serving],
+            default_serving_index: 0,
+            ingredients: null,
+            last_accessed: new Date().toISOString(),
+          },
+          serving,
+          quantity: 1,
+          computed_nutrition: {
+            calories: entry.nutrition.calories,
+            protein_g: entry.nutrition.protein,
+            carbs_g: entry.nutrition.carbs,
+            fat_g: entry.nutrition.fat,
+            fiber_g: entry.nutrition.fiber,
+            sugar_g: null,
+            added_sugar_g: entry.nutrition.addedSugar,
+            sodium_mg: null,
+            cholesterol_mg: null,
+            saturated_fat_g: null,
+            trans_fat_g: null,
+            potassium_mg: null,
+            vitamin_d_mcg: null,
+            calcium_mg: null,
+            iron_mg: null,
+          },
+          source: 'ai_photo' as const,
+          photo_uri: entry.photoUri,
+          photo_confidence: entry.confidence,
+          flagged_ingredients: [] as string[],
+          notes: entry.isEstimate ? 'AI estimate' : 'Nutrition label scan',
+        };
       });
 
-      // Show toast confirmation
+      // Single batch write — all entries saved atomically
+      await storageSet(key, [...existing, ...newEntries]);
+
+      // Update last entry cache
+      const lastNew = newEntries[newEntries.length - 1];
+      await saveLastFood(lastNew);
+
+      // Update recent foods
+      const recentList = (await storageGet<RecentFoodInfo[]>(STORAGE_KEYS.FOOD_RECENT)) ?? [];
+      const recentEntry: RecentFoodInfo = {
+        food_item: { ...lastNew.food_item, last_accessed: new Date().toISOString() },
+        serving: lastNew.serving,
+        quantity: lastNew.quantity,
+        calories: Math.round(lastNew.computed_nutrition.calories),
+      };
+      const filteredRecent = recentList.filter((r) => r.food_item.source_id !== lastNew.food_item.source_id);
+      await storageSet(STORAGE_KEYS.FOOD_RECENT, [recentEntry, ...filteredRecent].slice(0, 50));
+
+      // Navigate back ONCE (after all writes complete)
+      router.back();
+
+      // Toast confirmation
+      const count = entries.length;
+      const msg = count > 1 ? `${count} items logged` : `${entries[0].foodName} logged`;
       if (Platform.OS === 'android') {
-        ToastAndroid.show(`${entry.foodName} logged`, ToastAndroid.SHORT);
+        ToastAndroid.show(msg, ToastAndroid.SHORT);
       } else {
-        Alert.alert('Logged', `${entry.foodName} added to food log`);
+        Alert.alert('Logged', `${msg} added to food log`);
       }
     } catch (error) {
       console.error('[FoodLog] Failed to save scan entry:', error);
       Alert.alert('Save Error', 'Failed to save food entry. Please try again.');
     }
-  }, [saveEntry]);
+  }, [saveLastFood, entryTimestamp]);
 
   // Sprint 10: Log from My Foods (Sprint 14: photo thumbnail quick re-log)
   const handleMyFoodLog = useCallback((food: SavedFood) => {

@@ -1,0 +1,1404 @@
+================================================================
+DUB_AI TRACKER — FINAL UX AUDIT REPORT
+MASTER DELIVERABLE (Sessions A + B + C)
+Auditor: Claude Code (Opus 4.6)
+Date: 2026-04-08
+================================================================
+
+
+================================================================
+SECTION 1: EXECUTIVE SUMMARY
+================================================================
+
+Total findings: 123
+  P0 (ship blockers):   0
+  P1 (trust killers):  11
+  P2 (friction points): 66
+  P3 (polish gaps):     46
+
+By session:
+  Session A (Screens 1-40):   54 findings (0 P0, 5 P1, 24 P2, 25 P3)
+  Session B (Screens 41-77):  39 findings (0 P0, 4 P1, 19 P2, 16 P3)
+  Session C (Screens 78-96):  30 findings (0 P0, 2 P1, 23 P2,  5 P3)
+
+P1 — TRUST KILLERS (11):
+  3-3:  No "Forgot PIN" recovery — permanent lockout risk
+  5-1:  Onboarding welcome has no value proposition
+  13-1: No summary/confirmation screen in onboarding
+  24-2: ZERO HAPTIC FEEDBACK in entire app (codebase-wide)
+  37-1: No progress photos feature (core body tracking gap)
+  43-1: Medications structurally second-class (no checklist/reminders)
+  46-1: Sleep history screen completely missing
+  72-1: Privacy policy is Alert dialog, not real screen (legal blocker)
+  74-1: No 7-card cap on EOD questionnaire (overwhelm risk)
+  91-3: Coach API errors show no retry button (messages lost)
+  96-4: OfflineBanner imported but never rendered in layout
+
+Screens NOT FOUND in codebase (7):
+  13: Onboarding summary/confirm (Step 9 is Zip Code, not summary)
+  31: Push-ups counter (no component)
+  32: Pull-ups counter (no component)
+  33: Steps/active minutes (route broken — file does not exist)
+  34: Rest timer (no component)
+  37: Progress photos (no component)
+  46: Sleep history (no screen or trend chart)
+
+Screens that are CLEAN (no findings, 22):
+   8: Height onboarding — scroll-wheel picker, unit toggle
+   9: Weight onboarding — scroll-wheel picker, no shame language
+  10: Activity level — five tappable cards with descriptions
+  25: Caffeine logging — presets, FDA threshold, progress bar
+  36: Body measurements — 10 fields, imperial/metric, 2-column
+  38: Bloodwork entry — 44 markers, 7 categories, out-of-range flags
+  39: Bloodwork panel view — historical entries + trends display
+  40: Supplement checklist — feature-rich (Quick Stacks, UL warnings)
+  48: Stress logging — 1-10 scale, color coding, trigger tags
+  50: Meditation logging — 4 types, preset durations
+  51: Alcohol logging — standard drinks, sobriety goals, neutral copy
+  52: Cannabis logging — 5 methods, THC/CBD fields, neutral copy
+  54: Caffeine (substances) — clean data separation from CaffeineLogger
+  56: Digestive/Bristol Scale — 7-type scale, accessibility labels
+  60: Personal care checklist — 9 items, handwashing counter
+  62: Engagement tier — 3 tiers with descriptions, Coach acknowledgment
+  63: Tag management — grouped, reorder, sensitivity warnings
+  65: Notification settings — master toggle, per-type, tier cadence
+  67: API key setup — 3-step wizard, best-in-class BYOK flow
+  68: Taste profile — allergies, restrictions, cuisine prefs
+  69: Health report — 11 sections, therapy NEVER included
+  76: Marketplace product detail — FTC disclosure, affiliate link
+  78: PIN setup modal — 4-digit, confirm flow, shake animation
+  79: PIN entry modal — consistent with setup, lockout counter
+  82: Date/time picker — scroll-wheel, range support, iOS spinner
+  85: Coach suggested prompts — rotating daily, tappable chips
+
+
+================================================================
+SESSION C: AUDIT SCREENS 78-96
+================================================================
+
+
+================================================================
+STEP 1: SCREENS 78-86 (MODALS / OVERLAYS)
+================================================================
+
+
+SCREEN 78: PIN Setup Modal — CLEAN, no findings.
+  File: src/components/PINSetupModal.tsx
+  4-digit PIN enforced. Numeric keypad with backspace. Two-step
+  confirmation flow (enter -> confirm). Clear step indicators.
+  Shake animation on mismatch. Cancel/dismiss in header.
+  animationType="slide" (slides up from bottom). Correct.
+
+
+SCREEN 79: PIN Entry Modal — CLEAN, no findings.
+  File: src/components/AuthGate.tsx (PIN section)
+  Identical keypad style to Screen 78. Shake on wrong PIN.
+  5-attempt lockout with 30s countdown timer. Consistent styling.
+
+
+SCREEN 80: Delete Confirmation Dialog
+
+Finding 80-1:
+  Severity: P2
+  File: src/components/logging/SupplementChecklist.tsx:371-372
+  What: "Delete Stack" dialog uses developer jargon ("Stack") that
+    is not user-facing language. Users may not understand what a
+    "supplement stack" is. Message reads "Remove this supplement
+    stack?" with no clarification of what data is preserved.
+  Benchmark: Apple Health uses plain language ("Remove this
+    combination?"). Good UX explains consequences: "Your logged
+    entries will remain."
+  Fix: Change Alert title from "Delete Stack" to "Delete Supplement
+    Bundle" and message to "This preset will be deleted. Your logged
+    supplement entries will remain."
+  Evidence: [CODE]
+
+Finding 80-2:
+  Severity: P3
+  File: src/components/logging/IngredientFlags.tsx:81
+  What: Ingredient flag delete confirmation says "Remove this custom
+    ingredient flag?" without explaining what happens to existing
+    entries. Sparse message leaves users uncertain.
+  Benchmark: Clear confirmations state scope: "This will delete the
+    flag definition. Existing entries will not be affected."
+  Fix: Expand Alert message to include scope clarification.
+  Evidence: [CODE]
+
+SCREEN 80 CROSS-CHECK: Alert.alert delete patterns app-wide use
+  correct style: 'destructive' for delete actions and style: 'cancel'
+  for cancel buttons. Button order is correct (Cancel first). Custom
+  tag delete (CustomTagLogger.tsx:117) and food entry delete also use
+  proper destructive styling. Pattern is consistent EXCEPT for
+  messaging specificity.
+
+
+SCREEN 81: Tag Picker Modal
+
+Finding 81-1:
+  Severity: P2
+  File: src/components/onboarding/TagPicker.tsx:16-51
+  What: TagPicker is an inline ScrollView, not a modal. Changes
+    apply immediately via onToggle callback — there is no "Done"
+    button to confirm selections and no "Cancel" to revert. Users
+    cannot review their full selection before committing. Also
+    missing: search within picker and swipe-to-dismiss.
+  Benchmark: iOS Contacts tag picker has Done/Cancel. Any modal
+    picker should allow review-before-commit.
+  Fix: Wrap TagPicker in a Modal component with header containing
+    "Cancel" (left) and "Done" (right). Batch state changes until
+    Done is pressed.
+  Evidence: [CODE]
+
+
+SCREEN 82: Date/Time Picker — CLEAN, no findings.
+  File: src/components/common/DateTimePicker.tsx
+  Scroll-wheel display (iOS native spinner). minimumDate/maximumDate
+  range support. Expands on tap, collapses on selection. Defaults to
+  current value. Standard implementation.
+
+
+SCREEN 83: Goal Edit Modal
+
+Finding 83-1:
+  Severity: P2
+  File: src/components/onboarding/WeightGoalStep.tsx (onboarding only)
+  What: Goal selection (Lose/Gain/Maintain) is only available during
+    onboarding, not as an editable component post-onboarding. Users
+    cannot change their weight/calorie goal direction from Settings.
+    No GoalEditModal component exists. Profile screen edits
+    demographics but not goal direction.
+  Benchmark: MyFitnessPal allows goal changes from Settings > Goals.
+    Noom allows goal adjustment at any time. Users' goals change —
+    someone who wanted to lose fat may shift to maintenance.
+  Fix: Create GoalEditModal accessible from Settings with current
+    goal displayed, picker for direction, and validation (no negative
+    targets, no unreasonable deficits > 1000 cal).
+  Evidence: [CODE] — no GoalEditModal file exists in codebase.
+
+
+SCREEN 84: Insight Card Detail
+
+Finding 84-1:
+  Severity: P2
+  File: app/(tabs)/coach.tsx:167-182
+  What: Pattern insights display inline in Coach Lite view as simple
+    observation text rows. No expanded detail modal showing data
+    range, sample size, correlation note, or actionable recommendation.
+    No "Talk to Coach" CTA on insights. No dismiss/acknowledge action.
+    Minimum data threshold (7+ days) shown as warning text but not
+    enforced before display.
+  Benchmark: Oura's insight cards expand to show full data context,
+    trend chart, and actionable recommendation. Apple Health insights
+    show data windows and confidence levels.
+  Fix: Create InsightModal component triggered on pattern row tap.
+    Display: observation, data range, sample size, correlation note,
+    "Discuss with Coach" CTA, and dismiss button.
+  Evidence: [CODE]
+
+
+SCREEN 85: Coach Suggested Prompts — CLEAN, no findings.
+  File: src/components/coach/SuggestedPrompts.tsx
+  Rotating daily prompts (getDailyPrompts function). Tappable chips
+  (TouchableOpacity). Prompt inserts into chat input (onSelect
+  callback). Horizontal scroll, visible without scrolling.
+
+
+SCREEN 86: Reset Onboarding Confirmation
+
+Finding 86-1:
+  Severity: P2
+  File: app/(tabs)/settings.tsx:278-294
+  What: Reset onboarding uses single-step Alert.alert confirmation.
+    Message says "Show the onboarding questionnaire again on next
+    app launch" but does NOT clarify what happens to existing data
+    (preserved vs reset). No double-confirm for this destructive-
+    adjacent action. Users may fear data loss.
+  Benchmark: Apple's Reset All Settings uses two-step confirmation
+    with explicit scope. Strava's account deletion uses multi-step
+    with data preservation explanation.
+  Fix: Two-step confirmation. First: "The setup flow will appear
+    again on next launch. Your profile, entries, and preferences
+    will NOT be affected." Second: "Are you sure?" with destructive
+    style on confirm button.
+  Evidence: [CODE]
+
+
+================================================================
+STEP 2: SCREENS 87-96 (DISTINCT STATES)
+================================================================
+
+
+SCREEN 87: Dashboard — empty state (day 1, zero data)
+
+Finding 87-1:
+  Severity: P2
+  File: app/(tabs)/index.tsx:84-90
+  What: When a new user has zero data, the score ring renders at 0%
+    with no explanation. No "Log your first entry" CTA. No warmth.
+    Dashboard shows functional but semantically empty cards —
+    progress rings at zero, sparklines with no data, calorie targets
+    without context. A wasteland of zeros.
+  Benchmark: Strava shows "Record your first activity" with
+    illustration. Apple Health shows "Add Data" CTAs on empty cards.
+    Fitbit shows "Log your first entry" hero card.
+  Fix: Check if summary has zero data (no calories, no water, no
+    entries). Conditionally show a first-action hero card: "Welcome!
+    Start by logging a meal or activity" with CTA buttons for the
+    top 3 log types.
+  Evidence: [CODE] — ScoreRing always renders. useDailySummary sets
+    all defaults to 0/null. No empty-state branch.
+
+Finding 87-2:
+  Severity: P2
+  File: app/(tabs)/index.tsx:199-236
+  What: When profileComplete is false, a small "Complete your profile
+    in Settings" prompt appears, but CalorieSummary and tag cards
+    still render above and below it with potentially meaningless zero
+    values. Mixed signals — some cards show data, one says "finish
+    setup."
+  Benchmark: MyFitnessPal shows a blocking "Complete Your Profile"
+    banner; data cards are greyed until profile is done.
+  Fix: If !profileComplete, show a full-width blocking card above
+    all data cards. Disable or visually mute tag cards below until
+    profile is complete.
+  Evidence: [CODE]
+
+
+SCREEN 88: Dashboard — populated (mid-day)
+
+Finding 88-1:
+  Severity: P2
+  File: app/(tabs)/index.tsx:67-73 + src/hooks/useDailySummary.ts
+  What: No stale-data indicator. When tab gains focus, refresh() is
+    called, but if data refresh fails silently (catch block just sets
+    loading=false), old data is shown with no visual marker. Users
+    see yesterday's data if today hasn't synced, with no timestamp.
+  Benchmark: Cronometer shows "Last updated: 2:34 PM" beneath
+    calories. Whoop shows timestamps on all metrics.
+  Fix: Add lastRefresh timestamp state to useDailySummary. Display
+    "Updated {timeAgo}" in dashboard header or below CalorieSummary.
+  Evidence: [CODE]
+
+Finding 88-2:
+  Severity: P2
+  File: src/components/dashboard/TagCardWithData.tsx:96-97
+  What: Tag cards show plain "Loading..." text during data fetch.
+    No skeleton loader, no shimmer, no placeholder matching card
+    dimensions. Cards flicker or show blank text for 1-2 seconds.
+  Benchmark: Strava shows pulsing skeleton cards. LinkedIn shows
+    grey shimmer placeholders.
+  Fix: Replace "Loading..." text with a SkeletonLoader component
+    matching card dimensions with animated opacity pulse.
+  Evidence: [CODE]
+
+Finding 88-3:
+  Severity: P3
+  File: src/components/dashboard/CalorieSummary.tsx:126-127
+  What: Progress bar jumps from 0 to consumed value instantly. No
+    smooth animation easing. Jarring jump when consumed calories are
+    high (e.g., logging a large meal).
+  Benchmark: Apple Health animates fill bars over 400-600ms with
+    ease-out easing.
+  Fix: Wrap progress bar width in Animated.Value with withTiming
+    (600ms, Easing.out). Already have react-native-reanimated.
+  Evidence: [CODE]
+
+
+SCREEN 89: Coach — no API key
+
+Finding 89-1:
+  Severity: P2
+  File: app/(tabs)/coach.tsx:144-206
+  What: Coach Lite (no API key) shows today's summary and pattern
+    insights, but the "Ready for Personal Coaching?" upgrade card
+    (lines 186-205) is a small card buried in scroll. Low
+    discoverability. Users may not realize they can unlock Coach.
+  Benchmark: ChatGPT shows capabilities hero before asking for
+    account. Claude web shows full-screen upgrade CTA.
+  Fix: Make the upgrade card more prominent — fixed at bottom of
+    screen or occupying 40%+ of viewport. Show Coach value prop
+    (meal plans, pattern analysis, personalized advice) before the
+    API key effort.
+  Evidence: [CODE]
+
+Finding 89-2:
+  Severity: P2
+  File: src/components/coach/DataContextBanner.tsx:30-38
+  What: When no API key, banner says "Add your Anthropic API key in
+    Settings to start chatting" — but provides no inline button to
+    navigate there. Users must manually find Settings > API Key.
+  Benchmark: Slack upgrade banners include inline "Upgrade" button.
+  Fix: Add TouchableOpacity wrapping "Add API Key" text that
+    navigates to /settings/apikey via router.push().
+  Evidence: [CODE]
+
+
+SCREEN 90: Coach — with API key, empty chat
+
+Finding 90-1:
+  Severity: P2
+  File: src/components/coach/SuggestedPrompts.tsx:44-59
+  What: Suggested prompts are in a horizontal ScrollView but no
+    scroll indicator or affordance is visible. Only 4 of 8 prompts
+    show without scrolling. Users may not discover remaining prompts.
+  Benchmark: ChatGPT shows all starter prompts in a visible grid.
+    Perplexity shows dot indicators for scrollable content.
+  Fix: Either show scroll indicator, add dot pagination, or switch
+    to a 2-column grid layout showing all prompts without scrolling.
+  Evidence: [CODE]
+
+Finding 90-2:
+  Severity: P2
+  File: app/(tabs)/coach.tsx:210-218
+  What: Empty chat shows only "Coach DUB" title + subtitle. No
+    warmth, no greeting, no personality. Feels cold and uninviting
+    compared to the warm tone used elsewhere in the app.
+  Benchmark: Claude.ai greets with "Hi! I'm Claude..." ChatGPT
+    shows "What can I help with?" with personality.
+  Fix: Add a greeting: "Hi! I'm Coach DUB — your AI wellness
+    companion. Ask me anything about your health data." Move
+    SuggestedPrompts into the empty state view with a "Pick a
+    prompt to get started" hint.
+  Evidence: [CODE]
+
+
+SCREEN 91: Coach — mid-conversation
+
+Finding 91-1:
+  Severity: P3
+  File: src/components/coach/ChatBubble.tsx:19-43
+  What: Long assistant messages have no explicit wrapping control.
+    On edge cases with 500+ character words or URLs, text may
+    overflow the bubble (maxWidth: '80%' constrains width but no
+    flexWrap directive).
+  Benchmark: iMessage and Slack use flexWrap: 'wrap' on all chat
+    bubbles.
+  Fix: Add flexShrink: 1 and ensure Text component wraps properly
+    within maxWidth constraint.
+  Evidence: [CODE]
+
+Finding 91-2:
+  Severity: P2
+  File: app/(tabs)/coach.tsx:286-290
+  What: Typing indicator shows "Coach DUB is thinking..." with
+    ActivityIndicator, but no visual confirmation that the user's
+    message was sent. Input clears immediately, message appears in
+    list, but the transition feels uncertain.
+  Benchmark: iMessage shows a delivered checkmark. Slack shows
+    message in list immediately with pending state.
+  Fix: Show user's message in list immediately with a subtle
+    "sending" indicator, then add typing indicator below for
+    assistant response.
+  Evidence: [CODE]
+
+Finding 91-3:
+  Severity: P1
+  File: app/(tabs)/coach.tsx:293-297 + src/hooks/useCoach.ts:142-151
+  What: API errors display as plain text with no retry button and
+    no actionable guidance. User may see cryptic messages like
+    "400 Bad Request" or "Rate limited." The user's message is
+    lost — they must re-type it manually. No "Regenerate" or "Try
+    Again" option exists.
+  Benchmark: ChatGPT shows "Something went wrong" with Regenerate
+    button. Claude shows "Try again" on failure. Every chat app
+    provides error recovery.
+  Fix: Replace error text row with an error card containing: error
+    icon, human-readable message, and "Tap to Retry" button that
+    re-sends the last user message.
+  Evidence: [CODE] — useCoach.ts catches error but provides no
+    recovery mechanism. coach.tsx errorRow is display-only.
+
+
+SCREEN 92: Trends — no data (< 7 days)
+
+Finding 92-1:
+  Severity: P2
+  File: app/(tabs)/trends.tsx:465-468
+  What: Empty state says "Start logging to see your trends" but
+    doesn't explain that 7 days of data is needed. User who logs
+    for 2 days sees empty charts and may assume data isn't loading
+    rather than understanding they need more time.
+  Benchmark: MyFitnessPal: "Come back in 4 more days to see trends."
+    Strava: "7-day trend requires 7 days of data."
+  Fix: Check if user has enabled tags but < 7 days of data. Show
+    encouraging copy: "Keep logging! Charts appear after 7 days of
+    data." Show progress toward threshold.
+  Evidence: [CODE]
+
+NOTE: Finding 17-1 from Session A (YoY badge shown for new users)
+  confirmed still present. Not re-counted as new finding.
+
+
+SCREEN 93: Trends — with data
+
+Finding 93-1:
+  Severity: P2
+  File: app/(tabs)/trends.tsx:278
+  What: Sparkline thumbnails use fixed width ratio (0.42 of screen
+    width). On tablets or larger phones (430pt+), sparklines take
+    only 42% of width, leaving 58% blank. Inefficient layout.
+  Benchmark: iPad apps show 2-column chart grids or expand charts
+    to fill available space.
+  Fix: Add responsive ratio: screenWidth > 600 ? 0.6 : 0.42. Or
+    use a 2-column FlatList numColumns on wider screens.
+  Evidence: [CODE]
+
+Finding 93-2:
+  Severity: P3
+  File: app/(tabs)/trends.tsx:261-263
+  What: Category filter pill selection does not persist across
+    navigation. User selects "Nutrition", navigates to detail, comes
+    back — filter resets to "All."
+  Benchmark: Fitbit remembers last-selected chart category.
+  Fix: Persist categoryFilter to AsyncStorage. Restore on
+    useFocusEffect.
+  Evidence: [CODE]
+
+
+SCREEN 94: Loading states (app-wide)
+
+Finding 94-1:
+  Severity: P2
+  File: (app-wide)
+  What: Inconsistent loading indicators. Dashboard uses
+    ActivityIndicator size="large". Coach uses size="small" for
+    typing, size="large" for empty state. Trends uses size="small".
+    Tag cards use plain "Loading..." text. No unified design system.
+  Benchmark: Apple Health uses consistent medium-sized spinner with
+    background circle across all screens. Strava uses branded spinner.
+  Fix: Create src/components/common/LoadingIndicator.tsx with
+    standardized sizes (small/medium/large) and brand accent color.
+    Replace all ActivityIndicator instances across the app.
+  Evidence: [CODE] — ActivityIndicator used with inconsistent props
+    across 9+ files.
+
+Finding 94-2:
+  Severity: P3
+  File: src/components/dashboard/RecoveryCard.tsx:128
+  What: RecoveryCard shows "Computing..." as plain text during
+    calculation with no visual spinner or progress indicator.
+  Benchmark: Oura shows "Calculating recovery..." with spinner.
+  Fix: Add small ActivityIndicator next to "Computing..." text.
+  Evidence: [CODE]
+
+Finding 94-3:
+  Severity: P2
+  File: app/(tabs)/trends.tsx:458-461
+  What: Loading indicator renders centered but overlaps category
+    filter pills above, making them unclickable. No backdrop or
+    disabled state on controls during load.
+  Benchmark: Fitbit disables and greys out filter buttons during load.
+  Fix: Add semi-transparent overlay during loading or disable filter
+    pills while loading state is true.
+  Evidence: [CODE]
+
+
+SCREEN 95: Error states (app-wide)
+
+Finding 95-1:
+  Severity: P2
+  File: src/components/APIKeySetupWizard.tsx:87-103
+  What: API key validation error messages include URLs
+    (console.anthropic.com) as plain text, not tappable links.
+    Users must manually copy and open in browser.
+  Benchmark: Anthropic's own console uses clickable "Go to Billing"
+    links.
+  Fix: Detect error type and wrap URLs in TouchableOpacity with
+    Linking.openURL(). Show "Open Anthropic Console" as tappable
+    accent-colored text.
+  Evidence: [CODE]
+
+Finding 95-2:
+  Severity: P2
+  File: app/_layout.tsx:54-55
+  What: processQueue() called on app resume silently swallows errors
+    via .catch(() => {}). Queued offline actions may fail to sync
+    with no user notification. Users don't know if their data was
+    lost.
+  Benchmark: Google Maps: "Changes not saved. Retry?" Notion shows
+    "Sync failed" banner on reconnection failure.
+  Fix: Add error handling to processQueue() call. On failure, show
+    a brief error banner: "Some data couldn't sync. Tap to retry."
+  Evidence: [CODE] — Line 54-55: processQueue().catch(() => {})
+
+
+SCREEN 96: Offline states (app-wide)
+
+Finding 96-1:
+  Severity: P2
+  File: src/components/common/OfflineBanner.tsx:34-44
+  What: Offline banner text says "data saved locally" but provides
+    no context about what "offline" means for the app. Users may
+    think all data is lost or the app is broken. No indication of
+    which features are impacted (Coach unavailable, sync paused).
+  Benchmark: Google Maps: "You're offline — you can still view maps
+    you've downloaded." Slack: "You're offline — messages will send
+    when you're back online."
+  Fix: Context-aware message: "You're offline — data saved locally.
+    AI Coach unavailable until reconnected."
+  Evidence: [CODE]
+
+Finding 96-2:
+  Severity: P2
+  File: app/(tabs)/coach.tsx:304-316
+  What: Coach input is disabled when offline (disabled prop includes
+    isOffline check) but placeholder text remains "Ask Coach DUB..."
+    — no visual feedback explaining WHY input is disabled. User may
+    think the input is broken.
+  Benchmark: iMessage shows "No Service" badge. Slack changes input
+    placeholder to "Offline — messages will send when you're back."
+  Fix: Change placeholder to "Reconnect to chat with Coach DUB"
+    when isOffline is true. Set editable={false} explicitly.
+  Evidence: [CODE]
+
+Finding 96-3:
+  Severity: P2
+  File: src/hooks/useTrendsData.ts:121-124
+  What: Trends data loading fails silently (catch block is empty).
+    Charts show empty state with no error message. User assumes
+    "no data yet" rather than "storage read error."
+  Benchmark: Fitbit: "Unable to load trends. Check your connection."
+  Fix: Add error state to useTrendsData hook. Return error string.
+    In trends.tsx, show error banner when error is non-null.
+  Evidence: [CODE]
+
+Finding 96-4:
+  Severity: P1
+  File: app/_layout.tsx:17 (import) vs lines 100-180 (JSX)
+  What: OfflineBanner is IMPORTED at line 17 but NEVER RENDERED in
+    the layout JSX. The component exists and works, but is not in
+    the component tree. The app has NO global offline indicator —
+    only the Coach screen has its own inline offline notice.
+  Benchmark: Every app with network-dependent features shows a
+    global offline indicator. This is a dead import / integration bug.
+  Fix: Add <OfflineBanner /> to the root layout JSX, positioned
+    above the Stack navigator. Ensure it renders on all screens,
+    not just Coach.
+  Evidence: [CODE] — Confirmed: line 17 imports OfflineBanner,
+    grep of JSX in _layout.tsx shows zero OfflineBanner renders.
+
+
+================================================================
+STEP 3: CROSS-CUTTING AUDIT (10 categories)
+================================================================
+
+
+3A. TYPOGRAPHY SYSTEM
+  Verdict: INCONSISTENT
+
+  Source of truth EXISTS: src/constants/typography.ts
+  Defines FontSize constants: xs(11), sm(12), base(14), lg(16),
+  xl(18), 2xl(20), 3xl(24), 4xl(28), 5xl(32), 6xl(48).
+
+  ALL unique fontSize values found in codebase:
+  10, 11, 12, 13, 14, 15, 16, 17, 18, 20, 22, 24, 26, 28, 32,
+  36, 40, 48
+
+  Non-standard values (not in FontSize constants):
+  10, 13, 15, 17, 22, 26, 36, 40
+
+  ALL unique fontWeight values found:
+  String: 'bold' (keyword, not numeric)
+  Numeric strings: '400', '500', '600', '700', '800'
+  No fontWeight constants file exists.
+
+  Violations:
+  - 8 font sizes used inline that don't match FontSize constants
+  - fontWeight uses both 'bold' keyword and numeric strings
+  - No centralized fontWeight mapping exists
+  - Developers not consistently referencing FontSize constants
+
+
+3B. SPACING SYSTEM
+  Verdict: INCONSISTENT
+
+  No centralized spacing constants file exists.
+  Observed scale follows approximate 4px grid: 4, 8, 12, 16, 24,
+  32, 40, 60.
+
+  Top 10 spacing outliers (non-4px-grid values):
+  1. padding: 14 — used 40+ times (breaks 4px grid)
+  2. gap: 10 — used 50+ times (not on standard scale)
+  3. gap: 6 — used 30+ times
+  4. padding: 3 — 1 occurrence (SubstanceLogger.tsx)
+  5. margin: 2 — rare occurrence
+  6. padding: 20 — common but creates inconsistent hierarchy
+  7. paddingTop: 60 — common in settings screens
+  8. paddingBottom: 40 — common content spacing pattern
+  9. gap: 14 — matches padding:14 anti-pattern
+  10. padding: 10 — used widely (not on 8/16 scale)
+
+  Violations:
+  - No spacing constants file (unlike typography)
+  - padding:14 and gap:10 are the most pervasive outliers
+  - No enforced spacing scale
+
+
+3C. COLOR USAGE
+  Verdict: INCONSISTENT
+
+  Source of truth EXISTS: src/constants/colors.ts
+  Defines 12 brand colors including:
+  #1E2761 (primaryBackground), #D4A843 (accent), #334480
+  (cardBackground), #FFFFFF (text), #B8B8B8 (secondaryText),
+  #4CAF50 (success), #FF9C9C (dangerText), #E8C468 (accentText),
+  #66BB6A (successText), #1A2050 (inputBackground), #3A4580
+  (divider).
+
+  Non-brand hex values found (30+):
+  Material Design colors used extensively:
+  - #FF9800 (orange) — blood pressure, cycle, food highlights
+  - #FFC107 (amber) — BP warning, glucose pre-diabetic
+  - #F44336 (Material red) — Bristol Scale, danger states
+  - #EF5350 (red variant) — blood pressure stage 2
+
+  Medical/health-specific colors:
+  - #8D6E63, #A1887F, #2E7D32 — Bristol Scale browns/green
+  - #E8A0A0, #E07070, #D04040, #B02020 — cycle flow intensities
+  - #7E57C2 — cycle luteal phase (purple)
+
+  PDF/export colors:
+  - #1a1a1a, #f5f5f5, #f8f8f8, #ddd, #e0e0e0, #666, #999, #888
+  - #ffe082, #fff8e1 — warning box styling
+
+  Other:
+  - #0D1133 — gradient end (sharing cards)
+  - #3D3520 — DosageValidator background
+  - #1A2355 — MoodResourceCard background
+  - #FF6B6B — old dangerText (deprecated but still in profile.tsx)
+  - #8B7A3B — Heatmap mid-range
+
+  Violations:
+  - 30+ non-brand hex colors scattered throughout codebase
+  - Material Design colors (#FF9800, #FFC107, #F44336) used without
+    being in brand constants
+  - No centralized health status color system (Bristol, Cycle, BP,
+    Glucose each define their own color ranges)
+  - PDF uses CSS hex values not in brand palette
+  - Deprecated #FF6B6B still referenced in settings/profile.tsx
+
+
+3D. ANIMATION / TRANSITIONS
+  Verdict: INCONSISTENT
+
+  Libraries in use (mixed):
+  - React Native Animated (shake effects in AuthGate, PINSetupModal)
+  - react-native-reanimated (ScoreRing, LineChart)
+  - LayoutAnimation (PersonalizationFlow onboarding)
+  - Animated.timing (OfflineBanner slide, EODQuestionnaire swipe)
+
+  Modal animations vary:
+  - PINSetupModal: animationType="slide"
+  - APIKeySetupWizard: animationType="slide"
+  - AnthropicConsentModal: animationType="fade"
+  - Coach consent: animationType="fade"
+
+  Navigation:
+  - Root Stack: NO animation config
+  - Tab navigation: NO animation config
+  - Screen-to-screen transitions: default instant (no custom)
+
+  Violations:
+  - 3 different animation libraries used (Animated, reanimated,
+    LayoutAnimation)
+  - Modal animations vary (slide vs fade) with no pattern
+  - No screen-to-screen transition animations
+
+
+3E. HAPTIC FEEDBACK
+  Verdict: NOT PRESENT
+
+  expo-haptics: NOT imported anywhere (0 matches)
+  No Haptics, haptic, or vibrate references in codebase.
+  Not in package.json dependencies.
+
+  Top 15 interactions that need haptics:
+  1. PIN entry keypress (AuthGate.tsx, PINSetupModal.tsx)
+  2. PIN error feedback
+  3. Biometric success
+  4. Tab navigation switches
+  5. Food/water/supplement log save
+  6. Mood/stress axis selection
+  7. Delete confirmation
+  8. Toggle switches (all settings)
+  9. Swipe card completion (EODQuestionnaire)
+  10. Weight log
+  11. Exercise set completion
+  12. Timer completion (when built)
+  13. Goal achievement / celebration
+  14. Pull-to-refresh
+  15. Barcode scan success
+
+
+3F. LOADING PATTERN
+  Verdict: INCONSISTENT
+
+  Implementations found:
+  - Full-screen overlay: _layout.tsx (init loading), AuthGate.tsx
+  - Centered large spinner: index.tsx (dashboard), coach.tsx
+  - Inline small spinner: FoodSearch, Trends, Button.tsx
+  - Plain text: TagCardWithData.tsx ("Loading...")
+  - Text only: RecoveryCard.tsx ("Computing...")
+
+  No skeleton loading screens anywhere.
+  No unified LoadingIndicator component.
+  Each screen improvises its own approach.
+  ActivityIndicator size varies (small, large) with no pattern.
+
+
+3G. TOAST / NOTIFICATION PATTERN
+  Verdict: INCONSISTENT
+
+  All feedback uses blocking Alert.alert() — 49 files.
+  NO toast library. NO snackbar component. NO non-blocking feedback.
+
+  Patterns found:
+  - Validation errors: 10+ different Alert messages across loggers
+  - Success confirmations: BloodworkPanel "Saved", RecipeCard "Copied"
+  - Permission requests: Camera/photo library Alerts
+  - Delete confirmations: Consistent destructive style
+  - External link failures: "Unable to Open" / "Error"
+
+  Violations:
+  - Per-screen implementation (no centralized system)
+  - All alerts are blocking modal dialogs
+  - No persistent/timed feedback (toast/snackbar)
+  - Inconsistent message wording
+  - No centralized message templates
+
+
+3H. ICON SYSTEM
+  Verdict: CONSISTENT
+
+  Single library: Ionicons (from @expo/vector-icons)
+  Used consistently across 40+ component files.
+  No MaterialIcons, FontAwesome, SF Symbols, or custom SVG.
+  No missing or placeholder icons found.
+
+  Minor notes:
+  - Limited icon design flexibility due to single library
+  - No custom achievement/milestone badges
+  - No specialized health tracking icons
+
+
+3I. SCROLL BEHAVIOR
+  Verdict: INCONSISTENT
+
+  Scroll-to-top on tab re-tap: NOT IMPLEMENTED
+  No scrollTo call found in any tab focus handler.
+  useFocusEffect used for data refresh only (not scroll position).
+
+  Mixed scroll components:
+  - ScrollView: dashboard, log, coach lite, settings, all loggers
+  - FlatList: coach messages, trends chart grid
+  - SectionList: food search results
+
+  Violations:
+  - No scroll-to-top on tab re-tap (expected mobile pattern)
+  - Inconsistent ScrollView vs FlatList usage
+  - Coach chat stays at last position (no scroll reset on tab)
+
+
+3J. KEYBOARD HANDLING
+  Verdict: CONSISTENT
+
+  KeyboardAwareScreen wrapper: src/components/common/KeyboardAwareScreen.tsx
+  - iOS: behavior="padding", keyboardVerticalOffset=90
+  - Android: behavior="height"
+  - keyboardShouldPersistTaps="handled" on all ScrollViews
+
+  Used consistently across all logging screens.
+  Coach chat uses dedicated KeyboardAvoidingView.
+  No screens found where keyboard blocks submit button.
+
+  Minor gap: no dismiss-on-tap-outside pattern, but acceptable.
+
+
+================================================================
+STEP 4: DELIGHT GAP ASSESSMENT
+================================================================
+
+
+4A. MICRO-ANIMATIONS
+  Rating: MINIMAL
+
+  Present:
+  - ScoreRing fill animation (reanimated, 800ms ease-out)
+  - Celebration shimmer (parallel fade + spring + loop)
+  - Onboarding LayoutAnimation transitions
+  - OfflineBanner slide-in (300ms translateY)
+  - EOD card swipe (250ms translateX)
+  - AuthGate/PIN shake (5-step sequence)
+  - Button activeOpacity={0.7}
+
+  Not present:
+  - Button press scale/ripple animations
+  - Progress ring number count-up
+  - Card entrance animations (staggered)
+  - Screen transition animations between tabs
+  - Scroll-based animations or parallax
+  - Skeleton shimmer loading states
+  - Swipe-to-dismiss gesture animations
+
+
+4B. CELEBRATORY MOMENTS
+  Rating: ADEQUATE
+
+  Present (src/components/common/Celebration.tsx):
+  - Consistency milestones (7, 14, 30, 60, 90, 180, 365 days)
+  - Weight milestones (5-lb increments toward goal)
+  - 7-day macro streak
+  - 7-day recovery score streak (>80)
+  - New personal records (strength)
+  - Gold shimmer card animation (subtle, data-respecting)
+  - ED-safe guardrails (suppress below caloric floors)
+  - User-customizable toggles per celebration type
+
+  Not present:
+  - First log of the day celebration
+  - Inline streak badges
+  - Special PR visual treatment beyond shimmer card
+  - Monthly streak recaps
+
+
+4C. PROGRESSIVE DISCLOSURE
+  Rating: ADEQUATE
+
+  Present:
+  - 9-step onboarding (gradual complexity)
+  - Deferred setup cards (one per day, Days 1-4)
+  - Log tab organized by collapsible category sections
+  - Settings split into focused sub-pages
+  - Score calculation hidden behind "How is this calculated?" toggle
+
+  Not present:
+  - First-time UX overlays or tooltips
+  - "Tip of the day" in empty states
+  - Onboarding hints in logging screens
+  - Feature revelation tied to data milestones
+
+
+4D. CONTEXTUAL HELP
+  Rating: MINIMAL
+
+  Present (only 2 instances):
+  - Dashboard score toggle: info icon + expandable explanation
+  - CalorieSummary: "See the math" toggle for BMR/TDEE breakdown
+
+  Not present:
+  - Info buttons on recovery, body, mood, or other cards
+  - Tooltips on chart axes or data points
+  - Help text in logging screens (intensity, RPE, serving size)
+  - First-time explanations for AI Coach
+  - Centralized help/glossary accessible from any screen
+
+
+4E. SMART DEFAULTS
+  Rating: MINIMAL
+
+  Present:
+  - Calorie target computed from profile (sex/DOB/height/weight/
+    activity/goal)
+  - Meal type auto-guessed by hour (breakfast <11, lunch <15, etc.)
+  - Fasting-aware meal guessing
+  - Tag defaults tier-dependent
+  - EOD notification 1 hour before observed bedtime
+
+  Not present:
+  - Personalized water goal (currently weight_lbs / 2, no activity
+    or climate adjustment)
+  - Supplement recommendations based on diet/deficiencies/goals
+  - Smart protein target by goal (muscle gain vs fat loss)
+  - Adaptive reminder cadence based on logging patterns
+  - Personalized recovery thresholds by fitness level
+
+
+4F. PERSONALITY / VOICE
+  Rating: ADEQUATE
+
+  Consistent warm, clinical, shame-free tone throughout:
+  - Onboarding: "Welcome to DUB_AI", "Your data is stored on your device"
+  - Notifications: "Ready to wrap up your day?", "Quick evening check-in"
+  - Celebrations: "Nice consistency this week", data-driven praise
+  - Suggested prompts: "How am I doing this week?"
+  - Substances: "Log Drink", "Your data, your terms" (neutral)
+  - Therapy: "Your notes are maximally private" (reassuring)
+  - ED-aware: no calories-first messaging, suppressible celebrations
+
+  No developer-sounding copy found. Minor formality in places:
+  "DUB_AI Tracker is designed for adults 18 and older" reads
+  slightly stiff. Overall strong.
+
+
+4G. STREAK / MOMENTUM
+  Rating: ADEQUATE
+
+  Present (src/components/dashboard/StreakCounter.tsx):
+  - 28-day rolling dot grid (filled/empty/today states)
+  - "X of 28 days" (percentage model, not shame-based consecutive)
+  - "Current run: Y day(s)" subtitle for streak watchers
+  - Consistency milestones at 7/14/30/60/90/180/365 total days
+  - Unfilled dots are neutral (not red X's)
+
+  Not present:
+  - Streak-building animations (dot fill on log)
+  - Streak badges or visual badges
+  - "Keep the chain going" motivation messaging
+  - Monthly streak summary / recap
+  - Streak visible in tab bar badge
+
+
+4H. SOUND
+  Rating: NOT PRESENT
+
+  No expo-av import in any file.
+  No Audio or Sound usage anywhere.
+  Notification handler explicitly disables sound:
+    shouldPlaySound: false (notifications.ts:25)
+  No haptic feedback (covered in 3E).
+
+  The app is entirely silent — no completion chimes, no timer
+  sounds, no celebration audio, no error sounds.
+
+
+================================================================
+SECTION 2: TOP 10 HIGHEST-IMPACT FIXES
+(Ranked by impact on user retention)
+================================================================
+
+1.  Finding 24-2 | Screens: All | P1
+    ZERO HAPTIC FEEDBACK in entire app. Every tap, log, and
+    confirmation feels dead. The single biggest "feels amateur"
+    issue. Install expo-haptics and add to all interactions.
+
+2.  Finding 72-1 | Screen 72 | P1
+    Privacy policy is an Alert dialog with placeholder text. Legal
+    blocker for App Store. GDPR/CCPA/Apple requirement. Must build
+    a real privacy policy screen before any public distribution.
+
+3.  Finding 91-3 | Screen 91 | P1
+    Coach API errors show no retry button. Users lose their typed
+    message and must re-enter. For a feature requiring a paid API
+    key, this is trust-breaking. Add retry with message preservation.
+
+4.  Finding 96-4 | Screen 96 | P1
+    OfflineBanner is imported but never rendered. The app has NO
+    global offline indicator. Offline users get zero feedback about
+    app state. Dead import — just needs to be added to layout JSX.
+
+5.  Finding 37-1 | Screen 37 | P1
+    No progress photos feature at all. Body tracking is a core use
+    case and progress photos are expected. Camera capture, gallery,
+    side-by-side comparison, local-only storage needed.
+
+6.  Finding 13-1 | Screen 13 | P1
+    No onboarding summary/confirmation screen. Users enter 9 screens
+    of personal data and never see a review before committing.
+    "Measure twice, cut once" pattern missing.
+
+7.  Finding 5-1 | Screen 5 | P1
+    Onboarding starts with consent checkboxes, not value proposition.
+    Users see legal before understanding what the app does. Split
+    into value prop screen + consent screen.
+
+8.  Finding 74-1 | Screen 74 | P1
+    No 7-card cap on EOD questionnaire. Users with 15 enabled tags
+    see 16 cards. Exponential abandonment. Cap at 7, sort by
+    priority (sleep > mood > nutrition > fitness).
+
+9.  Finding 46-1 | Screen 46 | P1
+    Sleep history completely missing. Users log every night but
+    can't see patterns. Sleep tracking feels pointless. Need
+    7/30/90-day chart, average duration, quality trends.
+
+10. Finding 3-3 | Screen 3 | P1
+    No Forgot PIN recovery path. If biometrics aren't configured,
+    a forgotten PIN means permanent lockout. Must provide recovery
+    mechanism (biometric reset, or clear warning about data loss).
+
+
+================================================================
+SECTION 3: SCREENS WITH MOST ISSUES
+================================================================
+
+1. Coach AI Chat (app/(tabs)/coach.tsx)
+   9 findings | 1 P1 (91-3 error no retry)
+   Screens 16, 89, 90, 91 combined.
+   Issues: error recovery, empty state coldness, buried upgrade
+   CTA, typing indicator, suggested prompts discoverability,
+   offline input feedback.
+
+2. Dashboard (app/(tabs)/index.tsx)
+   8 findings | 0 P1
+   Screens 14, 87, 88 combined.
+   Issues: empty state wasteland, stale data indicator, tag card
+   loading, score ring meaning, quick actions, tag reorder.
+
+3. PersonalizationFlow (src/components/PersonalizationFlow.tsx)
+   10+ findings across onboarding screens | 2 P1 (5-1, 13-1)
+   Screens 5-13 combined.
+   Issues: no value prop, consent-before-value, disabled fields,
+   no summary screen, no partial progress persistence, no step
+   count text.
+
+4. SupplementChecklist (src/components/logging/SupplementChecklist.tsx)
+   7 findings | 1 P1 (43-1 medications)
+   Screens 40-44 combined.
+   Issues: medications second-class, no edit-in-place, no interview
+   flow, priority field unused, no marketplace cross-reference.
+
+5. EOD Questionnaire (src/components/dashboard/EODQuestionnaire.tsx)
+   4 findings | 1 P1 (74-1 no card cap)
+   Screen 74.
+   Issues: no card cap, no priority ordering, no "Log Tomorrow"
+   escape, no adaptive suppression.
+
+
+================================================================
+SECTION 4: CROSS-CUTTING VERDICTS
+================================================================
+
+3A. Typography:    INCONSISTENT — Constants exist but 8 non-standard
+    font sizes used inline. No fontWeight constants.
+
+3B. Spacing:       INCONSISTENT — No spacing constants file. padding:14
+    and gap:10 are pervasive outliers violating 4px grid.
+
+3C. Color:         INCONSISTENT — 30+ non-brand hex colors. Material
+    Design colors used without being in brand constants.
+
+3D. Animation:     INCONSISTENT — 3 animation libraries mixed. Modal
+    animations vary. No screen transition animations.
+
+3E. Haptic:        NOT PRESENT — Zero haptic usage in entire codebase.
+    Not in dependencies. The app is tactilely dead.
+
+3F. Loading:       INCONSISTENT — Each screen improvises (large spinner,
+    small spinner, text, nothing). No skeleton screens.
+
+3G. Toast:         INCONSISTENT — All feedback is blocking Alert.alert.
+    No toast/snackbar library. Per-screen implementation.
+
+3H. Icon:          CONSISTENT — Ionicons used exclusively across 40+
+    files. Single library, no mixed sources.
+
+3I. Scroll:        INCONSISTENT — No scroll-to-top on tab re-tap.
+    Mixed ScrollView/FlatList without clear pattern.
+
+3J. Keyboard:      CONSISTENT — KeyboardAwareScreen wrapper used
+    uniformly. Proper platform offsets. No submit-blocking.
+
+Score: 2 of 10 categories CONSISTENT.
+
+
+================================================================
+SECTION 5: DELIGHT GAP VERDICTS
+================================================================
+
+4A. Micro-Animations:      MINIMAL — Only ScoreRing and Celebration
+    have animations. No button, card, or transition animations.
+
+4B. Celebratory Moments:   ADEQUATE — Full celebration system with
+    ED-safe guardrails. Gold shimmer card. Customizable toggles.
+
+4C. Progressive Disclosure: ADEQUATE — 9-step onboarding, deferred
+    setup cards, categorized log hub. No first-time overlays.
+
+4D. Contextual Help:       MINIMAL — Only 2 expandable explanations
+    (score, calorie math). No tooltips or help buttons elsewhere.
+
+4E. Smart Defaults:        MINIMAL — Calorie targets and meal type
+    guessing personalized. Water, protein, reminders are generic.
+
+4F. Personality / Voice:   ADEQUATE — Warm, shame-free, ED-aware,
+    consistent. No developer-sounding copy. Strong across the app.
+
+4G. Streak / Momentum:     ADEQUATE — 28-day rolling model avoids
+    shame. Percentage-based, not guilt-based. No animations.
+
+4H. Sound:                 NOT PRESENT — Zero sound anywhere.
+    Notifications explicitly disabled sound. Entirely silent app.
+
+Score: 4 ADEQUATE, 3 MINIMAL, 1 NOT PRESENT.
+
+
+================================================================
+SECTION 6: APP STORE READINESS
+================================================================
+
+Verdict: CONDITIONAL
+
+Must fix before App Store submission:
+
+1. LEGAL BLOCKER: Privacy Policy (Finding 72-1)
+   Currently an Alert dialog with placeholder text. Apple requires
+   a privacy policy URL in App Store listing and accessible within
+   the app. GDPR/CCPA/Apple Review Guidelines all mandate
+   comprehensive privacy policy for health data apps.
+
+2. BROKEN ROUTE: Steps (Finding 33-1)
+   app/log/steps.tsx does not exist but is listed in Log hub
+   navigation. Tapping "Steps" navigates to non-existent route,
+   causing blank screen or Expo Router error. Either create the
+   file or remove the route from CATEGORY_SECTIONS.
+
+3. DEAD IMPORT: OfflineBanner (Finding 96-4)
+   Component imported but never rendered. App has no global
+   offline indicator. Must wire into layout.
+
+4. OPEN SOURCE LICENSES: (Finding 71-2)
+   Placeholder Alert instead of actual license attributions.
+   MIT/Apache 2.0 licenses require attribution. Legal risk.
+
+5. HAPTIC FEEDBACK: (Finding 24-2)
+   While not a hard rejection criteria, Apple reviewers and early
+   users will perceive the app as unfinished without any haptic
+   feedback. This is a soft blocker for quality perception.
+
+Conditional items 1-4 are hard requirements. Item 5 is a strong
+recommendation for launch quality.
+
+
+================================================================
+SECTION 7: UX SCORECARD (1-10 vs best-in-class)
+================================================================
+
+  Visual Design:         6/10
+    Strong brand identity (navy/gold), but 30+ off-palette colors,
+    inconsistent typography, and no design token enforcement.
+
+  Navigation Clarity:    7/10
+    Clean 5-tab structure, good Log hub categories, but broken
+    Steps route and some buried features (Units, Goal edit).
+
+  Interaction Feedback:  3/10
+    Zero haptics, zero sound, minimal animations. Every tap feels
+    dead. Blocking Alert.alert for all feedback. No toast/snackbar.
+
+  Onboarding Flow:      5/10
+    Functional 9-step flow but no value prop, no summary screen,
+    no partial progress persistence, no first-time overlays.
+
+  Data Entry Speed:      7/10
+    Good quick-log patterns (water pills, supplement taps, meal
+    type auto-guess), but TextInput where wheels needed (weight,
+    sleep times), no edit-in-place.
+
+  Information Hierarchy: 7/10
+    Dashboard layout is logical (score -> calories -> streak ->
+    body -> recovery -> tags). YoY noise for new users. Score
+    ring meaning requires extra tap.
+
+  Delight / Emotion:     4/10
+    Celebration system is strong (adequate). But minimal micro-
+    animations, no sound, no first-time delight, no streak
+    animations. Voice is warm but interactions are flat.
+
+  Accessibility:         3/10
+    Zero accessibility roles in onboarding. No accessibilityLabel
+    on most interactive elements. WCAG contrast mostly addressed
+    (Prompt 12B fix), but semantic accessibility is absent.
+
+  Performance Feel:      5/10
+    No skeleton loading. Inconsistent spinners. Plain "Loading..."
+    text. No stale-data indicators. But no actual performance
+    issues observed — it's a perception problem, not a real one.
+
+  Trust / Credibility:   5/10
+    Exemplary privacy implementation (therapy, health report, data
+    storage) undermined by placeholder legal pages, "Coming Soon"
+    features, and placeholder Alerts. Technical trust is high;
+    surface trust is low.
+
+  OVERALL:               5.2/10
+
+  Assessment: The app has STRONG foundations (architecture,
+  data model, privacy, voice) but the UX layer is incomplete.
+  It feels like a very capable backend wearing a first-draft UI.
+  The gap between "what it does" and "how it feels" is the
+  primary issue. Fixing interaction feedback (haptics, animations,
+  loading states) would move the score from 5.2 to 7+ without
+  any feature changes.
+
+
+================================================================
+SECTION 8: RECOMMENDED FIX SEQUENCE
+================================================================
+
+
+SPRINT 1: SHIP BLOCKERS + CRITICAL P1s
+  (Must fix before any TestFlight share)
+  Fixes: 5
+  Complexity: HEAVY
+
+  1. Create Privacy Policy screen (72-1)
+     — Full scrollable privacy policy with sections: data collected,
+       storage, transmission, third parties, user rights, contact
+     — Required for App Store submission
+  2. Fix broken Steps route (33-1)
+     — Either create app/log/steps.tsx or remove from navigation
+  3. Wire OfflineBanner into layout (96-4)
+     — Add <OfflineBanner /> to _layout.tsx JSX tree
+  4. Add Coach error retry button (91-3)
+     — Preserve last user message, show "Tap to Retry" on error
+  5. Fix Open Source Licenses placeholder (71-2)
+     — Use expo-licenses to auto-generate from package.json
+
+
+SPRINT 2: TOP 10 P1s BY RETENTION IMPACT
+  Fixes: 6 (remaining P1s)
+  Complexity: HEAVY
+
+  1. Install expo-haptics + add to top 15 interactions (24-2)
+     — PIN keypress, log save, delete confirm, toggles, etc.
+  2. Build progress photos feature (37-1)
+     — Camera capture, gallery, side-by-side, local-only storage
+  3. Add onboarding summary screen (13-1)
+     — Step 10: review all entries, tappable rows to edit
+  4. Add onboarding value prop screen (5-1)
+     — Split Step 1: value prop first, then consent + name
+  5. Cap EOD questionnaire at 7 cards (74-1)
+     — Math.min(7, unloggedTags.length), priority sort
+  6. Build sleep history/trends screen (46-1)
+     — 7/30/90-day chart, avg duration, quality trends
+
+
+SPRINT 3: REMAINING P1s + CROSS-CUTTING CONSISTENCY
+  Fixes: 12-15
+  Complexity: MEDIUM
+
+  1. Add Forgot PIN recovery path (3-3)
+  2. Create medication-specific checklist (43-1)
+  3. Centralize haptic usage across all remaining screens
+  4. Create unified LoadingIndicator component (94-1)
+     — Replace all ActivityIndicator instances
+  5. Create toast/snackbar system (3G)
+     — Non-blocking success/error feedback
+  6. Add scroll-to-top on tab re-tap (3I)
+  7. Standardize animation library choice (3D)
+  8. Create spacing constants file (3B)
+  9. Enforce typography constants usage (3A)
+  10. Consolidate health status colors into constants (3C)
+  11. Fix all non-standard font sizes
+  12. Fix all non-brand hex colors
+
+
+SPRINT 4: P2s + DELIGHT GAP ITEMS
+  Fixes: 40-50
+  Complexity: MEDIUM
+
+  Priority P2 fixes:
+  - Dashboard empty state CTA (87-1)
+  - Coach empty chat greeting (90-2)
+  - Sleep time pickers: TextInput -> scroll-wheel (45-1)
+  - Weight logger: TextInput -> scroll-wheel (35-1)
+  - Swipe-to-delete on food entries (22-1)
+  - Edit-in-place for supplements/medications (41-1, 44-1)
+  - EOD tag priority ordering (74-2)
+  - EOD "Log Tomorrow" escape (74-3)
+  - Tag picker Done/Cancel (81-1)
+  - Stale-data indicator on dashboard (88-1)
+  - Skeleton loading for tag cards (88-2)
+  - Trends empty state "7 days needed" (92-1)
+  - Offline context-aware messages (96-1, 96-2)
+  - Silent error handling fixes (95-2, 96-3)
+
+  Delight gap items:
+  - Add sound (expo-av): completion chime, timer end
+  - Card entrance animations
+  - Progress bar fill animations
+  - Number count-up on score ring
+  - First-time contextual help overlays
+  - Info buttons on dashboard cards
+  - Smart water goal (bodyweight + activity)
+  - Streak dot-fill animations
+  - Monthly streak recap
+
+
+SPRINT 5: P3 POLISH
+  Fixes: 46
+  Complexity: LIGHT
+
+  - Loading overlay branding (1-2, 4-1)
+  - Biometric button label placement (2-2)
+  - PIN keypad size increase (3-2)
+  - Accessibility roles in onboarding (5-3)
+  - "Can change later" notes (6-2)
+  - DOB picker max age alignment (7-1 — already P2, may be done)
+  - Step X of Y text in onboarding (OB-3)
+  - Dashboard tag card reorder (14-2)
+  - Quick-log actions on dashboard (14-3)
+  - Expand all log sections on first use (15-1)
+  - Suggested prompts persistence (16-2)
+  - Daily food totals: add carbs/fat (22-2)
+  - Calorie progress bar color coding (23-1)
+  - Caffeine preset expansion (26-1)
+  - Chart hardcoded width fix (35-2)
+  - Bloodwork one-sided range display (38-1)
+  - Supplement unit selector affordance (40-1)
+  - Supplement reason visibility (41-2)
+  - No tobacco type selector (53-1)
+  - Injury duration display (58-1)
+  - Therapy session duration field (59-1)
+  - Profile photo placeholder (61-1)
+  - Units toggle discoverability (70-1)
+  - Build number display (71-1)
+  - Category filter persistence (93-2)
+  - RecoveryCard spinner (94-2)
+  - Chat bubble overflow (91-1)
+  - CalorieSummary progress animation (88-3)
+  - Delete dialog messaging (80-1, 80-2)
+  - And remaining P3 items from Sessions A and B
+
+
+================================================================
+FINDING INDEX — ALL 123 FINDINGS BY SESSION
+================================================================
+
+SESSION A (Screens 1-40): 54 findings
+  P1: 3-3, 5-1, 13-1, 24-2, 37-1
+  P2: 1-1, 2-1, 5-2, 6-1, 7-1, 11-1, OB-2, 14-1, 15-2, 16-1,
+      17-1, 18-2, 18-3, 22-1, 27-1, 28-1, 29-1, 31-1, 32-1,
+      33-1, 34-1, 35-1, 12-1, 17-2
+  P3: 1-2, 2-2, 3-2, 4-1, 5-3, 6-2, 7-2, 11-2, 14-2, 14-3,
+      15-1, 16-2, 19-1, 20-1, 22-2, 23-1, 26-1, 35-2, 38-1,
+      40-1, OB-3, 7-1b
+  (Full details in SESSION_A_FINDINGS.txt)
+
+SESSION B (Screens 41-77): 39 findings
+  P1: 43-1, 46-1, 72-1, 74-1
+  P2: 41-1, 42-1, 42-2, 44-1, 45-1, 47-1, 55-1, 57-1, 64-1,
+      64-2, 66-1, 73-1, 74-2, 74-3, 74-4, 75-1, 75-2, 77-1,
+      77-3
+  P3: 41-2, 41-3, 45-2, 47-2, 49-1, 49-2, 53-1, 58-1, 58-2,
+      59-1, 59-2, 61-1, 70-1, 71-1, 71-2, 77-2
+  (Full details in SESSION_B_FINDINGS.txt)
+
+SESSION C (Screens 78-96): 30 findings
+  P1: 91-3, 96-4
+  P2: 80-1, 81-1, 83-1, 84-1, 86-1, 87-1, 87-2, 88-1, 88-2,
+      89-1, 89-2, 90-1, 90-2, 91-2, 92-1, 93-1, 94-1, 94-3,
+      95-1, 95-2, 96-1, 96-2, 96-3
+  P3: 80-2, 88-3, 91-1, 93-2, 94-2
+  (Full details in this file, above)
+
+
+================================================================
+END OF FINAL AUDIT REPORT
+================================================================
+
+This report covers all 96 screens defined in the DUB_AI UX audit
+specification. It incorporates findings from Session A (Screens
+1-40), Session B (Screens 41-77), and Session C (Screens 78-96,
+cross-cutting patterns, delight gaps, and final compilation).
+
+The app has strong foundations — excellent data architecture,
+exemplary privacy implementation, consistent warm/shame-free
+voice, and comprehensive health tracking coverage. The primary
+gap is the UX polish layer: interaction feedback (haptics, sound,
+animations), loading/error/offline states, and cross-cutting
+design consistency. Addressing Sprint 1 (5 fixes) makes the app
+legally shippable. Addressing Sprints 1-3 (~25 fixes) makes it
+trust-worthy. Addressing all 5 sprints makes it best-in-class.
+
+================================================================
