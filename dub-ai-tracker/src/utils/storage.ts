@@ -57,6 +57,8 @@ export const STORAGE_KEYS = {
   LOG_BREASTFEEDING: 'dub.log.breastfeeding',
   LOG_MIGRAINE: 'dub.log.migraine',
   LOG_MOOD_MENTAL: 'dub.log.mood_mental',
+  LOG_BODY_MEASUREMENTS: 'dub.log.body_measurements',
+  LOG_MEDICATIONS: 'dub.log.medications',
   LOG_CUSTOM: 'dub.log.custom',
 
   // Aggregates and Caches
@@ -131,6 +133,11 @@ export const STORAGE_KEYS = {
 
   // Last zip code for migraine weather correlation
   SETTINGS_LAST_ZIP_CODE: 'dub.settings.last_zip_code',
+
+  // Sprint 23: Body Measurement Preferences + Medication List
+  SETTINGS_BODY_MEAS_WEIGHT_UNIT: 'dub.settings.body_meas_weight_unit',
+  SETTINGS_BODY_MEAS_UNIT: 'dub.settings.body_meas_unit',
+  SETTINGS_MEDICATION_LIST: 'dub.settings.medication_list',
 
   // Strength Logger
   STRENGTH_MODE_PREF: 'dub.strength.mode_pref',

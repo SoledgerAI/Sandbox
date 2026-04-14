@@ -165,6 +165,8 @@ const SECTION_DEFS: SectionDef[] = [
       { id: 'bloodwork', label: 'Bloodwork', icon: 'water-outline', route: '/log/bloodwork', searchTerms: 'bloodwork labs markers cholesterol iron', electInCategory: 'bloodwork' },
       { id: 'allergies', label: 'Allergies', icon: 'alert-circle-outline', route: '/log/allergies', storageKey: STORAGE_KEYS.LOG_ALLERGIES, searchTerms: 'allergy allergies pollen dust congestion sneezing severity symptoms', electInCategory: 'allergies' },
       { id: 'migraine', label: 'Migraine Tracker', icon: 'flash-outline', route: '/log/migraine', storageKey: STORAGE_KEYS.LOG_MIGRAINE, searchTerms: 'migraine headache aura trigger severity medication weather zip code', electInCategory: 'migraine_tracking' },
+      { id: 'body_measurements', label: 'Body Measurements', icon: 'resize-outline', route: '/log/body-measurements', storageKey: STORAGE_KEYS.LOG_BODY_MEASUREMENTS, searchTerms: 'body measurements weight tape waist hips chest bicep thigh body fat', electInCategory: 'body_measurements' },
+      { id: 'medications', label: 'Medications', icon: 'medical-outline', route: '/log/medications', storageKey: STORAGE_KEYS.LOG_MEDICATIONS, searchTerms: 'medication medications pills prescription adherence taken skipped dosage', electInCategory: 'medication_tracking' },
     ],
   },
   {
@@ -452,6 +454,22 @@ export default function LogScreen() {
         label: `Mood ${moodMentalEntry.overall_mood}/10, Energy ${moodMentalEntry.energy_level}/5`,
         time: '',
       };
+    }
+
+    // Load body measurements
+    const bodyMeasEntry = await storageGet<{ weight: number | null; weight_unit: string; body_fat_percentage: number | null }>(dateKey(STORAGE_KEYS.LOG_BODY_MEASUREMENTS, dateStr));
+    if (bodyMeasEntry) {
+      const parts: string[] = [];
+      if (bodyMeasEntry.weight != null) parts.push(`${bodyMeasEntry.weight} ${bodyMeasEntry.weight_unit}`);
+      if (bodyMeasEntry.body_fat_percentage != null) parts.push(`${bodyMeasEntry.body_fat_percentage}% BF`);
+      entries['/log/body-measurements'] = { label: parts.join(', ') || 'Entry logged', time: '' };
+    }
+
+    // Load medications
+    const medEntry = await storageGet<{ medications: { taken: boolean }[] }>(dateKey(STORAGE_KEYS.LOG_MEDICATIONS, dateStr));
+    if (medEntry?.medications?.length) {
+      const taken = medEntry.medications.filter((m) => m.taken).length;
+      entries['/log/medications'] = { label: `${taken}/${medEntry.medications.length} taken`, time: '' };
     }
 
     setLastEntries(entries);

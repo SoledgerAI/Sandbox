@@ -63,6 +63,8 @@ import type {
   MigraineEntry,
   MoodMentalEntry,
   ElectInCategoryId,
+  BodyMeasurementEntry,
+  MedicationEntry,
 } from '../types';
 import { DOCTOR_VISIT_TYPES, MOBILITY_TYPES } from '../types';
 import { calculateSleepAdherence } from '../utils/sleepAdherence';
@@ -110,6 +112,8 @@ const PERIMENOPAUSE_KEYWORDS = ['perimenopause', 'menopause', 'hot flash', 'nigh
 const BREASTFEEDING_KEYWORDS = ['breastfeed', 'nursing', 'pumping', 'lactation', 'feeding', 'breast milk', 'bottle feed'];
 const MIGRAINE_KEYWORDS = ['migraine', 'headache', 'aura', 'head pain', 'trigger', 'barometric'];
 const MOOD_MENTAL_KEYWORDS = ['mood', 'mental', 'anxiety', 'stress', 'emotion', 'coping', 'energy', 'clarity'];
+const BODY_MEASUREMENT_KEYWORDS = ['body measurement', 'weight trend', 'tape measure', 'body fat', 'waist', 'hips', 'measurements'];
+const MEDICATION_KEYWORDS_COACH = ['medication', 'medicine', 'pill', 'prescription', 'dose', 'adherence', 'compliance', 'skipped'];
 
 function messageMatchesKeywords(message: string, keywords: string[]): boolean {
   const lower = message.toLowerCase();
@@ -979,6 +983,96 @@ export async function buildCoachContext(userMessage: string): Promise<{
           `[MOOD_MENTAL 7d] avg mood:${avgMood}/10, ${daysWithData} days${topEmotions ? ` top emotions:${topEmotions}` : ''}${topTriggers ? ` top triggers:${topTriggers}` : ''}`,
         );
       }
+    }
+  }
+
+  // Sprint 23: Enhanced sleep context (CORE — always included when logged)
+  {
+    if (sleepEntry) {
+      const parts: (string | null)[] = [];
+      if (sleepEntry.total_duration_hours != null) parts.push(`duration:${sleepEntry.total_duration_hours}h`);
+      if (sleepEntry.quality != null) parts.push(`quality:${sleepEntry.quality}/5`);
+      if (sleepEntry.wake_ups != null && sleepEntry.wake_ups > 0) parts.push(`wake-ups:${sleepEntry.wake_ups}`);
+      if (sleepEntry.disturbances && sleepEntry.disturbances.length > 0) parts.push(`disturbances:${sleepEntry.disturbances.join(',')}`);
+      if (sleepEntry.nap) parts.push(`nap:${sleepEntry.nap_duration_minutes ?? 0}min`);
+      const filtered = parts.filter(Boolean);
+      if (filtered.length > 0) {
+        conditionalSections.push(`[SLEEP ${today}] ${filtered.join(' ')}`);
+      }
+    }
+
+    // 7-day averages
+    if (messageMatchesKeywords(userMessage, SLEEP_SCHEDULE_KEYWORDS) || messageMatchesKeywords(userMessage, ['sleep', 'rest', 'tired', 'insomnia'])) {
+      let totalDuration = 0;
+      let totalQuality = 0;
+      let daysWithData = 0;
+      const disturbanceCounts = new Map<string, number>();
+      for (let i = 0; i < 7; i++) {
+        const d = pastDateString(i);
+        const entry = await storageGet<SleepEntry>(dateKey(STORAGE_KEYS.LOG_SLEEP, d));
+        if (entry) {
+          daysWithData++;
+          if (entry.total_duration_hours != null) totalDuration += entry.total_duration_hours;
+          else if (entry.bedtime && entry.wake_time) {
+            const bed = new Date(entry.bedtime).getTime();
+            let wake = new Date(entry.wake_time).getTime();
+            if (wake <= bed) wake += 24 * 60 * 60 * 1000;
+            totalDuration += (wake - bed) / 3600000;
+          }
+          if (entry.quality != null) totalQuality += entry.quality;
+          if (entry.disturbances) {
+            for (const d2 of entry.disturbances) disturbanceCounts.set(d2, (disturbanceCounts.get(d2) ?? 0) + 1);
+          }
+        }
+      }
+      if (daysWithData > 1) {
+        const avgDur = (totalDuration / daysWithData).toFixed(1);
+        const avgQual = (totalQuality / daysWithData).toFixed(1);
+        const topDist = [...disturbanceCounts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([d2]) => d2).join(',');
+        conditionalSections.push(
+          `[SLEEP 7d] avg duration:${avgDur}h, avg quality:${avgQual}/5, ${daysWithData} days${topDist ? ` top disturbances:${topDist}` : ''}`,
+        );
+      }
+    }
+  }
+
+  // Sprint 23: Body Measurements context (category-gated)
+  if (isCatEnabled('body_measurements')) {
+    const bmEntry = await storageGet<BodyMeasurementEntry>(dateKey(STORAGE_KEYS.LOG_BODY_MEASUREMENTS, today));
+    if (bmEntry) {
+      const parts: (string | null)[] = [
+        bmEntry.weight != null ? `weight:${bmEntry.weight}${bmEntry.weight_unit}` : null,
+        bmEntry.body_fat_percentage != null ? `bf:${bmEntry.body_fat_percentage}%` : null,
+      ].filter(Boolean);
+      if (parts.length > 0) {
+        conditionalSections.push(`[BODY_MEAS ${today}] ${parts.join(' ')}`);
+      }
+    }
+
+    // Weight trend: last 4 entries
+    if (messageMatchesKeywords(userMessage, BODY_MEASUREMENT_KEYWORDS)) {
+      const allKeys = await storageList(STORAGE_KEYS.LOG_BODY_MEASUREMENTS);
+      const sortedKeys = allKeys.sort().reverse().slice(0, 4);
+      const weights: string[] = [];
+      for (const k of sortedKeys) {
+        const entry = await storageGet<BodyMeasurementEntry>(k);
+        if (entry?.weight != null) {
+          weights.push(`${entry.date}:${entry.weight}${entry.weight_unit}`);
+        }
+      }
+      if (weights.length > 1) {
+        conditionalSections.push(`[BODY_MEAS trend] ${weights.join(', ')}`);
+      }
+    }
+  }
+
+  // Sprint 23: Medication context (category-gated)
+  if (isCatEnabled('medication_tracking')) {
+    const medEntry = await storageGet<MedicationEntry>(dateKey(STORAGE_KEYS.LOG_MEDICATIONS, today));
+    if (medEntry && medEntry.medications.length > 0) {
+      const taken = medEntry.medications.filter((m) => m.taken).length;
+      const skipped = medEntry.medications.filter((m) => m.skipped_reason != null).length;
+      conditionalSections.push(`[MEDICATIONS ${today}] ${taken}/${medEntry.medications.length} taken${skipped > 0 ? `, ${skipped} skipped` : ''}`);
     }
   }
 

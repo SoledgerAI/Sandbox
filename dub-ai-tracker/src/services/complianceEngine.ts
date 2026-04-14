@@ -26,6 +26,8 @@ import type {
   PerimenopauseEntry,
   MigraineEntry,
   MoodMentalEntry,
+  BodyMeasurementEntry,
+  MedicationEntry,
 } from '../types';
 import { isCategoryEnabled } from '../utils/categoryElection';
 import {
@@ -116,6 +118,8 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
     perimenopauseEntry,
     migraineEntry,
     moodMentalEntry,
+    bodyMeasurementEntry,
+    medicationEntry,
   ] = await Promise.all([
     storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, date)),
     storageGet<WaterEntry[]>(dateKey(STORAGE_KEYS.LOG_WATER, date)),
@@ -137,6 +141,8 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
     storageGet<PerimenopauseEntry>(dateKey(STORAGE_KEYS.LOG_PERIMENOPAUSE, date)),
     storageGet<MigraineEntry>(dateKey(STORAGE_KEYS.LOG_MIGRAINE, date)),
     storageGet<MoodMentalEntry>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, date)),
+    storageGet<BodyMeasurementEntry>(dateKey(STORAGE_KEYS.LOG_BODY_MEASUREMENTS, date)),
+    storageGet<MedicationEntry>(dateKey(STORAGE_KEYS.LOG_MEDICATIONS, date)),
   ]);
 
   const foods = foodEntries ?? [];
@@ -375,6 +381,32 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
         item.detail = moodMentalEntry
           ? `Mood ${moodMentalEntry.overall_mood}/10`
           : 'Not logged';
+        break;
+      }
+      case 'body_measurement_logged': {
+        // Category-gated, weekly frequency — auto-skip if disabled
+        const bmEnabled = await isCategoryEnabled('body_measurements');
+        if (!bmEnabled) continue;
+        item.completed = bodyMeasurementEntry != null;
+        item.detail = bodyMeasurementEntry
+          ? (bodyMeasurementEntry.weight != null
+            ? `${bodyMeasurementEntry.weight} ${bodyMeasurementEntry.weight_unit}`
+            : 'Entry logged')
+          : 'Not logged (weekly goal)';
+        break;
+      }
+      case 'medications_logged': {
+        // Category-gated — auto-skip if disabled
+        const medEnabled = await isCategoryEnabled('medication_tracking');
+        if (!medEnabled) continue;
+        if (medicationEntry && medicationEntry.medications.length > 0) {
+          const taken = medicationEntry.medications.filter((m) => m.taken).length;
+          item.completed = taken > 0;
+          item.detail = `${taken}/${medicationEntry.medications.length} taken`;
+        } else {
+          item.completed = false;
+          item.detail = 'No medications logged';
+        }
         break;
       }
     }

@@ -73,7 +73,8 @@
       "Bash(npm list:*)",
       "Bash(npm audit:*)",
       "Bash(npm view:*)",
-      "Bash(sort -t: -k2 -rn)"
+      "Bash(sort -t: -k2 -rn)",
+      "Bash(PremiumButton\")"
     ]
   }
 }

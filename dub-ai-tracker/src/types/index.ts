@@ -111,6 +111,54 @@ export interface ProgressPhoto {
 
 export type SleepSource = 'manual' | 'apple_health' | 'google_health_connect' | 'oura' | 'whoop';
 
+export type SleepDisturbance =
+  | 'noise'
+  | 'temperature'
+  | 'pain_discomfort'
+  | 'stress_racing_thoughts'
+  | 'bathroom'
+  | 'partner_pet_child'
+  | 'nightmares'
+  | 'sleep_apnea_snoring'
+  | 'screen_time'
+  | 'caffeine_alcohol'
+  | 'other';
+
+export const SLEEP_DISTURBANCE_OPTIONS: { value: SleepDisturbance; label: string }[] = [
+  { value: 'noise', label: 'Noise' },
+  { value: 'temperature', label: 'Temperature (too hot/cold)' },
+  { value: 'pain_discomfort', label: 'Pain/discomfort' },
+  { value: 'stress_racing_thoughts', label: 'Stress/racing thoughts' },
+  { value: 'bathroom', label: 'Bathroom' },
+  { value: 'partner_pet_child', label: 'Partner/pet/child' },
+  { value: 'nightmares', label: 'Nightmares' },
+  { value: 'sleep_apnea_snoring', label: 'Sleep apnea/snoring' },
+  { value: 'screen_time', label: 'Screen time before bed' },
+  { value: 'caffeine_alcohol', label: 'Caffeine/alcohol' },
+  { value: 'other', label: 'Other' },
+];
+
+export type SleepAid =
+  | 'melatonin'
+  | 'prescription_sleep_medication'
+  | 'cbd_thc'
+  | 'white_noise_sound_machine'
+  | 'weighted_blanket'
+  | 'breathing_exercises'
+  | 'none'
+  | 'other';
+
+export const SLEEP_AID_OPTIONS: { value: SleepAid; label: string }[] = [
+  { value: 'melatonin', label: 'Melatonin' },
+  { value: 'prescription_sleep_medication', label: 'Prescription sleep medication' },
+  { value: 'cbd_thc', label: 'CBD/THC' },
+  { value: 'white_noise_sound_machine', label: 'White noise/sound machine' },
+  { value: 'weighted_blanket', label: 'Weighted blanket' },
+  { value: 'breathing_exercises', label: 'Breathing exercises' },
+  { value: 'none', label: 'None' },
+  { value: 'other', label: 'Other' },
+];
+
 export interface SleepEntry {
   bedtime: string | null; // ISO datetime
   wake_time: string | null; // ISO datetime
@@ -121,6 +169,15 @@ export interface SleepEntry {
   notes: string | null;
   device_data: SleepDeviceData | null;
   source?: SleepSource;
+  // Sprint 23 enhancements (all optional for backward compat)
+  total_duration_hours?: number | null;
+  wake_ups?: number | null; // 0-10 how many times woke during night
+  disturbances?: SleepDisturbance[];
+  disturbance_other_text?: string | null;
+  sleep_aids_used?: SleepAid[];
+  sleep_aid_other_text?: string | null;
+  nap?: boolean | null;
+  nap_duration_minutes?: number | null; // 5-180
 }
 
 export interface SleepDeviceData {
@@ -1007,6 +1064,82 @@ export interface MoodMentalEntry {
   notes: string | null; // max 500 chars
 }
 
+// -- BODY MEASUREMENTS (Sprint 23) --
+
+export type WeightUnit = 'lbs' | 'kg';
+export type MeasurementUnit = 'in' | 'cm';
+
+export interface BodyMeasurementMeasurements {
+  waist: number | null;
+  hips: number | null;
+  chest: number | null;
+  bicep_left: number | null;
+  bicep_right: number | null;
+  thigh_left: number | null;
+  thigh_right: number | null;
+  neck: number | null;
+}
+
+export interface BodyMeasurementEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  date: string; // YYYY-MM-DD
+  weight: number | null;
+  weight_unit: WeightUnit;
+  body_fat_percentage: number | null; // 1-60
+  measurements: BodyMeasurementMeasurements;
+  measurement_unit: MeasurementUnit;
+  photo_taken: boolean;
+  notes: string | null; // max 500 chars
+}
+
+// -- MEDICATION TRACKING (Sprint 23) --
+
+export type MedicationFrequency = 'daily' | 'twice_daily' | 'weekly' | 'as_needed';
+
+export const MEDICATION_FREQUENCY_OPTIONS: { value: MedicationFrequency; label: string }[] = [
+  { value: 'daily', label: 'Daily' },
+  { value: 'twice_daily', label: 'Twice Daily' },
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'as_needed', label: 'As Needed' },
+];
+
+export interface MedicationDefinition {
+  id: string;
+  name: string;
+  dosage: string; // free text, e.g. "50mg", "2 tablets"
+  frequency: MedicationFrequency;
+  scheduled_time: string; // HH:MM
+}
+
+export type MedicationSkippedReason = 'forgot' | 'side_effects' | 'ran_out' | 'doctor_advised' | 'other';
+
+export const MEDICATION_SKIPPED_REASON_OPTIONS: { value: MedicationSkippedReason; label: string }[] = [
+  { value: 'forgot', label: 'Forgot' },
+  { value: 'side_effects', label: 'Side effects' },
+  { value: 'ran_out', label: 'Ran out' },
+  { value: 'doctor_advised', label: 'Doctor advised' },
+  { value: 'other', label: 'Other' },
+];
+
+export interface MedicationLogItem {
+  id: string;
+  name: string;
+  dosage: string;
+  time_scheduled: string; // HH:MM
+  time_taken: string | null; // HH:MM actual time taken
+  taken: boolean;
+  skipped_reason: MedicationSkippedReason | null;
+  notes: string | null; // max 200 chars
+}
+
+export interface MedicationEntry {
+  id: string;
+  timestamp: string; // ISO datetime
+  date: string; // YYYY-MM-DD
+  medications: MedicationLogItem[];
+}
+
 // -- ELECT-IN CATEGORIES --
 
 export type ElectInCategoryId =
@@ -1020,7 +1153,9 @@ export type ElectInCategoryId =
   | 'sexual_health'
   | 'substances'
   | 'injuries'
-  | 'migraine_tracking';
+  | 'migraine_tracking'
+  | 'body_measurements'
+  | 'medication_tracking';
 
 export type ElectInCategoryGroup = 'health_metrics' | 'womens_health' | 'other';
 
@@ -1045,6 +1180,8 @@ export const ALL_ELECT_IN_CATEGORIES: ElectInCategoryDefinition[] = [
   { id: 'bloodwork', label: 'Bloodwork', description: 'Record lab results and panels', group: 'health_metrics', icon: 'water-outline' },
   { id: 'allergies', label: 'Allergies', description: 'Daily severity, symptoms, medication', group: 'health_metrics', icon: 'alert-circle-outline' },
   { id: 'migraine_tracking', label: 'Migraine Tracking', description: 'Severity, symptoms, triggers, medication, weather correlation', group: 'health_metrics', icon: 'flash-outline' },
+  { id: 'body_measurements', label: 'Body Measurements', description: 'Weight, body fat, tape measurements with unit preferences', group: 'health_metrics', icon: 'resize-outline' },
+  { id: 'medication_tracking', label: 'Medication Tracking', description: 'Daily medication adherence, scheduling, skipped reasons', group: 'health_metrics', icon: 'medical-outline' },
   // Women's Health
   { id: 'cycle_tracking', label: 'Cycle Tracking', description: 'Period, ovulation, symptoms', group: 'womens_health', icon: 'flower-outline' },
   { id: 'breastfeeding', label: 'Breastfeeding', description: 'Session duration, side, frequency, output tracking', group: 'womens_health', icon: 'heart-outline' },
@@ -1081,7 +1218,9 @@ export type DailyGoalId =
   | 'breastfeeding_logged'
   | 'perimenopause_logged'
   | 'migraine_logged'
-  | 'mood_logged';
+  | 'mood_logged'
+  | 'body_measurement_logged'
+  | 'medications_logged';
 
 export interface DailyGoalDefinition {
   id: DailyGoalId;
@@ -1114,6 +1253,8 @@ export const ALL_DAILY_GOALS: DailyGoalDefinition[] = [
   { id: 'perimenopause_logged', label: 'Perimenopause (daily entry)', icon: 'thermometer-outline' },
   { id: 'migraine_logged', label: 'Migraine (daily entry)', icon: 'flash-outline' },
   { id: 'mood_logged', label: 'Mood & mental health (daily entry)', icon: 'happy-outline' },
+  { id: 'body_measurement_logged', label: 'Body measurements (weekly entry)', icon: 'resize-outline' },
+  { id: 'medications_logged', label: 'Medications (daily adherence)', icon: 'medical-outline' },
 ];
 
 export const DEFAULT_DAILY_GOALS: DailyGoalId[] = [
