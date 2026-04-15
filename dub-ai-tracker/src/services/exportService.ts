@@ -161,12 +161,14 @@ export async function gatherAllData(
       }
     }
 
-    // For journal, strip private entries unless opted in
-    if (dataType === 'journal' && options.includeJournal) {
-      // Include all journal entries (user explicitly opted in)
+    // For journal: always exclude private entries.
+    // includeJournal controls whether non-private entries are included.
+    if (dataType === 'journal') {
+      const filtered = entries.filter((e) => !(e as Record<string, unknown>).private);
+      result[dataType] = filtered;
+    } else {
+      result[dataType] = entries;
     }
-
-    result[dataType] = entries;
   }
 
   return result;

@@ -10,19 +10,7 @@ import type { EngagementTier } from '../types/profile';
 import type { CoachContext, ExpertId } from '../types/coach';
 import type { TasteProfile } from './recipe_engine';
 import { getExpert } from './experts';
-
-/**
- * SEC-06: Sanitize user-generated strings before injecting into system prompt.
- * Strips text patterns that resemble prompt injection attempts.
- */
-function sanitize(input: string, maxLen: number = 100): string {
-  let clean = input.slice(0, maxLen);
-  clean = clean.replace(/\[(?:SYSTEM|OVERRIDE|ADMIN|PROMPT|INSTRUCTION)[^\]]*\]/gi, '');
-  clean = clean.replace(/(?:ignore|forget|disregard)\s+(?:all\s+)?(?:previous\s+)?(?:instructions?|rules?|prompts?)/gi, '');
-  clean = clean.replace(/(?:output|reveal|show|display|print)\s+(?:your\s+)?(?:system\s+)?(?:prompt|instructions?|rules?|config)/gi, '');
-  clean = clean.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
-  return clean.trim();
-}
+import { sanitizeForPrompt } from '../utils/sanitize';
 
 const TIER_INSTRUCTIONS: Record<EngagementTier, { tone: string; style: string; avoid: string }> = {
   precision: {
@@ -217,17 +205,17 @@ export function buildSystemPrompt(context: CoachContext, conditionalSections: st
 
   if (context.active_correlations.length > 0) {
     // SEC-06: Sanitize user-generated observation text against indirect injection
-    parts.push(`[PATTERNS] ${context.active_correlations.map((p) => sanitize(p.observation, 200)).join(' | ')}`);
+    parts.push(`[PATTERNS] ${context.active_correlations.map((p) => sanitizeForPrompt(p.observation, 200)).join(' | ')}`);
   }
 
   if (context.active_injuries.length > 0) {
     // SEC-06: Sanitize user-generated injury fields
-    parts.push(`[INJURIES] ${context.active_injuries.map((i) => `${sanitize(i.location, 50)} sev:${i.severity} ${sanitize(i.type, 30)} avoid:${i.aggravators.map((a) => sanitize(a, 50)).join(',')}`).join(' | ')}`);
+    parts.push(`[INJURIES] ${context.active_injuries.map((i) => `${sanitizeForPrompt(i.location, 50)} sev:${i.severity} ${sanitizeForPrompt(i.type, 30)} avoid:${i.aggravators.map((a) => sanitizeForPrompt(a, 50)).join(',')}`).join(' | ')}`);
   }
 
   if (context.sobriety_goals.length > 0) {
     // SEC-06: Sanitize substance name field
-    parts.push(`[SOBRIETY] ${context.sobriety_goals.map((s) => `${sanitize(s.substance, 50)}:${s.goal_type}(${s.current_streak_days}d)`).join(' | ')}`);
+    parts.push(`[SOBRIETY] ${context.sobriety_goals.map((s) => `${sanitizeForPrompt(s.substance, 50)}:${s.goal_type}(${s.current_streak_days}d)`).join(' | ')}`);
   }
 
   if (context.therapy_today) {

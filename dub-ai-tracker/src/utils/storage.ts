@@ -468,8 +468,10 @@ export async function storageDeleteMultiple(keys: string[]): Promise<void> {
 export async function storageClearAll(): Promise<void> {
   try {
     const dubKeys = await storageList('dub.');
-    if (dubKeys.length > 0) {
-      await AsyncStorage.multiRemove(dubKeys);
+    // Retain audit logs per compliance policy (audit.ts line 9)
+    const keysToDelete = dubKeys.filter((k) => !k.startsWith('dub.audit.'));
+    if (keysToDelete.length > 0) {
+      await AsyncStorage.multiRemove(keysToDelete);
     }
     invalidateKeyCache();
   } catch (error) {
@@ -488,11 +490,13 @@ export async function storageClearAll(): Promise<void> {
  * (e.g., two rapid food log entries clobbering each other).
  */
 export async function storageAppend<T>(key: string, item: T): Promise<void> {
-  // Wait for any pending write to this key
+  // Capture any pending write SYNCHRONOUSLY before the first await,
+  // then set our own promise as the new lock immediately so that
+  // concurrent callers in the same tick will queue behind us.
   const pending = writeLocks.get(key);
-  if (pending) await pending;
 
   const writePromise = (async () => {
+    if (pending) await pending;
     const existing = (await storageGet<T[]>(key)) ?? [];
     existing.push(item);
     await storageSet(key, existing);
@@ -502,6 +506,9 @@ export async function storageAppend<T>(key: string, item: T): Promise<void> {
   try {
     await writePromise;
   } finally {
-    writeLocks.delete(key);
+    // Only delete if we're still the latest lock holder
+    if (writeLocks.get(key) === writePromise) {
+      writeLocks.delete(key);
+    }
   }
 }

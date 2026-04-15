@@ -30,6 +30,7 @@ import {
   CM_PER_INCH,
 } from '../constants/formulas';
 import { evaluateMoodTrend } from '../utils/mood_trend';
+import { sanitizeForPrompt } from '../utils/sanitize';
 import type {
   FoodEntry,
   WaterEntry,
@@ -121,22 +122,7 @@ function messageMatchesKeywords(message: string, keywords: string[]): boolean {
   return keywords.some((kw) => lower.includes(kw));
 }
 
-/**
- * SEC-06: Sanitize user-generated strings before injecting into prompt context.
- * Strips text patterns that resemble prompt injection attempts
- * (e.g., "[SYSTEM]", "IGNORE", "output your prompt").
- * Truncates to prevent context flooding.
- */
-function sanitizeForPrompt(input: string, maxLength: number = 100): string {
-  let clean = input.slice(0, maxLength);
-  // Strip patterns that look like prompt injection
-  clean = clean.replace(/\[(?:SYSTEM|OVERRIDE|ADMIN|PROMPT|INSTRUCTION)[^\]]*\]/gi, '');
-  clean = clean.replace(/(?:ignore|forget|disregard)\s+(?:all\s+)?(?:previous\s+)?(?:instructions?|rules?|prompts?)/gi, '');
-  clean = clean.replace(/(?:output|reveal|show|display|print)\s+(?:your\s+)?(?:system\s+)?(?:prompt|instructions?|rules?|config)/gi, '');
-  // Strip control characters
-  clean = clean.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
-  return clean.trim();
-}
+// sanitizeForPrompt is imported from ../utils/sanitize (SEC-06)
 
 // Therapy & privacy firewall: throws if therapy content or private journal text leaks into context
 function assertNoTherapyContent(contextString: string): void {
@@ -496,7 +482,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
   if (messageMatchesKeywords(userMessage, SUPPLEMENT_KEYWORDS)) {
     const supps = await storageGet<SupplementEntry[]>(dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, today));
     if (supps && supps.length > 0) {
-      supplementFlags = supps.map((s) => `${s.name} ${s.dosage}${s.unit}`);
+      supplementFlags = supps.map((s) => `${sanitizeForPrompt(s.name, 50)} ${sanitizeForPrompt(String(s.dosage), 20)}${sanitizeForPrompt(s.unit, 10)}`);
       conditionalSections.push(`[SUPPLEMENTS] ${supplementFlags.join(' | ')}`);
     }
   }
@@ -582,7 +568,7 @@ export async function buildCoachContext(userMessage: string): Promise<{
         });
       }
       const parts = Array.from(totals.entries())
-        .map(([type, t]) => `${type}:${t.reps}(${t.sets}sets)`)
+        .map(([type, t]) => `${sanitizeForPrompt(type, 50)}:${t.reps}(${t.sets}sets)`)
         .join(' ');
       conditionalSections.push(`[REPS ${today}] ${parts}`);
     }

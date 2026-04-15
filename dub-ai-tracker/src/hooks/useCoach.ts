@@ -3,7 +3,7 @@
 // Sprint 12: Streaming, expert panel, tool use, photo capture
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { storageGet, storageSet, STORAGE_KEYS, dateKey } from '../utils/storage';
+import { storageGet, storageSet, storageAppend, STORAGE_KEYS, dateKey } from '../utils/storage';
 import {
   sendMessageStreaming,
   sendToolResult,
@@ -149,7 +149,10 @@ export function useCoach(): UseCoachResult {
         if (m.imageUri && m.role === 'user') {
           // Image message — convert to multi-content
           try {
-            const base64 = await readAsStringAsync(m.imageUri, { encoding: EncodingType.Base64 });
+            // SEC: Strip EXIF metadata (GPS, device info) before sending to Anthropic
+            const { stripExifMetadata } = await import('../utils/imagePrivacy');
+            const strippedUri = await stripExifMetadata(m.imageUri);
+            const base64 = await readAsStringAsync(strippedUri, { encoding: EncodingType.Base64 });
             const ext = m.imageUri.split('.').pop()?.toLowerCase() ?? 'jpeg';
             const mediaType = ext === 'png' ? 'image/png' : 'image/jpeg';
             const content: AnthropicContentBlock[] = [
@@ -300,22 +303,17 @@ export function useCoach(): UseCoachResult {
     try {
       switch (toolReq.name) {
         case 'log_drink': {
-          const key = dateKey(STORAGE_KEYS.LOG_WATER, today);
-          const existing = (await storageGet<unknown[]>(key)) ?? [];
-          existing.push({
+          await storageAppend(dateKey(STORAGE_KEYS.LOG_WATER, today), {
             id: generateId(),
             timestamp: (toolReq.input.timestamp as string) || new Date().toISOString(),
             amount_oz: toolReq.input.amount_oz,
             beverage_type: toolReq.input.beverage_type,
             source: 'coach',
           });
-          await storageSet(key, existing);
           break;
         }
         case 'log_food': {
-          const key = dateKey(STORAGE_KEYS.LOG_FOOD, today);
-          const existing = (await storageGet<unknown[]>(key)) ?? [];
-          existing.push({
+          await storageAppend(dateKey(STORAGE_KEYS.LOG_FOOD, today), {
             id: generateId(),
             timestamp: (toolReq.input.timestamp as string) || new Date().toISOString(),
             name: toolReq.input.food_name,
@@ -326,25 +324,19 @@ export function useCoach(): UseCoachResult {
             fat_g: toolReq.input.fat_g || 0,
             source: 'coach',
           });
-          await storageSet(key, existing);
           break;
         }
         case 'log_weight': {
-          const key = dateKey(STORAGE_KEYS.LOG_BODY, today);
-          const existing = (await storageGet<unknown[]>(key)) ?? [];
-          existing.push({
+          await storageAppend(dateKey(STORAGE_KEYS.LOG_BODY, today), {
             id: generateId(),
             timestamp: (toolReq.input.timestamp as string) || new Date().toISOString(),
             weight_lbs: toolReq.input.weight_lbs,
             source: 'coach',
           });
-          await storageSet(key, existing);
           break;
         }
         case 'log_exercise': {
-          const key = dateKey(STORAGE_KEYS.LOG_WORKOUT, today);
-          const existing = (await storageGet<unknown[]>(key)) ?? [];
-          existing.push({
+          await storageAppend(dateKey(STORAGE_KEYS.LOG_WORKOUT, today), {
             id: generateId(),
             timestamp: (toolReq.input.timestamp as string) || new Date().toISOString(),
             exercise_type: toolReq.input.exercise_type,
@@ -353,20 +345,16 @@ export function useCoach(): UseCoachResult {
             distance_miles: toolReq.input.distance_miles,
             source: 'coach',
           });
-          await storageSet(key, existing);
           break;
         }
         case 'log_supplement': {
-          const key = dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, today);
-          const existing = (await storageGet<unknown[]>(key)) ?? [];
-          existing.push({
+          await storageAppend(dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, today), {
             id: generateId(),
             timestamp: (toolReq.input.timestamp as string) || new Date().toISOString(),
             supplement_name: toolReq.input.supplement_name,
             dosage: toolReq.input.dosage || '',
             source: 'coach',
           });
-          await storageSet(key, existing);
           break;
         }
         case 'log_feedback': {
