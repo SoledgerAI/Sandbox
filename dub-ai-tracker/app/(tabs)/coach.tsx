@@ -4,6 +4,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import {
+  Alert,
   FlatList,
   KeyboardAvoidingView,
   Modal,
@@ -461,8 +462,17 @@ export default function CoachScreen() {
           {/* Camera button (Feature 4) */}
           <TouchableOpacity
             style={styles.cameraButton}
-            onPress={handlePhotoCapture}
-            onLongPress={handlePhotoLibrary}
+            onPress={() => {
+              Alert.alert(
+                'Add Photo',
+                'Choose how to add a photo to your message',
+                [
+                  { text: 'Take Photo', onPress: handlePhotoCapture },
+                  { text: 'Choose from Library', onPress: handlePhotoLibrary },
+                  { text: 'Cancel', style: 'cancel' },
+                ],
+              );
+            }}
             disabled={sending || isOffline}
             activeOpacity={0.7}
           >

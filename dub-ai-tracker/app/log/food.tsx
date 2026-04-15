@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  ScrollView,
   StyleSheet,
   Text,
   ToastAndroid,
@@ -406,7 +407,9 @@ export default function FoodLogScreen() {
     setSelectedFood(food);
     setServingIndex(food.default_serving_index);
     setQuantity(1);
-    setScreen('configure');
+    // Brief delay to ensure CameraView fully unmounts before rendering configure
+    setScreen('search');
+    setTimeout(() => setScreen('configure'), 100);
   }, []);
 
   const handleBarcodeNotFound = useCallback((_barcode: string) => {
@@ -792,7 +795,12 @@ export default function FoodLogScreen() {
         )}
 
         {screen === 'configure' && selectedFood != null && (
-          <View style={styles.configureContainer}>
+          <ScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{ flexGrow: 1, justifyContent: 'space-between' }}
+            keyboardShouldPersistTaps="handled"
+            bounces={false}
+          >
             <ServingSizeSelector
               servingSizes={selectedFood.serving_sizes}
               selectedServingIndex={servingIndex}
@@ -817,7 +825,7 @@ export default function FoodLogScreen() {
                 <Button title="Add Food" onPress={handleConfirmServing} />
               </View>
             </View>
-          </View>
+          </ScrollView>
         )}
 
         {screen === 'manual' && (
