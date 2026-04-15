@@ -1,3 +1,4 @@
+// NOT WIRED UP — scheduled for future sprint
 // Google Health Connect integration service
 // Phase 18: Device Integrations
 // Reads: steps, HR, HRV, sleep, weight, workouts. Writes: workouts.

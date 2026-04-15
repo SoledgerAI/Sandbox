@@ -1,3 +1,4 @@
+// NOT WIRED UP — scheduled for future sprint
 // OpenWeatherMap current weather service
 // Phase 18: Device Integrations
 // Current conditions display on Dashboard (optional, small widget).

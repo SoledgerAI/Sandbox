@@ -1,3 +1,4 @@
+// NOT WIRED UP — scheduled for future sprint
 // Unified health device hook
 // Phase 18: Device Integrations
 // Sprint 11: Strava OAuth integration added

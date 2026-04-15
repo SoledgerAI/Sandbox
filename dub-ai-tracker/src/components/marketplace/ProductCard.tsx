@@ -106,10 +106,9 @@ export function ProductCard({ product, onDismiss }: ProductCardProps) {
         </View>
       )}
 
-      {/* CTA */}
-      <TouchableOpacity style={styles.ctaButton} onPress={handlePurchase} activeOpacity={0.7}>
-        <Text style={styles.ctaText}>View Product</Text>
-        <Ionicons name="open-outline" size={16} color={Colors.primaryBackground} />
+      {/* CTA — disabled until real affiliate URLs are configured */}
+      <TouchableOpacity style={[styles.ctaButton, styles.ctaDisabled]} onPress={() => {}} activeOpacity={1}>
+        <Text style={styles.ctaText}>Coming Soon</Text>
       </TouchableOpacity>
     </View>
   );
@@ -191,6 +190,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     gap: 8,
     marginTop: 4,
+  },
+  ctaDisabled: {
+    backgroundColor: Colors.divider,
   },
   ctaText: {
     color: Colors.primaryBackground,
