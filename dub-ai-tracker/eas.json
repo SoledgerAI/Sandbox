@@ -8,19 +8,13 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "env": {
-        "STRAVA_CLIENT_ID": "",
-        "STRAVA_CLIENT_SECRET": ""
-      }
+      "distribution": "internal"
     },
     "production": {
       "distribution": "store",
       "autoIncrement": true,
       "env": {
-        "APP_ENV": "production",
-        "STRAVA_CLIENT_ID": "",
-        "STRAVA_CLIENT_SECRET": ""
+        "APP_ENV": "production"
       },
       "ios": {
         "buildConfiguration": "Release"
