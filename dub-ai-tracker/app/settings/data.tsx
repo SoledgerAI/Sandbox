@@ -4,9 +4,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   Alert,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View,
   ActivityIndicator,
@@ -65,6 +67,8 @@ export default function DataManagementScreen() {
   const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [clearing, setClearing] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   const loadStorageInfo = useCallback(async () => {
     setLoading(true);
@@ -158,28 +162,18 @@ export default function DataManagementScreen() {
   }
 
   function showDeleteConfirmation() {
-    // Step 2: Type DELETE to confirm
-    Alert.prompt(
-      'Type DELETE to Confirm',
-      'To permanently delete all data, type DELETE below.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Continue',
-          style: 'destructive',
-          onPress: (text?: string) => {
-            if (text?.trim() === 'DELETE') {
-              showFinalConfirmation();
-            } else {
-              Alert.alert('Cancelled', 'You must type DELETE exactly to proceed.');
-            }
-          },
-        },
-      ],
-      'plain-text',
-      '',
-      'default',
-    );
+    // Step 2: Type DELETE to confirm — cross-platform Modal (Alert.prompt is iOS-only)
+    setDeleteConfirmText('');
+    setShowDeleteModal(true);
+  }
+
+  function handleDeleteModalConfirm() {
+    setShowDeleteModal(false);
+    if (deleteConfirmText.trim() === 'DELETE') {
+      showFinalConfirmation();
+    } else {
+      Alert.alert('Cancelled', 'You must type DELETE exactly to proceed.');
+    }
   }
 
   function showFinalConfirmation() {
@@ -349,6 +343,43 @@ export default function DataManagementScreen() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Cross-platform DELETE confirmation modal */}
+      <Modal visible={showDeleteModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>Type DELETE to Confirm</Text>
+            <Text style={styles.modalDesc}>
+              To permanently delete all data, type DELETE below.
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={deleteConfirmText}
+              onChangeText={setDeleteConfirmText}
+              placeholder="DELETE"
+              placeholderTextColor={Colors.secondaryText}
+              autoCapitalize="characters"
+              autoFocus
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.modalCancel}
+                onPress={() => setShowDeleteModal(false)}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirm}
+                onPress={handleDeleteModalConfirm}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.modalConfirmText}>Continue</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ScreenWrapper>
   );
 }
@@ -415,4 +446,40 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontStyle: 'italic',
   },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 14,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+  },
+  modalTitle: { color: Colors.text, fontSize: 17, fontWeight: '700', marginBottom: 8 },
+  modalDesc: { color: Colors.secondaryText, fontSize: 14, marginBottom: 16 },
+  modalInput: {
+    backgroundColor: Colors.primaryBackground,
+    color: Colors.text,
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 16,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    marginBottom: 16,
+  },
+  modalButtons: { flexDirection: 'row' as const, justifyContent: 'flex-end' as const, gap: 12 },
+  modalCancel: { paddingVertical: 10, paddingHorizontal: 16 },
+  modalCancelText: { color: Colors.accent, fontSize: 15, fontWeight: '600' },
+  modalConfirm: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: Colors.danger,
+    borderRadius: 8,
+  },
+  modalConfirmText: { color: '#fff', fontSize: 15, fontWeight: '600' },
 });

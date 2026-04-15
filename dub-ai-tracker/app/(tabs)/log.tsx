@@ -121,7 +121,7 @@ const SECTION_DEFS: SectionDef[] = [
     alwaysVisible: true,
     items: [
       { id: 'mood', label: 'Mood', icon: 'happy-outline', route: '/log/mood', storageKey: STORAGE_KEYS.LOG_MOOD, searchTerms: 'mood feeling emotion mental' },
-      { id: 'mood_mental', label: 'Mood & Mental Health', icon: 'brain-outline', route: '/log/mood-mental', storageKey: STORAGE_KEYS.LOG_MOOD_MENTAL, searchTerms: 'mood mental health anxiety stress emotions coping crisis 988' },
+      { id: 'mood_mental', label: 'Mood & Mental Health', icon: 'bulb-outline', route: '/log/mood-mental', storageKey: STORAGE_KEYS.LOG_MOOD_MENTAL, searchTerms: 'mood mental health anxiety stress emotions coping crisis 988' },
       { id: 'stress', label: 'Stress', icon: 'pulse-outline', route: '/log/stress', searchTerms: 'stress anxiety tension' },
       { id: 'meditation', label: 'Meditation & Breathwork', icon: 'leaf-outline', route: '/log/meditation', storageKey: STORAGE_KEYS.LOG_MEDITATION, searchTerms: 'meditation mindfulness breathe calm breathwork box breathing body scan' },
       { id: 'journal', label: 'Journaling', icon: 'book-outline', route: '/log/journal', storageKey: STORAGE_KEYS.LOG_JOURNAL, searchTerms: 'journal writing diary free-form private' },
@@ -296,8 +296,36 @@ export default function LogScreen() {
     setQuickAccessIds(quickAccess);
     setStravaConnected(strava?.connected === true);
 
-    // Load food
-    const foods = await storageGet<{ food_item: { name: string }; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_FOOD, dateStr));
+    // Load all last-entry data in parallel
+    const [
+      foods, waters, workouts, supps, moods, reps, habits,
+      doctorVisits, allergyLog, medEntries, socialEntries, sunEntries,
+      mobEntries, journalEntries, bfEntries, periEntry, migraineEntry,
+      moodMentalEntry, bodyMeasEntry, medEntry,
+    ] = await Promise.all([
+      storageGet<{ food_item: { name: string }; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_FOOD, dateStr)),
+      storageGet<{ timestamp: string; amount_oz: number }[]>(dateKey(STORAGE_KEYS.LOG_WATER, dateStr)),
+      storageGet<{ timestamp: string; activity_name?: string }[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, dateStr)),
+      storageGet<{ timestamp: string; name: string; taken: boolean }[]>(dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, dateStr)),
+      storageGet<{ timestamp: string; score: number }[]>(dateKey(STORAGE_KEYS.LOG_MOOD, dateStr)),
+      storageGet<{ exercise_type: string; reps: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_REPS, dateStr)),
+      storageGet<{ name: string; completed: boolean }[]>(dateKey(STORAGE_KEYS.LOG_HABITS, dateStr)),
+      storageGet<{ visit_type: string; visit_date: string; timestamp: string }[]>(STORAGE_KEYS.LOG_DOCTOR_VISITS),
+      storageGet<{ severity: string; timestamp: string }>(dateKey(STORAGE_KEYS.LOG_ALLERGIES, dateStr)),
+      storageGet<{ duration_minutes: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_MEDITATION, dateStr)),
+      storageGet<{ type: string; who: string | null; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_SOCIAL, dateStr)),
+      storageGet<{ duration_minutes: number; nature: boolean; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_SUNLIGHT, dateStr)),
+      storageGet<{ type: string; duration_minutes: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_MOBILITY, dateStr)),
+      storageGet<{ text: string; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_JOURNAL, dateStr)),
+      storageGet<{ type: string; duration_minutes: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_BREASTFEEDING, dateStr)),
+      storageGet<{ hot_flashes_count: number; energy_level: number }>(dateKey(STORAGE_KEYS.LOG_PERIMENOPAUSE, dateStr)),
+      storageGet<{ occurred: boolean; severity: number | null }>(dateKey(STORAGE_KEYS.LOG_MIGRAINE, dateStr)),
+      storageGet<{ overall_mood: number; energy_level: number }>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, dateStr)),
+      storageGet<{ weight: number | null; weight_unit: string; body_fat_percentage: number | null }>(dateKey(STORAGE_KEYS.LOG_BODY_MEASUREMENTS, dateStr)),
+      storageGet<{ medications: { taken: boolean }[] }>(dateKey(STORAGE_KEYS.LOG_MEDICATIONS, dateStr)),
+    ]);
+
+    // Process results into last-entry labels
     if (foods?.length) {
       const last = foods[foods.length - 1];
       entries['/log/food'] = {
@@ -305,9 +333,6 @@ export default function LogScreen() {
         time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       };
     }
-
-    // Load water/drinks
-    const waters = await storageGet<{ timestamp: string; amount_oz: number }[]>(dateKey(STORAGE_KEYS.LOG_WATER, dateStr));
     if (waters?.length) {
       const last = waters[waters.length - 1];
       entries['/log/water'] = {
@@ -315,19 +340,13 @@ export default function LogScreen() {
         time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       };
     }
-
-    // Load workouts
-    const workouts = await storageGet<{ timestamp: string; type: string }[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, dateStr));
     if (workouts?.length) {
       const last = workouts[workouts.length - 1];
       entries['/log/workout'] = {
-        label: last.type ?? 'Workout',
+        label: last.activity_name ?? 'Workout',
         time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       };
     }
-
-    // Load supplements
-    const supps = await storageGet<{ timestamp: string; name: string; taken: boolean }[]>(dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, dateStr));
     const takenSupps = (supps ?? []).filter(s => s.taken);
     if (takenSupps.length) {
       const last = takenSupps[takenSupps.length - 1];
@@ -336,9 +355,6 @@ export default function LogScreen() {
         time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       };
     }
-
-    // Load mood
-    const moods = await storageGet<{ timestamp: string; score: number }[]>(dateKey(STORAGE_KEYS.LOG_MOOD, dateStr));
     if (moods?.length) {
       const labels = ['', 'Bad', 'Poor', 'OK', 'Good', 'Great'];
       const last = moods[moods.length - 1];
@@ -347,9 +363,6 @@ export default function LogScreen() {
         time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       };
     }
-
-    // Load bodyweight reps
-    const reps = await storageGet<{ exercise_type: string; reps: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_REPS, dateStr));
     if (reps?.length) {
       const totalReps = reps.reduce((s, r) => s + r.reps, 0);
       const last = reps[reps.length - 1];
@@ -358,45 +371,24 @@ export default function LogScreen() {
         time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       };
     }
-
-    // Load habits
-    const habits = await storageGet<{ name: string; completed: boolean }[]>(dateKey(STORAGE_KEYS.LOG_HABITS, dateStr));
     if (habits?.length) {
       const done = habits.filter(h => h.completed).length;
-      entries['/log/habits'] = {
-        label: `${done}/${habits.length} done`,
-        time: '',
-      };
+      entries['/log/habits'] = { label: `${done}/${habits.length} done`, time: '' };
     }
-
-    // Load doctor visits (not date-keyed — single array)
-    const doctorVisits = await storageGet<{ visit_type: string; visit_date: string; timestamp: string }[]>(STORAGE_KEYS.LOG_DOCTOR_VISITS);
     if (doctorVisits?.length) {
       const last = doctorVisits[doctorVisits.length - 1];
-      entries['/log/doctor'] = {
-        label: last.visit_type.replace(/_/g, ' '),
-        time: last.visit_date,
-      };
+      entries['/log/doctor'] = { label: last.visit_type.replace(/_/g, ' '), time: last.visit_date };
     }
-
-    // Load allergies (date-keyed)
-    const allergyLog = await storageGet<{ severity: string; timestamp: string }>(dateKey(STORAGE_KEYS.LOG_ALLERGIES, dateStr));
     if (allergyLog) {
       entries['/log/allergies'] = {
         label: allergyLog.severity.charAt(0).toUpperCase() + allergyLog.severity.slice(1),
         time: new Date(allergyLog.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       };
     }
-
-    // Load meditation (array)
-    const medEntries = await storageGet<{ duration_minutes: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_MEDITATION, dateStr));
     if (Array.isArray(medEntries) && medEntries.length > 0) {
       const totalMin = medEntries.reduce((s, m) => s + m.duration_minutes, 0);
       entries['/log/meditation'] = { label: `${totalMin} min total`, time: `${medEntries.length} session${medEntries.length > 1 ? 's' : ''}` };
     }
-
-    // Load social connections
-    const socialEntries = await storageGet<{ type: string; who: string | null; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_SOCIAL, dateStr));
     if (socialEntries?.length) {
       const last = socialEntries[socialEntries.length - 1];
       entries['/log/social'] = {
@@ -404,69 +396,42 @@ export default function LogScreen() {
         time: new Date(last.timestamp).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
       };
     }
-
-    // Load sunlight
-    const sunEntries = await storageGet<{ duration_minutes: number; nature: boolean; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_SUNLIGHT, dateStr));
     if (sunEntries?.length) {
       const totalMin = sunEntries.reduce((s, e) => s + e.duration_minutes, 0);
       entries['/log/sunlight'] = { label: `${totalMin} min outdoors`, time: '' };
     }
-
-    // Load mobility
-    const mobEntries = await storageGet<{ type: string; duration_minutes: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_MOBILITY, dateStr));
     if (mobEntries?.length) {
       const totalMin = mobEntries.reduce((s, e) => s + e.duration_minutes, 0);
       entries['/log/mobility'] = { label: `${totalMin} min`, time: `${mobEntries.length} session${mobEntries.length > 1 ? 's' : ''}` };
     }
-
-    // Load journal
-    const journalEntries = await storageGet<{ text: string; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_JOURNAL, dateStr));
     if (journalEntries?.length) {
       entries['/log/journal'] = { label: `${journalEntries.length} entr${journalEntries.length > 1 ? 'ies' : 'y'}`, time: '' };
     }
-
-    // Load breastfeeding
-    const bfEntries = await storageGet<{ type: string; duration_minutes: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_BREASTFEEDING, dateStr));
     if (bfEntries?.length) {
       const totalMin = bfEntries.reduce((s, e) => s + e.duration_minutes, 0);
       entries['/log/breastfeeding'] = { label: `${bfEntries.length} sessions, ${totalMin} min`, time: '' };
     }
-
-    // Load perimenopause
-    const periEntry = await storageGet<{ hot_flashes_count: number; energy_level: number }>(dateKey(STORAGE_KEYS.LOG_PERIMENOPAUSE, dateStr));
     if (periEntry) {
       entries['/log/perimenopause'] = { label: `${periEntry.hot_flashes_count} hot flashes, energy ${periEntry.energy_level}/5`, time: '' };
     }
-
-    // Load migraine
-    const migraineEntry = await storageGet<{ occurred: boolean; severity: number | null }>(dateKey(STORAGE_KEYS.LOG_MIGRAINE, dateStr));
     if (migraineEntry) {
       entries['/log/migraine'] = {
         label: migraineEntry.occurred ? `Severity ${migraineEntry.severity}/10` : 'No migraine',
         time: '',
       };
     }
-
-    // Load mood & mental health
-    const moodMentalEntry = await storageGet<{ overall_mood: number; energy_level: number }>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, dateStr));
     if (moodMentalEntry) {
       entries['/log/mood-mental'] = {
         label: `Mood ${moodMentalEntry.overall_mood}/10, Energy ${moodMentalEntry.energy_level}/5`,
         time: '',
       };
     }
-
-    // Load body measurements
-    const bodyMeasEntry = await storageGet<{ weight: number | null; weight_unit: string; body_fat_percentage: number | null }>(dateKey(STORAGE_KEYS.LOG_BODY_MEASUREMENTS, dateStr));
     if (bodyMeasEntry) {
       const parts: string[] = [];
       if (bodyMeasEntry.weight != null) parts.push(`${bodyMeasEntry.weight} ${bodyMeasEntry.weight_unit}`);
       if (bodyMeasEntry.body_fat_percentage != null) parts.push(`${bodyMeasEntry.body_fat_percentage}% BF`);
       entries['/log/body-measurements'] = { label: parts.join(', ') || 'Entry logged', time: '' };
     }
-
-    // Load medications
-    const medEntry = await storageGet<{ medications: { taken: boolean }[] }>(dateKey(STORAGE_KEYS.LOG_MEDICATIONS, dateStr));
     if (medEntry?.medications?.length) {
       const taken = medEntry.medications.filter((m) => m.taken).length;
       entries['/log/medications'] = { label: `${taken}/${medEntry.medications.length} taken`, time: '' };

@@ -7,6 +7,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import {
+  Alert,
   KeyboardAvoidingView,
   LayoutAnimation,
   Platform,
@@ -424,7 +425,6 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
           applySexAwareDefaults(sex).then(({ showPrompt }) => {
             if (showPrompt) {
               setTimeout(() => {
-                const { Alert } = require('react-native');
                 Alert.alert(
                   'Cycle Tracking Enabled',
                   "We've enabled Cycle Tracking for you. You can also enable Breastfeeding and Perimenopause tracking in My Categories anytime.",
@@ -507,7 +507,7 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
   // Sprint 27: Handle first log prompt navigation
   const handleFirstLog = useCallback(async (logType: 'sleep' | 'food' | 'mood') => {
     if (isNavigating.current) return;
-    isNavigating.current = true;
+    // Note: don't set isNavigating here — handleFinish manages its own guard
     setSaving(true);
     try {
       await handleFinish();
@@ -524,14 +524,13 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
       // handleFinish has its own fallback — just reset state
     } finally {
       setSaving(false);
-      isNavigating.current = false;
     }
   }, [handleFinish]);
 
   // Sprint 27: Skip onboarding from first log prompt without logging
   const handleSkipFirstLog = useCallback(async () => {
     if (isNavigating.current) return;
-    isNavigating.current = true;
+    // Note: don't set isNavigating here — handleFinish manages its own guard
     setSaving(true);
     try {
       await handleFinish();
@@ -539,7 +538,6 @@ export function PersonalizationFlow({ onComplete }: PersonalizationFlowProps) {
       // handleFinish has its own fallback
     } finally {
       setSaving(false);
-      isNavigating.current = false;
     }
   }, [handleFinish]);
 

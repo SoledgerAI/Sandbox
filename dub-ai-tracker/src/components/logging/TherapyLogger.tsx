@@ -83,7 +83,7 @@ export function TherapyLogger({ onEntryLogged }: TherapyLoggerProps) {
     setEntry(newEntry);
     await saveAsLast(newEntry);
     onEntryLogged?.();
-  }, [therapistName, selectedType, notes, onEntryLogged, saveAsLast, timestamp]);
+  }, [therapistName, selectedType, notes, durationMinutes, onEntryLogged, saveAsLast, timestamp]);
 
   const clearEntry = useCallback(async () => {
     const today = getActiveDate();

@@ -59,7 +59,7 @@ export default function CoachScreen() {
 
   const [inputText, setInputText] = useState('');
   const [showConsentModal, setShowConsentModal] = useState(false);
-  const [consentGranted, setConsentGranted] = useState(false);
+  const [consentGranted, setConsentGranted] = useState<boolean | null>(null);
   const [showDisclaimerModal, setShowDisclaimerModal] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [patterns, setPatterns] = useState<PatternInsight[]>([]);
@@ -232,22 +232,21 @@ export default function CoachScreen() {
           </View>
 
           {/* Pattern insights */}
-          {patterns.length > 0 && (
-            <View style={styles.liteSectionCard}>
-              <Text style={styles.liteSectionTitle}>Pattern Insights</Text>
-              {patterns.slice(0, 3).map((p) => (
+          <View style={styles.liteSectionCard}>
+            <Text style={styles.liteSectionTitle}>Pattern Insights</Text>
+            {patterns.length > 0 ? (
+              patterns.slice(0, 3).map((p) => (
                 <View key={p.id} style={styles.litePatternRow}>
                   <Ionicons name="analytics-outline" size={16} color={Colors.accent} />
                   <Text style={styles.litePatternText}>{p.observation}</Text>
                 </View>
-              ))}
-              {patterns.length === 0 && (
-                <Text style={styles.liteNoDataText}>
-                  Keep logging for 7+ days to see pattern insights
-                </Text>
-              )}
-            </View>
-          )}
+              ))
+            ) : (
+              <Text style={styles.liteNoDataText}>
+                Keep logging for 7+ days to see pattern insights
+              </Text>
+            )}
+          </View>
 
           {/* Unlock AI Coach — warm CTA, not blocking */}
           <View style={styles.liteUpgradeCard}>
@@ -300,7 +299,7 @@ export default function CoachScreen() {
       keyboardVerticalOffset={90}
     >
       <AnthropicConsentModal
-        visible={showConsentModal || (apiKeyConfigured && !consentGranted)}
+        visible={showConsentModal || (apiKeyConfigured && consentGranted === false)}
         onConsent={handleAnthropicConsent}
       />
 

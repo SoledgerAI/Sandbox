@@ -74,7 +74,15 @@
       "Bash(npm audit:*)",
       "Bash(npm view:*)",
       "Bash(sort -t: -k2 -rn)",
-      "Bash(PremiumButton\")"
+      "Bash(PremiumButton\")",
+      "Bash(read line *)",
+      "Bash(sort -u echo \"Total unique imports found:\" wc -l /tmp/imports.txt)",
+      "Bash(bash /tmp/check_imports.sh)",
+      "Bash(bash /tmp/final_check.sh)",
+      "Bash(bash /tmp/comprehensive_audit.sh)",
+      "Bash(xargs echo *)",
+      "Bash(bash /tmp/specific_requirements.sh)",
+      "Bash(git -C /c/Users/joshs/Documents/Sandbox/dub-ai-tracker log --oneline)"
     ]
   }
 }

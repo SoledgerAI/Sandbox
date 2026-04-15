@@ -223,35 +223,40 @@ export function useDailySummary(): DailySummaryResult {
       if (foods.length > 0) tagsLoggedCount++;
       if (waters.length > 0) tagsLoggedCount++;
       if ((workoutEntries ?? []).length > 0) tagsLoggedCount++;
-      // For other tags, quick-check via storage
-      for (const { tagId, storageKey } of tagLogKeys) {
-        if (!storageKey) continue;
-        if (tagId === 'nutrition.food' || tagId === 'hydration.water' || tagId === 'fitness.workout') continue;
-        const val = await storageGet(dateKey(storageKey, today));
+      // For other tags, quick-check via parallel storage reads
+      const otherTagKeys = tagLogKeys.filter(
+        ({ tagId, storageKey }) =>
+          storageKey && tagId !== 'nutrition.food' && tagId !== 'hydration.water' && tagId !== 'fitness.workout',
+      );
+      const otherTagValues = await Promise.all(
+        otherTagKeys.map(({ storageKey }) => storageGet(dateKey(storageKey!, today))),
+      );
+      for (const val of otherTagValues) {
         if (val != null && (Array.isArray(val) ? val.length > 0 : true)) {
           tagsLoggedCount++;
         }
       }
 
-      // Consistency: count days in last 7 that have any food log
-      let daysLoggedLast7 = 0;
-      for (let i = 0; i < 7; i++) {
+      // Consistency + 5-day calorie average — parallel reads for days -0 to -7
+      const dateStrings = Array.from({ length: 8 }, (_, i) => {
         const d = new Date();
         d.setDate(d.getDate() - i);
-        const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const dayFood = await storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, ds));
-        if (dayFood && dayFood.length > 0) daysLoggedLast7++;
+        return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      });
+      const dayFoodResults = await Promise.all(
+        dateStrings.map((ds) => storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, ds))),
+      );
+      let daysLoggedLast7 = 0;
+      for (let i = 0; i < 7; i++) {
+        if (dayFoodResults[i] && dayFoodResults[i]!.length > 0) daysLoggedLast7++;
       }
 
-      // 5-day calorie average for trend alignment
+      // 5-day calorie average for trend alignment (days -1 to -5)
       let fiveDayCalAvg: number | null = null;
       {
         const cals: number[] = [];
         for (let i = 1; i <= 5; i++) {
-          const d = new Date();
-          d.setDate(d.getDate() - i);
-          const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-          const dayFood = await storageGet<FoodEntry[]>(dateKey(STORAGE_KEYS.LOG_FOOD, ds));
+          const dayFood = dayFoodResults[i];
           if (dayFood && dayFood.length > 0) {
             cals.push(dayFood.reduce((s, f) => s + (f.computed_nutrition?.calories ?? 0), 0));
           }

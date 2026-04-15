@@ -2,7 +2,7 @@
   "expo": {
     "name": "DUB Tracker",
     "slug": "dub-ai-tracker",
-    "version": "1.1.1",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/dub_app_icon_1024.png",
     "userInterfaceStyle": "dark",
@@ -17,7 +17,7 @@
       "icon": "./assets/dub_app_icon_1024.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.soledgerai.dubaitracker",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSFaceIDUsageDescription": "DUB_AI uses Face ID to protect your health data and app access.",

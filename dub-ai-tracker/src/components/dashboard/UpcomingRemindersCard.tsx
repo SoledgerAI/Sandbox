@@ -56,35 +56,28 @@ export function UpcomingRemindersCard() {
         }
       }
 
-      // Doctor follow-up in next 7 days
+      // Doctor follow-up in next 7 days (visits stored at flat key, not per-date)
       const todayDate = new Date(today + 'T00:00:00');
       const weekFromNow = new Date(todayDate);
       weekFromNow.setDate(weekFromNow.getDate() + 7);
 
-      // Scan recent doctor visits for follow-ups
-      for (let i = 0; i < 90; i++) {
-        const d = new Date(todayDate);
-        d.setDate(d.getDate() - i);
-        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const visits = await storageGet<DoctorVisitEntry[]>(dateKey(STORAGE_KEYS.LOG_DOCTOR_VISITS, dateStr));
-        if (visits) {
-          for (const v of visits) {
-            if (v.follow_up_date) {
-              const followUp = new Date(v.follow_up_date + 'T00:00:00');
-              if (followUp >= todayDate && followUp <= weekFromNow) {
-                const daysUntil = Math.ceil((followUp.getTime() - todayDate.getTime()) / 86400000);
-                items.push({
-                  icon: 'calendar-outline',
-                  label: `Follow-up: ${v.doctor_name ?? v.visit_type}`,
-                  detail: daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `In ${daysUntil} days`,
-                  color: Colors.accentText,
-                });
-                break; // Only show the nearest one
-              }
+      const allVisits = await storageGet<DoctorVisitEntry[]>(STORAGE_KEYS.LOG_DOCTOR_VISITS);
+      if (allVisits) {
+        for (const v of allVisits) {
+          if (v.follow_up_date) {
+            const followUp = new Date(v.follow_up_date + 'T00:00:00');
+            if (followUp >= todayDate && followUp <= weekFromNow) {
+              const daysUntil = Math.ceil((followUp.getTime() - todayDate.getTime()) / 86400000);
+              items.push({
+                icon: 'calendar-outline',
+                label: `Follow-up: ${v.doctor_name ?? v.visit_type}`,
+                detail: daysUntil === 0 ? 'Today' : daysUntil === 1 ? 'Tomorrow' : `In ${daysUntil} days`,
+                color: Colors.accentText,
+              });
+              break; // Only show the nearest one
             }
           }
         }
-        if (items.length >= 3) break;
       }
 
       // Predicted period (if cycle_tracking enabled and within 3 days)

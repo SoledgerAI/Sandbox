@@ -64,7 +64,7 @@ export function AnthropicConsentModal({ visible, onConsent }: AnthropicConsentMo
                 <Text style={styles.link}>Anthropic Privacy Policy</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                onPress={() => Linking.openURL('https://dubaitracker.com/privacy')}
+                onPress={() => Linking.openURL('https://dubtracker.ai/privacy')}
               >
                 <Text style={styles.link}>DUB_AI Privacy Policy</Text>
               </TouchableOpacity>

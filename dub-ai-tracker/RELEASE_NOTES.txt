@@ -1,0 +1,115 @@
+DUB Tracker v1.0.0 — TestFlight Release Notes
+================================================
+
+What to Test
+------------
+
+DUB Tracker is your all-in-one health and wellness tracker with AI coaching.
+This is the first TestFlight build. Please test each area below and report
+any issues, crashes, or confusing behavior.
+
+
+GETTING STARTED
+- Launch the app and go through the full onboarding (name, age, height,
+  weight, goals, category selection, notification permissions)
+- Try the "Log your first entry" prompt at the end of onboarding
+- Verify your profile info is saved correctly in Settings > Profile
+
+DAILY LOGGING (Log Tab)
+- Food: Log a meal manually, try the photo scan (camera icon), try the
+  barcode scanner, try natural language entry ("2 eggs and toast")
+- Water & Drinks: Add water, try quick-add buttons, check daily total
+- Exercise: Log a workout, check calorie burn estimate, try strength logging
+- Sleep: Log bedtime/wake time, rate quality, add disturbances and sleep aids
+- Mood: Rate your mood, energy, and anxiety — verify the 988 crisis banner
+  is always visible at the bottom of the Mood & Mental Health screen
+- Habits: Set up daily habits in Settings, then check them off
+- Medications: Add medications in Settings, then use the daily checklist
+- Supplements: Check off your daily supplements
+- Body Measurements: Log weight, body fat, measurements
+- Migraines: Log a migraine with triggers, severity, duration
+- Cycle Tracking: Enable in My Categories, log period and symptoms
+- Doctor Visits: Log a visit, set a follow-up date
+- Allergies: Log allergy flare-ups with severity and symptoms
+- Journaling: Write a journal entry — verify it stays private by default
+- Meditation & Breathwork: Log a session with duration
+- Stress, Gratitude, Therapy, Social, Sunlight, Mobility: Try each logger
+- Substances: Log with goal tracking (monitor, reduce, quit)
+- Recipes: Create a recipe manually, try photo import, log a recipe as food
+
+COACH DUB (AI Chat)
+- Without an API key: Verify the "Coach Lite" mode shows pattern insights
+  and a clear setup prompt
+- Add your Anthropic API key in Settings > API Key
+- Chat with Coach DUB — try asking about your day, meal ideas, workout plans
+- Type @ to see the 11 expert mentors (@dietician, @trainer, @sleep, etc.)
+- Verify the privacy consent modal appears before first AI use
+
+DASHBOARD (Home Tab)
+- Check daily snapshot card (calories, water, activity summary)
+- Verify streak counter and active streaks display
+- Check "Today's Priorities" suggestions
+- Look for upcoming reminders (medications, doctor follow-ups)
+- Tap any card to navigate to its detail screen
+
+INSIGHTS & TRENDS
+- View trend charts for calories, weight, sleep, mood, water, and more
+- Try different time ranges (7D, 30D, 90D, 1Y)
+- Tap a chart to see the full-screen detail view with tooltips
+- Check the Insights screen for correlations and patterns
+
+SETTINGS & PROFILE
+- My Categories: Enable/disable tracking categories
+- Notifications: Set up daily reminders (log, hydration, medication, etc.)
+- Units: Switch between imperial and metric
+- Medications: Add/edit/remove your medication list
+- Export: Export your data as CSV or PDF health report
+- Data Management: View storage usage, clear individual data types
+- About: Check app version, privacy policy, terms of service
+- Crisis Support: Verify 988 Suicide & Crisis Lifeline info is accessible
+  with Call, Text, and Chat options
+
+SAFETY CHECKS (Critical)
+- The 988 crisis banner must always appear on the Mood & Mental Health screen
+- Crisis Support must be accessible from Settings
+- Journal entries must default to private
+- API key entry should never be visible in plain text after saving
+
+KNOWN LIMITATIONS
+- Duration picker for workouts shows a clock-style picker on Android
+  (iOS shows a countdown wheel) — this is a platform limitation
+- Photo food scanning requires an Anthropic API key
+- HealthKit sync requires a physical iOS device (not available in Simulator)
+
+
+Feature History by Sprint
+-------------------------
+
+Sprint 1: Privacy policy, offline banner, coach error retry, open source licenses
+Sprint 2: Haptic feedback, onboarding summary, end-of-day questionnaire, forgot PIN
+Sprint 3: Loading indicators, toast notifications, design system (spacing, colors, fonts)
+Sprint 4: Dashboard empty states, coach greeting, sleep/weight wheels, swipe-to-delete
+Sprint 5: Onboarding polish, score ring, trend charts, coach fixes, settings cleanup
+Sprint 6: Crash fixes (picker, biometric, onboarding), splash screen, app icon
+Sprint 7: Keyboard fixes, pronoun support, safe areas, calorie formula (Mifflin-St Jeor)
+Sprint 8: Biometric grace period, safe area wrapper, splash fade, disclaimer cleanup
+Sprint 9: Tab bar redesign, Log tab Strava-inspired layout, health report, devices screen
+Sprint 10: Food photo scanning (Claude Vision), barcode scanner, My Foods library
+Sprint 11: Drinks overhaul, Strava activity sync, supplement expansion with timing
+Sprint 12: Coach DUB 11-expert panel, streaming chat, tool-use logging, photo capture
+Sprint 13: Substances overhaul (hemp, cannabis strains, goal workflows)
+Sprint 14: Food scan polish (multi-item, edge cases), configurable macro display
+Sprint 15: Color palette migration, premium styling, light mode, streak badges
+Sprint 16: Daily habits checklist, bodyweight rep tracking (push-ups, pull-ups, etc.)
+Sprint 17: Doctor visits (9 types, follow-up reminders), allergy tracking with Coach awareness
+Sprint 18-19: Compliance scorecard (20 daily goals), wellness journal (meditation, social,
+  sunlight, mobility, journaling with privacy firewall, sleep schedule adherence)
+Sprint 20-21: Recipe builder (manual, AI photo/text import, portion methods), category
+  election system (10 opt-in categories), perimenopause and breastfeeding loggers
+Sprint 22: Migraine tracker (11 fields), Mood & Mental Health with 988 crisis support
+Sprint 23: Enhanced sleep (disturbances, aids, naps), body measurements, medication adherence
+Sprint 24: Local notifications (5 reminder types, iOS cap management), enhanced cycle tracker
+Sprint 25: Dashboard overhaul (daily snapshot, priorities, streaks, reminders), insights screen
+Sprint 26: Data export (CSV + PDF), centralized units, data management, about screen
+Sprint 27: Onboarding overhaul (16 screens, 22-tap completion), integration audit (83 tests)
+Sprint 28: Device testing, bug fixes, performance optimization, TestFlight build prep

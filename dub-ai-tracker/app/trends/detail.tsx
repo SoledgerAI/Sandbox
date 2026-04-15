@@ -181,6 +181,20 @@ const CHART_META: Record<string, ChartMeta> = {
     dataKey: 'anxiety',
     unit: '/5',
   },
+  glucose: {
+    title: 'Blood Glucose',
+    category: 'Body',
+    type: 'line',
+    dataKey: 'glucose',
+    unit: 'mg/dL',
+  },
+  'bp-systolic': {
+    title: 'Blood Pressure (Systolic)',
+    category: 'Body',
+    type: 'line',
+    dataKey: 'bpSystolic',
+    unit: 'mmHg',
+  },
 };
 
 export default function TrendsDetailScreen() {

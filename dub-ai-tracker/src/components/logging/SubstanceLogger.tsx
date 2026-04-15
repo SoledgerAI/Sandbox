@@ -192,7 +192,7 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
 
       onEntryLogged?.();
     },
-    [entries, onEntryLogged, saveAsLast],
+    [entries, entryTimestamp, onEntryLogged, saveAsLast],
   );
 
   const deleteEntry = useCallback(

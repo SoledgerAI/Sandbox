@@ -184,7 +184,7 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
     setNote('');
     await saveAsLast(entry);
     onEntryLogged?.();
-  }, [entries, selectedMood, selectedEnergy, selectedAnxiety, note, onEntryLogged, saveAsLast]);
+  }, [entries, selectedMood, selectedEnergy, selectedAnxiety, note, entryTimestamp, onEntryLogged, saveAsLast]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
