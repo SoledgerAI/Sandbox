@@ -4,7 +4,7 @@
 // Sprint 25: Dashboard Overhaul — Daily Snapshot, Priorities, Coach, Reminders, Streaks
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Pressable } from 'react-native';
+import { StyleSheet, Text, View, ScrollView, TouchableOpacity, Pressable, RefreshControl } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useScrollToTop } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -119,6 +119,8 @@ export default function DashboardScreen() {
   const scrollRef = useRef<ScrollView>(null);
   useScrollToTop(scrollRef);
 
+  const [refreshing, setRefreshing] = useState(false);
+
   // Sprint 25: Load dashboard extras in parallel
   const loadDashboardExtras = useCallback(async () => {
     const today = todayDateString();
@@ -160,6 +162,13 @@ export default function DashboardScreen() {
     }, [refresh, loadDashboardExtras]),
   );
 
+  const onPullRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await refresh();
+    await loadDashboardExtras();
+    setRefreshing(false);
+  }, [refresh, loadDashboardExtras]);
+
   const handleSetUp = useCallback((key: DeferredSetupKey) => {
     completeItem(key);
   }, [completeItem]);
@@ -194,6 +203,14 @@ export default function DashboardScreen() {
       style={styles.container}
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
+      refreshControl={
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={onPullRefresh}
+          tintColor={Colors.accent}
+          colors={[Colors.accent]}
+        />
+      }
     >
       {/* Sprint 15: Coach DUB badge — top right */}
       <View style={styles.coachBadgeRow}>
