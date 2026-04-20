@@ -13,6 +13,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { PremiumCard } from '../common/PremiumCard';
+import { TimestampPicker } from '../common/TimestampPicker';
 import {
   storageGet,
   storageSet,
@@ -65,6 +66,7 @@ async function loadTodayHabits(definitions: HabitDefinition[]): Promise<HabitEnt
 export function HabitsChecklist() {
   const [habits, setHabits] = useState<HabitEntry[]>([]);
   const [definitions, setDefinitions] = useState<HabitDefinition[]>([]);
+  const [timestamp, setTimestamp] = useState(new Date());
   // Track animation values per habit
   const [scaleAnims] = useState<Map<string, Animated.Value>>(new Map());
 
@@ -134,6 +136,7 @@ export function HabitsChecklist() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
       {/* Summary */}
       <PremiumCard>
         <View style={styles.summaryRow}>

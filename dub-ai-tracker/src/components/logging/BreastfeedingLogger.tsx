@@ -15,6 +15,7 @@ import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
 import { PremiumCard } from '../common/PremiumCard';
 import { PremiumButton } from '../common/PremiumButton';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { storageGet, storageSet, STORAGE_KEYS, dateKey } from '../../utils/storage';
 import { getActiveDate } from '../../services/dateContextService';
 import { hapticSuccess, hapticSelection, hapticLight } from '../../utils/haptics';
@@ -45,6 +46,7 @@ export function BreastfeedingLogger() {
   const [bottleAmount, setBottleAmount] = useState('');
   const [bottleUnit, setBottleUnit] = useState<VolumeUnit>('oz');
   const [notes, setNotes] = useState('');
+  const [timestamp, setTimestamp] = useState(new Date());
 
   // Timer state
   const [timerRunning, setTimerRunning] = useState(false);
@@ -109,7 +111,7 @@ export function BreastfeedingLogger() {
     const key = dateKey(STORAGE_KEYS.LOG_BREASTFEEDING, today);
     const entry: BreastfeedingEntry = {
       id: `bf_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
       type,
       side: type === 'nursing' ? side : null,
       duration_minutes: duration,
@@ -137,7 +139,7 @@ export function BreastfeedingLogger() {
     setTimerStart(null);
     setTimerElapsed(0);
     setTimerRunning(false);
-  }, [today, type, side, durationMinutes, outputAmount, outputUnit, bottleAmount, bottleUnit, notes, timerStart, timerRunning, showToast]);
+  }, [today, type, side, durationMinutes, outputAmount, outputUnit, bottleAmount, bottleUnit, notes, timerStart, timerRunning, showToast, timestamp]);
 
   // Daily summary
   const totalSessions = sessions.length;
@@ -148,6 +150,7 @@ export function BreastfeedingLogger() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
       {/* Quick Log Buttons */}
       <PremiumCard>
         <Text style={styles.cardTitle}>New Session</Text>

@@ -23,6 +23,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
 import { getActiveDate } from '../../services/dateContextService';
+import { TimestampPicker } from '../common/TimestampPicker';
 
 
 const DEFAULT_ENTRY: PersonalCareEntry = {
@@ -65,6 +66,7 @@ export function PersonalCareChecklist() {
   const [skincareAmDetail, setSkincareAmDetail] = useState('');
   const [skincarePmDetail, setSkincarePmDetail] = useState('');
   const [groomingNotes, setGroomingNotes] = useState('');
+  const [timestamp, setTimestamp] = useState(new Date());
 
   const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<PersonalCareEntry>('personal.care');
 
@@ -143,6 +145,8 @@ export function PersonalCareChecklist() {
         visible={!lastEntryLoading && lastEntry !== null}
         onRepeat={handleRepeatLast}
       />
+
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
 
       {/* Summary */}
       <View style={styles.summaryCard}>

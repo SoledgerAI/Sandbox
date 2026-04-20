@@ -40,6 +40,7 @@ import {
 } from '../../types';
 import type { UserProfile } from '../../types/profile';
 import { PremiumCard } from '../common/PremiumCard';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { hapticSelection, hapticSuccess } from '../../utils/haptics';
 import { getActiveDate } from '../../services/dateContextService';
 import {
@@ -126,6 +127,7 @@ export function CycleLogger() {
   const [saved, setSaved] = useState(false);
   const [crampSeverity, setCrampSeverity] = useState<CrampSeverity | null>(null);
   const [otherSymptomText, setOtherSymptomText] = useState('');
+  const [timestamp, setTimestamp] = useState(new Date());
 
   const loadData = useCallback(async () => {
     const today = getActiveDate();
@@ -296,6 +298,7 @@ export function CycleLogger() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
       {/* Mini Calendar */}
       <PremiumCard>
         <Text style={styles.sectionTitle}>Cycle Calendar</Text>

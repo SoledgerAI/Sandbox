@@ -22,6 +22,7 @@ import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
 import { PremiumCard } from '../common/PremiumCard';
 import { PremiumButton } from '../common/PremiumButton';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { storageGet, storageSet, STORAGE_KEYS, dateKey } from '../../utils/storage';
 import { getActiveDate } from '../../services/dateContextService';
 import { hapticSuccess, hapticSelection } from '../../utils/haptics';
@@ -52,6 +53,7 @@ export function MedicationLogger() {
   const [existingEntry, setExistingEntry] = useState<MedicationEntry | null>(null);
   const [medList, setMedList] = useState<MedicationDefinition[]>([]);
   const [showSkipReasonFor, setShowSkipReasonFor] = useState<string | null>(null);
+  const [timestamp, setTimestamp] = useState(new Date());
 
   // As-needed add form
   const [addingAsNeeded, setAddingAsNeeded] = useState(false);
@@ -178,7 +180,7 @@ export function MedicationLogger() {
   const handleSave = useCallback(async () => {
     const entry: MedicationEntry = {
       id: existingEntry?.id ?? `medlog_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
       date: today,
       medications,
     };
@@ -188,7 +190,7 @@ export function MedicationLogger() {
     setExistingEntry(entry);
     hapticSuccess();
     showToast('Medications saved', 'success');
-  }, [medications, existingEntry, today, showToast]);
+  }, [medications, existingEntry, today, showToast, timestamp]);
 
   const takenCount = medications.filter((m) => m.taken).length;
   const totalCount = medications.length;
@@ -196,6 +198,7 @@ export function MedicationLogger() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
       {/* Adherence Summary */}
       {totalCount > 0 && (
         <PremiumCard>

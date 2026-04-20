@@ -30,6 +30,7 @@ import { hapticSuccess, hapticSelection } from '../../utils/haptics';
 import { useToast } from '../../contexts/ToastContext';
 import { getActiveDate } from '../../services/dateContextService';
 import { todayDateString } from '../../utils/dayBoundary';
+import { TimestampPicker } from '../common/TimestampPicker';
 
 function generateId(): string {
   return `allergy_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
@@ -43,6 +44,7 @@ export function AllergyLogger() {
   const [medicationName, setMedicationName] = useState('');
   const [notes, setNotes] = useState('');
   const [symptomFreeStreak, setSymptomFreeStreak] = useState(0);
+  const [timestamp, setTimestamp] = useState(new Date());
   const { showToast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -101,7 +103,7 @@ export function AllergyLogger() {
     const key = dateKey(STORAGE_KEYS.LOG_ALLERGIES, activeDate);
     const updated: AllergyLogEntry = {
       id: entry?.id ?? generateId(),
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
       severity,
       symptoms: severity === 'none' ? [] : symptoms,
       medication_taken: medicationTaken,
@@ -112,7 +114,7 @@ export function AllergyLogger() {
     setEntry(updated);
     hapticSuccess();
     showToast('Allergy log saved');
-  }, [entry, severity, symptoms, medicationTaken, medicationName, notes, showToast]);
+  }, [entry, severity, symptoms, medicationTaken, medicationName, notes, showToast, timestamp]);
 
   const severityColor = ALLERGY_SEVERITY_OPTIONS.find((o) => o.value === severity)?.color ?? Colors.success;
 
@@ -126,6 +128,8 @@ export function AllergyLogger() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <TimestampPicker value={timestamp} onChange={setTimestamp} />
+
         {/* Symptom-free streak */}
         {symptomFreeStreak > 0 && (
           <PremiumCard style={styles.streakCard}>

@@ -26,6 +26,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
 import { getActiveDate } from '../../services/dateContextService';
+import { TimestampPicker } from '../common/TimestampPicker';
 
 
 const BODY_LOCATIONS = [
@@ -60,6 +61,7 @@ export function InjuryLogger() {
   const [description, setDescription] = useState('');
   const [aggravators, setAggravators] = useState<string[]>([]);
   const [showLocationPicker, setShowLocationPicker] = useState(false);
+  const [timestamp, setTimestamp] = useState(new Date());
 
   const loadData = useCallback(async () => {
     const today = getActiveDate();
@@ -150,6 +152,7 @@ export function InjuryLogger() {
         visible={!lastLoading && lastEntry != null}
         onRepeat={handleRepeatLast}
       />
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
       {/* Body location */}
       <Text style={styles.sectionTitle}>Body Location</Text>
       <TouchableOpacity

@@ -16,6 +16,7 @@ import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
 import { PremiumCard } from '../common/PremiumCard';
 import { PremiumButton } from '../common/PremiumButton';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { storageGet, storageSet, STORAGE_KEYS, dateKey } from '../../utils/storage';
 import { getActiveDate } from '../../services/dateContextService';
 import { hapticSuccess, hapticSelection } from '../../utils/haptics';
@@ -59,6 +60,7 @@ export function PerimenopauseLogger() {
   const [energyLevel, setEnergyLevel] = useState(3);
   const [notes, setNotes] = useState('');
   const [existingEntry, setExistingEntry] = useState<PerimenopauseEntry | null>(null);
+  const [timestamp, setTimestamp] = useState(new Date());
 
   // Load existing entry for today
   useEffect(() => {
@@ -116,7 +118,7 @@ export function PerimenopauseLogger() {
     const key = dateKey(STORAGE_KEYS.LOG_PERIMENOPAUSE, today);
     const entry: PerimenopauseEntry = {
       id: existingEntry?.id ?? `peri_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
       date: today,
       hot_flashes_count: hotFlashCount,
       hot_flashes: hotFlashes,
@@ -138,7 +140,7 @@ export function PerimenopauseLogger() {
     today, existingEntry, hotFlashCount, hotFlashes,
     nightSweats, nightSweatsSeverity, moodShifts, sleepDisruption,
     brainFog, jointPain, jointPainAreas, cycleIrregularityDays,
-    energyLevel, notes, showToast,
+    energyLevel, notes, showToast, timestamp,
   ]);
 
   const renderScaleSelector = (
@@ -172,6 +174,7 @@ export function PerimenopauseLogger() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
       {/* Hot Flashes */}
       <PremiumCard>
         <Text style={styles.cardTitle}>Hot Flashes</Text>

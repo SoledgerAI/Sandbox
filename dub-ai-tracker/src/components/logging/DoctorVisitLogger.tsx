@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { PremiumCard } from '../common/PremiumCard';
 import { PremiumButton } from '../common/PremiumButton';
+import { TimestampPicker } from '../common/TimestampPicker';
 import {
   storageGet,
   storageSet,
@@ -58,6 +59,7 @@ export function DoctorVisitLogger() {
   const [notes, setNotes] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [specialistType, setSpecialistType] = useState('');
+  const [timestamp, setTimestamp] = useState(new Date());
 
   const loadData = useCallback(async () => {
     const stored = await storageGet<DoctorVisitEntry[]>(STORAGE_KEYS.LOG_DOCTOR_VISITS);
@@ -100,7 +102,7 @@ export function DoctorVisitLogger() {
   const saveVisit = useCallback(async () => {
     const entry: DoctorVisitEntry = {
       id: editingId ?? generateId(),
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
       visit_type: visitType,
       visit_date: visitDate,
       doctor_name: doctorName.trim() || null,
@@ -123,7 +125,7 @@ export function DoctorVisitLogger() {
     resetForm();
     hapticSuccess();
     showToast(editingId ? 'Visit updated' : 'Visit logged');
-  }, [editingId, visitType, visitDate, doctorName, location, notes, followUpDate, specialistType, visits, resetForm, showToast]);
+  }, [editingId, visitType, visitDate, doctorName, location, notes, followUpDate, specialistType, visits, resetForm, showToast, timestamp]);
 
   const deleteVisit = useCallback((id: string) => {
     Alert.alert('Delete Visit', 'Remove this doctor visit?', [
@@ -164,6 +166,7 @@ export function DoctorVisitLogger() {
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
       >
+        <TimestampPicker value={timestamp} onChange={setTimestamp} />
         {/* Quick-add button */}
         <PremiumButton
           label="Log Doctor Visit"

@@ -45,6 +45,11 @@ export interface WaterEntry {
   amount_oz: number;
   beverage?: BeverageType; // defaults to 'water' for backward compat
   notes: string | null;
+  // Bug #17: Optional product metadata populated by barcode-scan path.
+  // Old entries without these fields remain valid.
+  product_name?: string | null;
+  calories?: number | null;
+  source?: 'manual' | 'scan';
 }
 
 export interface CaffeineEntry {

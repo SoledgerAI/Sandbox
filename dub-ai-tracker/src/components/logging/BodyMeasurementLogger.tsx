@@ -20,6 +20,7 @@ import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
 import { PremiumCard } from '../common/PremiumCard';
 import { PremiumButton } from '../common/PremiumButton';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { storageGet, storageSet, storageList, STORAGE_KEYS, dateKey } from '../../utils/storage';
 import { getActiveDate } from '../../services/dateContextService';
 import { hapticSuccess, hapticSelection } from '../../utils/haptics';
@@ -68,6 +69,7 @@ export function BodyMeasurementLogger() {
   const [measurementUnit, setMeasurementUnit] = useState<MeasurementUnit>('in');
   const [photoTaken, setPhotoTaken] = useState(false);
   const [notes, setNotes] = useState('');
+  const [timestamp, setTimestamp] = useState(new Date());
 
   // UI
   const [measurementsExpanded, setMeasurementsExpanded] = useState(false);
@@ -174,7 +176,7 @@ export function BodyMeasurementLogger() {
 
     const entry: BodyMeasurementEntry = {
       id: existingEntry?.id ?? `bm_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
       date: today,
       weight: weightNum,
       weight_unit: weightUnit,
@@ -190,7 +192,7 @@ export function BodyMeasurementLogger() {
     setExistingEntry(entry);
     hapticSuccess();
     showToast('Body measurements saved', 'success');
-  }, [weight, weightUnit, bodyFat, measurements, measurementUnit, photoTaken, notes, existingEntry, today, showToast]);
+  }, [weight, weightUnit, bodyFat, measurements, measurementUnit, photoTaken, notes, existingEntry, today, showToast, timestamp]);
 
   const handleClear = useCallback(async () => {
     const key = dateKey(STORAGE_KEYS.LOG_BODY_MEASUREMENTS, today);
@@ -218,6 +220,8 @@ export function BodyMeasurementLogger() {
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
+
       {/* Last entry reference */}
       {lastEntry && (
         <PremiumCard>

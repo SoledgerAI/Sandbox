@@ -27,6 +27,7 @@ import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { todayDateString } from '../../utils/dayBoundary';
 import { getActiveDate } from '../../services/dateContextService';
+import { TimestampPicker } from '../common/TimestampPicker';
 
 
 interface MarkerTemplate {
@@ -134,6 +135,7 @@ export function BloodworkPanel() {
   const [markerValues, setMarkerValues] = useState<Record<string, string>>({});
   const [expandedCategory, setExpandedCategory] = useState<string | null>('CBC');
   const [savedEntry, setSavedEntry] = useState<BloodworkEntry | null>(null);
+  const [timestamp, setTimestamp] = useState(new Date());
 
   const loadData = useCallback(async () => {
     const today = getActiveDate();
@@ -224,6 +226,7 @@ export function BloodworkPanel() {
         visible={!lastLoading && lastEntry != null}
         onRepeat={handleRepeatLast}
       />
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
       {/* Disclaimer */}
       <View style={styles.disclaimerBanner}>
         <Ionicons name="information-circle-outline" size={18} color={Colors.secondaryText} />

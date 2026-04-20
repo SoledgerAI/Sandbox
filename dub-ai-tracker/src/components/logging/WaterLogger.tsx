@@ -27,7 +27,8 @@ import {
 import { useLastEntry } from '../../hooks/useLastEntry';
 import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
-import type { WaterEntry, BeverageType } from '../../types';
+import { BarcodeScanner } from './BarcodeScanner';
+import type { WaterEntry, BeverageType, FoodItem } from '../../types';
 import { NON_HYDRATING_BEVERAGES } from '../../types';
 import { todayDateString } from '../../utils/dayBoundary';
 import { getActiveDate } from '../../services/dateContextService';
@@ -72,6 +73,16 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
   const [waterGoal, setWaterGoal] = useState(DEFAULT_WATER_GOAL_OZ);
   const [selectedBeverage, setSelectedBeverage] = useState<BeverageType>('water');
   const [timestamp, setTimestamp] = useState(new Date());
+  // Bug #17: Barcode scan state. When `scanning` is true, the scanner replaces
+  // the rest of the UI. `scannedProduct` is populated on a successful lookup
+  // and used to pre-fill the entry + show a preview card above the logger.
+  const [scanning, setScanning] = useState(false);
+  const [scannedProduct, setScannedProduct] = useState<{
+    name: string;
+    brand: string | null;
+    calPer100g: number;
+    beverage: BeverageType;
+  } | null>(null);
   const { lastEntry: lastWater, saveAsLast: saveLastWater } = useLastEntry<WaterEntry>('hydration.water');
 
   const loadData = useCallback(async () => {
@@ -112,6 +123,18 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
   }, {});
   const breakdownEntries = Object.entries(beverageBreakdown).filter(([, oz]) => oz > 0);
 
+  // Bug #17: Convert oz volume to calories using the scanned product's
+  // cal-per-100g. For beverages we treat 100g ≈ 100mL (density ≈ 1) and
+  // convert 1 fl oz ≈ 29.5735 mL.
+  const caloriesForOz = useCallback(
+    (oz: number): number | null => {
+      if (!scannedProduct) return null;
+      const mL = oz * 29.5735;
+      return Math.round((scannedProduct.calPer100g * mL) / 100);
+    },
+    [scannedProduct],
+  );
+
   const logDrink = useCallback(
     async (amount: number) => {
       const today = getActiveDate();
@@ -123,6 +146,11 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
         amount_oz: amount,
         beverage: selectedBeverage,
         notes: null,
+        product_name: scannedProduct
+          ? [scannedProduct.name, scannedProduct.brand].filter(Boolean).join(' ')
+          : null,
+        calories: caloriesForOz(amount),
+        source: scannedProduct ? 'scan' : 'manual',
       };
 
       const updated = [...entries, entry];
@@ -143,9 +171,11 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
       } else {
         hapticLight();
       }
+      // Clear scanned product after logging — next entry starts fresh
+      setScannedProduct(null);
       onEntryLogged?.();
     },
-    [entries, onEntryLogged, selectedBeverage, saveLastWater, timestamp, waterGoal, hydratingOz],
+    [entries, onEntryLogged, selectedBeverage, saveLastWater, timestamp, waterGoal, hydratingOz, scannedProduct, caloriesForOz],
   );
 
   const logCustom = useCallback(() => {
@@ -198,7 +228,60 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
     return BEVERAGE_OPTIONS.find((b) => b.value === bev)?.label ?? bev;
   }
 
+  // Bug #17: Map scanned product name keywords to a BeverageType so the
+  // hydration-goal calculation stays correct (e.g., Coke → soda non-hydrating).
+  const inferBeverageType = useCallback((name: string, brand: string | null): BeverageType => {
+    const h = `${name} ${brand ?? ''}`.toLowerCase();
+    if (/soda|cola|pop\b|dr pepper|sprite|mountain dew/.test(h)) return 'soda';
+    if (/juice/.test(h)) return 'juice';
+    if (/energy/.test(h)) return 'energy_drink';
+    if (/protein/.test(h)) return 'protein_shake';
+    if (/smoothie/.test(h)) return 'smoothie';
+    if (/milk/.test(h)) return 'milk';
+    if (/coffee|espresso|latte/.test(h)) return 'coffee';
+    if (/tea\b|matcha/.test(h)) return 'tea';
+    if (/sparkling|seltzer|la croix/.test(h)) return 'sparkling';
+    if (/water/.test(h)) return 'water';
+    return 'other';
+  }, []);
+
+  const handleBarcodeFound = useCallback((food: FoodItem) => {
+    const bev = inferBeverageType(food.name, food.brand);
+    setSelectedBeverage(bev);
+    setScannedProduct({
+      name: food.name,
+      brand: food.brand,
+      calPer100g: food.nutrition_per_100g.calories ?? 0,
+      beverage: bev,
+    });
+    setScanning(false);
+  }, [inferBeverageType]);
+
+  const handleBarcodeNotFound = useCallback(() => {
+    setScanning(false);
+    Alert.alert(
+      'Product Not Found',
+      'Enter the drink manually — pick beverage type and volume below.',
+      [{ text: 'OK' }],
+    );
+  }, []);
+
+  const clearScannedProduct = useCallback(() => {
+    setScannedProduct(null);
+  }, []);
+
   const selectedIsNonHydrating = !isHydrating(selectedBeverage);
+
+  // Bug #17: Render BarcodeScanner full-screen when scanning
+  if (scanning) {
+    return (
+      <BarcodeScanner
+        onFoodFound={handleBarcodeFound}
+        onNotFound={handleBarcodeNotFound}
+        onCancel={() => setScanning(false)}
+      />
+    );
+  }
 
   return (
     <KeyboardAvoidingView
@@ -213,6 +296,41 @@ export function WaterLogger({ onEntryLogged }: WaterLoggerProps) {
         visible={lastWater != null}
         onRepeat={repeatLastWater}
       />
+
+      {/* Bug #17: Scan Beverage entry point */}
+      <TouchableOpacity
+        style={styles.scanBtn}
+        onPress={() => setScanning(true)}
+        activeOpacity={0.7}
+        accessibilityLabel="Scan beverage barcode"
+        accessibilityRole="button"
+      >
+        <Ionicons name="barcode" size={22} color={Colors.accent} />
+        <Text style={styles.scanBtnText}>Scan Beverage Barcode</Text>
+      </TouchableOpacity>
+
+      {/* Bug #17: Scanned product preview card */}
+      {scannedProduct && (
+        <View style={styles.scannedCard}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.scannedLabel}>Scanned</Text>
+            <Text style={styles.scannedName} numberOfLines={1}>
+              {scannedProduct.name}
+              {scannedProduct.brand ? ` (${scannedProduct.brand})` : ''}
+            </Text>
+            <Text style={styles.scannedMeta}>
+              {scannedProduct.calPer100g} cal/100mL &middot; Tap a volume below to log
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={clearScannedProduct}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            accessibilityLabel="Clear scanned product"
+          >
+            <Ionicons name="close-circle" size={22} color={Colors.secondaryText} />
+          </TouchableOpacity>
+        </View>
+      )}
 
       <TimestampPicker value={timestamp} onChange={setTimestamp} />
 
@@ -400,6 +518,51 @@ const styles = StyleSheet.create({
   content: {
     padding: 16,
     paddingBottom: 32,
+  },
+  scanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 10,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  scanBtnText: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  scannedCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    gap: 10,
+  },
+  scannedLabel: {
+    color: Colors.accent,
+    fontSize: 11,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    marginBottom: 2,
+  },
+  scannedName: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  scannedMeta: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    marginTop: 2,
   },
   summaryCard: {
     backgroundColor: Colors.cardBackground,

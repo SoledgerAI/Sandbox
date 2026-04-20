@@ -18,6 +18,7 @@ import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
 import { PremiumCard } from '../common/PremiumCard';
 import { PremiumButton } from '../common/PremiumButton';
+import { TimestampPicker } from '../common/TimestampPicker';
 import { storageGet, storageSet, STORAGE_KEYS, dateKey } from '../../utils/storage';
 import { getActiveDate } from '../../services/dateContextService';
 import { hapticSuccess, hapticSelection } from '../../utils/haptics';
@@ -71,6 +72,7 @@ export function MigraineLogger() {
   const [reliefRating, setReliefRating] = useState(3);
   const [notes, setNotes] = useState('');
   const [existingEntry, setExistingEntry] = useState<MigraineEntry | null>(null);
+  const [timestamp, setTimestamp] = useState(new Date());
 
   // Collapsible sections
   const [symptomsExpanded, setSymptomsExpanded] = useState(true);
@@ -134,7 +136,7 @@ export function MigraineLogger() {
     const key = dateKey(STORAGE_KEYS.LOG_MIGRAINE, today);
     const entry: MigraineEntry = {
       id: existingEntry?.id ?? `mig_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
       date: today,
       occurred: false,
       start_time: null,
@@ -156,7 +158,7 @@ export function MigraineLogger() {
     await storageSet(key, entry);
     hapticSuccess();
     showToast('No migraine today — logged', 'success');
-  }, [today, existingEntry, showToast]);
+  }, [today, existingEntry, showToast, timestamp]);
 
   const handleSave = useCallback(async () => {
     const key = dateKey(STORAGE_KEYS.LOG_MIGRAINE, today);
@@ -168,7 +170,7 @@ export function MigraineLogger() {
 
     const entry: MigraineEntry = {
       id: existingEntry?.id ?? `mig_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-      timestamp: new Date().toISOString(),
+      timestamp: timestamp.toISOString(),
       date: today,
       occurred: true,
       start_time: startTime || null,
@@ -194,7 +196,7 @@ export function MigraineLogger() {
     today, existingEntry, startTime, endTime, totalDuration, severity,
     symptoms, symptomOtherText, locations, triggers, triggerOtherText,
     zipCode, medicationTaken, medicationName, medicationTime, reliefRating,
-    notes, showToast,
+    notes, showToast, timestamp,
   ]);
 
   const renderCollapsibleHeader = (title: string, expanded: boolean, onToggle: () => void) => (
@@ -279,6 +281,7 @@ export function MigraineLogger() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <TimestampPicker value={timestamp} onChange={setTimestamp} />
       {/* Severity */}
       <PremiumCard>
         <Text style={styles.cardTitle}>Severity: <Text style={styles.severityValue}>{severity}/10</Text></Text>
