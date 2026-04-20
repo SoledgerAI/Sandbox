@@ -1,10 +1,16 @@
 // P1-22: Slim offline banner — auto-appears/disappears on connectivity change
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Animated, StyleSheet, Text } from 'react-native';
+import NetInfo from '@react-native-community/netinfo';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useNetworkStatus } from '../../hooks/useNetworkStatus';
+
+// Bug #2: Network-heavy operations (food scan, image upload) cause momentary
+// NetInfo blips that falsely trigger the offline banner. Debounce 2s and
+// re-verify with NetInfo.fetch() before declaring the user offline.
+const OFFLINE_DEBOUNCE_MS = 2000;
 
 /**
  * Renders a slim banner at the top of the screen when the device is offline.
@@ -12,7 +18,39 @@ import { useNetworkStatus } from '../../hooks/useNetworkStatus';
  */
 export function OfflineBanner() {
   const { isConnected, isInternetReachable } = useNetworkStatus();
-  const offline = !isConnected || isInternetReachable === false;
+  const rawOffline = !isConnected || isInternetReachable === false;
+
+  const [confirmedOffline, setConfirmedOffline] = useState(false);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+
+    if (!rawOffline) {
+      setConfirmedOffline(false);
+      return;
+    }
+
+    debounceTimerRef.current = setTimeout(() => {
+      NetInfo.fetch().then((state) => {
+        const stillOffline =
+          !(state.isConnected ?? true) || state.isInternetReachable === false;
+        setConfirmedOffline(stillOffline);
+      });
+    }, OFFLINE_DEBOUNCE_MS);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    };
+  }, [rawOffline]);
+
+  const offline = confirmedOffline;
 
   const slideAnim = useRef(new Animated.Value(0)).current;
 
