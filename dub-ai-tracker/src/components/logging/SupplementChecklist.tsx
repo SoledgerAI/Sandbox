@@ -2,7 +2,7 @@
 // Phase 13 + Task F: Prompt 07 v2
 // Sprint 11: Expanded library, timing labels, multi-dose, barcode scan
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { hapticLight } from '../../utils/haptics';
 import {
   StyleSheet,
@@ -77,6 +77,20 @@ const COMMON_SUPPLEMENTS = [
 // Sprint 11: Group supplements by timing for display
 const TIMING_ORDER: SupplementTiming[] = ['morning', 'with_food', 'empty_stomach', 'anytime', 'evening'];
 
+// Bug #9: Cap doses at 5 per supplement per day; tapping a 6th time cycles
+// back to 1 (silent reset, no alert). Bug #8: Show an undo bar for 4s after
+// any tap-log so accidental taps can be reversed.
+const DOSE_CAP = 5;
+const UNDO_VISIBLE_MS = 4000;
+
+interface RecentDoseLog {
+  newEntryId: string;
+  name: string;
+  // Entries wiped when the dose count cycled past DOSE_CAP. Undo restores them.
+  // Empty array when the tap was a normal increment.
+  removedEntries: SupplementEntry[];
+}
+
 function groupByTiming(names: string[]): { timing: SupplementTiming; label: string; items: string[] }[] {
   const groups: Record<SupplementTiming, string[]> = {
     morning: [], evening: [], with_food: [], empty_stomach: [], anytime: [],
@@ -114,6 +128,17 @@ export function SupplementChecklist() {
   const [editingEntry, setEditingEntry] = useState<{ name: string; category: SupplementCategory } | null>(null);
   const [editDosage, setEditDosage] = useState('');
   const [editUnit, setEditUnit] = useState('mg');
+
+  // Bug #8: Undo bar state for accidental supplement taps
+  const [recentDoseLog, setRecentDoseLog] = useState<RecentDoseLog | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(
+    () => () => {
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+    },
+    [],
+  );
 
   const { lastEntry: lastSupplements, saveAsLast: saveLastSupplements } =
     useLastEntry<SupplementEntry[]>('supplements.daily');
@@ -198,49 +223,61 @@ export function SupplementChecklist() {
     }
   }, [saveLastSupplements]);
 
-  // F2: Tap checked supplement = add another dose. Long-press = remove all.
+  // F2: Tap supplement = add another dose. Cycles 1→2→3→4→5→1 silently.
+  // Long-press = edit/remove. Bug #9: cap 5, reset to 1 on 6th tap (no alert).
+  // Bug #8: surface an undo bar after every tap-log.
   const toggleItem = useCallback(
     async (name: string, cat: SupplementCategory) => {
       hapticLight();
       const matchingEntries = entries.filter(
         (e) => e.name === name && e.category === cat && e.taken,
       );
-      if (matchingEntries.length > 0) {
-        // Already taken — add another dose (increment)
-        if (matchingEntries.length >= 10) {
-          Alert.alert('Maximum Reached', 'You can log up to 10 doses per supplement per day.');
-          return;
-        }
-        const entry: SupplementEntry = {
-          id: `supp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          timestamp: entryTimestamp.toISOString(),
-          name,
-          dosage: 0,
-          unit: 'mg',
-          taken: true,
-          category: cat,
-          notes: null,
-          side_effects: null,
-        };
-        await saveEntries([...entries, entry]);
-      } else {
-        // Not taken — log first dose
-        const entry: SupplementEntry = {
-          id: `supp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
-          timestamp: entryTimestamp.toISOString(),
-          name,
-          dosage: 0,
-          unit: 'mg',
-          taken: true,
-          category: cat,
-          notes: null,
-          side_effects: null,
-        };
-        await saveEntries([...entries, entry]);
+
+      let removedEntries: SupplementEntry[] = [];
+      let baseEntries = entries;
+      if (matchingEntries.length >= DOSE_CAP) {
+        removedEntries = matchingEntries;
+        baseEntries = entries.filter(
+          (e) => !(e.name === name && e.category === cat && e.taken),
+        );
       }
+
+      const newEntry: SupplementEntry = {
+        id: `supp_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        timestamp: entryTimestamp.toISOString(),
+        name,
+        dosage: 0,
+        unit: 'mg',
+        taken: true,
+        category: cat,
+        notes: null,
+        side_effects: null,
+      };
+
+      await saveEntries([...baseEntries, newEntry]);
+
+      // Show undo bar for 4s
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      setRecentDoseLog({ newEntryId: newEntry.id, name, removedEntries });
+      undoTimerRef.current = setTimeout(() => {
+        setRecentDoseLog(null);
+        undoTimerRef.current = null;
+      }, UNDO_VISIBLE_MS);
     },
     [entries, saveEntries, entryTimestamp],
   );
+
+  const handleUndoDose = useCallback(async () => {
+    if (!recentDoseLog) return;
+    if (undoTimerRef.current) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+    const { newEntryId, removedEntries } = recentDoseLog;
+    const filtered = entries.filter((e) => e.id !== newEntryId);
+    await saveEntries([...filtered, ...removedEntries]);
+    setRecentDoseLog(null);
+  }, [recentDoseLog, entries, saveEntries]);
 
   const removeAllForItem = useCallback(
     (name: string, cat: SupplementCategory) => {
@@ -1039,6 +1076,20 @@ export function SupplementChecklist() {
       )}
     </ScrollView>
 
+      {/* Bug #8: Undo bar — appears for 4s after a tap-log */}
+      {recentDoseLog && (
+        <View style={styles.undoBar} pointerEvents="box-none">
+          <View style={styles.undoBarInner}>
+            <Text style={styles.undoBarText} numberOfLines={1}>
+              Logged {recentDoseLog.name}
+            </Text>
+            <TouchableOpacity onPress={handleUndoDose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+              <Text style={styles.undoBarAction}>Undo</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+
       {/* Fix 6: Edit-in-place modal */}
       <Modal
         visible={editModalVisible}
@@ -1467,5 +1518,36 @@ const styles = StyleSheet.create({
   editModalCancelBtnText: {
     color: Colors.secondaryText,
     fontSize: 14,
+  },
+  // Bug #8: Undo bar
+  undoBar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 16,
+    paddingHorizontal: 16,
+  },
+  undoBarInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+    gap: 12,
+  },
+  undoBarText: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '500',
+    flex: 1,
+  },
+  undoBarAction: {
+    color: Colors.accent,
+    fontSize: 14,
+    fontWeight: '700',
   },
 });
