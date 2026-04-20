@@ -41,6 +41,7 @@ import { TodaysPrioritiesCard } from '../../src/components/dashboard/TodaysPrior
 import { RecentCoachCard } from '../../src/components/dashboard/RecentCoachCard';
 import { UpcomingRemindersCard } from '../../src/components/dashboard/UpcomingRemindersCard';
 import { ActiveStreaksCard } from '../../src/components/dashboard/ActiveStreaksCard';
+import { NutrientAlertCard } from '../../src/components/dashboard/NutrientAlertCard';
 import { calculateAllStreaks, type CategoryStreak } from '../../src/utils/streakCalculator';
 import { refreshCompliance } from '../../src/services/complianceEngine';
 import { todayDateString } from '../../src/utils/dayBoundary';
@@ -414,6 +415,9 @@ export default function DashboardScreen() {
           </Text>
         </TouchableOpacity>
       )}
+
+      {/* Sprint 22: Nutrient UL alerts (iron, B6, etc. exceeding safe limits) */}
+      <NutrientAlertCard />
 
       {/* Sprint 25: Recent Coach Interaction */}
       {dashboardReady && (

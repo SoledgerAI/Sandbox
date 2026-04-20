@@ -73,6 +73,7 @@ import { calculateSleepAdherence } from '../utils/sleepAdherence';
 import { getEnabledCategories } from '../utils/categoryElection';
 import { todayDateString } from '../utils/dayBoundary';
 import { getCachedCompliance, getComplianceTrend } from '../services/complianceEngine';
+import { getDailyNutrientReport, formatReportForCoach } from '../services/nutrientAggregator';
 
 
 function pastDateString(daysAgo: number): string {
@@ -97,6 +98,16 @@ const BP_KEYWORDS = ['blood pressure', 'bp', 'systolic', 'diastolic', 'hypertens
 const CYCLE_KEYWORDS = ['cycle', 'period', 'menstrual', 'phase', 'ovulation'];
 const _SUBSTANCE_KEYWORDS = ['drink', 'alcohol', 'sober', 'substance', 'cannabis', 'tobacco'];
 const SUPPLEMENT_KEYWORDS = ['supplement', 'vitamin', 'medication', 'dosage'];
+// Sprint 22: trigger the daily nutrient P&L for expert-mention or nutrient
+// questions so @dietician / @pharmacist / @physician can see UL status.
+const NUTRIENT_EXPERT_KEYWORDS = [
+  '@dietician', '@pharmacist', '@physician',
+  'nutrient', 'nutrients', 'micronutrient', 'micronutrients',
+  'upper limit', 'ul', 'overdose', 'rda', 'daily value',
+  'iron', 'calcium', 'magnesium', 'zinc', 'selenium', 'potassium',
+  'folate', 'niacin', 'b6', 'b12', 'vitamin a', 'vitamin d', 'vitamin e',
+  'vitamin c', 'vitamin k', 'fiber', 'sodium', 'saturated fat',
+];
 const THERAPY_KEYWORDS = ['therapy', 'therapist', 'mental health', 'counseling'];
 const INGREDIENT_KEYWORDS = ['ingredient', 'flag', 'additive', 'sweetener', 'sugar', 'msg', 'artificial'];
 const HABIT_KEYWORDS = ['habit', 'routine', 'checklist', 'daily', 'brush', 'floss', 'bed', 'cream', 'self care'];
@@ -485,6 +496,28 @@ export async function buildCoachContext(userMessage: string): Promise<{
     if (supps && supps.length > 0) {
       supplementFlags = supps.map((s) => `${sanitizeForPrompt(s.name, 50)} ${sanitizeForPrompt(String(s.dosage), 20)}${sanitizeForPrompt(s.unit, 10)}`);
       conditionalSections.push(`[SUPPLEMENTS] ${supplementFlags.join(' | ')}`);
+    }
+  }
+
+  // Sprint 22: Daily nutrient P&L — triggered by expert mentions or
+  // nutrient/UL terms. Lets @dietician, @pharmacist, @physician see total
+  // intake vs. RDA/UL across food and supplements with UL breach flags.
+  if (
+    messageMatchesKeywords(userMessage, NUTRIENT_EXPERT_KEYWORDS) ||
+    messageMatchesKeywords(userMessage, SUPPLEMENT_KEYWORDS)
+  ) {
+    if (profile?.sex === 'male' || profile?.sex === 'female') {
+      const nutrientReport = await getDailyNutrientReport(today, profile.sex);
+      if (nutrientReport.totals.length > 0) {
+        // Sanitize only user-generated text inside the formatted block
+        // (supplement/food names in alert source lists).
+        const safeReport = { ...nutrientReport };
+        safeReport.alerts = nutrientReport.alerts.map((a) => ({
+          ...a,
+          sources: a.sources.map((s) => ({ ...s, name: sanitizeForPrompt(s.name, 60) })),
+        }));
+        conditionalSections.push(formatReportForCoach(safeReport));
+      }
     }
   }
 

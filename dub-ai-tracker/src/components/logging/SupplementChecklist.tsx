@@ -42,6 +42,7 @@ import {
   timingLabel,
   type SupplementTiming,
 } from '../../data/supplementLibrary';
+import { getDailyNutrientReport } from '../../services/nutrientAggregator';
 
 // MASTER-52: Supplement stack preset type
 interface SupplementStack {
@@ -214,12 +215,41 @@ export function SupplementChecklist() {
   const saveEntries = useCallback(async (updated: SupplementEntry[]) => {
     const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, today);
+
+    // Sprint 22: snapshot which nutrient codes were already over their UL
+    // BEFORE this save, so we only surface an inline warning for newly-
+    // pushed-over limits (not for limits already breached on prior logs).
+    const profile = await storageGet<Partial<UserProfile>>(STORAGE_KEYS.PROFILE);
+    const sex: 'male' | 'female' = profile?.sex === 'male' ? 'male' : 'female';
+    const priorReport = await getDailyNutrientReport(today, sex);
+    const priorCritical = new Set(
+      priorReport.alerts
+        .filter((a) => a.severity === 'critical')
+        .map((a) => a.code),
+    );
+
     await storageSet(key, updated);
     setEntries(updated);
     // Save as last for repeat-last
     const taken = updated.filter((e) => e.taken);
     if (taken.length > 0) {
       await saveLastSupplements(taken);
+    }
+
+    // Only fire if the save introduced a NEW critical breach — prevents
+    // re-alerting on every subsequent dose of the same already-breached
+    // nutrient. Legacy entries without a `nutrients[]` breakdown don't
+    // contribute here (aggregator skips them).
+    const nextReport = await getDailyNutrientReport(today, sex);
+    const newCriticals = nextReport.alerts.filter(
+      (a) => a.severity === 'critical' && !priorCritical.has(a.code),
+    );
+    if (newCriticals.length > 0) {
+      const first = newCriticals[0];
+      Alert.alert(
+        'Daily Limit Exceeded',
+        `Adding this supplement brings your daily ${first.name.toLowerCase()} to ${first.total}${first.unit}, which exceeds the ${first.limit}${first.unit} upper limit.`,
+      );
     }
   }, [saveLastSupplements]);
 

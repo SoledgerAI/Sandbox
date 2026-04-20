@@ -481,6 +481,43 @@ export const getRDA = (code: string, sex: 'male' | 'female'): number | null => {
   return sex === 'male' ? acct.rda_male : acct.rda_female;
 };
 
+// ============================================================
+// Field-to-account mapping (food nutrition fields -> account code)
+// Used by the nutrient aggregator to translate stored NutritionInfo
+// fields into posting lines against the nutrient chart of accounts.
+// ============================================================
+export const FOOD_FIELD_TO_ACCOUNT: Record<string, string> = {
+  calories: 'NUT-MAC-CAL',
+  protein_g: 'NUT-MAC-PRO',
+  carbs_g: 'NUT-MAC-CHO',
+  fat_g: 'NUT-MAC-FAT',
+  saturated_fat_g: 'NUT-MAC-SAT',
+  trans_fat_g: 'NUT-MAC-TRF',
+  fiber_g: 'NUT-MAC-FIB',
+  added_sugar_g: 'NUT-MAC-SUG',
+  cholesterol_mg: 'NUT-MAC-CHO-TOT',
+  sodium_mg: 'NUT-MAC-NA',
+  vitamin_a_mcg: 'NUT-MIC-VA',
+  vitamin_c_mg: 'NUT-MIC-VC',
+  vitamin_d_mcg: 'NUT-MIC-VD',
+  vitamin_e_mg: 'NUT-MIC-VE',
+  vitamin_k_mcg: 'NUT-MIC-VK',
+  vitamin_b6_mg: 'NUT-MIC-B6',
+  vitamin_b12_mcg: 'NUT-MIC-B12',
+  folate_mcg: 'NUT-MIC-FOL',
+  niacin_mg: 'NUT-MIC-B3',
+  iron_mg: 'NUT-MIC-FE',
+  calcium_mg: 'NUT-MIC-CA',
+  potassium_mg: 'NUT-MIC-K',
+  zinc_mg: 'NUT-MIC-ZN',
+  magnesium_mg: 'NUT-MIC-MG',
+  selenium_mcg: 'NUT-MIC-SE',
+  copper_mg: 'NUT-MIC-CU',
+  manganese_mg: 'NUT-MIC-MN',
+  phosphorus_mg: 'NUT-MIC-P',
+  chromium_mcg: 'NUT-MIC-CR',
+};
+
 // Source tags for journal entries
 export type EntrySource =
   | 'barcode_scan'
