@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { PremiumCard } from '../common/PremiumCard';
 import { PremiumButton } from '../common/PremiumButton';
+import { TimestampPicker } from '../common/TimestampPicker';
 import {
   storageGet,
   storageSet,
@@ -41,6 +42,7 @@ export function BodyweightRepsLogger() {
   const [selectedExercise, setSelectedExercise] = useState<BodyweightExerciseType | null>(null);
   const [selectedReps, setSelectedReps] = useState(10);
   const [selectedSets, setSelectedSets] = useState(1);
+  const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const { showToast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -65,6 +67,7 @@ export function BodyweightRepsLogger() {
     setSelectedExercise(exerciseType);
     setSelectedReps(10);
     setSelectedSets(1);
+    setEntryTimestamp(new Date());
     setShowModal(true);
     hapticMedium();
   }, []);
@@ -76,7 +79,7 @@ export function BodyweightRepsLogger() {
 
     const newEntry: BodyweightRepEntry = {
       id: generateId(),
-      timestamp: new Date().toISOString(),
+      timestamp: entryTimestamp.toISOString(),
       exercise_type: selectedExercise,
       reps: selectedReps,
       sets: selectedSets,
@@ -88,7 +91,7 @@ export function BodyweightRepsLogger() {
     setShowModal(false);
     hapticSuccess();
     showToast(`${exercise.label}: ${selectedReps} reps x ${selectedSets} set${selectedSets > 1 ? 's' : ''}`, 'success');
-  }, [selectedExercise, selectedReps, selectedSets, entries, saveEntries, showToast]);
+  }, [selectedExercise, selectedReps, selectedSets, entryTimestamp, entries, saveEntries, showToast]);
 
   const deleteEntry = useCallback((id: string) => {
     const updated = entries.filter((e) => e.id !== id);
@@ -184,6 +187,9 @@ export function BodyweightRepsLogger() {
             <Text style={styles.modalTitle}>
               {BODYWEIGHT_EXERCISES.find((e) => e.type === selectedExercise)?.label ?? ''}
             </Text>
+
+            {/* Timestamp picker */}
+            <TimestampPicker value={entryTimestamp} onChange={setEntryTimestamp} />
 
             {/* Reps selector */}
             <Text style={styles.pickerLabel}>Reps</Text>

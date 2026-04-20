@@ -2,7 +2,7 @@
 // Phase 10: Sleep and Mood Logging
 // Redesign: P1 3-axis quick-tap (Expert 3 clinical psych recommendation)
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { hapticSelection } from '../../utils/haptics';
 import {
   StyleSheet,
@@ -145,6 +145,7 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
   const [selectedEnergy, setSelectedEnergy] = useState(3);
   const [selectedAnxiety, setSelectedAnxiety] = useState(1);
   const [note, setNote] = useState('');
+  const scrollRef = useRef<ScrollView>(null);
   const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<MoodEntry>('mental.wellness.mood');
 
   const handleRepeatLast = useCallback(() => {
@@ -210,7 +211,7 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <RepeatLastEntry
         tagLabel="mood"
         subtitle={lastEntry ? `${AXES[0].labels[lastEntry.score] ?? `Score: ${lastEntry.score}`}, E:${lastEntry.energy ?? '?'}, A:${lastEntry.anxiety ?? '?'}` : undefined}
@@ -263,6 +264,9 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
         placeholderTextColor={Colors.secondaryText}
         multiline
         numberOfLines={3}
+        onFocus={() => {
+          setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+        }}
       />
 
       {/* Log button */}
