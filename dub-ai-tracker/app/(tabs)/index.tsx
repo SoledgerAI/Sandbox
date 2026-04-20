@@ -205,7 +205,9 @@ export default function DashboardScreen() {
   const metabolicBurnSoFar = tdee > 0 ? (tdee / 24) * hoursElapsed : 0;
   const totalBurned = Math.round(summary.calories_burned + metabolicBurnSoFar);
   const adjustedNet = summary.calories_consumed - totalBurned;
-  const adjustedRemaining = calorieTarget - summary.calories_consumed + totalBurned;
+  // Target already includes TDEE (full-day metabolic burn), so Remaining
+  // must not add burn on top — that would double-count.
+  const adjustedRemaining = calorieTarget - summary.calories_consumed;
 
   // B1: Show first-use label below score ring for first 7 days
   const isFirstWeek = streak != null && (streak.current_streak ?? 0) <= 7;
