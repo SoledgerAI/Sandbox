@@ -11,6 +11,10 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
+import DraggableFlatList, {
+  RenderItemParams,
+  ScaleDecorator,
+} from 'react-native-draggable-flatlist';
 import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -111,16 +115,65 @@ export default function HabitsSettingsScreen() {
     hapticMedium();
   }, [editingId, editingName, habits, saveHabits]);
 
-  const moveHabit = useCallback((id: string, direction: -1 | 1) => {
-    const idx = habits.findIndex((h) => h.id === id);
-    if (idx < 0) return;
-    const newIdx = idx + direction;
-    if (newIdx < 0 || newIdx >= habits.length) return;
-    const updated = [...habits];
-    [updated[idx], updated[newIdx]] = [updated[newIdx], updated[idx]];
-    saveHabits(updated);
-    hapticMedium();
-  }, [habits, saveHabits]);
+  const onDragEnd = useCallback(
+    ({ data }: { data: HabitDefinition[] }) => {
+      saveHabits(data);
+      hapticMedium();
+    },
+    [saveHabits],
+  );
+
+  const renderItem = useCallback(
+    ({ item: habit, drag, isActive }: RenderItemParams<HabitDefinition>) => (
+      <ScaleDecorator>
+        <View style={[styles.habitRow, isActive && styles.habitRowActive]}>
+          {/* Drag handle */}
+          <TouchableOpacity
+            onLongPress={drag}
+            delayLongPress={150}
+            disabled={isActive}
+            hitSlop={8}
+            style={styles.gripBtn}
+            accessibilityLabel="Drag to reorder"
+          >
+            <Ionicons name="reorder-three" size={22} color={Colors.secondaryText} />
+          </TouchableOpacity>
+
+          {/* Name (editable) */}
+          {editingId === habit.id ? (
+            <TextInput
+              style={styles.editInput}
+              value={editingName}
+              onChangeText={setEditingName}
+              onBlur={finishEditing}
+              onSubmitEditing={finishEditing}
+              autoFocus
+              maxLength={50}
+            />
+          ) : (
+            <TouchableOpacity
+              style={styles.nameWrap}
+              onPress={() => startEditing(habit)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.habitName}>{habit.name}</Text>
+              <Ionicons name="create-outline" size={14} color={Colors.secondaryText} />
+            </TouchableOpacity>
+          )}
+
+          {/* Delete */}
+          <TouchableOpacity
+            onPress={() => removeHabit(habit.id)}
+            hitSlop={8}
+            style={styles.deleteBtn}
+          >
+            <Ionicons name="trash-outline" size={18} color={Colors.dangerText} />
+          </TouchableOpacity>
+        </View>
+      </ScaleDecorator>
+    ),
+    [editingId, editingName, finishEditing, removeHabit, startEditing],
+  );
 
   return (
     <ScreenWrapper>
@@ -166,69 +219,18 @@ export default function HabitsSettingsScreen() {
             <Text style={styles.sectionTitle}>
               Your Habits ({habits.length})
             </Text>
+            <Text style={styles.hintText}>Hold and drag to reorder.</Text>
             {habits.length === 0 ? (
               <Text style={styles.emptyText}>No habits yet. Add one above.</Text>
             ) : (
-              habits.map((habit, idx) => (
-                <View key={habit.id} style={styles.habitRow}>
-                  {/* Reorder arrows */}
-                  <View style={styles.arrowCol}>
-                    <TouchableOpacity
-                      onPress={() => moveHabit(habit.id, -1)}
-                      disabled={idx === 0}
-                      hitSlop={8}
-                    >
-                      <Ionicons
-                        name="chevron-up"
-                        size={18}
-                        color={idx === 0 ? Colors.divider : Colors.secondaryText}
-                      />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => moveHabit(habit.id, 1)}
-                      disabled={idx === habits.length - 1}
-                      hitSlop={8}
-                    >
-                      <Ionicons
-                        name="chevron-down"
-                        size={18}
-                        color={idx === habits.length - 1 ? Colors.divider : Colors.secondaryText}
-                      />
-                    </TouchableOpacity>
-                  </View>
-
-                  {/* Name (editable) */}
-                  {editingId === habit.id ? (
-                    <TextInput
-                      style={styles.editInput}
-                      value={editingName}
-                      onChangeText={setEditingName}
-                      onBlur={finishEditing}
-                      onSubmitEditing={finishEditing}
-                      autoFocus
-                      maxLength={50}
-                    />
-                  ) : (
-                    <TouchableOpacity
-                      style={styles.nameWrap}
-                      onPress={() => startEditing(habit)}
-                      activeOpacity={0.7}
-                    >
-                      <Text style={styles.habitName}>{habit.name}</Text>
-                      <Ionicons name="create-outline" size={14} color={Colors.secondaryText} />
-                    </TouchableOpacity>
-                  )}
-
-                  {/* Delete */}
-                  <TouchableOpacity
-                    onPress={() => removeHabit(habit.id)}
-                    hitSlop={8}
-                    style={styles.deleteBtn}
-                  >
-                    <Ionicons name="trash-outline" size={18} color={Colors.dangerText} />
-                  </TouchableOpacity>
-                </View>
-              ))
+              <DraggableFlatList
+                data={habits}
+                onDragEnd={onDragEnd}
+                keyExtractor={(item) => item.id}
+                renderItem={renderItem}
+                scrollEnabled={false}
+                activationDistance={8}
+              />
             )}
           </PremiumCard>
         </ScrollView>
@@ -298,11 +300,20 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: Colors.divider,
     gap: 8,
+    backgroundColor: Colors.primaryBackground,
   },
-  arrowCol: {
-    alignItems: 'center',
-    gap: 2,
-    width: 24,
+  habitRowActive: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 8,
+  },
+  gripBtn: {
+    padding: 6,
+  },
+  hintText: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    fontStyle: 'italic',
+    marginBottom: 8,
   },
   nameWrap: {
     flex: 1,

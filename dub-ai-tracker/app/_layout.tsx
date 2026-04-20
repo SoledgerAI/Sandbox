@@ -7,6 +7,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Animated, AppState, AppStateStatus, Linking, Text, View } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { Stack, router, useRootNavigationState } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
@@ -221,6 +222,7 @@ export default function RootLayout() {
   const showOverlay = privacyOverlay || quickHideActive;
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <ErrorBoundary>
       <ThemeProvider>
       <ToastProvider>
@@ -310,5 +312,6 @@ export default function RootLayout() {
       </ToastProvider>
       </ThemeProvider>
     </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
