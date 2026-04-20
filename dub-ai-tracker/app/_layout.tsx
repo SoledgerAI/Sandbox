@@ -31,9 +31,19 @@ SplashScreen.preventAutoHideAsync().catch(() => {});
 const SPLASH_MIN_MS = 2500;
 const SPLASH_FADE_MS = 500;
 
+// Bug #15: Module-level flag — once the app has booted once during this
+// process's lifetime, never re-show the loading splash. Protects against
+// any transient re-mount of the root layout (rapid navigation, HMR in dev,
+// etc.) from flashing the splash mid-session.
+let sessionInitComplete = false;
+
+const BRAND_GOLD = '#D4A843';
+const TAGLINE_COLOR = '#888';
+const TAGLINE_TEXT = 'Bloomberg Terminal for the Body';
+
 export default function RootLayout() {
-  const [initDone, setInitDone] = useState(false);
-  const [splashMinTimeMet, setSplashMinTimeMet] = useState(false);
+  const [initDone, setInitDone] = useState(sessionInitComplete);
+  const [splashMinTimeMet, setSplashMinTimeMet] = useState(sessionInitComplete);
   const [showFadeOverlay, setShowFadeOverlay] = useState(false);
   const fadeAnim = useRef(new Animated.Value(1)).current;
   const navigationState = useRootNavigationState();
@@ -176,15 +186,19 @@ export default function RootLayout() {
   useEffect(() => {
     if (initDone && splashMinTimeMet) {
       SplashScreen.hideAsync().catch(() => {});
-      // Show fade overlay to smooth the transition
-      setShowFadeOverlay(true);
-      Animated.timing(fadeAnim, {
-        toValue: 0,
-        duration: SPLASH_FADE_MS,
-        useNativeDriver: true,
-      }).start(() => {
-        setShowFadeOverlay(false);
-      });
+      // Bug #15: Lock in session state so any re-mount doesn't re-flash splash
+      if (!sessionInitComplete) {
+        sessionInitComplete = true;
+        // Show fade overlay to smooth the transition — only on first launch
+        setShowFadeOverlay(true);
+        Animated.timing(fadeAnim, {
+          toValue: 0,
+          duration: SPLASH_FADE_MS,
+          useNativeDriver: true,
+        }).start(() => {
+          setShowFadeOverlay(false);
+        });
+      }
     }
   }, [initDone, splashMinTimeMet, fadeAnim]);
 
@@ -245,7 +259,7 @@ export default function RootLayout() {
             </Stack>
           </View>
 
-          {/* Loading overlay — covers Stack until init completes */}
+          {/* Bug #15: Loading overlay — covers Stack until init completes (first launch only) */}
           {(!initDone || !splashMinTimeMet) && (
             <View
               style={{
@@ -260,12 +274,15 @@ export default function RootLayout() {
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '600', marginBottom: 16 }}>DUB</Text>
+              <Text style={{ color: BRAND_GOLD, fontSize: 40, fontWeight: '500', letterSpacing: 2 }}>DUB</Text>
+              <Text style={{ color: TAGLINE_COLOR, fontSize: 13, fontWeight: '500', marginTop: 8, marginBottom: 28 }}>
+                {TAGLINE_TEXT}
+              </Text>
               <LoadingIndicator size="large" />
             </View>
           )}
 
-          {/* Sprint 8 Fix 3: Fade overlay — smooth transition from splash */}
+          {/* Bug #15: Fade overlay — smooth transition from splash */}
           {showFadeOverlay && (
             <Animated.View
               style={{
@@ -282,11 +299,14 @@ export default function RootLayout() {
               }}
               pointerEvents="none"
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '600' }}>DUB</Text>
+              <Text style={{ color: BRAND_GOLD, fontSize: 40, fontWeight: '500', letterSpacing: 2 }}>DUB</Text>
+              <Text style={{ color: TAGLINE_COLOR, fontSize: 13, fontWeight: '500', marginTop: 8 }}>
+                {TAGLINE_TEXT}
+              </Text>
             </Animated.View>
           )}
 
-          {/* D8-001 / D8-002: Privacy + quick-hide overlay */}
+          {/* Bug #15: D8-001 / D8-002 Privacy + quick-hide overlay — also rebranded */}
           {showOverlay && (
             <View
               onTouchEnd={quickHideActive ? handleOverlayTap : undefined}
@@ -302,8 +322,9 @@ export default function RootLayout() {
                 justifyContent: 'center',
               }}
             >
-              <Text style={{ color: '#FFFFFF', fontSize: 24, fontWeight: '600' }}>
-                dub
+              <Text style={{ color: BRAND_GOLD, fontSize: 40, fontWeight: '500', letterSpacing: 2 }}>DUB</Text>
+              <Text style={{ color: TAGLINE_COLOR, fontSize: 13, fontWeight: '500', marginTop: 8 }}>
+                {TAGLINE_TEXT}
               </Text>
             </View>
           )}
