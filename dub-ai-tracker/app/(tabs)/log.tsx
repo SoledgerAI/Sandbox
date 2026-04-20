@@ -196,6 +196,14 @@ const SECTION_DEFS: SectionDef[] = [
       { id: 'injuries', label: 'Injuries', icon: 'bandage-outline', route: '/log/injury', searchTerms: 'injury pain hurt sore recovery', electInCategory: 'injuries' },
     ],
   },
+  {
+    id: 'reports',
+    title: 'REPORTS',
+    alwaysVisible: true,
+    items: [
+      { id: 'nutrient_report', label: 'Daily Nutrient Report', icon: 'analytics-outline', route: '/log/nutrient-report', searchTerms: 'nutrient report daily vitamins minerals macros iron ul rda p&l' },
+    ],
+  },
 ];
 
 const ALL_CATEGORY_ITEMS: CategoryItem[] = SECTION_DEFS.flatMap((s) => s.items);

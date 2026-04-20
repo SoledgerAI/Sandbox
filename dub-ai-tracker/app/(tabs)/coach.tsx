@@ -17,6 +17,7 @@ import {
   View,
 } from 'react-native';
 import { useScrollToTop } from '@react-navigation/native';
+import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { Colors } from '../../src/constants/colors';
@@ -123,6 +124,27 @@ export default function CoachScreen() {
   useEffect(() => {
     refresh();
   }, [refresh]);
+
+  // Sprint 22: handle deep-link prompts (e.g. "Ask Coach" from nutrient report).
+  // Auto-sends the prompt once then clears the param so re-focusing doesn't
+  // re-fire it.
+  const { prompt: deepLinkPrompt } = useLocalSearchParams<{ prompt?: string }>();
+  useEffect(() => {
+    if (
+      deepLinkPrompt &&
+      apiKeyConfigured &&
+      !sending &&
+      consentGranted &&
+      !streaming
+    ) {
+      const text = deepLinkPrompt;
+      router.setParams({ prompt: undefined });
+      sendUserMessage(text).catch(() => {
+        // swallow — errors already surface through coach error state
+      });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only triggers on prompt arrival
+  }, [deepLinkPrompt, apiKeyConfigured, consentGranted]);
 
   // MASTER-57: Load patterns for Coach Lite
   useEffect(() => {

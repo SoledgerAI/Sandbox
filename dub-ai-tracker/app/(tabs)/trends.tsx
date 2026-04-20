@@ -27,7 +27,9 @@ import { LineChart } from '../../src/components/charts/LineChart';
 import { BarChart } from '../../src/components/charts/BarChart';
 import { StackedBar } from '../../src/components/charts/StackedBar';
 import { DualAxis } from '../../src/components/charts/DualAxis';
+import { NutrientTrendChart } from '../../src/components/trends/NutrientTrendChart';
 import type { TimeRange, ChartDataPoint, ChartSeries } from '../../src/components/charts/types';
+import { Ionicons } from '@expo/vector-icons';
 
 const TIME_RANGES: { key: TimeRange; label: string }[] = [
   { key: '7d', label: '7D' },
@@ -524,7 +526,31 @@ export default function TrendsScreen() {
         maxToRenderPerBatch={6}
         windowSize={5}
         ListFooterComponent={
-          (categoryFilter === 'All' || categoryFilter === 'Bloodwork') &&
+          <>
+            {(categoryFilter === 'All' || categoryFilter === 'Nutrition') && (
+              <View>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitle}>Nutrients</Text>
+                </View>
+                <Pressable
+                  style={styles.nutrientPnlCard}
+                  onPress={() => router.push('/log/nutrient-report')}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open daily Nutrient P&L report"
+                >
+                  <Ionicons name="analytics-outline" size={22} color={Colors.accent} />
+                  <View style={{ flex: 1, marginLeft: 10 }}>
+                    <Text style={styles.nutrientPnlTitle}>Nutrient P&L</Text>
+                    <Text style={styles.nutrientPnlSubtitle}>
+                      Vitamins, minerals, UL alerts and 7-day variance
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+                </Pressable>
+                <NutrientTrendChart timeRange={timeRange} />
+              </View>
+            )}
+            {(categoryFilter === 'All' || categoryFilter === 'Bloodwork') &&
           bloodworkSummaries.length > 0 ? (
             <View style={styles.bloodworkSection}>
               <View style={styles.sectionHeader}>
@@ -564,7 +590,8 @@ export default function TrendsScreen() {
                 </View>
               ))}
             </View>
-          ) : null
+          ) : null}
+          </>
         }
       />
     </View>
@@ -856,5 +883,25 @@ const styles = StyleSheet.create({
   bloodworkMeta: {
     color: Colors.secondaryText,
     fontSize: 11,
+  },
+  nutrientPnlCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: CARD_MARGIN,
+    borderWidth: 1,
+    borderColor: Colors.cardBorder,
+  },
+  nutrientPnlTitle: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  nutrientPnlSubtitle: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    marginTop: 2,
   },
 });

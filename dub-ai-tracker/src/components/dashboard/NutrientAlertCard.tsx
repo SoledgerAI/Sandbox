@@ -4,11 +4,11 @@
 // a "N more alerts" tap target that opens a combined detail dialog.
 
 import { useMemo } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, Alert } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { useNutrientReport } from '../../hooks/useNutrientReport';
-import type { NutrientAlert } from '../../services/nutrientAggregator';
 
 const MAX_VISIBLE = 2;
 
@@ -25,19 +25,8 @@ export function NutrientAlertCard() {
   const visible = critical.slice(0, MAX_VISIBLE);
   const overflowCount = Math.max(0, critical.length - MAX_VISIBLE);
 
-  const openDetails = (alert: NutrientAlert) => {
-    Alert.alert(`${alert.name} — Upper Limit Exceeded`, alert.message);
-  };
-
-  const openAllOverflow = () => {
-    const combined = critical
-      .slice(MAX_VISIBLE)
-      .map((a) => `• ${a.name}: ${a.total}${a.unit} (limit ${a.limit}${a.unit})`)
-      .join('\n');
-    Alert.alert(
-      `${overflowCount} more nutrient alert${overflowCount > 1 ? 's' : ''}`,
-      combined,
-    );
+  const openReport = () => {
+    router.push('/log/nutrient-report');
   };
 
   return (
@@ -46,10 +35,10 @@ export function NutrientAlertCard() {
         <TouchableOpacity
           key={alert.code}
           style={styles.card}
-          onPress={() => openDetails(alert)}
+          onPress={openReport}
           activeOpacity={0.7}
           accessibilityRole="button"
-          accessibilityLabel={`${alert.name} nutrient alert, tap for details`}
+          accessibilityLabel={`${alert.name} nutrient alert, tap for full report`}
         >
           <Ionicons name="warning-outline" size={20} color="#F59E0B" />
           <View style={styles.body}>
@@ -59,14 +48,14 @@ export function NutrientAlertCard() {
               {alert.unit} (limit: {alert.limit}
               {alert.unit})
             </Text>
-            <Text style={styles.hint}>Tap for details</Text>
+            <Text style={styles.hint}>Tap to open full report</Text>
           </View>
         </TouchableOpacity>
       ))}
       {overflowCount > 0 && (
         <TouchableOpacity
           style={styles.overflow}
-          onPress={openAllOverflow}
+          onPress={openReport}
           activeOpacity={0.7}
         >
           <Text style={styles.overflowText}>
