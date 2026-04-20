@@ -2,7 +2,7 @@
 // Sprint 10: Food Scanning MVP
 // Shows scanned food result, lets user adjust portions/macros, then save/log.
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { saveFood as saveToMyFoods, type SavedFood } from '../../utils/foodLibrary';
+import { addToPantry, isInPantry } from '../../utils/pantryLibrary';
 import type { FoodScanResult as ScanResult } from '../../services/foodScanService';
 import type { MealType } from '../../types/food';
 
@@ -28,6 +29,8 @@ interface FoodScanResultProps {
   timestamp: Date;
   onLog: (entries: LogEntry[]) => void | Promise<void>;
   onCancel: () => void;
+  barcode?: string | null;
+  scanSource?: 'barcode_scan' | 'label_scan' | 'manual';
 }
 
 export interface LogEntry {
@@ -64,6 +67,8 @@ export function FoodScanResult({
   timestamp,
   onLog,
   onCancel,
+  barcode,
+  scanSource = 'label_scan',
 }: FoodScanResultProps) {
   const isMultiItem = multiItems != null && multiItems.length > 1;
 
@@ -106,6 +111,44 @@ export function FoodScanResult({
   }, [customMultiplier]);
 
   const [saving, setSaving] = useState(false);
+
+  // Sprint 21: Pantry state
+  const [inPantry, setInPantry] = useState(false);
+  const [pantrySaving, setPantrySaving] = useState(false);
+
+  useEffect(() => {
+    if (isMultiItem) return;
+    isInPantry({
+      barcode: barcode ?? null,
+      name: foodName,
+      brand: result.brand,
+    }).then(setInPantry);
+  }, [barcode, foodName, result.brand, isMultiItem]);
+
+  const handleAddToPantry = useCallback(async () => {
+    if (pantrySaving || inPantry) return;
+    setPantrySaving(true);
+    try {
+      const { added } = await addToPantry({
+        name: foodName,
+        brand: result.brand,
+        barcode: barcode ?? null,
+        serving_size: servingSize,
+        calories: baseNutrition.calories,
+        protein_g: baseNutrition.protein,
+        carbs_g: baseNutrition.carbs,
+        fat_g: baseNutrition.fat,
+        fiber_g: baseNutrition.fiber,
+        added_sugar_g: baseNutrition.addedSugar,
+        source: scanSource,
+        category: 'food',
+      });
+      setInPantry(true);
+      Alert.alert(added ? 'Added' : 'Already in Pantry', added ? `${foodName} saved to Pantry` : `${foodName} is already in your Pantry`);
+    } finally {
+      setPantrySaving(false);
+    }
+  }, [foodName, result.brand, barcode, servingSize, baseNutrition, scanSource, pantrySaving, inPantry]);
 
   const handleLog = useCallback(async () => {
     if (saving) return;
@@ -382,6 +425,28 @@ export function FoodScanResult({
         <TouchableOpacity style={styles.saveMyFoodsBtn} onPress={handleSaveToMyFoods} activeOpacity={0.7}>
           <Ionicons name="star-outline" size={18} color={Colors.accent} />
           <Text style={styles.saveMyFoodsText}>Save to My Foods</Text>
+        </TouchableOpacity>
+      )}
+
+      {!isMultiItem && (
+        <TouchableOpacity
+          style={[styles.saveMyFoodsBtn, inPantry && styles.pantryBtnDisabled]}
+          onPress={handleAddToPantry}
+          activeOpacity={0.7}
+          disabled={inPantry || pantrySaving}
+        >
+          {pantrySaving ? (
+            <ActivityIndicator color={Colors.accent} size="small" />
+          ) : (
+            <Ionicons
+              name={inPantry ? 'checkmark-circle' : 'bookmark-outline'}
+              size={18}
+              color={inPantry ? Colors.accent + '99' : Colors.accent}
+            />
+          )}
+          <Text style={[styles.saveMyFoodsText, inPantry && styles.pantryTextDisabled]}>
+            {inPantry ? 'Already in Pantry ✓' : 'Add to Pantry'}
+          </Text>
         </TouchableOpacity>
       )}
 
@@ -663,6 +728,13 @@ const styles = StyleSheet.create({
     color: Colors.accent,
     fontSize: 16,
     fontWeight: '600',
+  },
+  pantryBtnDisabled: {
+    opacity: 0.55,
+    borderColor: Colors.accent + '55',
+  },
+  pantryTextDisabled: {
+    color: Colors.accent + '99',
   },
   cancelBtn: {
     alignItems: 'center',

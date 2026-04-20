@@ -98,6 +98,7 @@ const SECTION_DEFS: SectionDef[] = [
     alwaysVisible: true,
     items: [
       { id: 'food', label: 'Food Log', icon: 'restaurant-outline', route: '/log/food', storageKey: STORAGE_KEYS.LOG_FOOD, searchTerms: 'food nutrition meal calories macros ai scan' },
+      { id: 'pantry', label: 'My Pantry', icon: 'bookmark-outline', route: '/log/pantry', searchTerms: 'pantry scan saved quick log barcode' },
       { id: 'recipes', label: 'My Recipes', icon: 'book-outline', route: '/settings/recipes', searchTerms: 'recipe recipes cook cooking meal prep batch' },
       { id: 'my_foods', label: 'My Foods', icon: 'star-outline', route: '/settings/taste', searchTerms: 'my foods favorites saved custom' },
       { id: 'water', label: 'Drinks', icon: 'water-outline', route: '/log/water', storageKey: STORAGE_KEYS.LOG_WATER, searchTerms: 'water hydration drink beverages coffee tea alcohol' },

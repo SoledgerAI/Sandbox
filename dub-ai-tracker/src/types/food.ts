@@ -180,6 +180,30 @@ export interface MyRecipe {
 
 export type RecipePortionMethod = 'percentage' | 'servings' | 'weight';
 
+// Sprint 21: Personal Pantry — scan once, log forever
+export type PantrySource = 'barcode_scan' | 'label_scan' | 'manual' | 'coach_ai';
+export type PantryCategory = 'food' | 'drink';
+
+export interface PantryItem {
+  id: string;
+  name: string;
+  brand: string | null;
+  barcode: string | null;
+  serving_size: string;
+  calories: number;
+  protein_g: number;
+  carbs_g: number;
+  fat_g: number;
+  fiber_g: number | null;
+  added_sugar_g: number | null;
+  sodium_mg: number | null;
+  source: PantrySource;
+  category: PantryCategory;
+  created_at: string;
+  last_logged: string;
+  log_count: number;
+}
+
 export interface RecipeLogEntry {
   recipeId: string;
   recipeName: string;

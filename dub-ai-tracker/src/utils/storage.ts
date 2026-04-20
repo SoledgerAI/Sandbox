@@ -73,6 +73,7 @@ export const STORAGE_KEYS = {
   FOOD_TEMPLATES: 'dub.food.templates',
   FOOD_RECENT: 'dub.food.recent',
   MY_FOODS: 'dub.food.my_foods',
+  PANTRY_ITEMS: 'dub.food.pantry',
   SUPPLEMENT_STACKS: 'dub.supplement.stacks',
   MY_SUPPLEMENTS: 'dub.supplement.selected',
 
@@ -144,6 +145,9 @@ export const STORAGE_KEYS = {
 
   // Sprint 25: Hydration Goal
   SETTINGS_HYDRATION_GOAL: 'dub.settings.hydration_goal',
+
+  // Sprint 21: Personal Pantry auto-add preference
+  SETTINGS_PANTRY_AUTO_ADD: 'dub.settings.pantry_auto_add',
 
   // Sprint 26: Centralized Unit Preferences
   SETTINGS_UNITS: 'dub.settings.units',

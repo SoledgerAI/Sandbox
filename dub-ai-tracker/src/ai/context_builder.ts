@@ -110,6 +110,7 @@ const MOBILITY_KEYWORDS = ['stretch', 'mobility', 'foam roll', 'yoga', 'flexibil
 const JOURNAL_KEYWORDS = ['journal', 'writing', 'diary', 'reflect', 'reflection'];
 const SLEEP_SCHEDULE_KEYWORDS = ['sleep schedule', 'bedtime', 'wake time', 'sleep routine', 'sleep adherence'];
 const RECIPE_KEYWORDS = ['recipe', 'recipes', 'cook', 'cooking', 'meal prep', 'meatloaf', 'batch', 'ingredient'];
+const PANTRY_KEYWORDS = ['snack', 'eat', 'meal', 'food', 'breakfast', 'lunch', 'dinner', 'nutrition', 'macro', 'calorie', 'protein', 'dietician', 'pantry', 'hungry', 'craving'];
 const PERIMENOPAUSE_KEYWORDS = ['perimenopause', 'menopause', 'hot flash', 'night sweat', 'brain fog', 'hormone'];
 const BREASTFEEDING_KEYWORDS = ['breastfeed', 'nursing', 'pumping', 'lactation', 'feeding', 'breast milk', 'bottle feed'];
 const MIGRAINE_KEYWORDS = ['migraine', 'headache', 'aura', 'head pain', 'trigger', 'barometric'];
@@ -861,6 +862,24 @@ export async function buildCoachContext(userMessage: string): Promise<{
         const topPart = top3 ? `, top: ${top3}` : '';
         conditionalSections.push(`[RECIPES] ${allRecipes.length} saved${topPart}`);
       }
+    }
+  }
+
+  // Sprint 21: Pantry context — user's frequently-logged foods.
+  // Surface the top 10 most-logged pantry items when the user mentions food/nutrition/meals
+  // so Coach (especially @dietician) can ground suggestions in what the user actually eats.
+  if (messageMatchesKeywords(userMessage, PANTRY_KEYWORDS)) {
+    const { getPantryItems } = require('../utils/pantryLibrary');
+    const pantryItems = await getPantryItems('frequency');
+    const top = pantryItems
+      .filter((p: any) => p.log_count > 0)
+      .slice(0, 10)
+      .map((p: any) => `${sanitizeForPrompt(p.name, 40)}(${p.calories}cal,${p.log_count}x)`)
+      .join(', ');
+    if (top) {
+      conditionalSections.push(`[PANTRY] top foods: ${top}`);
+    } else if (pantryItems.length > 0) {
+      conditionalSections.push(`[PANTRY] ${pantryItems.length} saved (none logged yet)`);
     }
   }
 

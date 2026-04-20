@@ -2,12 +2,13 @@
 // Phase 14: AI Coach
 // Sprint 12: Expert labels, photo bubbles, tool confirmation cards
 
-import React from 'react';
-import { Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useState } from 'react';
+import { Alert, Image, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { getExpert } from '../../ai/experts';
 import { getToolLabel } from '../../hooks/useCoach';
+import { addToPantry } from '../../utils/pantryLibrary';
 import type { ChatMessage, ToolUseRequest } from '../../types/coach';
 
 interface ChatBubbleProps {
@@ -86,11 +87,65 @@ function ToolConfirmationCard({
 }) {
   const icon = TOOL_ICONS[toolUse.name] || '📋';
   const label = getToolLabel(toolUse.name, toolUse.input);
+  const [pantryAdded, setPantryAdded] = useState(false);
+  const [pantryBusy, setPantryBusy] = useState(false);
+
+  const handleAddConfirmedFoodToPantry = async () => {
+    if (pantryBusy || pantryAdded) return;
+    setPantryBusy(true);
+    try {
+      const input = toolUse.input as {
+        food_name?: string;
+        calories?: number;
+        protein_g?: number;
+        carbs_g?: number;
+        fat_g?: number;
+      };
+      const name = input.food_name?.trim();
+      if (!name) return;
+      const { added } = await addToPantry({
+        name,
+        brand: null,
+        barcode: null,
+        serving_size: '1 serving',
+        calories: input.calories ?? 0,
+        protein_g: input.protein_g ?? 0,
+        carbs_g: input.carbs_g ?? 0,
+        fat_g: input.fat_g ?? 0,
+        source: 'coach_ai',
+        category: 'food',
+      });
+      setPantryAdded(true);
+      if (!added) {
+        Alert.alert('Already in Pantry', `${name} is already saved`);
+      }
+    } finally {
+      setPantryBusy(false);
+    }
+  };
 
   if (toolUse.status === 'confirmed') {
+    const isFood = toolUse.name === 'log_food';
     return (
       <View style={styles.toolCard}>
         <Text style={styles.toolLabel}>{icon} Logged: {label} ✓</Text>
+        {isFood && (
+          <TouchableOpacity
+            style={[styles.pantrySecondaryBtn, pantryAdded && styles.pantrySecondaryBtnDone]}
+            onPress={handleAddConfirmedFoodToPantry}
+            activeOpacity={0.7}
+            disabled={pantryAdded || pantryBusy}
+          >
+            <Ionicons
+              name={pantryAdded ? 'checkmark-circle' : 'bookmark-outline'}
+              size={14}
+              color={Colors.accent}
+            />
+            <Text style={styles.pantrySecondaryText}>
+              {pantryAdded ? 'Saved to Pantry' : 'Also add to Pantry?'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     );
   }
@@ -215,5 +270,26 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     fontSize: 14,
     fontWeight: '500',
+  },
+  pantrySecondaryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    backgroundColor: 'transparent',
+  },
+  pantrySecondaryBtnDone: {
+    opacity: 0.6,
+  },
+  pantrySecondaryText: {
+    color: Colors.accent,
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

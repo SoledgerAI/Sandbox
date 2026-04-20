@@ -36,6 +36,8 @@ import { FoodScanResult, type LogEntry } from '../../src/components/logging/Food
 import { scanFood, type FoodScanResult as ScanResultData, type MultiItemScanResult } from '../../src/services/foodScanService';
 import { getSavedFoods, incrementTimesLogged, type SavedFood } from '../../src/utils/foodLibrary';
 import { getMyRecipes } from '../../src/utils/recipeLibrary';
+import { addToPantry, getPantryAutoAdd } from '../../src/utils/pantryLibrary';
+import { useToast } from '../../src/contexts/ToastContext';
 import type { MyRecipe } from '../../src/types/food';
 import { Button } from '../../src/components/common/Button';
 import { TimestampPicker } from '../../src/components/common/TimestampPicker';
@@ -97,6 +99,7 @@ function guessMealType(hour: number, settings?: AppSettings | null): MealType {
 }
 
 export default function FoodLogScreen() {
+  const { showToast } = useToast();
   const [entryTimestamp, setEntryTimestamp] = useState(new Date());
   const [screen, setScreen] = useState<Screen>('search');
   const [selectedFood, setSelectedFood] = useState<FoodItem | null>(null);
@@ -200,6 +203,61 @@ export default function FoodLogScreen() {
     [],
   );
 
+  // Sprint 21: Auto-add helpers — declared before scan handlers that reference them
+  // so React dependency tracking is clean. Fires on successful scan when pref is ON.
+  const autoAddScanToPantry = useCallback(async (scan: ScanResultData, source: 'label_scan' | 'barcode_scan') => {
+    try {
+      const enabled = await getPantryAutoAdd();
+      if (!enabled) return;
+      const { added } = await addToPantry({
+        name: scan.foodName,
+        brand: scan.brand,
+        barcode: null,
+        serving_size: scan.servingSize,
+        calories: scan.nutrition.calories,
+        protein_g: scan.nutrition.protein,
+        carbs_g: scan.nutrition.carbs,
+        fat_g: scan.nutrition.fat,
+        fiber_g: scan.nutrition.fiber,
+        added_sugar_g: scan.nutrition.addedSugar,
+        source,
+        category: 'food',
+      });
+      if (added) showToast('Saved to Pantry', 'success');
+    } catch (err) {
+      console.warn('[Pantry] auto-add failed', err);
+    }
+  }, [showToast]);
+
+  const autoAddFoodItemToPantry = useCallback(async (food: FoodItem) => {
+    try {
+      const enabled = await getPantryAutoAdd();
+      if (!enabled) return;
+      const defaultServing = food.serving_sizes[food.default_serving_index] ?? food.serving_sizes[0];
+      if (!defaultServing) return;
+      const factor = (defaultServing.gram_weight || 100) / 100;
+      const n = food.nutrition_per_100g;
+      const { added } = await addToPantry({
+        name: food.name,
+        brand: food.brand,
+        barcode: food.barcode,
+        serving_size: defaultServing.description,
+        calories: Math.round(n.calories * factor),
+        protein_g: Math.round(n.protein_g * factor * 10) / 10,
+        carbs_g: Math.round(n.carbs_g * factor * 10) / 10,
+        fat_g: Math.round(n.fat_g * factor * 10) / 10,
+        fiber_g: n.fiber_g != null ? Math.round(n.fiber_g * factor * 10) / 10 : null,
+        added_sugar_g: n.added_sugar_g != null ? Math.round(n.added_sugar_g * factor * 10) / 10 : null,
+        sodium_mg: n.sodium_mg != null ? Math.round(n.sodium_mg * factor) : null,
+        source: 'barcode_scan',
+        category: 'food',
+      });
+      if (added) showToast('Saved to Pantry', 'success');
+    } catch (err) {
+      console.warn('[Pantry] auto-add failed', err);
+    }
+  }, [showToast]);
+
   // Sprint 10: Capture photo and analyze with Claude Vision
   const handleScanCamera = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -252,6 +310,8 @@ export default function FoodLogScreen() {
           } else {
             setMultiScanResults([]);
             setScanResultData(multiResult.items[0]);
+            // Sprint 21: Auto-add single-item scans to Pantry if enabled
+            autoAddScanToPantry(multiResult.items[0], 'label_scan');
           }
           setScreen('scanresult');
         };
@@ -278,7 +338,7 @@ export default function FoodLogScreen() {
         setScanLoading(false);
       }
     }
-  }, [promptIfBeverageOrContinue]);
+  }, [promptIfBeverageOrContinue, autoAddScanToPantry]);
 
   // Sprint 10: Pick from gallery and analyze
   const handleScanGallery = useCallback(async () => {
@@ -331,6 +391,8 @@ export default function FoodLogScreen() {
           } else {
             setMultiScanResults([]);
             setScanResultData(multiResult.items[0]);
+            // Sprint 21: Auto-add single-item scans to Pantry if enabled
+            autoAddScanToPantry(multiResult.items[0], 'label_scan');
           }
           setScreen('scanresult');
         };
@@ -356,7 +418,7 @@ export default function FoodLogScreen() {
         setScanLoading(false);
       }
     }
-  }, [promptIfBeverageOrContinue]);
+  }, [promptIfBeverageOrContinue, autoAddScanToPantry]);
 
   // Sprint 10: Handle scan result log (batch-save, single navigation)
   const handleScanLog = useCallback(async (entries: LogEntry[]) => {
@@ -486,6 +548,8 @@ export default function FoodLogScreen() {
     // Unmount BarcodeScanner CameraView before showing any alert or configure
     // screen. Avoids the iOS view-controller stacking that traps alerts.
     setScreen('search');
+    // Sprint 21: Auto-add barcode scan to Pantry if enabled
+    autoAddFoodItemToPantry(food);
     setTimeout(() => {
       const continueAsFood = () => {
         setSelectedFood(food);
@@ -495,7 +559,7 @@ export default function FoodLogScreen() {
       };
       promptIfBeverageOrContinue(food.name, food.brand, continueAsFood);
     }, 150);
-  }, [promptIfBeverageOrContinue]);
+  }, [promptIfBeverageOrContinue, autoAddFoodItemToPantry]);
 
   // Bug #19/#20: Show a React-controlled modal. The BarcodeScanner is already
   // unmounting via screen state — we no longer try to stack a native alert on
@@ -743,6 +807,18 @@ export default function FoodLogScreen() {
 
         {screen === 'search' && (
           <>
+          {/* Sprint 21: My Pantry entry point */}
+          <TouchableOpacity
+            style={styles.pantryEntryBtn}
+            onPress={() => router.push('/log/pantry' as any)}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="bookmark" size={18} color={Colors.accent} />
+            <Text style={styles.pantryEntryText}>My Pantry</Text>
+            <Text style={styles.pantryEntrySub}>Scan once, log forever</Text>
+            <Ionicons name="chevron-forward" size={18} color={Colors.secondaryText} />
+          </TouchableOpacity>
+
           {/* Sprint 10: Prominent scan area */}
           <View style={styles.scanArea}>
             <TouchableOpacity style={styles.scanBtn} onPress={handleScanCamera} activeOpacity={0.7}>
@@ -882,6 +958,7 @@ export default function FoodLogScreen() {
             mealType={mealType}
             timestamp={entryTimestamp}
             onLog={handleScanLog}
+            scanSource="label_scan"
             onCancel={() => {
               setScanResultData(null);
               setMultiScanResults([]);
@@ -1045,6 +1122,30 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     paddingTop: 12,
+  },
+  // Sprint 21: Pantry entry
+  pantryEntryBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: Colors.accent + '55',
+  },
+  pantryEntryText: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  pantryEntrySub: {
+    flex: 1,
+    color: Colors.secondaryText,
+    fontSize: 12,
+    marginLeft: 4,
   },
   // Sprint 10: Scan area
   scanArea: {
