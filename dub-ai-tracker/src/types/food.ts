@@ -17,10 +17,13 @@ export type ServingUnit =
 export type PhotoConfidence = 'high' | 'medium' | 'low';
 
 export interface NutritionInfo {
+  // Core macros (required — do not rename, used widely)
   calories: number;
   protein_g: number;
   carbs_g: number;
   fat_g: number;
+
+  // Expanded macros (nullable for backward compat with existing entries)
   fiber_g: number | null;
   sugar_g: number | null;
   added_sugar_g: number | null;
@@ -28,14 +31,37 @@ export interface NutritionInfo {
   cholesterol_mg: number | null;
   saturated_fat_g: number | null;
   trans_fat_g: number | null;
+
+  // Minerals (existing — do not rename)
   potassium_mg: number | null;
-  vitamin_d_mcg: number | null;
   calcium_mg: number | null;
   iron_mg: number | null;
+
+  // Vitamins (existing — do not rename)
+  vitamin_d_mcg: number | null;
+
+  // Sprint 22: expanded micronutrients — optional for backward compat.
+  // Entries written before this change will simply lack these keys.
+  total_sugar_g?: number | null;
+
+  // Vitamins
+  vitamin_a_mcg?: number | null;
+  vitamin_c_mg?: number | null;
+  vitamin_e_mg?: number | null;
+  vitamin_k_mcg?: number | null;
+  vitamin_b6_mg?: number | null;
+  vitamin_b12_mcg?: number | null;
+  folate_mcg?: number | null;
+  niacin_mg?: number | null;
+
+  // Minerals
   zinc_mg?: number | null;
   magnesium_mg?: number | null;
   selenium_mcg?: number | null;
-  vitamin_b12_mcg?: number | null;
+  copper_mg?: number | null;
+  manganese_mg?: number | null;
+  phosphorus_mg?: number | null;
+  chromium_mcg?: number | null;
 }
 
 export interface ServingSize {

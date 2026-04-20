@@ -1,0 +1,493 @@
+// ============================================================
+// NUTRIENT CHART OF ACCOUNTS
+// ============================================================
+// Naming convention: CATEGORY-SUBCATEGORY-ELEMENT
+// Each code maps to: display name, unit, RDA, UL, LOINC code
+// ============================================================
+
+export interface NutrientAccount {
+  code: string;            // e.g., "NUT-MAC-PRO"
+  name: string;            // e.g., "Protein"
+  category: 'macro' | 'micro_vitamin' | 'micro_mineral' | 'burn' | 'hydration';
+  unit: string;            // g, mg, mcg, IU, cal, oz, min
+  rda_male: number | null; // Recommended Daily Allowance (adult male)
+  rda_female: number | null;
+  ul: number | null;       // Tolerable Upper Intake Level (null = no established UL)
+  ul_source: string | null; // "NIH ODS" or "IOM DRI"
+  loinc_code: string | null; // LOINC code for FHIR mapping
+  clinical_risk: string | null; // Brief note on overdose risk
+  display_order: number;   // Sort order in reports
+}
+
+// MACRONUTRIENTS
+export const NUTRIENT_ACCOUNTS: NutrientAccount[] = [
+  {
+    code: 'NUT-MAC-CAL',
+    name: 'Calories',
+    category: 'macro',
+    unit: 'cal',
+    rda_male: null,
+    rda_female: null,
+    ul: null,
+    ul_source: null,
+    loinc_code: '9052-2',
+    clinical_risk: null,
+    display_order: 1,
+  },
+  {
+    code: 'NUT-MAC-PRO',
+    name: 'Protein',
+    category: 'macro',
+    unit: 'g',
+    rda_male: 56,
+    rda_female: 46,
+    ul: null,
+    ul_source: null,
+    loinc_code: '75255-8',
+    clinical_risk: null,
+    display_order: 2,
+  },
+  {
+    code: 'NUT-MAC-CHO',
+    name: 'Carbohydrates',
+    category: 'macro',
+    unit: 'g',
+    rda_male: 130,
+    rda_female: 130,
+    ul: null,
+    ul_source: null,
+    loinc_code: '75256-6',
+    clinical_risk: null,
+    display_order: 3,
+  },
+  {
+    code: 'NUT-MAC-FAT',
+    name: 'Total Fat',
+    category: 'macro',
+    unit: 'g',
+    rda_male: null,
+    rda_female: null,
+    ul: null,
+    ul_source: null,
+    loinc_code: '75257-4',
+    clinical_risk: null,
+    display_order: 4,
+  },
+  {
+    code: 'NUT-MAC-SAT',
+    name: 'Saturated Fat',
+    category: 'macro',
+    unit: 'g',
+    rda_male: null,
+    rda_female: null,
+    ul: null,
+    ul_source: null,
+    loinc_code: '75259-0',
+    clinical_risk: 'Excess linked to cardiovascular disease',
+    display_order: 5,
+  },
+  {
+    code: 'NUT-MAC-TRF',
+    name: 'Trans Fat',
+    category: 'macro',
+    unit: 'g',
+    rda_male: null,
+    rda_female: null,
+    ul: null,
+    ul_source: null,
+    loinc_code: null,
+    clinical_risk: 'No safe level — linked to heart disease',
+    display_order: 6,
+  },
+  {
+    code: 'NUT-MAC-FIB',
+    name: 'Fiber',
+    category: 'macro',
+    unit: 'g',
+    rda_male: 38,
+    rda_female: 25,
+    ul: null,
+    ul_source: null,
+    loinc_code: '75260-8',
+    clinical_risk: null,
+    display_order: 7,
+  },
+  {
+    code: 'NUT-MAC-SUG',
+    name: 'Added Sugar',
+    category: 'macro',
+    unit: 'g',
+    rda_male: null,
+    rda_female: null,
+    ul: null,
+    ul_source: null,
+    loinc_code: null,
+    clinical_risk: 'Excess linked to metabolic syndrome',
+    display_order: 8,
+  },
+  {
+    code: 'NUT-MAC-CHO-TOT',
+    name: 'Cholesterol',
+    category: 'macro',
+    unit: 'mg',
+    rda_male: null,
+    rda_female: null,
+    ul: null,
+    ul_source: null,
+    loinc_code: null,
+    clinical_risk: null,
+    display_order: 9,
+  },
+  {
+    code: 'NUT-MAC-NA',
+    name: 'Sodium',
+    category: 'macro',
+    unit: 'mg',
+    rda_male: 1500,
+    rda_female: 1500,
+    ul: 2300,
+    ul_source: 'IOM DRI',
+    loinc_code: '75261-6',
+    clinical_risk: 'Excess linked to hypertension',
+    display_order: 10,
+  },
+
+  // VITAMINS (fat-soluble — higher overdose risk)
+  {
+    code: 'NUT-MIC-VA',
+    name: 'Vitamin A',
+    category: 'micro_vitamin',
+    unit: 'mcg',
+    rda_male: 900,
+    rda_female: 700,
+    ul: 3000,
+    ul_source: 'NIH ODS',
+    loinc_code: '75262-4',
+    clinical_risk: 'Excess causes liver damage, birth defects. Fat-soluble — accumulates.',
+    display_order: 20,
+  },
+  {
+    code: 'NUT-MIC-VD',
+    name: 'Vitamin D',
+    category: 'micro_vitamin',
+    unit: 'mcg',
+    rda_male: 15,
+    rda_female: 15,
+    ul: 100,
+    ul_source: 'NIH ODS',
+    loinc_code: '75263-2',
+    clinical_risk: 'Excess causes hypercalcemia, kidney damage. Fat-soluble — accumulates.',
+    display_order: 21,
+  },
+  {
+    code: 'NUT-MIC-VE',
+    name: 'Vitamin E',
+    category: 'micro_vitamin',
+    unit: 'mg',
+    rda_male: 15,
+    rda_female: 15,
+    ul: 1000,
+    ul_source: 'NIH ODS',
+    loinc_code: null,
+    clinical_risk: 'Excess may increase bleeding risk',
+    display_order: 22,
+  },
+  {
+    code: 'NUT-MIC-VK',
+    name: 'Vitamin K',
+    category: 'micro_vitamin',
+    unit: 'mcg',
+    rda_male: 120,
+    rda_female: 90,
+    ul: null,
+    ul_source: null,
+    loinc_code: null,
+    clinical_risk: 'Interacts with blood thinners (warfarin)',
+    display_order: 23,
+  },
+
+  // VITAMINS (water-soluble)
+  {
+    code: 'NUT-MIC-VC',
+    name: 'Vitamin C',
+    category: 'micro_vitamin',
+    unit: 'mg',
+    rda_male: 90,
+    rda_female: 75,
+    ul: 2000,
+    ul_source: 'NIH ODS',
+    loinc_code: null,
+    clinical_risk: 'Excess causes GI distress, kidney stones',
+    display_order: 30,
+  },
+  {
+    code: 'NUT-MIC-B6',
+    name: 'Vitamin B6',
+    category: 'micro_vitamin',
+    unit: 'mg',
+    rda_male: 1.3,
+    rda_female: 1.3,
+    ul: 100,
+    ul_source: 'NIH ODS',
+    loinc_code: null,
+    clinical_risk: 'Chronic excess causes nerve damage (neuropathy)',
+    display_order: 31,
+  },
+  {
+    code: 'NUT-MIC-B12',
+    name: 'Vitamin B12',
+    category: 'micro_vitamin',
+    unit: 'mcg',
+    rda_male: 2.4,
+    rda_female: 2.4,
+    ul: null,
+    ul_source: null,
+    loinc_code: '75264-0',
+    clinical_risk: null,
+    display_order: 32,
+  },
+  {
+    code: 'NUT-MIC-FOL',
+    name: 'Folate',
+    category: 'micro_vitamin',
+    unit: 'mcg',
+    rda_male: 400,
+    rda_female: 400,
+    ul: 1000,
+    ul_source: 'NIH ODS',
+    loinc_code: null,
+    clinical_risk: 'Excess synthetic folate may mask B12 deficiency',
+    display_order: 33,
+  },
+  {
+    code: 'NUT-MIC-B3',
+    name: 'Niacin (B3)',
+    category: 'micro_vitamin',
+    unit: 'mg',
+    rda_male: 16,
+    rda_female: 14,
+    ul: 35,
+    ul_source: 'NIH ODS',
+    loinc_code: null,
+    clinical_risk: 'Excess causes flushing, liver damage',
+    display_order: 34,
+  },
+
+  // MINERALS
+  {
+    code: 'NUT-MIC-FE',
+    name: 'Iron',
+    category: 'micro_mineral',
+    unit: 'mg',
+    rda_male: 8,
+    rda_female: 18,
+    ul: 45,
+    ul_source: 'NIH ODS',
+    loinc_code: '75258-2',
+    clinical_risk: 'CRITICAL: Excess causes organ damage (hemochromatosis). Most dangerous mineral to overdose.',
+    display_order: 40,
+  },
+  {
+    code: 'NUT-MIC-CA',
+    name: 'Calcium',
+    category: 'micro_mineral',
+    unit: 'mg',
+    rda_male: 1000,
+    rda_female: 1000,
+    ul: 2500,
+    ul_source: 'NIH ODS',
+    loinc_code: '49765-1',
+    clinical_risk: 'Excess causes kidney stones, cardiovascular risk',
+    display_order: 41,
+  },
+  {
+    code: 'NUT-MIC-ZN',
+    name: 'Zinc',
+    category: 'micro_mineral',
+    unit: 'mg',
+    rda_male: 11,
+    rda_female: 8,
+    ul: 40,
+    ul_source: 'NIH ODS',
+    loinc_code: null,
+    clinical_risk: 'Excess impairs copper absorption, immune dysfunction',
+    display_order: 42,
+  },
+  {
+    code: 'NUT-MIC-SE',
+    name: 'Selenium',
+    category: 'micro_mineral',
+    unit: 'mcg',
+    rda_male: 55,
+    rda_female: 55,
+    ul: 400,
+    ul_source: 'NIH ODS',
+    loinc_code: null,
+    clinical_risk: 'Excess causes selenosis (hair loss, nail brittleness, GI issues)',
+    display_order: 43,
+  },
+  {
+    code: 'NUT-MIC-MG',
+    name: 'Magnesium',
+    category: 'micro_mineral',
+    unit: 'mg',
+    rda_male: 420,
+    rda_female: 320,
+    ul: 350,
+    ul_source: 'NIH ODS',
+    loinc_code: null,
+    clinical_risk: 'Supplement excess causes diarrhea. Food-sourced has no UL.',
+    display_order: 44,
+  },
+  {
+    code: 'NUT-MIC-K',
+    name: 'Potassium',
+    category: 'micro_mineral',
+    unit: 'mg',
+    rda_male: 3400,
+    rda_female: 2600,
+    ul: null,
+    ul_source: null,
+    loinc_code: null,
+    clinical_risk: 'Supplement excess dangerous for kidney disease patients',
+    display_order: 45,
+  },
+  {
+    code: 'NUT-MIC-CU',
+    name: 'Copper',
+    category: 'micro_mineral',
+    unit: 'mg',
+    rda_male: 0.9,
+    rda_female: 0.9,
+    ul: 10,
+    ul_source: 'NIH ODS',
+    loinc_code: null,
+    clinical_risk: 'Excess causes liver damage',
+    display_order: 46,
+  },
+  {
+    code: 'NUT-MIC-MN',
+    name: 'Manganese',
+    category: 'micro_mineral',
+    unit: 'mg',
+    rda_male: 2.3,
+    rda_female: 1.8,
+    ul: 11,
+    ul_source: 'NIH ODS',
+    loinc_code: null,
+    clinical_risk: 'Excess causes neurological issues',
+    display_order: 47,
+  },
+  {
+    code: 'NUT-MIC-CR',
+    name: 'Chromium',
+    category: 'micro_mineral',
+    unit: 'mcg',
+    rda_male: 35,
+    rda_female: 25,
+    ul: null,
+    ul_source: null,
+    loinc_code: null,
+    clinical_risk: null,
+    display_order: 48,
+  },
+  {
+    code: 'NUT-MIC-P',
+    name: 'Phosphorus',
+    category: 'micro_mineral',
+    unit: 'mg',
+    rda_male: 700,
+    rda_female: 700,
+    ul: 4000,
+    ul_source: 'NIH ODS',
+    loinc_code: null,
+    clinical_risk: 'Excess impairs calcium absorption',
+    display_order: 49,
+  },
+
+  // BURN ACCOUNTS
+  {
+    code: 'BRN-BMR',
+    name: 'Basal Metabolic Rate',
+    category: 'burn',
+    unit: 'cal',
+    rda_male: null,
+    rda_female: null,
+    ul: null,
+    ul_source: null,
+    loinc_code: null,
+    clinical_risk: null,
+    display_order: 60,
+  },
+  {
+    code: 'BRN-ACT',
+    name: 'Activity Burn',
+    category: 'burn',
+    unit: 'cal',
+    rda_male: null,
+    rda_female: null,
+    ul: null,
+    ul_source: null,
+    loinc_code: null,
+    clinical_risk: null,
+    display_order: 61,
+  },
+  {
+    code: 'BRN-EXR',
+    name: 'Exercise Burn',
+    category: 'burn',
+    unit: 'cal',
+    rda_male: null,
+    rda_female: null,
+    ul: null,
+    ul_source: null,
+    loinc_code: null,
+    clinical_risk: null,
+    display_order: 62,
+  },
+
+  // HYDRATION
+  {
+    code: 'HYD-WAT',
+    name: 'Water',
+    category: 'hydration',
+    unit: 'oz',
+    rda_male: 125,
+    rda_female: 91,
+    ul: null,
+    ul_source: null,
+    loinc_code: null,
+    clinical_risk: 'Extreme excess: hyponatremia (rare)',
+    display_order: 70,
+  },
+];
+
+// Helper: lookup by code
+export const getAccount = (code: string): NutrientAccount | undefined =>
+  NUTRIENT_ACCOUNTS.find((a) => a.code === code);
+
+// Helper: get all accounts with UL defined (for alerting)
+export const getAccountsWithUL = (): NutrientAccount[] =>
+  NUTRIENT_ACCOUNTS.filter((a) => a.ul !== null);
+
+// Helper: get UL for a specific nutrient
+export const getUL = (code: string): number | null =>
+  getAccount(code)?.ul ?? null;
+
+// Helper: get RDA for a specific nutrient by sex
+export const getRDA = (code: string, sex: 'male' | 'female'): number | null => {
+  const acct = getAccount(code);
+  if (!acct) return null;
+  return sex === 'male' ? acct.rda_male : acct.rda_female;
+};
+
+// Source tags for journal entries
+export type EntrySource =
+  | 'barcode_scan'
+  | 'label_scan'
+  | 'manual'
+  | 'coach_ai'
+  | 'supplement_log'
+  | 'healthkit'
+  | 'strava'
+  | 'pantry';

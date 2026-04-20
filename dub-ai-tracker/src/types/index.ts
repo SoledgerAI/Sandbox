@@ -394,6 +394,17 @@ export interface SideEffectEntry {
   medication_name: string;
 }
 
+/**
+ * Sprint 22: nutrient posting line for a supplement entry.
+ * Maps one dose to one or more nutrient-account contributions (e.g. a
+ * multivitamin posts to NUT-MIC-VA, NUT-MIC-VD, NUT-MIC-FE, etc.).
+ */
+export interface SupplementNutrientLine {
+  code: string;   // NutrientAccount.code, e.g. "NUT-MIC-FE"
+  amount: number; // numeric amount in the account's base unit
+  unit: string;   // units string for validation, e.g. "mg", "mcg"
+}
+
 export interface SupplementEntry {
   id: string;
   timestamp: string; // ISO datetime
@@ -404,6 +415,9 @@ export interface SupplementEntry {
   category: 'vitamin' | 'medication' | 'supplement';
   notes: string | null;
   side_effects: SideEffectEntry | null; // P1-20
+  // Sprint 22: optional nutrient breakdown. Populated later when supplement
+  // editing includes per-nutrient content. Absent for legacy entries.
+  nutrients?: SupplementNutrientLine[];
 }
 
 // -- SUBSTANCES --
