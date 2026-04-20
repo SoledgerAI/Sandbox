@@ -1001,47 +1001,80 @@ export async function buildCoachContext(userMessage: string): Promise<{
     }
   }
 
-  // Sprint 22: Mood & Mental Health context — CORE, always included when logged
+  // Bug #13: Mood context — CORE, always included when logged.
+  // MoodPicker (LOG_MOOD) is the unified data source going forward.
+  // LOG_MOOD_MENTAL is read as historical fallback only for days that have
+  // no LOG_MOOD entry (entries written before the mood/mood-mental merge).
   {
-    const moodMentalEntry = await storageGet<MoodMentalEntry>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, today));
-    if (moodMentalEntry) {
+    if (moods.length > 0) {
       // PRIVACY: Never include raw notes in Coach context
+      const avgScore = (moods.reduce((s, m) => s + m.score, 0) / moods.length).toFixed(1);
+      const withEnergy = moods.filter((m) => m.energy != null);
+      const withAnxiety = moods.filter((m) => m.anxiety != null);
+      const avgEnergy = withEnergy.length > 0
+        ? (withEnergy.reduce((s, m) => s + (m.energy ?? 0), 0) / withEnergy.length).toFixed(1)
+        : null;
+      const avgAnxiety = withAnxiety.length > 0
+        ? (withAnxiety.reduce((s, m) => s + (m.anxiety ?? 0), 0) / withAnxiety.length).toFixed(1)
+        : null;
       const parts = [
-        `mood:${moodMentalEntry.overall_mood}/10`,
-        `energy:${moodMentalEntry.energy_level}/5`,
-        `anxiety:${moodMentalEntry.anxiety_level}/5`,
-        `stress:${moodMentalEntry.stress_level}/5`,
-        `clarity:${moodMentalEntry.mental_clarity}/5`,
-        moodMentalEntry.emotions.length > 0 ? `emotions:${moodMentalEntry.emotions.join(',')}` : null,
-        moodMentalEntry.triggers.length > 0 ? `triggers:${moodMentalEntry.triggers.join(',')}` : null,
-        moodMentalEntry.coping_used.length > 0 ? `coping:${moodMentalEntry.coping_used.join(',')}` : null,
+        `mood:${avgScore}/5`,
+        avgEnergy ? `energy:${avgEnergy}/5` : null,
+        avgAnxiety ? `anxiety:${avgAnxiety}/5` : null,
+        `entries:${moods.length}`,
       ].filter(Boolean);
-      conditionalSections.push(`[MOOD_MENTAL ${today}] ${parts.join(' ')}`);
+      conditionalSections.push(`[MOOD ${today}] ${parts.join(' ')}`);
       tagsLogged.push('mood.mental');
+    } else {
+      // Historical fallback: pre-merge days may only have LOG_MOOD_MENTAL data
+      const moodMentalEntry = await storageGet<MoodMentalEntry>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, today));
+      if (moodMentalEntry) {
+        const parts = [
+          `mood:${moodMentalEntry.overall_mood}/10`,
+          `energy:${moodMentalEntry.energy_level}/5`,
+          `anxiety:${moodMentalEntry.anxiety_level}/5`,
+          `stress:${moodMentalEntry.stress_level}/5`,
+          `clarity:${moodMentalEntry.mental_clarity}/5`,
+          moodMentalEntry.emotions.length > 0 ? `emotions:${moodMentalEntry.emotions.join(',')}` : null,
+          moodMentalEntry.triggers.length > 0 ? `triggers:${moodMentalEntry.triggers.join(',')}` : null,
+          moodMentalEntry.coping_used.length > 0 ? `coping:${moodMentalEntry.coping_used.join(',')}` : null,
+        ].filter(Boolean);
+        conditionalSections.push(`[MOOD_MENTAL ${today}] ${parts.join(' ')}`);
+        tagsLogged.push('mood.mental');
+      }
     }
 
-    // 7-day trend
+    // 7-day trend — merges LOG_MOOD (primary, 1-5 scale) with LOG_MOOD_MENTAL
+    // (historical fallback, scaled from 1-10 → 1-5) so the trend is coherent
+    // across the mood-screen merge.
     if (messageMatchesKeywords(userMessage, MOOD_MENTAL_KEYWORDS)) {
-      let totalMood = 0;
+      let totalMoodScaled = 0;
       let daysWithData = 0;
       const allEmotions = new Map<string, number>();
       const allMoodTriggers = new Map<string, number>();
       for (let i = 0; i < 7; i++) {
         const d = pastDateString(i);
-        const entry = await storageGet<MoodMentalEntry>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, d));
-        if (entry) {
-          totalMood += entry.overall_mood;
+        const moodList = await storageGet<MoodEntry[]>(dateKey(STORAGE_KEYS.LOG_MOOD, d));
+        if (moodList && moodList.length > 0) {
+          const avg = moodList.reduce((s, m) => s + m.score, 0) / moodList.length;
+          totalMoodScaled += avg;
           daysWithData++;
-          for (const e of entry.emotions) allEmotions.set(e, (allEmotions.get(e) ?? 0) + 1);
-          for (const t of entry.triggers) allMoodTriggers.set(t, (allMoodTriggers.get(t) ?? 0) + 1);
+        } else {
+          const mental = await storageGet<MoodMentalEntry>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, d));
+          if (mental) {
+            totalMoodScaled += mental.overall_mood / 2; // 1-10 → 1-5
+            daysWithData++;
+            for (const e of mental.emotions) allEmotions.set(e, (allEmotions.get(e) ?? 0) + 1);
+            for (const t of mental.triggers) allMoodTriggers.set(t, (allMoodTriggers.get(t) ?? 0) + 1);
+          }
         }
       }
       if (daysWithData > 1) {
-        const avgMood = (totalMood / daysWithData).toFixed(1);
+        const avgMood = (totalMoodScaled / daysWithData).toFixed(1);
         const topEmotions = [...allEmotions.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([e]) => e).join(',');
         const topTriggers = [...allMoodTriggers.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([t]) => t).join(',');
         conditionalSections.push(
-          `[MOOD_MENTAL 7d] avg mood:${avgMood}/10, ${daysWithData} days${topEmotions ? ` top emotions:${topEmotions}` : ''}${topTriggers ? ` top triggers:${topTriggers}` : ''}`,
+          `[MOOD 7d] avg mood:${avgMood}/5, ${daysWithData} days${topEmotions ? ` top emotions:${topEmotions}` : ''}${topTriggers ? ` top triggers:${topTriggers}` : ''}`,
         );
       }
     }

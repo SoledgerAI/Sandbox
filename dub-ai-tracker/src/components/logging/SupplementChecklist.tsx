@@ -718,59 +718,82 @@ export function SupplementChecklist() {
         ))}
       </View>
 
-      {/* F-12: Supplement selection mode */}
+      {/* Bug #16: Supplement selection mode — "My Stack" up top, "Add to My Stack" below.
+          The underlying toggle mechanic is unchanged; only the presentation splits
+          selected-vs-unselected so users see their curated list as the primary focus. */}
       {editingSelection && category !== 'medication' && (
         <>
-          {/* Recommendations */}
-          {recommendations.length > 0 && (
-            <>
-              <Text style={styles.sectionTitle}>Recommended for You</Text>
-              {recommendations.map((rec) => {
-                const selected = (mySupplements ?? []).includes(rec.name);
-                return (
-                  <TouchableOpacity
-                    key={rec.name}
-                    style={styles.checkRow}
-                    onPress={() => toggleMySupplementSelection(rec.name)}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons
-                      name={selected ? 'checkbox' : 'square-outline'}
-                      size={22}
-                      color={selected ? Colors.accent : Colors.secondaryText}
-                    />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.checkLabel, selected && styles.checkLabelTaken]}>{rec.name}</Text>
-                      <Text style={styles.sectionHint}>{rec.reason}</Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </>
-          )}
-
-          <Text style={styles.sectionTitle}>
-            {category === 'vitamin' ? 'All Vitamins' : 'All Supplements'}
-          </Text>
-          <Text style={styles.sectionHint}>Select the supplements you take regularly.</Text>
-          {fullChecklist.map((name) => {
-            const selected = (mySupplements ?? []).includes(name);
-            return (
+          {/* My Stack — already selected items */}
+          <Text style={styles.sectionTitle}>My Stack</Text>
+          {(() => {
+            const selectedNames = mySupplements ?? [];
+            const stackItems = fullChecklist.filter((n) => selectedNames.includes(n));
+            if (stackItems.length === 0) {
+              return (
+                <Text style={styles.sectionHint}>
+                  Nothing in your stack yet. Add some from below.
+                </Text>
+              );
+            }
+            return stackItems.map((name) => (
               <TouchableOpacity
                 key={name}
                 style={styles.checkRow}
                 onPress={() => toggleMySupplementSelection(name)}
                 activeOpacity={0.7}
               >
-                <Ionicons
-                  name={selected ? 'checkbox' : 'square-outline'}
-                  size={22}
-                  color={selected ? Colors.accent : Colors.secondaryText}
-                />
-                <Text style={[styles.checkLabel, selected && styles.checkLabelTaken]}>{name}</Text>
+                <Ionicons name="checkbox" size={22} color={Colors.accent} />
+                <Text style={[styles.checkLabel, styles.checkLabelTaken]}>{name}</Text>
               </TouchableOpacity>
+            ));
+          })()}
+
+          {/* Recommendations — filtered to only show items NOT already in stack */}
+          {(() => {
+            const selectedNames = mySupplements ?? [];
+            const unselectedRecs = recommendations.filter((r) => !selectedNames.includes(r.name));
+            if (unselectedRecs.length === 0) return null;
+            return (
+              <>
+                <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Recommended for You</Text>
+                <Text style={styles.sectionHint}>Based on your profile</Text>
+                {unselectedRecs.map((rec) => (
+                  <TouchableOpacity
+                    key={rec.name}
+                    style={styles.checkRow}
+                    onPress={() => toggleMySupplementSelection(rec.name)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="square-outline" size={22} color={Colors.secondaryText} />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.checkLabel}>{rec.name}</Text>
+                      <Text style={styles.sectionHint}>{rec.reason}</Text>
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </>
             );
-          })}
+          })()}
+
+          {/* Add to My Stack — remaining unselected items */}
+          <Text style={[styles.sectionTitle, { marginTop: 20 }]}>Add to My Stack</Text>
+          <Text style={styles.sectionHint}>
+            {category === 'vitamin' ? 'All vitamins' : 'All supplements'} — tap to add.
+          </Text>
+          {fullChecklist
+            .filter((name) => !(mySupplements ?? []).includes(name))
+            .filter((name) => !recommendations.some((r) => r.name === name))
+            .map((name) => (
+              <TouchableOpacity
+                key={name}
+                style={styles.checkRow}
+                onPress={() => toggleMySupplementSelection(name)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="square-outline" size={22} color={Colors.secondaryText} />
+                <Text style={styles.checkLabel}>{name}</Text>
+              </TouchableOpacity>
+            ))}
           <TouchableOpacity
             style={styles.editSelectionBtn}
             onPress={() => setEditingSelection(false)}
@@ -787,15 +810,15 @@ export function SupplementChecklist() {
         <>
           {checklist.length === 0 && mySupplements != null ? (
             <>
-              <Text style={styles.sectionTitle}>
-                {category === 'vitamin' ? 'Vitamins' : 'Supplements'}
-              </Text>
+              <Text style={styles.sectionTitle}>My Stack</Text>
               <Text style={styles.sectionHint}>
-                No {category === 'vitamin' ? 'vitamins' : 'supplements'} selected. Tap "Edit My Supplements" below to choose.
+                No {category === 'vitamin' ? 'vitamins' : 'supplements'} in your stack yet. Tap &quot;Edit My Stack&quot; below to add some.
               </Text>
             </>
           ) : (
             <>
+              {/* Bug #16: Clear "My Stack" header so users know this is THEIR curated list. */}
+              <Text style={styles.sectionTitle}>My Stack</Text>
               <Text style={styles.sectionHint}>Tap to log. Tap again to add another dose. Long-press to edit.</Text>
               {groupByTiming(checklist).map((group) => (
                 <View key={group.timing}>
@@ -852,14 +875,14 @@ export function SupplementChecklist() {
             </>
           )}
 
-          {/* F-12: Edit My Supplements link */}
+          {/* Bug #16: Edit My Stack link */}
           <TouchableOpacity
             style={styles.editSelectionLink}
             onPress={() => setEditingSelection(true)}
             activeOpacity={0.7}
           >
             <Ionicons name="create-outline" size={16} color={Colors.accent} />
-            <Text style={styles.editSelectionLinkText}>Edit My Supplements</Text>
+            <Text style={styles.editSelectionLinkText}>Edit My Stack</Text>
           </TouchableOpacity>
         </>
       )}

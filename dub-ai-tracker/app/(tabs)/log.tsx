@@ -120,8 +120,7 @@ const SECTION_DEFS: SectionDef[] = [
     title: 'MIND & WELLNESS',
     alwaysVisible: true,
     items: [
-      { id: 'mood', label: 'Mood', icon: 'happy-outline', route: '/log/mood', storageKey: STORAGE_KEYS.LOG_MOOD, searchTerms: 'mood feeling emotion mental' },
-      { id: 'mood_mental', label: 'Mood & Mental Health', icon: 'bulb-outline', route: '/log/mood-mental', storageKey: STORAGE_KEYS.LOG_MOOD_MENTAL, searchTerms: 'mood mental health anxiety stress emotions coping crisis 988' },
+      { id: 'mood', label: 'Mood', icon: 'happy-outline', route: '/log/mood', storageKey: STORAGE_KEYS.LOG_MOOD, searchTerms: 'mood feeling emotion mental anxiety crisis 988' },
       { id: 'stress', label: 'Stress', icon: 'pulse-outline', route: '/log/stress', searchTerms: 'stress anxiety tension' },
       { id: 'meditation', label: 'Meditation & Breathwork', icon: 'leaf-outline', route: '/log/meditation', storageKey: STORAGE_KEYS.LOG_MEDITATION, searchTerms: 'meditation mindfulness breathe calm breathwork box breathing body scan' },
       { id: 'journal', label: 'Journaling', icon: 'book-outline', route: '/log/journal', storageKey: STORAGE_KEYS.LOG_JOURNAL, searchTerms: 'journal writing diary free-form private' },
@@ -301,7 +300,7 @@ export default function LogScreen() {
       foods, waters, workouts, supps, moods, reps, habits,
       doctorVisits, allergyLog, medEntries, socialEntries, sunEntries,
       mobEntries, journalEntries, bfEntries, periEntry, migraineEntry,
-      moodMentalEntry, bodyMeasEntry, medEntry,
+      bodyMeasEntry, medEntry,
     ] = await Promise.all([
       storageGet<{ food_item: { name: string }; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_FOOD, dateStr)),
       storageGet<{ timestamp: string; amount_oz: number }[]>(dateKey(STORAGE_KEYS.LOG_WATER, dateStr)),
@@ -320,7 +319,6 @@ export default function LogScreen() {
       storageGet<{ type: string; duration_minutes: number; timestamp: string }[]>(dateKey(STORAGE_KEYS.LOG_BREASTFEEDING, dateStr)),
       storageGet<{ hot_flashes_count: number; energy_level: number }>(dateKey(STORAGE_KEYS.LOG_PERIMENOPAUSE, dateStr)),
       storageGet<{ occurred: boolean; severity: number | null }>(dateKey(STORAGE_KEYS.LOG_MIGRAINE, dateStr)),
-      storageGet<{ overall_mood: number; energy_level: number }>(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, dateStr)),
       storageGet<{ weight: number | null; weight_unit: string; body_fat_percentage: number | null }>(dateKey(STORAGE_KEYS.LOG_BODY_MEASUREMENTS, dateStr)),
       storageGet<{ medications: { taken: boolean }[] }>(dateKey(STORAGE_KEYS.LOG_MEDICATIONS, dateStr)),
     ]);
@@ -417,12 +415,6 @@ export default function LogScreen() {
     if (migraineEntry) {
       entries['/log/migraine'] = {
         label: migraineEntry.occurred ? `Severity ${migraineEntry.severity}/10` : 'No migraine',
-        time: '',
-      };
-    }
-    if (moodMentalEntry) {
-      entries['/log/mood-mental'] = {
-        label: `Mood ${moodMentalEntry.overall_mood}/10, Energy ${moodMentalEntry.energy_level}/5`,
         time: '',
       };
     }

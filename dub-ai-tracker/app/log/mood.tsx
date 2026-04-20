@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../src/constants/colors';
 import { DateContextBanner } from '../../src/components/DateContextBanner';
 import { MoodPicker } from '../../src/components/logging/MoodPicker';
+import { CrisisSupport988 } from '../../src/components/CrisisSupport988';
 
 export default function MoodScreen() {
   return (
@@ -26,6 +27,11 @@ export default function MoodScreen() {
       </View>
 
       <DateContextBanner />
+      {/* Bug #13: Crisis banner consolidated onto the single Mood screen.
+          SAFETY: This banner is always rendered, never gated by mood score. */}
+      <View style={styles.crisisBanner}>
+        <CrisisSupport988 />
+      </View>
       <MoodPicker />
     </View>
     </ScreenWrapper>
@@ -55,5 +61,9 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: 18,
     fontWeight: '700',
+  },
+  crisisBanner: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
 });
