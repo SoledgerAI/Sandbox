@@ -268,6 +268,8 @@ export async function asyncWithTimeout<T>(
   label?: string,
 ): Promise<T> {
   let settled = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let rafId: number | null = null;
 
   const timeout = new Promise<T>((resolve) => {
     const start = Date.now();
@@ -280,23 +282,19 @@ export async function asyncWithTimeout<T>(
     }
 
     // Primary: setTimeout (works in most environments)
-    const timer = setTimeout(() => onTimeout('setTimeout'), ms);
+    timer = setTimeout(() => onTimeout('setTimeout'), ms);
 
     // Backup: requestAnimationFrame polling (works when setTimeout doesn't
     // fire in Hermes release builds, as long as the UI thread is rendering)
     function rafCheck() {
-      if (settled) {
-        clearTimeout(timer);
-        return;
-      }
+      if (settled) return;
       if (Date.now() - start >= ms) {
-        clearTimeout(timer);
         onTimeout('raf');
         return;
       }
-      requestAnimationFrame(rafCheck);
+      rafId = requestAnimationFrame(rafCheck);
     }
-    requestAnimationFrame(rafCheck);
+    rafId = requestAnimationFrame(rafCheck);
   });
 
   try {
@@ -304,6 +302,8 @@ export async function asyncWithTimeout<T>(
     return result;
   } finally {
     settled = true;
+    if (timer !== null) clearTimeout(timer);
+    if (rafId !== null) cancelAnimationFrame(rafId);
   }
 }
 

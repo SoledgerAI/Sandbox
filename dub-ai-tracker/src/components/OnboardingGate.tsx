@@ -39,6 +39,7 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
   // Uses requestAnimationFrame because setTimeout may not fire in Hermes release builds.
   useEffect(() => {
     let cancelled = false;
+    let rafId: number | null = null;
     const start = Date.now();
     function rafCheck() {
       if (cancelled) return;
@@ -46,10 +47,13 @@ export function OnboardingGate({ children }: OnboardingGateProps) {
         setChecking(false);
         return;
       }
-      requestAnimationFrame(rafCheck);
+      rafId = requestAnimationFrame(rafCheck);
     }
-    requestAnimationFrame(rafCheck);
-    return () => { cancelled = true; };
+    rafId = requestAnimationFrame(rafCheck);
+    return () => {
+      cancelled = true;
+      if (rafId !== null) cancelAnimationFrame(rafId);
+    };
   }, []);
 
   const handleComplete = useCallback(() => {

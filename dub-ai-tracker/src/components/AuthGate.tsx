@@ -104,6 +104,7 @@ export function AuthGate({ children }: AuthGateProps) {
   // Uses BOTH setTimeout AND requestAnimationFrame for redundancy.
   useEffect(() => {
     let cancelled = false;
+    let rafId: number | null = null;
 
     // Primary: setTimeout
     const timer = setTimeout(() => {
@@ -120,13 +121,14 @@ export function AuthGate({ children }: AuthGateProps) {
         setState((prev) => (prev === 'loading' ? 'unlocked' : prev));
         return;
       }
-      requestAnimationFrame(rafCheck);
+      rafId = requestAnimationFrame(rafCheck);
     }
-    requestAnimationFrame(rafCheck);
+    rafId = requestAnimationFrame(rafCheck);
 
     return () => {
       cancelled = true;
       clearTimeout(timer);
+      if (rafId !== null) cancelAnimationFrame(rafId);
     };
   }, []);
 
@@ -222,13 +224,19 @@ export function AuthGate({ children }: AuthGateProps) {
     }
   }, []);
 
-  // Auto-trigger biometric auth once when lock screen appears
+  // Auto-trigger biometric auth once when lock screen appears; reset flags
+  // only when transitioning away from locked (avoids redundant initial-render
+  // setState that warns about act() in tests).
+  const wasLockedRef = useRef(false);
   useEffect(() => {
-    if (state === 'locked' && lockView === 'biometric' && !autoTriggeredRef.current) {
-      autoTriggeredRef.current = true;
-      handleBiometric();
-    }
-    if (state !== 'locked') {
+    if (state === 'locked') {
+      wasLockedRef.current = true;
+      if (lockView === 'biometric' && !autoTriggeredRef.current) {
+        autoTriggeredRef.current = true;
+        handleBiometric();
+      }
+    } else if (wasLockedRef.current) {
+      wasLockedRef.current = false;
       autoTriggeredRef.current = false;
       setBiometricFailed(false);
     }
