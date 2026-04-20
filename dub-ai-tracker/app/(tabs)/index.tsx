@@ -87,6 +87,14 @@ export default function DashboardScreen() {
   const [hideCalories, setHideCalories] = useState(false);
   const [showScoreInfo, setShowScoreInfo] = useState(false);
 
+  // Feature #6: dynamic metabolic burn ticks every minute so the "Burned"
+  // line grows through the day rather than sitting at the logged total.
+  const [burnTick, setBurnTick] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setBurnTick(Date.now()), 60 * 1000);
+    return () => clearInterval(id);
+  }, []);
+
   // Sprint 25: New dashboard state
   const [compliance, setCompliance] = useState<ComplianceResult | null>(null);
   const [lastCoachMessage, setLastCoachMessage] = useState<ChatMessage | null>(null);
@@ -187,6 +195,17 @@ export default function DashboardScreen() {
 
   // MASTER-48: Multi-factor daily score from tier-weighted computation
   const scoreValue = dailyScore.total;
+
+  // Feature #6: metabolic burn accrues linearly across the calendar day
+  // (tdee / 24 per hour). Logged workout calories are already in
+  // summary.calories_burned, so we just add the time-weighted portion.
+  const now = new Date(burnTick);
+  const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const hoursElapsed = Math.min(24, Math.max(0, (now.getTime() - startOfDay.getTime()) / 3_600_000));
+  const metabolicBurnSoFar = tdee > 0 ? (tdee / 24) * hoursElapsed : 0;
+  const totalBurned = Math.round(summary.calories_burned + metabolicBurnSoFar);
+  const adjustedNet = summary.calories_consumed - totalBurned;
+  const adjustedRemaining = calorieTarget - summary.calories_consumed + totalBurned;
 
   // B1: Show first-use label below score ring for first 7 days
   const isFirstWeek = streak != null && (streak.current_streak ?? 0) <= 7;
@@ -373,9 +392,9 @@ export default function DashboardScreen() {
           bmr={Math.round(bmr)}
           tdee={Math.round(tdee)}
           consumed={summary.calories_consumed}
-          burned={summary.calories_burned}
-          net={summary.calories_net}
-          remaining={summary.calories_remaining}
+          burned={totalBurned}
+          net={adjustedNet}
+          remaining={adjustedRemaining}
           calorieTarget={Math.round(calorieTarget)}
           hideCalories={hideCalories}
         />
