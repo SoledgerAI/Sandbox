@@ -40,6 +40,7 @@ export interface WorkoutEntry {
   pack_weight_lbs?: number | null;  // Load carried (rucking, weighted vest, etc.)
   push_count?: number | null;       // Total pushes (wheelchair propulsion)
   notes: string | null;
+  photo_uri?: string | null;        // Local photo attachment (EXIF stripped)
   source: 'manual' | 'strava' | 'apple_health' | 'google_health_connect';
 }
 

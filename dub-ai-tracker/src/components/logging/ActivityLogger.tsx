@@ -12,7 +12,9 @@ import {
   Alert,
   SectionList,
   Platform,
+  Image,
 } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import RNDateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -62,6 +64,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
   const [pushCount, setPushCount] = useState<string>('');
   const [notes, setNotes] = useState('');
   const [weightLbs, setWeightLbs] = useState<number>(170);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
 
   const { lastEntry, loading: lastEntryLoading, saveAsLast } = useLastEntry<WorkoutEntry>('fitness.workout');
 
@@ -179,6 +182,7 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
       pack_weight_lbs: !isNaN(packLbs) && packLbs > 0 ? packLbs : null,
       push_count: !isNaN(pushCt) && pushCt > 0 ? pushCt : null,
       notes: notes.trim() || null,
+      photo_uri: photoUri,
       source: 'manual',
     };
 
@@ -202,9 +206,10 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
     setPackWeightLbs('');
     setPushCount('');
     setNotes('');
+    setPhotoUri(null);
     onEntryLogged?.();
   // eslint-disable-next-line react-hooks/exhaustive-deps -- rpe is intentionally excluded; it resets on save
-  }, [selectedActivity, durationMinutes, intensity, notes, calorieEstimate, entries, onEntryLogged, updateRecentActivities, saveAsLast]);
+  }, [selectedActivity, durationMinutes, intensity, notes, photoUri, calorieEstimate, entries, onEntryLogged, updateRecentActivities, saveAsLast]);
 
   const deleteEntry = useCallback(
     async (id: string) => {
@@ -226,6 +231,54 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
     d.setHours(hours, mins, 0, 0);
     return d;
   }, [durationMinutes]);
+
+  const takePhoto = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Camera access is needed to attach a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const { stripExifMetadata } = await import('../../utils/imagePrivacy');
+      const stripped = await stripExifMetadata(result.assets[0].uri, 0.7);
+      setPhotoUri(stripped);
+    }
+  }, []);
+
+  const pickPhotoFromLibrary = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Photo library access is needed.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsEditing: false,
+    });
+    if (!result.canceled && result.assets[0]) {
+      const { stripExifMetadata } = await import('../../utils/imagePrivacy');
+      const stripped = await stripExifMetadata(result.assets[0].uri, 0.7);
+      setPhotoUri(stripped);
+    }
+  }, []);
+
+  const openPhotoPicker = useCallback(() => {
+    Alert.alert(
+      'Add Photo',
+      'Choose how to add a photo to your workout',
+      [
+        { text: 'Take Photo', onPress: takePhoto },
+        { text: 'Choose from Library', onPress: pickPhotoFromLibrary },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  }, [takePhoto, pickPhotoFromLibrary]);
 
   const onDurationChange = useCallback((_event: unknown, date?: Date) => {
     if (date) {
@@ -467,6 +520,33 @@ export function ActivityLogger({ onEntryLogged }: ActivityLoggerProps) {
         </>
       )}
 
+      {/* Photo attachment (optional) */}
+      <Text style={styles.fieldLabel}>Photo (optional)</Text>
+      <View style={styles.photoRow}>
+        <TouchableOpacity
+          style={styles.photoBtn}
+          onPress={openPhotoPicker}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="camera-outline" size={18} color={Colors.accent} />
+          <Text style={styles.photoBtnText}>
+            {photoUri ? 'Change Photo' : 'Add Photo'}
+          </Text>
+        </TouchableOpacity>
+        {photoUri && (
+          <View style={styles.photoThumbWrap}>
+            <Image source={{ uri: photoUri }} style={styles.photoThumb} />
+            <TouchableOpacity
+              style={styles.photoRemoveBtn}
+              onPress={() => setPhotoUri(null)}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Ionicons name="close-circle" size={22} color={Colors.danger} />
+            </TouchableOpacity>
+          </View>
+        )}
+      </View>
+
       {/* Calorie estimate */}
       {calorieEstimate > 0 && (
         <View style={styles.calorieCard}>
@@ -673,6 +753,45 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: Colors.divider,
     marginBottom: 12,
+  },
+  photoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  photoBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    backgroundColor: 'transparent',
+  },
+  photoBtnText: {
+    color: Colors.accent,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  photoThumbWrap: {
+    position: 'relative',
+  },
+  photoThumb: {
+    width: 80,
+    height: 80,
+    borderRadius: 10,
+    backgroundColor: Colors.cardBackground,
+  },
+  photoRemoveBtn: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: Colors.primaryBackground,
+    borderRadius: 12,
   },
   calorieCard: {
     flexDirection: 'row',

@@ -82,7 +82,10 @@
       "Bash(bash /tmp/comprehensive_audit.sh)",
       "Bash(xargs echo *)",
       "Bash(bash /tmp/specific_requirements.sh)",
-      "Bash(git -C /c/Users/joshs/Documents/Sandbox/dub-ai-tracker log --oneline)"
+      "Bash(git -C /c/Users/joshs/Documents/Sandbox/dub-ai-tracker log --oneline)",
+      "Bash(git stash *)",
+      "Bash(eas build *)",
+      "Bash(eas submit *)"
     ]
   }
 }
