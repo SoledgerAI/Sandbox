@@ -43,7 +43,9 @@ describe('Coach error card UI', () => {
     );
     expect(source).toContain('Tap to Retry');
     expect(source).toContain('errorCard');
-    expect(source).toContain("Something went wrong. Your message wasn't lost.");
+    expect(source).toContain("Your message wasn't lost.");
+    // Diagnostics: real error string is rendered from state
+    expect(source).toContain('{error}');
   });
 
   it('retry button calls retry from useCoach', () => {

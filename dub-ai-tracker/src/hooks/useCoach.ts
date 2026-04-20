@@ -168,7 +168,13 @@ export function useCoach(): UseCoachResult {
             }
             apiMessages.push({ role: 'user', content });
           } catch (err) {
-            console.error('[Coach] Photo processing failed:', err);
+            const e = err as { message?: string; stack?: string; response?: { data?: unknown; status?: number } };
+            console.error(
+              '[Coach] ERROR:',
+              e?.message,
+              e?.stack,
+              e?.response?.data ?? e?.response?.status,
+            );
             throw new Error(
               `Photo upload failed: ${err instanceof Error ? err.message : 'unknown error'}`,
             );
@@ -280,6 +286,13 @@ export function useCoach(): UseCoachResult {
             storageSet(STORAGE_KEYS.COACH_HISTORY, toSave).catch(() => {});
           },
           onError: (err) => {
+            const e = err as AnthropicError & { response?: { data?: unknown; status?: number } };
+            console.error(
+              '[Coach] ERROR:',
+              e?.message,
+              e?.stack,
+              e?.response?.data ?? e?.response?.status ?? e?.status ?? e?.code,
+            );
             // Remove placeholder on error
             setMessages((prev) => prev.filter((m) => m.id !== assistantMsgId));
             messagesRef.current = messagesRef.current.filter((m) => m.id !== assistantMsgId);

@@ -399,9 +399,8 @@ export default function CoachScreen() {
       {error && (
         <View style={styles.errorCard}>
           <Ionicons name="alert-circle-outline" size={24} color={Colors.dangerText} />
-          <Text style={styles.errorCardText}>
-            Something went wrong. Your message wasn't lost.
-          </Text>
+          <Text style={styles.errorCardText}>{error}</Text>
+          <Text style={styles.errorCardSubtext}>Your message wasn't lost.</Text>
           {lastUserMessage && (
             <TouchableOpacity
               style={styles.retryButton}
@@ -617,6 +616,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     textAlign: 'center',
     lineHeight: 20,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+  errorCardSubtext: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    textAlign: 'center',
+    lineHeight: 18,
   },
   retryButton: {
     backgroundColor: Colors.accent,
