@@ -588,8 +588,10 @@ describe('Sprint 24 — Coach Context Excludes Private Cycle Data', () => {
   });
 
   it('intimacy field is NEVER included in Coach context', async () => {
+    const today = new Date().toISOString().split('T')[0];
     // Store a cycle entry with private data
     const entry = makeCycleEntryV2({
+      date: today,
       period_status: 'ongoing',
       flow_level: 3,
       symptoms: [{ symptom: 'cramps', severity: 'moderate', other_text: null }],
@@ -597,7 +599,7 @@ describe('Sprint 24 — Coach Context Excludes Private Cycle Data', () => {
       intimacy: true,
       ovulation_test: 'positive',
     });
-    await storageSet(dateKey(STORAGE_KEYS.LOG_CYCLE, '2026-04-14'), entry);
+    await storageSet(dateKey(STORAGE_KEYS.LOG_CYCLE, today), entry);
 
     // Import the context builder and test that private fields are excluded
     // We verify this by checking the conditional sections output
@@ -644,14 +646,18 @@ describe('Sprint 24 — Coach Context Excludes Private Cycle Data', () => {
   });
 
   it('cycle symptoms from last 3 days are included', async () => {
+    const today = new Date().toISOString().split('T')[0];
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterday = yesterdayDate.toISOString().split('T')[0];
     // Store entries for multiple days
-    await storageSet(dateKey(STORAGE_KEYS.LOG_CYCLE, '2026-04-14'), makeCycleEntryV2({
-      date: '2026-04-14',
+    await storageSet(dateKey(STORAGE_KEYS.LOG_CYCLE, today), makeCycleEntryV2({
+      date: today,
       period_status: 'ongoing',
       symptoms: [{ symptom: 'cramps', severity: 'severe', other_text: null }],
     }));
-    await storageSet(dateKey(STORAGE_KEYS.LOG_CYCLE, '2026-04-13'), makeCycleEntryV2({
-      date: '2026-04-13',
+    await storageSet(dateKey(STORAGE_KEYS.LOG_CYCLE, yesterday), makeCycleEntryV2({
+      date: yesterday,
       period_status: 'ongoing',
       symptoms: [{ symptom: 'fatigue', severity: null, other_text: null }],
     }));

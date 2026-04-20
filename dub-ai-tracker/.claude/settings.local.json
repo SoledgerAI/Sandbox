@@ -85,7 +85,9 @@
       "Bash(git -C /c/Users/joshs/Documents/Sandbox/dub-ai-tracker log --oneline)",
       "Bash(git stash *)",
       "Bash(eas build *)",
-      "Bash(eas submit *)"
+      "Bash(eas submit *)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(git checkout *)"
     ]
   }
 }

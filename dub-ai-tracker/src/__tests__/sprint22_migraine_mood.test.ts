@@ -29,7 +29,7 @@ import {
   ALL_DAILY_GOALS,
 } from '../types';
 
-const TEST_DATE = '2026-04-14';
+const TEST_DATE = new Date().toISOString().split('T')[0];
 
 // ============================================================
 // Test Data Factories
@@ -38,7 +38,7 @@ const TEST_DATE = '2026-04-14';
 function makeMigraineEntry(overrides: Partial<MigraineEntry> = {}): MigraineEntry {
   return {
     id: 'mig_test_001',
-    timestamp: '2026-04-14T10:00:00.000Z',
+    timestamp: `${TEST_DATE}T10:00:00.000Z`,
     date: TEST_DATE,
     occurred: true,
     start_time: '08:30',
@@ -63,7 +63,7 @@ function makeMigraineEntry(overrides: Partial<MigraineEntry> = {}): MigraineEntr
 function makeMoodMentalEntry(overrides: Partial<MoodMentalEntry> = {}): MoodMentalEntry {
   return {
     id: 'mood_test_001',
-    timestamp: '2026-04-14T18:00:00.000Z',
+    timestamp: `${TEST_DATE}T18:00:00.000Z`,
     date: TEST_DATE,
     overall_mood: 6,
     energy_level: 3,
@@ -94,7 +94,7 @@ beforeEach(async () => {
     storageDelete(STORAGE_KEYS.SETTINGS_DAILY_GOALS),
     // Clear 7-day data for Coach tests
     ...Array.from({ length: 7 }, (_, i) => {
-      const d = new Date('2026-04-14');
+      const d = new Date(TEST_DATE);
       d.setDate(d.getDate() - i);
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
       return Promise.all([
@@ -361,7 +361,7 @@ describe('Coach Context — Migraine', () => {
     await storageSet(dateKey(STORAGE_KEYS.LOG_MIGRAINE, TEST_DATE), entry);
 
     const { conditionalSections } = await buildCoachContext('how is my migraine tracking?');
-    const migraineSection = conditionalSections.find((s) => s.startsWith('[MIGRAINE 2026-04-14]'));
+    const migraineSection = conditionalSections.find((s) => s.startsWith(`[MIGRAINE ${TEST_DATE}]`));
     expect(migraineSection).toBeDefined();
     expect(migraineSection).toContain('severity:7/10');
     expect(migraineSection).toContain('zip:90210');
@@ -384,7 +384,7 @@ describe('Coach Context — Mood & Mental Health', () => {
     await storageSet(dateKey(STORAGE_KEYS.LOG_MOOD_MENTAL, TEST_DATE), entry);
 
     const { conditionalSections } = await buildCoachContext('how is my mood today?');
-    const moodSection = conditionalSections.find((s) => s.startsWith('[MOOD_MENTAL 2026-04-14]'));
+    const moodSection = conditionalSections.find((s) => s.startsWith(`[MOOD_MENTAL ${TEST_DATE}]`));
     expect(moodSection).toBeDefined();
     expect(moodSection).toContain('mood:6/10');
     expect(moodSection).toContain('energy:3/5');
