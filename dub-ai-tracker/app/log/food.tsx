@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Modal,
   ScrollView,
   StyleSheet,
   Text,
@@ -60,6 +61,20 @@ type Screen =
   | 'scanresult';  // Sprint 10: scan result review
 
 
+// Bug #18: Beverage keywords for detecting scanned products that are likely drinks.
+// Multi-word keywords must come first so "energy drink" matches before "drink".
+const BEVERAGE_KEYWORDS = [
+  'energy drink', 'sports drink', 'protein shake',
+  'juice', 'soda', 'cola', 'tea', 'coffee', 'milk',
+  'beer', 'wine', 'shake', 'smoothie', 'lemonade',
+  'cider', 'kombucha', 'sparkling', 'seltzer', 'beverage', 'drink',
+];
+
+function looksLikeBeverage(name: string | null | undefined, brand?: string | null): boolean {
+  const haystack = `${name ?? ''} ${brand ?? ''}`.toLowerCase();
+  return BEVERAGE_KEYWORDS.some((kw) => haystack.includes(kw));
+}
+
 function guessMealType(hour: number, settings?: AppSettings | null): MealType {
   if (settings?.fasting_enabled) {
     const start = settings.eating_window_start ?? 12;
@@ -100,6 +115,12 @@ export default function FoodLogScreen() {
   const [scanLoading, setScanLoading] = useState(false);
   const [myFoods, setMyFoods] = useState<SavedFood[]>([]);
   const [myRecipes, setMyRecipes] = useState<MyRecipe[]>([]);
+
+  // Bug #19/#20: React-rendered Not Found modal. The prior native Alert.alert
+  // got trapped by iOS view-controller transitions (BarcodeScanner CameraView
+  // → ImagePicker camera), leaving the alert stuck on top of the scan result.
+  // Controlling visibility via React state guarantees reliable dismissal.
+  const [showNotFoundModal, setShowNotFoundModal] = useState(false);
 
   useEffect(() => {
     loadIngredientFlags().then(setIngredientFlags);
@@ -154,6 +175,31 @@ export default function FoodLogScreen() {
     [saveLastFood, entryTimestamp],
   );
 
+  // Bug #18: Offer to route beverages to the Drinks logger. User decides —
+  // this is a suggestion, not a hard redirect.
+  const promptIfBeverageOrContinue = useCallback(
+    (name: string | null | undefined, brand: string | null | undefined, continueAsFood: () => void) => {
+      if (!looksLikeBeverage(name, brand)) {
+        continueAsFood();
+        return;
+      }
+      const display = [name, brand].filter(Boolean).join(' ');
+      Alert.alert(
+        'This looks like a drink',
+        `"${display}" looks like a beverage. Log it in the Drinks screen instead?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Log as Food', onPress: continueAsFood },
+          {
+            text: 'Log as Drink',
+            onPress: () => router.replace('/log/water'),
+          },
+        ],
+      );
+    },
+    [],
+  );
+
   // Sprint 10: Capture photo and analyze with Claude Vision
   const handleScanCamera = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
@@ -199,14 +245,31 @@ export default function FoodLogScreen() {
         }
 
         // Sprint 14: Multi-item support
-        if (multiResult.isMultiItem) {
-          setMultiScanResults(multiResult.items);
-          setScanResultData(multiResult.items[0]);
+        const showResult = () => {
+          if (multiResult.isMultiItem) {
+            setMultiScanResults(multiResult.items);
+            setScanResultData(multiResult.items[0]);
+          } else {
+            setMultiScanResults([]);
+            setScanResultData(multiResult.items[0]);
+          }
+          setScreen('scanresult');
+        };
+
+        // Bug #18: Single-item scans that look like beverages get a routing prompt.
+        // Skip for multi-item scans (mixed meals) — those belong as food.
+        if (!multiResult.isMultiItem && multiResult.items.length === 1) {
+          const first = multiResult.items[0];
+          promptIfBeverageOrContinue(first.foodName, first.brand, () => {
+            showResult();
+          });
+          if (looksLikeBeverage(first.foodName, first.brand)) {
+            setScreen('search');
+            return;
+          }
         } else {
-          setMultiScanResults([]);
-          setScanResultData(multiResult.items[0]);
+          showResult();
         }
-        setScreen('scanresult');
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Failed to analyze photo';
         Alert.alert('Scan Error', msg);
@@ -215,7 +278,7 @@ export default function FoodLogScreen() {
         setScanLoading(false);
       }
     }
-  }, []);
+  }, [promptIfBeverageOrContinue]);
 
   // Sprint 10: Pick from gallery and analyze
   const handleScanGallery = useCallback(async () => {
@@ -261,14 +324,30 @@ export default function FoodLogScreen() {
           return;
         }
 
-        if (multiResult.isMultiItem) {
-          setMultiScanResults(multiResult.items);
-          setScanResultData(multiResult.items[0]);
+        const showResult = () => {
+          if (multiResult.isMultiItem) {
+            setMultiScanResults(multiResult.items);
+            setScanResultData(multiResult.items[0]);
+          } else {
+            setMultiScanResults([]);
+            setScanResultData(multiResult.items[0]);
+          }
+          setScreen('scanresult');
+        };
+
+        // Bug #18: Beverage routing prompt for single-item scans.
+        if (!multiResult.isMultiItem && multiResult.items.length === 1) {
+          const first = multiResult.items[0];
+          promptIfBeverageOrContinue(first.foodName, first.brand, () => {
+            showResult();
+          });
+          if (looksLikeBeverage(first.foodName, first.brand)) {
+            setScreen('search');
+            return;
+          }
         } else {
-          setMultiScanResults([]);
-          setScanResultData(multiResult.items[0]);
+          showResult();
         }
-        setScreen('scanresult');
       } catch (error) {
         const msg = error instanceof Error ? error.message : 'Failed to analyze photo';
         Alert.alert('Scan Error', msg);
@@ -277,7 +356,7 @@ export default function FoodLogScreen() {
         setScanLoading(false);
       }
     }
-  }, []);
+  }, [promptIfBeverageOrContinue]);
 
   // Sprint 10: Handle scan result log (batch-save, single navigation)
   const handleScanLog = useCallback(async (entries: LogEntry[]) => {
@@ -404,33 +483,42 @@ export default function FoodLogScreen() {
   }, []);
 
   const handleBarcodeFound = useCallback((food: FoodItem) => {
-    setSelectedFood(food);
-    setServingIndex(food.default_serving_index);
-    setQuantity(1);
-    // Brief delay to ensure CameraView fully unmounts before rendering configure
+    // Unmount BarcodeScanner CameraView before showing any alert or configure
+    // screen. Avoids the iOS view-controller stacking that traps alerts.
     setScreen('search');
-    setTimeout(() => setScreen('configure'), 100);
+    setTimeout(() => {
+      const continueAsFood = () => {
+        setSelectedFood(food);
+        setServingIndex(food.default_serving_index);
+        setQuantity(1);
+        setScreen('configure');
+      };
+      promptIfBeverageOrContinue(food.name, food.brand, continueAsFood);
+    }, 150);
+  }, [promptIfBeverageOrContinue]);
+
+  // Bug #19/#20: Show a React-controlled modal. The BarcodeScanner is already
+  // unmounting via screen state — we no longer try to stack a native alert on
+  // top of the CameraView.
+  const handleBarcodeNotFound = useCallback((_barcode: string) => {
+    setScreen('search');
+    setShowNotFoundModal(true);
   }, []);
 
-  const handleBarcodeNotFound = useCallback((_barcode: string) => {
-    Alert.alert(
-      'Product Not Found',
-      'Try scanning the nutrition label instead.',
-      [
-        {
-          text: 'Scan Label',
-          onPress: () => {
-            // Bug #4: Unmount BarcodeScanner CameraView before launching the
-            // label-scan ImagePicker camera. Two camera modals overlapping
-            // leaves the "Product Not Found" alert stuck on top of the result.
-            setScreen('search');
-            setTimeout(handleScanCamera, 300);
-          },
-        },
-        { text: 'Manual Entry', onPress: () => setScreen('manual') },
-      ],
-    );
+  const handleNotFoundScanLabel = useCallback(() => {
+    setShowNotFoundModal(false);
+    // Short delay so the modal fully dismisses before ImagePicker presents
+    setTimeout(handleScanCamera, 150);
   }, [handleScanCamera]);
+
+  const handleNotFoundManual = useCallback(() => {
+    setShowNotFoundModal(false);
+    setScreen('manual');
+  }, []);
+
+  const handleNotFoundCancel = useCallback(() => {
+    setShowNotFoundModal(false);
+  }, []);
 
   const repeatLastFood = useCallback(() => {
     if (!lastFoodEntry) return;
@@ -907,6 +995,46 @@ export default function FoodLogScreen() {
             </View>
           </View>
         )}
+
+        {/* Bug #19/#20: React-controlled "Product Not Found" modal. */}
+        <Modal
+          visible={showNotFoundModal}
+          transparent
+          animationType="fade"
+          onRequestClose={handleNotFoundCancel}
+        >
+          <View style={styles.notFoundBackdrop}>
+            <View style={styles.notFoundCard}>
+              <Text style={styles.notFoundTitle}>Product Not Found</Text>
+              <Text style={styles.notFoundBody}>
+                Try scanning the nutrition label instead.
+              </Text>
+              <View style={styles.notFoundActions}>
+                <TouchableOpacity
+                  style={styles.notFoundSecondary}
+                  onPress={handleNotFoundManual}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.notFoundSecondaryText}>Manual Entry</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.notFoundPrimary}
+                  onPress={handleNotFoundScanLabel}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.notFoundPrimaryText}>Scan Label</Text>
+                </TouchableOpacity>
+              </View>
+              <TouchableOpacity
+                style={styles.notFoundCancel}
+                onPress={handleNotFoundCancel}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.notFoundCancelText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     </ScreenWrapper>
   );
@@ -1072,5 +1200,71 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontVariant: ['tabular-nums' as const],
     marginTop: 8,
+  },
+  notFoundBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  notFoundCard: {
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 360,
+  },
+  notFoundTitle: {
+    color: Colors.text,
+    fontSize: 18,
+    fontWeight: '700',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  notFoundBody: {
+    color: Colors.secondaryText,
+    fontSize: 14,
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  notFoundActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  notFoundPrimary: {
+    flex: 1,
+    backgroundColor: Colors.accent,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  notFoundPrimaryText: {
+    color: Colors.primaryBackground,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  notFoundSecondary: {
+    flex: 1,
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  notFoundSecondaryText: {
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  notFoundCancel: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  notFoundCancelText: {
+    color: Colors.secondaryText,
+    fontSize: 14,
   },
 });
