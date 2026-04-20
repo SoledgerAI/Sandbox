@@ -2,6 +2,7 @@
 // Phase 14: AI Coach
 // Sprint 12: Streaming SSE + Tool Use
 
+import EventSource from 'react-native-sse';
 import { COACH_MODEL_ID, TIER_TEMPERATURES } from '../constants/formulas';
 import {
   getApiKey,
@@ -214,6 +215,15 @@ export async function sendMessage(params: {
 // Streaming send (Sprint 12 Feature 2)
 // ============================================================
 
+type AnthropicStreamEvent =
+  | 'message_start'
+  | 'content_block_start'
+  | 'content_block_delta'
+  | 'content_block_stop'
+  | 'message_delta'
+  | 'message_stop'
+  | 'ping';
+
 export async function sendMessageStreaming(params: {
   systemPrompt: string;
   messages: AnthropicMessage[];
@@ -244,9 +254,15 @@ export async function sendMessageStreaming(params: {
     body.tools = COACH_TOOLS;
   }
 
-  let response: Response;
-  try {
-    response = await fetch(API_URL, {
+  return new Promise<void>((resolve) => {
+    let fullText = '';
+    let currentToolId = '';
+    let currentToolName = '';
+    let toolInputJson = '';
+    let stopReason = 'end_turn';
+    let settled = false;
+
+    const es = new EventSource<AnthropicStreamEvent>(API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -254,119 +270,144 @@ export async function sendMessageStreaming(params: {
         'anthropic-version': API_VERSION,
       },
       body: JSON.stringify(body),
+      pollingInterval: 0,
     });
-  } catch {
-    params.callbacks.onError(
-      new AnthropicError(
-        'Unable to reach the Anthropic API. Check your internet connection.',
-        undefined,
-        'NETWORK_ERROR',
-      ),
-    );
-    return;
-  }
 
-  if (!response.ok) {
-    const errInfo = await safeParseError(response);
-    try {
-      handleErrorResponse(response.status, errInfo);
-    } catch (e) {
-      params.callbacks.onError(e as AnthropicError);
-    }
-    return;
-  }
-
-  // Process SSE stream
-  const reader = response.body?.getReader();
-  if (!reader) {
-    params.callbacks.onError(new AnthropicError('No response body', undefined, 'EMPTY_RESPONSE'));
-    return;
-  }
-
-  const decoder = new TextDecoder();
-  let fullText = '';
-  let buffer = '';
-  let currentToolId = '';
-  let currentToolName = '';
-  let toolInputJson = '';
-  let stopReason = 'end_turn';
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      // Keep incomplete last line in buffer
-      buffer = lines.pop() ?? '';
-
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        const data = line.slice(6).trim();
-        if (data === '[DONE]') continue;
-
-        let parsed: Record<string, unknown>;
-        try {
-          parsed = JSON.parse(data);
-        } catch {
-          continue;
-        }
-
-        const eventType = parsed.type as string;
-
-        if (eventType === 'content_block_start') {
-          const contentBlock = parsed.content_block as Record<string, unknown> | undefined;
-          if (contentBlock?.type === 'tool_use') {
-            currentToolId = contentBlock.id as string;
-            currentToolName = contentBlock.name as string;
-            toolInputJson = '';
-          }
-        } else if (eventType === 'content_block_delta') {
-          const delta = parsed.delta as Record<string, unknown> | undefined;
-          if (delta?.type === 'text_delta') {
-            const text = (delta.text as string) ?? '';
-            fullText += text;
-            params.callbacks.onText(fullText);
-          } else if (delta?.type === 'input_json_delta') {
-            toolInputJson += (delta.partial_json as string) ?? '';
-          }
-        } else if (eventType === 'content_block_stop') {
-          if (currentToolId && currentToolName) {
-            let input: Record<string, unknown> = {};
-            try {
-              input = JSON.parse(toolInputJson);
-            } catch {
-              // empty input
-            }
-            params.callbacks.onToolUse(currentToolId, currentToolName as CoachToolName, input);
-            currentToolId = '';
-            currentToolName = '';
-            toolInputJson = '';
-          }
-        } else if (eventType === 'message_delta') {
-          const delta = parsed.delta as Record<string, unknown> | undefined;
-          if (delta?.stop_reason) {
-            stopReason = delta.stop_reason as string;
-          }
-        }
+    const cleanup = () => {
+      if (settled) return;
+      settled = true;
+      try {
+        es.removeAllEventListeners();
+        es.close();
+      } catch {
+        // ignore
       }
-    }
-  } catch (e) {
-    params.callbacks.onError(
-      new AnthropicError(
-        e instanceof Error ? e.message : 'Stream reading failed',
-        undefined,
-        'STREAM_ERROR',
-      ),
-    );
-    return;
-  }
+    };
 
-  // Post-process: fix tokenization artifacts
-  fullText = fullText.replace(/recoRDed/g, 'recorded').replace(/recoRDing/g, 'recording');
+    const finish = () => {
+      if (settled) return;
+      cleanup();
+      fullText = fullText.replace(/recoRDed/g, 'recorded').replace(/recoRDing/g, 'recording');
+      params.callbacks.onDone(fullText, stopReason);
+      resolve();
+    };
 
-  params.callbacks.onDone(fullText, stopReason);
+    const fail = (error: AnthropicError) => {
+      if (settled) return;
+      cleanup();
+      params.callbacks.onError(error);
+      resolve();
+    };
+
+    const parseJson = (data: string | null): Record<string, unknown> | null => {
+      if (!data) return null;
+      try {
+        return JSON.parse(data);
+      } catch {
+        return null;
+      }
+    };
+
+    es.addEventListener('error', (event) => {
+      if (settled) return;
+      if (event.type === 'exception') {
+        fail(
+          new AnthropicError(
+            'Unable to reach the Anthropic API. Check your internet connection.',
+            undefined,
+            'NETWORK_ERROR',
+          ),
+        );
+        return;
+      }
+      if (event.type === 'timeout') {
+        fail(new AnthropicError('Request timed out. Please try again.', undefined, 'TIMEOUT'));
+        return;
+      }
+      const status = (event as { xhrStatus?: number }).xhrStatus;
+      const rawMessage = (event as { message?: string }).message ?? '';
+      let errInfo: { message: string; code: string } = {
+        message: 'API request failed',
+        code: 'API_ERROR',
+      };
+      try {
+        const parsed = JSON.parse(rawMessage);
+        errInfo = {
+          message: parsed?.error?.message ?? errInfo.message,
+          code: parsed?.error?.type ?? errInfo.code,
+        };
+      } catch {
+        // ignore parse error
+      }
+      if (!status) {
+        fail(
+          new AnthropicError(
+            'Unable to reach the Anthropic API. Check your internet connection.',
+            undefined,
+            'NETWORK_ERROR',
+          ),
+        );
+        return;
+      }
+      try {
+        handleErrorResponse(status, errInfo);
+      } catch (e) {
+        fail(e as AnthropicError);
+      }
+    });
+
+    es.addEventListener('content_block_start', (event) => {
+      const parsed = parseJson(event.data);
+      if (!parsed) return;
+      const contentBlock = parsed.content_block as Record<string, unknown> | undefined;
+      if (contentBlock?.type === 'tool_use') {
+        currentToolId = contentBlock.id as string;
+        currentToolName = contentBlock.name as string;
+        toolInputJson = '';
+      }
+    });
+
+    es.addEventListener('content_block_delta', (event) => {
+      const parsed = parseJson(event.data);
+      if (!parsed) return;
+      const delta = parsed.delta as Record<string, unknown> | undefined;
+      if (delta?.type === 'text_delta') {
+        const text = (delta.text as string) ?? '';
+        fullText += text;
+        params.callbacks.onText(fullText);
+      } else if (delta?.type === 'input_json_delta') {
+        toolInputJson += (delta.partial_json as string) ?? '';
+      }
+    });
+
+    es.addEventListener('content_block_stop', () => {
+      if (currentToolId && currentToolName) {
+        let input: Record<string, unknown> = {};
+        try {
+          input = JSON.parse(toolInputJson);
+        } catch {
+          // empty input
+        }
+        params.callbacks.onToolUse(currentToolId, currentToolName as CoachToolName, input);
+        currentToolId = '';
+        currentToolName = '';
+        toolInputJson = '';
+      }
+    });
+
+    es.addEventListener('message_delta', (event) => {
+      const parsed = parseJson(event.data);
+      if (!parsed) return;
+      const delta = parsed.delta as Record<string, unknown> | undefined;
+      if (delta?.stop_reason) {
+        stopReason = delta.stop_reason as string;
+      }
+    });
+
+    es.addEventListener('message_stop', () => {
+      finish();
+    });
+  });
 }
 
 // ============================================================
