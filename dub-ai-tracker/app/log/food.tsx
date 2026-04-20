@@ -417,7 +417,16 @@ export default function FoodLogScreen() {
       'Product Not Found',
       'Try scanning the nutrition label instead.',
       [
-        { text: 'Scan Label', onPress: handleScanCamera },
+        {
+          text: 'Scan Label',
+          onPress: () => {
+            // Bug #4: Unmount BarcodeScanner CameraView before launching the
+            // label-scan ImagePicker camera. Two camera modals overlapping
+            // leaves the "Product Not Found" alert stuck on top of the result.
+            setScreen('search');
+            setTimeout(handleScanCamera, 300);
+          },
+        },
         { text: 'Manual Entry', onPress: () => setScreen('manual') },
       ],
     );

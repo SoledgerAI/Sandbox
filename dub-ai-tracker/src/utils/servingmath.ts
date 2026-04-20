@@ -34,9 +34,16 @@ export function formatNutrient(value: number | null, unit: string = ''): string 
 /**
  * Compute the multiplier from a serving size and quantity relative to per-100g data.
  * multiplier = (gram_weight * quantity) / 100
+ *
+ * Bug #5: Some sources (USDA/OpenFoodFacts) return servings without gram_weight
+ * (e.g., "15 crackers" with no gram value). Falling back to 100 means the
+ * displayed nutrition is treated as per-100g (1x) instead of zeroing out
+ * — the user can still adjust quantity, and existing FoodSearch row math
+ * uses the same fallback.
  */
 export function computeMultiplier(serving: ServingSize, quantity: number): number {
-  return (serving.gram_weight * quantity) / 100;
+  const gramWeight = serving.gram_weight > 0 ? serving.gram_weight : 100;
+  return (gramWeight * quantity) / 100;
 }
 
 /**

@@ -148,13 +148,16 @@ export function useCoach(): UseCoachResult {
         // Build content blocks for the API
         if (m.imageUri && m.role === 'user') {
           // Image message — convert to multi-content
+          // Bug #11: stripExifMetadata also resizes the image to ≤1568px
+          // long edge so it fits Anthropic's 5MB request ceiling. Errors
+          // here used to be silently swallowed and the message sent text-
+          // only, which produced a confusing "Something went wrong" with
+          // no diagnostic. Surface the actual error instead.
           try {
-            // SEC: Strip EXIF metadata (GPS, device info) before sending to Anthropic
             const { stripExifMetadata } = await import('../utils/imagePrivacy');
             const strippedUri = await stripExifMetadata(m.imageUri);
             const base64 = await readAsStringAsync(strippedUri, { encoding: EncodingType.Base64 });
-            const ext = m.imageUri.split('.').pop()?.toLowerCase() ?? 'jpeg';
-            const mediaType = ext === 'png' ? 'image/png' : 'image/jpeg';
+            const mediaType = 'image/jpeg' as const; // stripExifMetadata always emits JPEG
             const content: AnthropicContentBlock[] = [
               { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
             ];
@@ -164,9 +167,11 @@ export function useCoach(): UseCoachResult {
               content.push({ type: 'text', text: 'What food is in this photo? Identify items and estimate nutrition.' });
             }
             apiMessages.push({ role: 'user', content });
-          } catch {
-            // If image read fails, send text only
-            apiMessages.push({ role: 'user', content: m.content });
+          } catch (err) {
+            console.error('[Coach] Photo processing failed:', err);
+            throw new Error(
+              `Photo upload failed: ${err instanceof Error ? err.message : 'unknown error'}`,
+            );
           }
         } else {
           apiMessages.push({ role: m.role as 'user' | 'assistant', content: m.content });
