@@ -87,7 +87,9 @@
       "Bash(eas build *)",
       "Bash(eas submit *)",
       "Bash(echo \"EXIT=$?\")",
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "Bash(echo \"EXIT: $?\")",
+      "Bash(npm outdated *)"
     ]
   }
 }
