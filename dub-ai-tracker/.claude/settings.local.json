@@ -90,7 +90,8 @@
       "Bash(git checkout *)",
       "Bash(echo \"EXIT: $?\")",
       "Bash(npm outdated *)",
-      "Bash(echo \"exit=$?\")"
+      "Bash(echo \"exit=$?\")",
+      "Bash(npm uninstall *)"
     ]
   }
 }

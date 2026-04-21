@@ -1,6 +1,15 @@
 // Typed AsyncStorage wrapper for DUB_AI Tracker
 // Phase 2: Type System and Storage Layer
 // Per Section 7: AsyncStorage Key Structure
+//
+// DATA-AT-REST PROTECTION
+// App-layer encryption is not applied. Data-at-rest
+// protection relies on:
+//   iOS: NSFileProtection (device-lock-bound encryption)
+//   Android: Full-disk encryption (modern devices)
+//   App-layer: PIN + biometric gate (authService.ts)
+// For HIPAA-covered deployments, app-layer encryption
+// must be re-implemented before handling PHI.
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 

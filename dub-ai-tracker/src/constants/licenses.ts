@@ -34,7 +34,6 @@ export const LICENSES: LicenseEntry[] = [
   { name: 'expo-tracking-transparency', version: '55.0.9', license: 'MIT' },
   { name: 'react', version: '19.2.0', license: 'MIT' },
   { name: 'react-native', version: '0.83.4', license: 'MIT' },
-  { name: 'react-native-aes-crypto', version: '3.3.0', license: 'MIT' },
   { name: 'react-native-gesture-handler', version: '2.30.0', license: 'MIT' },
   { name: 'react-native-health', version: '1.18.0', license: 'MIT' },
   { name: 'react-native-health-connect', version: '3.2.0', license: 'MIT' },

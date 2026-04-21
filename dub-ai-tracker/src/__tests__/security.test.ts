@@ -1,63 +1,6 @@
-// Step 13: Encryption and Security tests
+// Security tests: audit logging + API key storage
 
-import { encrypt, decrypt, deriveKey, generateSalt, generateRandomKey } from '../utils/encryption';
 import { logAuditEvent, getAuditEntries, listAuditKeys } from '../utils/audit';
-
-describe('Encryption', () => {
-  describe('Encrypt then decrypt round-trip', () => {
-    it('produces original data after decrypt', async () => {
-      const salt = await generateSalt();
-      const key = await deriveKey('testpassword', salt);
-      const plaintext = 'Hello, encrypted world!';
-
-      const { ciphertext, iv } = await encrypt(plaintext, key);
-      const decrypted = await decrypt(ciphertext, key, iv);
-
-      expect(decrypted).toBe(plaintext);
-    });
-
-    it('handles JSON data round-trip', async () => {
-      const salt = await generateSalt();
-      const key = await deriveKey('password123', salt);
-      const data = JSON.stringify({ name: 'test', value: 42 });
-
-      const { ciphertext, iv } = await encrypt(data, key);
-      const decrypted = await decrypt(ciphertext, key, iv);
-
-      expect(JSON.parse(decrypted)).toEqual({ name: 'test', value: 42 });
-    });
-  });
-
-  describe('Different keys produce different ciphertext', () => {
-    it('same plaintext, different keys, different ciphertext', async () => {
-      const salt1 = await generateSalt();
-      const salt2 = await generateSalt();
-      const key1 = await deriveKey('password1', salt1);
-      const key2 = await deriveKey('password2', salt2);
-      const plaintext = 'Same input text';
-
-      await encrypt(plaintext, key1);
-      await encrypt(plaintext, key2);
-
-      // With our mock, key derivation uses different inputs so keys differ
-      expect(key1).not.toBe(key2);
-    });
-  });
-
-  describe('Key generation', () => {
-    it('generateSalt returns a hex string', async () => {
-      const salt = await generateSalt();
-      expect(typeof salt).toBe('string');
-      expect(salt.length).toBeGreaterThan(0);
-    });
-
-    it('generateRandomKey returns a hex string', async () => {
-      const key = await generateRandomKey();
-      expect(typeof key).toBe('string');
-      expect(key.length).toBeGreaterThan(0);
-    });
-  });
-});
 
 describe('Audit Logging', () => {
   it('captures expected events', async () => {

@@ -19,7 +19,7 @@
       "./jest.setup.afterenv.js"
     ],
     "transformIgnorePatterns": [
-      "node_modules/(?!(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|react-native-reanimated|react-native-gesture-handler|react-native-health|react-native-health-connect|react-native-aes-crypto|@react-native-async-storage/async-storage)"
+      "node_modules/(?!(jest-)?react-native|@react-native(-community)?|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|react-native-reanimated|react-native-gesture-handler|react-native-health|react-native-health-connect|@react-native-async-storage/async-storage)"
     ]
   },
   "dependencies": {
@@ -52,7 +52,6 @@
     "expo-tracking-transparency": "~55.0.9",
     "react": "19.2.0",
     "react-native": "0.83.4",
-    "react-native-aes-crypto": "^3.3.0",
     "react-native-draggable-flatlist": "^4.0.3",
     "react-native-gesture-handler": "~2.30.0",
     "react-native-health": "^1.18.0",
@@ -83,8 +82,7 @@
     "doctor": {
       "reactNativeDirectoryCheck": {
         "exclude": [
-          "react-native-health",
-          "react-native-aes-crypto"
+          "react-native-health"
         ]
       }
     }

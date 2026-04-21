@@ -216,25 +216,6 @@ jest.mock('react-native-health-connect', () => ({
 }));
 
 // ============================================================
-// react-native-aes-crypto
-// ============================================================
-jest.mock('react-native-aes-crypto', () => ({
-  pbkdf2: jest.fn((password, salt, iterations, keyLength, hash) =>
-    Promise.resolve(`derived_key_${password}_${salt}`)
-  ),
-  encrypt: jest.fn((text, key, iv, algo) =>
-    Promise.resolve(`encrypted_${text}`)
-  ),
-  decrypt: jest.fn((ciphertext, key, iv, algo) => {
-    const match = ciphertext.match(/^encrypted_(.+)$/);
-    return Promise.resolve(match ? match[1] : 'decrypted');
-  }),
-  randomKey: jest.fn((length) =>
-    Promise.resolve('a'.repeat(length * 2))
-  ),
-}));
-
-// ============================================================
 // react-native-reanimated
 // ============================================================
 jest.mock('react-native-reanimated', () => {
