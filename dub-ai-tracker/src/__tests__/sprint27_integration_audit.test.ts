@@ -80,6 +80,9 @@ describe('Navigation Audit', () => {
     '/settings/allergy-profile', '/settings/crisis-support',
     '/settings/healthreport',
     '/settings/recipe-create', '/settings/recipe-import', '/settings/recipe-log',
+    // H6 split: inline settings sections extracted into sub-screens
+    '/settings/security', '/settings/personalization',
+    '/settings/appearance', '/settings/macros',
   ];
 
   test('all log routes are defined (37 loggers)', () => {
@@ -89,8 +92,8 @@ describe('Navigation Audit', () => {
     expect(unique.length).toBe(LOG_ROUTES.length);
   });
 
-  test('all settings routes are defined (27 screens)', () => {
-    expect(SETTINGS_ROUTES.length).toBe(27);
+  test('all settings routes are defined (31 screens)', () => {
+    expect(SETTINGS_ROUTES.length).toBe(31);
     const unique = [...new Set(SETTINGS_ROUTES)];
     expect(unique.length).toBe(SETTINGS_ROUTES.length);
   });
