@@ -39,6 +39,7 @@ import {
 import { calculateDailyCompliance } from '../services/complianceEngine';
 import { setEnabledCategories, enableCategory, disableCategory } from '../utils/categoryElection';
 import { saveMedicationList } from '../utils/medicationList';
+import { todayDateString } from '../utils/dayBoundary';
 import type {
   NotificationSettings,
   CycleEntryV2,
@@ -588,7 +589,7 @@ describe('Sprint 24 — Coach Context Excludes Private Cycle Data', () => {
   });
 
   it('intimacy field is NEVER included in Coach context', async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     // Store a cycle entry with private data
     const entry = makeCycleEntryV2({
       date: today,
@@ -646,10 +647,10 @@ describe('Sprint 24 — Coach Context Excludes Private Cycle Data', () => {
   });
 
   it('cycle symptoms from last 3 days are included', async () => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayDateString();
     const yesterdayDate = new Date();
     yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterday = yesterdayDate.toISOString().split('T')[0];
+    const yesterday = `${yesterdayDate.getFullYear()}-${String(yesterdayDate.getMonth() + 1).padStart(2, '0')}-${String(yesterdayDate.getDate()).padStart(2, '0')}`;
     // Store entries for multiple days
     await storageSet(dateKey(STORAGE_KEYS.LOG_CYCLE, today), makeCycleEntryV2({
       date: today,

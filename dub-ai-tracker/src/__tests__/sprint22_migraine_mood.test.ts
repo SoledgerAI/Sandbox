@@ -6,6 +6,7 @@ import { storageGet, storageSet, storageDelete, STORAGE_KEYS, dateKey } from '..
 import { isCategoryEnabled, enableCategory, disableCategory } from '../utils/categoryElection';
 import { calculateDailyCompliance } from '../services/complianceEngine';
 import { buildCoachContext } from '../ai/context_builder';
+import { todayDateString } from '../utils/dayBoundary';
 import type {
   MigraineEntry,
   MigraineSymptom,
@@ -29,7 +30,10 @@ import {
   ALL_DAILY_GOALS,
 } from '../types';
 
-const TEST_DATE = new Date().toISOString().split('T')[0];
+// Use local-date semantics to match production (context_builder reads via
+// todayDateString() which is local). Using toISOString() here would drift
+// one day after UTC midnight in western timezones and miss same-day lookups.
+const TEST_DATE = todayDateString();
 
 // ============================================================
 // Test Data Factories
