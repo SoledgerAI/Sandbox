@@ -184,6 +184,9 @@ export const STORAGE_KEYS = {
   LOCK_TIMEOUT: 'dub.lock_timeout',
   THEME_MODE: 'dub.settings.theme_mode',
   AUDIT_PREFIX: 'dub.audit',
+
+  // Sprint 30 (H2): Schema migration framework
+  SCHEMA_VERSION: 'dub.schema_version',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

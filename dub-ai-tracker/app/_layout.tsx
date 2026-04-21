@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { Colors } from '../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../src/utils/storage';
+import { runMigrations } from '../src/utils/schemaMigration';
 import { processQueue } from '../src/utils/offline';
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
 import { OfflineBanner } from '../src/components/common/OfflineBanner';
@@ -163,6 +164,18 @@ export default function RootLayout() {
 
     async function init() {
       try {
+        // H2: Run schema migrations before any screens read data.
+        // Failure is logged but non-fatal — app continues with existing
+        // data, and the migration will be retried on next boot.
+        const migrationResult = await runMigrations();
+        if (!migrationResult.success) {
+          console.error('[MIGRATION] Failed:', migrationResult);
+        } else if (migrationResult.migrationsRun > 0 && __DEV__) {
+          console.log(
+            `[MIGRATION] Ran ${migrationResult.migrationsRun} migration(s): v${migrationResult.fromVersion} → v${migrationResult.toVersion}`,
+          );
+        }
+
         if (__DEV__) console.log('[ONBOARD-08] _layout init: checking onboarding status...');
         const complete = await isOnboardingComplete();
         if (__DEV__) console.log('[ONBOARD-08] _layout init: isOnboardingComplete =', complete);
