@@ -1,0 +1,266 @@
+PE-GRADE ENGINEERING AUDIT — DUB_AI TRACKER
+================================================================
+READ-ONLY. DO NOT MODIFY ANY FILES. DO NOT REFACTOR.
+DO NOT BUILD. ONLY READ, MEASURE, AND REPORT.
+================================================================
+
+CONTEXT: DUB_AI Tracker. React Native / Expo SDK 55 /
+TypeScript strict. iOS app. 131 commits. 1,029+ tests.
+Solo-founder build (Josh Williams, CEO, non-coder).
+Claude builds, Josh reviews. This audit must produce
+a report that would satisfy a PE tech diligence team
+evaluating acquisition or growth equity investment.
+
+AUDIT STANDARD: Apply the same rigor a Big 4 Quality
+of Earnings (QoE) tech diligence team would apply.
+Flag everything. Assume the buyer is adversarial.
+
+================================================================
+PHASE 1: QUANTITATIVE METRICS (run commands, report numbers)
+================================================================
+
+Run each command. Report EXACT output. No rounding.
+
+1. CODEBASE SIZE
+   find app/ src/ -name "*.ts" -o -name "*.tsx" | wc -l
+   find app/ src/ -name "*.ts" -o -name "*.tsx" | xargs wc -l | tail -1
+   find src/__tests__ -name "*.test.*" | wc -l
+   find src/__tests__ -name "*.test.*" | xargs wc -l | tail -1
+
+2. TYPE SAFETY
+   npx tsc --noEmit 2>&1 | tail -5
+   grep -r "any" --include="*.ts" --include="*.tsx" app/ src/ | grep -v node_modules | grep -v "\.test\." | grep -v "//" | wc -l
+   (Report: how many non-test, non-comment uses of "any" type)
+   grep -rn ": any" --include="*.ts" --include="*.tsx" app/ src/ | grep -v node_modules | grep -v "\.test\." | grep -v "//" | head -20
+
+3. TEST SUITE
+   npx jest --forceExit --no-coverage --verbose 2>&1 | tail -30
+   (Report: total suites, total tests, failures, time)
+
+4. TEST COVERAGE (run once, report)
+   npx jest --forceExit --coverage --coverageReporters=text-summary 2>&1 | tail -20
+   (Report: statement %, branch %, function %, line %)
+
+5. DEPENDENCY HEALTH
+   npm audit 2>&1 | tail -10
+   npm outdated 2>&1 | head -30
+   cat package.json | grep -c "dependencies" 
+   cat package.json | python3 -c "import sys,json; d=json.load(sys.stdin); print('dependencies:',len(d.get('dependencies',{}))); print('devDependencies:',len(d.get('devDependencies',{})))"
+
+6. BUNDLE SIZE ESTIMATE
+   find app/ src/ -name "*.ts" -o -name "*.tsx" | xargs wc -l | sort -rn | head -20
+   (Report: 20 largest files by line count)
+
+7. DEAD CODE SCAN
+   grep -rn "TODO\|FIXME\|HACK\|XXX\|TEMP\|DEPRECATED" --include="*.ts" --include="*.tsx" app/ src/ | grep -v node_modules | grep -v __tests__
+   (Report: count and list all TODO/FIXME/HACK markers)
+
+8. CONSOLE STATEMENTS IN PRODUCTION CODE
+   grep -rn "console\." --include="*.ts" --include="*.tsx" app/ src/ | grep -v node_modules | grep -v __tests__ | grep -v "console.error\|console.warn" | wc -l
+   (Report: count of console.log/debug/info in non-test code)
+   grep -rn "console\.log" --include="*.ts" --include="*.tsx" app/ src/ | grep -v node_modules | grep -v __tests__ | head -15
+
+================================================================
+PHASE 2: ARCHITECTURE REVIEW (read files, assess structure)
+================================================================
+
+9. PROJECT STRUCTURE
+   find app/ -type f -name "*.tsx" | head -40
+   find src/ -type d | head -30
+   (Report: is there a clear separation of concerns?
+    screens vs components vs services vs hooks vs utils vs types?)
+
+10. DATA LAYER
+    Read: src/data/ or src/utils/storage* or wherever AsyncStorage
+    keys are defined.
+    - How many storage keys exist?
+    - Is there a central registry or are keys scattered?
+    - Any risk of key collision?
+    - Is there a migration strategy if schema changes?
+
+11. AI/COACH ARCHITECTURE
+    Read: src/ai/ or src/services/anthropic* and the Coach
+    context builder.
+    - How is the system prompt constructed?
+    - What is the estimated token count of a full context?
+    - Is sanitizeForPrompt() applied to ALL user-generated
+      text before injection into prompts?
+    - Are there any prompt injection vectors?
+    - How are API errors handled?
+
+12. NAVIGATION ARCHITECTURE
+    Read: app/_layout.tsx and app/(tabs)/ structure.
+    - Is the navigation tree clean?
+    - Are there orphaned routes?
+    - Is deep linking configured?
+
+13. STATE MANAGEMENT
+    - What state management pattern is used?
+    (React Context? Redux? Zustand? Raw AsyncStorage?)
+    - Are there race conditions in async state updates?
+    - Is there a single source of truth or multiple?
+
+14. SECURITY ARCHITECTURE
+    Read: anything related to PIN, biometric, encryption,
+    API key storage.
+    - Where is the API key stored?
+    - How is PIN stored? (plaintext? hashed? salted?)
+    - Is biometric auth properly gated?
+    - Are there any secrets in the codebase?
+    grep -rn "password\|secret\|apikey\|api_key\|token" --include="*.ts" --include="*.tsx" app/ src/ | grep -v node_modules | grep -v __tests__ | grep -v "\.d\.ts"
+
+================================================================
+PHASE 3: CODE QUALITY DEEP DIVE (read and assess)
+================================================================
+
+15. COMPONENT QUALITY (sample 5 screens)
+    Read the following files (or nearest equivalent):
+    - app/(tabs)/index.tsx (Dashboard)
+    - app/(tabs)/coach.tsx (Coach DUB)
+    - app/log/food.tsx (Food Logger)
+    - app/log/supplements.tsx (Supplements)
+    - app/settings/index.tsx (Settings)
+
+    For EACH file, report:
+    - Line count
+    - Number of useEffect hooks
+    - Number of useState hooks
+    - Does it handle loading, error, and empty states?
+    - Is there proper cleanup (return in useEffect)?
+    - Are there any functions > 50 lines?
+    - Are there magic numbers or hardcoded strings?
+    - Would a senior RN engineer consider this maintainable?
+
+16. TEST QUALITY (sample 5 test files)
+    Read 5 test files. For each:
+    - Are tests testing behavior or implementation?
+    - Are there assertions or just "expect to be defined"?
+    - Do tests cover edge cases or just happy paths?
+    - Are there integration tests or only unit tests?
+    - Could a refactor break these tests without changing
+      behavior? (fragile tests)
+
+17. ERROR HANDLING PATTERNS
+    grep -rn "catch" --include="*.ts" --include="*.tsx" app/ src/ | grep -v node_modules | grep -v __tests__ | wc -l
+    - Are errors caught and handled or silently swallowed?
+    - Is there a global error boundary?
+    - Does the Coach gracefully handle API failures?
+    Read 3 catch blocks. Are they logging, rethrowing,
+    showing user feedback, or empty?
+
+18. ACCESSIBILITY
+    grep -rn "accessible\|accessibilityLabel\|accessibilityRole\|accessibilityHint" --include="*.tsx" app/ src/ | grep -v node_modules | grep -v __tests__ | wc -l
+    - How many components have accessibility labels?
+    - Is VoiceOver support consistent or spotty?
+
+19. MEMORY LEAK RISK
+    grep -rn "setInterval\|setTimeout\|addEventListener\|\.subscribe" --include="*.ts" --include="*.tsx" app/ src/ | grep -v node_modules | grep -v __tests__ | wc -l
+    - For each, verify there is a corresponding cleanup
+      (clearInterval, clearTimeout, removeEventListener,
+      unsubscribe) in a useEffect return or componentWillUnmount.
+    - Report any unmatched subscriptions.
+
+================================================================
+PHASE 4: COMPLIANCE & LEGAL READINESS
+================================================================
+
+20. PRIVACY / HIPAA PREP
+    - Is PrivacyInfo.xcprivacy present and configured?
+    - Is health data encrypted at rest?
+    - Is there a data deletion mechanism?
+    - Are EXIF tags stripped from all user photos?
+    - Is iCloud backup excluded for health data?
+    - Is there a privacy policy screen?
+
+21. APP STORE READINESS
+    Read app.json and eas.json:
+    - Bundle ID correct?
+    - Version/build number strategy?
+    - Age rating configured?
+    - Required permissions declared?
+    - Privacy manifest complete?
+
+22. THIRD-PARTY LICENSE COMPLIANCE
+    - Are all dependencies OSS-compatible?
+    - Is there a licenses screen in the app?
+    - Any GPL-licensed dependencies that could force
+      source disclosure?
+
+================================================================
+PHASE 5: TECHNICAL DEBT INVENTORY
+================================================================
+
+23. DEBT CATALOG
+    For every issue found in Phases 1-4, categorize:
+    - CRITICAL: Would block PE closing or App Store approval
+    - HIGH: Would require fix within 90 days post-close
+    - MEDIUM: Should fix within 6 months
+    - LOW: Nice to have, cosmetic
+
+    For each item, estimate effort (hours) and risk if
+    left unfixed.
+
+================================================================
+PHASE 6: FINAL SCORECARD
+================================================================
+
+Produce a scorecard in this EXACT format:
+
+PE TECH DILIGENCE SCORECARD — DUB_AI TRACKER
+Date: [today]
+Auditor: Claude Code
+Codebase: [total files] files, [total lines] lines
+Tests: [count] tests, [coverage]% line coverage
+
+DIMENSION                  SCORE   GRADE   NOTES
+──────────────────────────────────────────────────
+Type Safety                X/10    [A-F]   [1 line]
+Test Coverage              X/10    [A-F]   [1 line]
+Test Quality               X/10    [A-F]   [1 line]
+Architecture               X/10    [A-F]   [1 line]
+Security                   X/10    [A-F]   [1 line]
+Error Handling             X/10    [A-F]   [1 line]
+Accessibility              X/10    [A-F]   [1 line]
+Dependency Health          X/10    [A-F]   [1 line]
+Code Maintainability       X/10    [A-F]   [1 line]
+Compliance Readiness       X/10    [A-F]   [1 line]
+──────────────────────────────────────────────────
+COMPOSITE                  X/10    [A-F]
+
+CRITICAL ITEMS (block deal): [count]
+[list each]
+
+HIGH ITEMS (90-day fix): [count]
+[list each]
+
+MEDIUM ITEMS (6-month): [count]
+[list each]
+
+LOW ITEMS (cosmetic): [count]
+[list each]
+
+INVESTMENT RECOMMENDATION:
+[1 paragraph: would you recommend a PE firm proceed
+with this acquisition based on the technical assessment?
+What are the key risks? What is the estimated technical
+debt remediation cost in engineering hours?]
+
+================================================================
+EXECUTION NOTES
+================================================================
+
+- Do NOT fix anything. Read-only audit.
+- Do NOT skip any phase. Complete all 23 items.
+- If a command fails, report the error and move on.
+- If a file doesn't exist at the expected path, search
+  for the nearest equivalent and note the actual path.
+- Report EXACT numbers, not estimates.
+- This report will be shared with potential investors.
+  Every claim must be verifiable by a third party
+  re-running the same commands on the same codebase.
+- Save the final report to: PE_TECH_DILIGENCE_REPORT.txt
+- Do NOT commit. Josh reviews first.
+
+================================================================
+END OF AUDIT PROMPT
+================================================================

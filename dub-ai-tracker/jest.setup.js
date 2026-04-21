@@ -70,12 +70,22 @@ jest.mock('expo-local-authentication', () => ({
 // ============================================================
 // expo-crypto
 // ============================================================
-jest.mock('expo-crypto', () => ({
-  digestStringAsync: jest.fn((algo, data) => Promise.resolve(`hash_${data}`)),
-  CryptoDigestAlgorithm: {
-    SHA256: 'SHA-256',
-  },
-}));
+jest.mock('expo-crypto', () => {
+  let randomCounter = 0;
+  return {
+    digestStringAsync: jest.fn((algo, data) => Promise.resolve(`hash_${data}`)),
+    getRandomBytesAsync: jest.fn((n) => {
+      // Deterministic distinct bytes across calls so salts differ per "user"
+      randomCounter = (randomCounter + 1) & 0xff;
+      const bytes = new Uint8Array(n);
+      for (let i = 0; i < n; i++) bytes[i] = (randomCounter + i) & 0xff;
+      return Promise.resolve(bytes);
+    }),
+    CryptoDigestAlgorithm: {
+      SHA256: 'SHA-256',
+    },
+  };
+});
 
 // ============================================================
 // expo-haptics

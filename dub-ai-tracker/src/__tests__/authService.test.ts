@@ -14,6 +14,10 @@ import {
   clearAuthData,
 } from '../services/authService';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as Crypto from 'expo-crypto';
+import { SECURE_KEYS } from '../services/secureStorageService';
+
+const secureStore: Map<string, string> = (global as any).__mockSecureStore;
 
 describe('authService', () => {
   describe('isLockEnabled', () => {
@@ -66,6 +70,106 @@ describe('authService', () => {
     });
 
     it('verifyPIN returns false when no PIN is set', async () => {
+      expect(await verifyPIN('1234')).toBe(false);
+    });
+  });
+
+  describe('PIN salt + migration', () => {
+    const LEGACY_PREFIX = 'dub_ai_pin_salt_';
+
+    // Seeds SecureStore as if a v1.0 user with static-salt hash
+    const seedLegacyUser = async (pin: string) => {
+      const digestMock = Crypto.digestStringAsync as jest.Mock;
+      const legacyHash = (await digestMock('SHA-256', `${LEGACY_PREFIX}${pin}`)) as string;
+      secureStore.set(SECURE_KEYS.AUTH_PIN_HASH, legacyHash);
+      // Deliberately no AUTH_PIN_SALT, no AUTH_PIN_MIGRATED
+    };
+
+    it('setPIN stores both a salt and a hash', async () => {
+      await setPIN('1234');
+      expect(secureStore.get(SECURE_KEYS.AUTH_PIN_HASH)).toBeTruthy();
+      expect(secureStore.get(SECURE_KEYS.AUTH_PIN_SALT)).toBeTruthy();
+      expect(secureStore.get(SECURE_KEYS.AUTH_PIN_MIGRATED)).toBe('true');
+    });
+
+    it('new PIN hash is NOT the legacy static-salt hash', async () => {
+      const digestMock = Crypto.digestStringAsync as jest.Mock;
+      const legacyHash = await digestMock('SHA-256', `${LEGACY_PREFIX}1234`);
+      await setPIN('1234');
+      expect(secureStore.get(SECURE_KEYS.AUTH_PIN_HASH)).not.toBe(legacyHash);
+    });
+
+    it('two fresh PIN setups produce different salts', async () => {
+      await setPIN('1234');
+      const saltA = secureStore.get(SECURE_KEYS.AUTH_PIN_SALT);
+      await clearAuthData();
+      await setPIN('1234');
+      const saltB = secureStore.get(SECURE_KEYS.AUTH_PIN_SALT);
+      expect(saltA).toBeTruthy();
+      expect(saltB).toBeTruthy();
+      expect(saltA).not.toBe(saltB);
+    });
+
+    it('verifyPIN auto-migrates a legacy static-salt hash on success', async () => {
+      await seedLegacyUser('1234');
+      expect(secureStore.has(SECURE_KEYS.AUTH_PIN_SALT)).toBe(false);
+      expect(secureStore.has(SECURE_KEYS.AUTH_PIN_MIGRATED)).toBe(false);
+
+      const ok = await verifyPIN('1234');
+
+      expect(ok).toBe(true);
+      expect(secureStore.get(SECURE_KEYS.AUTH_PIN_MIGRATED)).toBe('true');
+      expect(secureStore.get(SECURE_KEYS.AUTH_PIN_SALT)).toBeTruthy();
+      // Hash should now be the new salted form, not the legacy form
+      const digestMock = Crypto.digestStringAsync as jest.Mock;
+      const legacyHash = await digestMock('SHA-256', `${LEGACY_PREFIX}1234`);
+      expect(secureStore.get(SECURE_KEYS.AUTH_PIN_HASH)).not.toBe(legacyHash);
+    });
+
+    it('after migration, the legacy hash format no longer verifies', async () => {
+      await seedLegacyUser('1234');
+      const oldHashBeforeMigration = secureStore.get(SECURE_KEYS.AUTH_PIN_HASH);
+      expect(await verifyPIN('1234')).toBe(true);
+
+      // The stored hash has been replaced — setting it back should NOT validate,
+      // because MIGRATED is now true and verification uses the new salt path.
+      secureStore.set(SECURE_KEYS.AUTH_PIN_HASH, oldHashBeforeMigration!);
+      // New salt won't reproduce the legacy hash from the correct PIN
+      expect(await verifyPIN('1234')).toBe(false);
+    });
+
+    it('verifyPIN rejects a wrong PIN both before and after migration', async () => {
+      await seedLegacyUser('1234');
+      expect(await verifyPIN('9999')).toBe(false);
+      // Still unmigrated after failure
+      expect(secureStore.get(SECURE_KEYS.AUTH_PIN_MIGRATED)).toBeUndefined();
+
+      // Successful migration
+      expect(await verifyPIN('1234')).toBe(true);
+      // Wrong PIN still fails post-migration
+      expect(await verifyPIN('9999')).toBe(false);
+    });
+
+    it('reset flow (clearAuthData + setPIN) generates a fresh salt + migrated flag', async () => {
+      await setPIN('1234');
+      const saltA = secureStore.get(SECURE_KEYS.AUTH_PIN_SALT);
+
+      await clearAuthData();
+      expect(secureStore.has(SECURE_KEYS.AUTH_PIN_SALT)).toBe(false);
+      expect(secureStore.has(SECURE_KEYS.AUTH_PIN_MIGRATED)).toBe(false);
+
+      await setPIN('5678');
+      const saltB = secureStore.get(SECURE_KEYS.AUTH_PIN_SALT);
+      expect(saltB).toBeTruthy();
+      expect(saltB).not.toBe(saltA);
+      expect(secureStore.get(SECURE_KEYS.AUTH_PIN_MIGRATED)).toBe('true');
+      expect(await verifyPIN('5678')).toBe(true);
+      expect(await verifyPIN('1234')).toBe(false);
+    });
+
+    it('verifyPIN returns false if salt is missing despite migrated flag', async () => {
+      await setPIN('1234');
+      secureStore.delete(SECURE_KEYS.AUTH_PIN_SALT);
       expect(await verifyPIN('1234')).toBe(false);
     });
   });

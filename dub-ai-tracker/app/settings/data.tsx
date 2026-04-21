@@ -224,6 +224,8 @@ export default function DataManagementScreen() {
                 await deleteSecure(SECURE_KEYS.ANTHROPIC_API_KEY);
                 await deleteSecure(SECURE_KEYS.APP_LOCK_ENABLED);
                 await deleteSecure(SECURE_KEYS.AUTH_PIN_HASH);
+                await deleteSecure(SECURE_KEYS.AUTH_PIN_SALT);
+                await deleteSecure(SECURE_KEYS.AUTH_PIN_MIGRATED);
                 await deleteSecure(SECURE_KEYS.AUTH_METHOD);
                 await deleteSecure(SECURE_KEYS.USER_SEX);
                 await deleteSecure(SECURE_KEYS.ONBOARDING_COMPLETE);

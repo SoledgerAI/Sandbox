@@ -331,6 +331,8 @@ export default function SettingsScreen() {
                       await Promise.all([
                         deleteSecureKey(SECURE_KEYS.APP_LOCK_ENABLED),
                         deleteSecureKey(SECURE_KEYS.AUTH_PIN_HASH),
+                        deleteSecureKey(SECURE_KEYS.AUTH_PIN_SALT),
+                        deleteSecureKey(SECURE_KEYS.AUTH_PIN_MIGRATED),
                         deleteSecureKey(SECURE_KEYS.AUTH_METHOD),
                         deleteSecureKey(SECURE_KEYS.USER_SEX),
                         deleteSecureKey(SECURE_KEYS.ONBOARDING_COMPLETE),
