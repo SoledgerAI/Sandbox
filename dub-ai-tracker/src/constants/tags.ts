@@ -210,8 +210,28 @@ export const PERSONAL_PRIVATE_TAGS: TagDefault[] = [
 
 export const ALL_DEFAULT_TAGS: TagDefault[] = [...HEALTH_FITNESS_TAGS, ...PERSONAL_PRIVATE_TAGS];
 
+// TF-11: Minimal defaults for new users — the "serious value propositions
+// for the masses". Specialized categories (blood pressure, glucose, bloodwork,
+// strength, etc.) are opt-in via My Categories → elect-in categories, or via
+// the Log tab's manual tag toggle. The per-tag `defaultEnabledForTiers`
+// metadata above is retained for reference but no longer consulted here.
+const CORE_DEFAULT_TAGS: readonly string[] = [
+  'nutrition.food',
+  'hydration.water',
+  'body.measurements',
+  'fitness.workout',
+  'sleep.tracking',
+  'mental.wellness',
+  'supplements.daily',
+];
+
 export function getDefaultTagsForTier(tier: EngagementTier): string[] {
-  return HEALTH_FITNESS_TAGS
-    .filter((tag) => tag.defaultEnabledForTiers.includes(tier))
-    .map((tag) => tag.id);
+  const defaults = [...CORE_DEFAULT_TAGS];
+  // Recovery is valuable for structured/precision users who track readiness
+  // via devices; keep it off by default for the lighter tiers to avoid an
+  // empty card on a new user's dashboard.
+  if (tier === 'precision' || tier === 'structured') {
+    defaults.push('recovery.score');
+  }
+  return defaults;
 }

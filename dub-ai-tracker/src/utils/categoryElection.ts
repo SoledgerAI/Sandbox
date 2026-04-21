@@ -5,6 +5,33 @@
 import { storageGet, storageSet, STORAGE_KEYS } from './storage';
 import type { ElectInCategoryId } from '../types';
 
+// TF-07: Tag → elect-in category mapping.
+// Tags not listed here are not category-gated (always-visible category like
+// Food, Water, Sleep, Mood, Supplements, or a privacy-gated sensitive tag
+// the user explicitly enabled — those are controlled solely by TAGS_ENABLED).
+export const TAG_TO_ELECT_IN_CATEGORY: Readonly<Record<string, ElectInCategoryId>> = {
+  'blood.glucose': 'glucose',
+  'blood.pressure': 'blood_pressure',
+  'health.markers': 'bloodwork',
+  'womens.health': 'cycle_tracking',
+  'substances.tracking': 'substances',
+  'sexual.activity': 'sexual_health',
+  'injury.pain': 'injuries',
+};
+
+/**
+ * TF-07: Returns true if a tag is allowed to render given the current set of
+ * elected categories. Non-gated tags always return true.
+ */
+export function isTagAllowedByElection(
+  tagId: string,
+  enabledCategories: readonly ElectInCategoryId[],
+): boolean {
+  const required = TAG_TO_ELECT_IN_CATEGORY[tagId];
+  if (required == null) return true;
+  return enabledCategories.includes(required);
+}
+
 /**
  * Get the list of currently enabled elect-in category IDs.
  * Returns empty array if nothing stored (all OFF by default).

@@ -340,6 +340,8 @@ describe('Sprint 24 — Notification Settings Persistence', () => {
       master_enabled: true,
       daily_logging: { enabled: false, time: '22:00' },
       morning_checkin: { enabled: false, time: '06:00' },
+      // TF-10: Evening Check-in is now a configurable reminder type.
+      evening_checkin: { enabled: false, time: '22:30' },
       medication_reminders: { enabled: false },
       water_reminders: { enabled: false, interval_hours: 1, start_time: '07:00', end_time: '21:00' },
       doctor_followup: { enabled: false },
@@ -352,10 +354,31 @@ describe('Sprint 24 — Notification Settings Persistence', () => {
     expect(loaded.daily_logging.time).toBe('22:00');
     expect(loaded.morning_checkin.enabled).toBe(false);
     expect(loaded.morning_checkin.time).toBe('06:00');
+    expect(loaded.evening_checkin.enabled).toBe(false);
+    expect(loaded.evening_checkin.time).toBe('22:30');
     expect(loaded.medication_reminders.enabled).toBe(false);
     expect(loaded.water_reminders.enabled).toBe(false);
     expect(loaded.water_reminders.interval_hours).toBe(1);
     expect(loaded.doctor_followup.enabled).toBe(false);
+  });
+
+  it('older stored settings without evening_checkin still load with defaults merged', async () => {
+    // Simulate a pre-TF-10 settings blob missing the new key.
+    const legacy = {
+      master_enabled: true,
+      daily_logging: { enabled: true, time: '20:00' },
+      morning_checkin: { enabled: true, time: '07:30' },
+      medication_reminders: { enabled: true },
+      water_reminders: { enabled: true, interval_hours: 2, start_time: '08:00', end_time: '20:00' },
+      doctor_followup: { enabled: true },
+    };
+    const { storageSet, STORAGE_KEYS } = require('../utils/storage');
+    await storageSet(STORAGE_KEYS.SETTINGS_NOTIFICATIONS, legacy);
+
+    const loaded = await getNotificationSettings();
+    expect(loaded.evening_checkin).toBeDefined();
+    expect(loaded.evening_checkin.enabled).toBe(true);
+    expect(loaded.evening_checkin.time).toBe('21:00');
   });
 });
 

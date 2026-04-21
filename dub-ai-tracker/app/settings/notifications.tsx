@@ -41,6 +41,52 @@ const WATER_INTERVAL_OPTIONS: { value: WaterReminderInterval; label: string }[] 
   { value: 3, label: 'Every 3 hours' },
 ];
 
+// TF-10: Evening Check-in picker range is 5 PM–11 PM in 30-minute increments.
+const EVENING_CHECKIN_OPTIONS: { value: string; label: string }[] = (() => {
+  const out: { value: string; label: string }[] = [];
+  for (let h = 17; h <= 23; h++) {
+    for (const m of [0, 30]) {
+      const value = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+      const displayH = h > 12 ? h - 12 : h;
+      const ampm = h >= 12 ? 'PM' : 'AM';
+      const label = m === 0 ? `${displayH} ${ampm}` : `${displayH}:${String(m).padStart(2, '0')} ${ampm}`;
+      out.push({ value, label });
+    }
+  }
+  return out;
+})();
+
+// TF-10: human labels for the "Will check" preview under Evening Check-in.
+const TAG_DISPLAY_LABELS: Record<string, string> = {
+  'nutrition.food': 'Food',
+  'hydration.water': 'Water',
+  'fitness.workout': 'Exercise',
+  'strength.training': 'Strength',
+  'body.measurements': 'Body',
+  'sleep.tracking': 'Sleep',
+  'recovery.score': 'Recovery',
+  'supplements.daily': 'Supplements',
+  'health.markers': 'Bloodwork',
+  'mental.wellness': 'Mood',
+  'substances.tracking': 'Substances',
+  'sexual.activity': 'Sexual health',
+  'digestive.health': 'Digestive',
+  'personal.care': 'Personal care',
+  'womens.health': 'Cycle',
+  'injury.pain': 'Injuries',
+  'custom.tag': 'Custom',
+};
+
+function formatUnloggedPreview(tags: string[]): string {
+  if (tags.length === 0) return 'Everything logged today — nothing to review.';
+  const labels = tags.map((t) => TAG_DISPLAY_LABELS[t] ?? t);
+  const shown = labels.slice(0, 4);
+  const rest = labels.length - shown.length;
+  return rest > 0
+    ? `Will check: ${shown.join(', ')}, +${rest} more`
+    : `Will check: ${shown.join(', ')}`;
+}
+
 export default function NotificationsScreen() {
   const [tier, setTier] = useState<EngagementTier>('balanced');
   const [tierLoading, setTierLoading] = useState(true);
@@ -56,12 +102,10 @@ export default function NotificationsScreen() {
 
   const {
     enabled: notifEnabled,
-    eodEnabled,
     remindersEnabled,
     permissionGranted,
     unloggedTags,
     showEOD,
-    eodTime,
     loading: notifLoading,
     setEnabled: setNotifEnabled,
     setEodEnabled,
@@ -321,37 +365,84 @@ export default function NotificationsScreen() {
             </View>
           </PremiumCard>
 
-          {/* Test notification */}
-          <TouchableOpacity
-            style={styles.testBtn}
-            onPress={handleTestNotification}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="notifications-outline" size={18} color={Colors.accent} />
-            <Text style={styles.testBtnText}>Send Test Notification</Text>
-          </TouchableOpacity>
-
-          {/* Existing Phase 15/17 toggles */}
-          <Text style={styles.sectionTitle}>Legacy Reminders</Text>
-
+          {/* TF-10: Evening Check-in — moved out of "Legacy", rewritten copy,
+             added time picker + "Will check" preview + inline preview link. */}
           <PremiumCard>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Evening Check-in</Text>
                 <Text style={styles.settingDesc}>
-                  End-of-day questionnaire for unlogged tags
-                  {eodTime ? ` — ${formatTime(eodTime.hour, eodTime.minute)}` : ''}
+                  Reviews your day and prompts you to log anything you missed.
+                  Sent at {formatTime24to12(settings.evening_checkin.time)}.
                 </Text>
               </View>
               <Switch
-                value={eodEnabled}
-                onValueChange={setEodEnabled}
+                value={settings.evening_checkin.enabled}
+                onValueChange={async (val) => {
+                  hapticSelection();
+                  await updateSettings({
+                    evening_checkin: { ...settings.evening_checkin, enabled: val },
+                  });
+                  // Side-effect: actually schedule/cancel the Phase-15 EOD
+                  // notification so flipping the switch has immediate effect.
+                  await setEodEnabled(val);
+                }}
                 trackColor={{ false: Colors.divider, true: Colors.accent }}
                 thumbColor={Colors.text}
               />
             </View>
+            {settings.evening_checkin.enabled && (
+              <>
+                <View style={styles.intervalRow}>
+                  <Text style={styles.intervalLabel}>Time:</Text>
+                  {EVENING_CHECKIN_OPTIONS.map((opt) => (
+                    <TouchableOpacity
+                      key={opt.value}
+                      style={[
+                        styles.intervalBtn,
+                        settings.evening_checkin.time === opt.value && styles.intervalBtnActive,
+                      ]}
+                      onPress={async () => {
+                        hapticSelection();
+                        await updateSettings({
+                          evening_checkin: { ...settings.evening_checkin, time: opt.value },
+                        });
+                      }}
+                      activeOpacity={0.7}
+                    >
+                      <Text
+                        style={[
+                          styles.intervalBtnText,
+                          settings.evening_checkin.time === opt.value && styles.intervalBtnTextActive,
+                        ]}
+                      >
+                        {opt.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+                <Text style={styles.previewText}>
+                  {formatUnloggedPreview(unloggedTags)}
+                </Text>
+                <TouchableOpacity
+                  style={styles.inlinePreviewBtn}
+                  onPress={openEOD}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="moon-outline" size={16} color={Colors.accent} />
+                  <Text style={styles.inlinePreviewText}>
+                    Preview Evening Check-in ({unloggedTags.length} unlogged categor
+                    {unloggedTags.length !== 1 ? 'ies' : 'y'})
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color={Colors.secondaryText} />
+                </TouchableOpacity>
+              </>
+            )}
           </PremiumCard>
 
+          {/* Tier-based reminders — kept for users who rely on tier cadence.
+             TF-10: "Legacy Reminders" header removed; this sits as an extra
+             reminder type instead of its own section. */}
           <PremiumCard>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
@@ -368,6 +459,16 @@ export default function NotificationsScreen() {
               />
             </View>
           </PremiumCard>
+
+          {/* Test notification */}
+          <TouchableOpacity
+            style={styles.testBtn}
+            onPress={handleTestNotification}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="notifications-outline" size={18} color={Colors.accent} />
+            <Text style={styles.testBtnText}>Send Test Notification</Text>
+          </TouchableOpacity>
 
           {/* Celebrations */}
           <Text style={styles.sectionTitle}>Celebrations</Text>
@@ -422,15 +523,6 @@ export default function NotificationsScreen() {
             </View>
           </PremiumCard>
 
-          {/* EOD Preview */}
-          <TouchableOpacity style={styles.eodButton} onPress={openEOD} activeOpacity={0.7}>
-            <Ionicons name="moon-outline" size={18} color={Colors.accent} />
-            <Text style={styles.eodButtonText}>
-              Preview Evening Check-in ({unloggedTags.length} unlogged categor
-              {unloggedTags.length !== 1 ? 'ies' : 'y'})
-            </Text>
-            <Ionicons name="chevron-forward" size={16} color={Colors.secondaryText} />
-          </TouchableOpacity>
         </>
       )}
 
@@ -551,18 +643,28 @@ const styles = StyleSheet.create({
   },
   testBtnText: { color: Colors.accentText, fontSize: 14, fontWeight: '600' },
 
-  // EOD button
-  eodButton: {
+  // TF-10 Evening Check-in preview
+  previewText: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    marginTop: 10,
+    paddingLeft: 4,
+    lineHeight: 16,
+  },
+  inlinePreviewBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
-    padding: 14,
-    gap: 8,
-    borderWidth: 1,
-    borderColor: Colors.divider,
-    borderStyle: 'dashed',
-    marginTop: 12,
+    gap: 6,
+    marginTop: 10,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: Colors.elevated,
   },
-  eodButtonText: { color: Colors.accentText, fontSize: 14, fontWeight: '600', flex: 1 },
+  inlinePreviewText: {
+    color: Colors.accentText,
+    fontSize: 13,
+    fontWeight: '600',
+    flex: 1,
+  },
 });

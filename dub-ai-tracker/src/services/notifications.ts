@@ -11,6 +11,8 @@ import type { AppSettings } from '../types/profile';
 import type { SleepEntry } from '../types';
 import { checkDueReports, generateDailySummary, generateWeeklySummary, generateMonthlySummary } from './reporting';
 import { checkCelebrations } from '../components/common/Celebration';
+import { getNotificationSettings } from '../utils/notificationScheduler';
+import { getEnabledCategories, isTagAllowedByElection } from '../utils/categoryElection';
 
 // ============================================================
 // Notification Channel Setup
@@ -93,19 +95,35 @@ export async function getObservedBedtime(): Promise<number> {
 }
 
 /**
- * Get the EOD trigger time: 1 hour before observed bedtime.
- * Clamped between 6 PM (18:00) and 11 PM (23:00).
+ * Get the EOD trigger time.
+ * TF-10: honors the user's Evening Check-in time if set in notification
+ * settings. Falls back to 1 hour before observed bedtime, clamped
+ * between 5 PM (17:00) and 11 PM (23:00).
  * F-08: Day boundary removed — always uses midnight.
  */
 export async function getEODTriggerHour(): Promise<{ hour: number; minute: number }> {
+  // User override from Evening Check-in time picker wins when set.
+  try {
+    const notifSettings = await getNotificationSettings();
+    const override = notifSettings.evening_checkin?.time;
+    if (override && /^\d{2}:\d{2}$/.test(override)) {
+      const [h, m] = override.split(':').map(Number);
+      if (Number.isFinite(h) && Number.isFinite(m)) {
+        const clampedHour = Math.max(17, Math.min(23, h));
+        return { hour: clampedHour, minute: Math.max(0, Math.min(59, m)) };
+      }
+    }
+  } catch {
+    // fall through to bedtime-derived default
+  }
+
   const bedtime = await getObservedBedtime();
   let triggerHour = bedtime - 1; // 1 hour before bedtime
 
-  // Normalize if needed
   if (triggerHour >= 24) triggerHour -= 24;
 
-  // Clamp to [18, 23]
-  triggerHour = Math.max(18, Math.min(23, triggerHour));
+  // Clamp to [17, 23] — matches the UI picker range.
+  triggerHour = Math.max(17, Math.min(23, triggerHour));
 
   const hour = Math.floor(triggerHour);
   const minute = Math.round((triggerHour - hour) * 60);
@@ -161,16 +179,21 @@ const PRIORITY_ORDER: Record<string, number> = {
 /**
  * Get tags the user has enabled but hasn't logged today.
  * Sorted by category priority (sleep first, misc last).
+ * TF-11: tags whose elect-in category is disabled are filtered out so the
+ * Evening Check-in doesn't prompt for things the user has explicitly opted
+ * out of (blood pressure, glucose, substances, etc.).
  */
 export async function getUnloggedTags(todayStr: string): Promise<string[]> {
   const enabledTags = await storageGet<string[]>(STORAGE_KEYS.TAGS_ENABLED);
   if (!enabledTags || enabledTags.length === 0) return [];
 
+  const enabledCategories = await getEnabledCategories();
   const unlogged: string[] = [];
 
   for (const tagId of enabledTags) {
     const storageBase = TAG_STORAGE_MAP[tagId];
     if (!storageBase) continue;
+    if (!isTagAllowedByElection(tagId, enabledCategories)) continue;
 
     const key = dateKey(storageBase, todayStr);
     const data = await storageGet<unknown>(key);

@@ -47,6 +47,8 @@ import { calculateAllStreaks, type CategoryStreak } from '../../src/utils/streak
 import { refreshCompliance } from '../../src/services/complianceEngine';
 import { todayDateString } from '../../src/utils/dayBoundary';
 import { hydrationToOz } from '../../src/types';
+import type { ElectInCategoryId } from '../../src/types';
+import { getEnabledCategories, isTagAllowedByElection } from '../../src/utils/categoryElection';
 import ScreenWrapper from '../../src/components/common/ScreenWrapper';
 import type { DeferredSetupKey } from '../../src/hooks/useDeferredSetup';
 
@@ -103,6 +105,8 @@ export default function DashboardScreen() {
   const [activeStreaks, setActiveStreaks] = useState<CategoryStreak[]>([]);
   const [waterGoalOz, setWaterGoalOz] = useState(64);
   const [dashboardReady, setDashboardReady] = useState(false);
+  // TF-07: Track elected categories so category-gated tag cards hide when off.
+  const [enabledCategories, setEnabledCategories] = useState<ElectInCategoryId[]>([]);
 
   // Fix 1: Determine if dashboard is empty (no data logged today)
   const isDashboardEmpty =
@@ -134,12 +138,14 @@ export default function DashboardScreen() {
   // Sprint 25: Load dashboard extras in parallel
   const loadDashboardExtras = useCallback(async () => {
     const today = todayDateString();
-    const [complianceResult, coachHistory, streakSummary, hydrationGoal] = await Promise.all([
+    const [complianceResult, coachHistory, streakSummary, hydrationGoal, electedCats] = await Promise.all([
       refreshCompliance(today),
       storageGet<ChatMessage[]>(STORAGE_KEYS.COACH_HISTORY),
       calculateAllStreaks(),
       storageGet<HydrationGoalSettings>(STORAGE_KEYS.SETTINGS_HYDRATION_GOAL),
+      getEnabledCategories(),
     ]);
+    setEnabledCategories(electedCats);
 
     setCompliance(complianceResult);
 
@@ -214,10 +220,14 @@ export default function DashboardScreen() {
   // B1: Show first-use label below score ring for first 7 days
   const isFirstWeek = streak != null && (streak.current_streak ?? 0) <= 7;
 
-  // Order tags by configured order, falling back to enabled order
-  const orderedTags = tagOrder.length > 0
+  // Order tags by configured order, falling back to enabled order.
+  // TF-07: also filter out tags whose elect-in category is disabled so that
+  // blood glucose / blood pressure / substances / etc. don't render when the
+  // user hasn't elected the corresponding category.
+  const orderedTagsRaw = tagOrder.length > 0
     ? tagOrder.filter((id) => enabledTags.includes(id))
     : enabledTags;
+  const orderedTags = orderedTagsRaw.filter((id) => isTagAllowedByElection(id, enabledCategories));
 
   return (
     <ScreenWrapper>
@@ -362,7 +372,9 @@ export default function DashboardScreen() {
       )}
 
       {/* Sprint 18: Daily Compliance Scorecard */}
-      <ComplianceCard />
+      {/* TF-08: pass total_days_logged so the card can show a warm empty /
+         building state during the first days of use instead of red 0%. */}
+      <ComplianceCard totalDaysLogged={streak?.total_days_logged ?? 0} />
 
       {/* Deferred Setup Card (one at a time, Days 1-4) */}
       {activeCard && (

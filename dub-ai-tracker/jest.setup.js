@@ -129,7 +129,7 @@ jest.mock('expo-notifications', () => ({
 }));
 
 // ============================================================
-// expo-file-system
+// expo-file-system (and legacy submodule used by photo scan flows)
 // ============================================================
 jest.mock('expo-file-system', () => ({
   documentDirectory: '/mock/documents/',
@@ -139,6 +139,23 @@ jest.mock('expo-file-system', () => ({
   deleteAsync: jest.fn(() => Promise.resolve()),
   getInfoAsync: jest.fn(() => Promise.resolve({ exists: false })),
   makeDirectoryAsync: jest.fn(() => Promise.resolve()),
+}));
+
+jest.mock('expo-file-system/legacy', () => ({
+  readAsStringAsync: jest.fn(() => Promise.resolve('')),
+  writeAsStringAsync: jest.fn(() => Promise.resolve()),
+  EncodingType: { Base64: 'base64', UTF8: 'utf8' },
+}));
+
+// ============================================================
+// expo-image-manipulator (used by image privacy / photo scan flows)
+// ============================================================
+jest.mock('expo-image-manipulator', () => ({
+  manipulateAsync: jest.fn(() =>
+    Promise.resolve({ uri: '/mock/stripped.jpg', width: 1568, height: 1176 }),
+  ),
+  SaveFormat: { JPEG: 'jpeg', PNG: 'png' },
+  FlipType: { Horizontal: 'horizontal', Vertical: 'vertical' },
 }));
 
 // ============================================================

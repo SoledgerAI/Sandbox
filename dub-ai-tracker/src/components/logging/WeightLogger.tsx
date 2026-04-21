@@ -7,6 +7,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { hapticSuccess } from '../../utils/haptics';
 import {
+  ActivityIndicator,
   StyleSheet,
   Text,
   View,
@@ -15,6 +16,8 @@ import {
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
+import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
 import { Colors } from '../../constants/colors';
 import {
   storageGet,
@@ -30,6 +33,9 @@ import { RepeatLastEntry } from './RepeatLastEntry';
 import { TimestampPicker } from '../common/TimestampPicker';
 import { todayDateString } from '../../utils/dayBoundary';
 import { getActiveDate } from '../../services/dateContextService';
+import { stripExifMetadata } from '../../utils/imagePrivacy';
+import { scanScale, type ScaleScanSuccess } from '../../services/scaleScanService';
+import { getApiKey, AnthropicError } from '../../services/anthropic';
 
 
 interface WeightLoggerProps {
@@ -46,6 +52,29 @@ const RANGES: Record<UnitPref, { min: number; max: number }> = {
 function clampWhole(whole: number, unitPref: UnitPref): number {
   const { min, max } = RANGES[unitPref];
   return Math.max(min, Math.min(max, whole));
+}
+
+// TF-09: format the "also detected" line under the scan banner.
+function hasAdditionalMetrics(scan: ScaleScanSuccess): boolean {
+  const m = scan.additionalMetrics;
+  return (
+    m.body_fat_pct != null ||
+    m.muscle_mass != null ||
+    m.water_pct != null ||
+    m.bone_mass != null ||
+    m.bmi != null
+  );
+}
+
+function formatAdditionalMetrics(scan: ScaleScanSuccess): string {
+  const m = scan.additionalMetrics;
+  const parts: string[] = [];
+  if (m.body_fat_pct != null) parts.push(`Body fat ${m.body_fat_pct.toFixed(1)}%`);
+  if (m.muscle_mass != null) parts.push(`Muscle ${m.muscle_mass.toFixed(1)}`);
+  if (m.water_pct != null) parts.push(`Water ${m.water_pct.toFixed(1)}%`);
+  if (m.bone_mass != null) parts.push(`Bone ${m.bone_mass.toFixed(1)}`);
+  if (m.bmi != null) parts.push(`BMI ${m.bmi.toFixed(1)}`);
+  return `Also detected: ${parts.join(' • ')}`;
 }
 
 /** Snap a display value to 0.1 precision, then split into whole + tenths (0–9). */
@@ -66,6 +95,9 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
   const [decimalTenths, setDecimalTenths] = useState<number>(0);
   const [units, setUnits] = useState<UnitPref>('imperial');
   const [todayEntry, setTodayEntry] = useState<BodyEntry | null>(null);
+  // TF-09: Scale photo scanning
+  const [scanning, setScanning] = useState(false);
+  const [lastScan, setLastScan] = useState<ScaleScanSuccess | null>(null);
 
   const selectedWeight = wholeValue + decimalTenths / 10;
 
@@ -179,6 +211,109 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
     ? `${lastEntry.weight_lbs.toFixed(1)} lbs`
     : undefined;
 
+  // TF-09: Pre-fill the picker with a scanned reading, converted to the
+  // user's currently-selected display units.
+  const applyScanResult = useCallback(
+    (result: ScaleScanSuccess) => {
+      const scannedLbs = result.unit === 'kg' ? result.weight * LBS_PER_KG : result.weight;
+      const displayVal = units === 'metric' ? scannedLbs / LBS_PER_KG : scannedLbs;
+      const { whole, tenths } = splitValue(displayVal, units);
+      setWholeValue(whole);
+      setDecimalTenths(tenths);
+      setLastScan(result);
+      if (result.confidence === 'low') {
+        Alert.alert(
+          'Low confidence reading',
+          'Please verify the value before logging.',
+        );
+      }
+    },
+    [units],
+  );
+
+  const runScan = useCallback(async (localUri: string) => {
+    setScanning(true);
+    try {
+      // SEC: strip EXIF and resize to 1568px long edge before leaving device.
+      const strippedUri = await stripExifMetadata(localUri, 0.7);
+      const base64 = await readAsStringAsync(strippedUri, { encoding: EncodingType.Base64 });
+      const result = await scanScale(base64, 'image/jpeg');
+      if (!result.ok) {
+        Alert.alert(
+          "Couldn't read the scale",
+          'Try a clearer photo or enter the weight manually.',
+        );
+        return;
+      }
+      applyScanResult(result);
+    } catch (error) {
+      if (error instanceof AnthropicError) {
+        Alert.alert('Scan failed', error.message);
+      } else {
+        Alert.alert(
+          "Couldn't read the scale",
+          'Try a clearer photo or enter the weight manually.',
+        );
+      }
+    } finally {
+      setScanning(false);
+    }
+  }, [applyScanResult]);
+
+  const takePhotoAndScan = useCallback(async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Camera access is needed to scan your scale.');
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    await runScan(result.assets[0].uri);
+  }, [runScan]);
+
+  const pickPhotoAndScan = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission Required', 'Photo library access is needed to scan your scale.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsEditing: false,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    await runScan(result.assets[0].uri);
+  }, [runScan]);
+
+  const handleScanScale = useCallback(async () => {
+    if (scanning) return;
+    // BYOK: same gate as Coach — scale scan uses the same vision endpoint.
+    const apiKey = await getApiKey();
+    if (!apiKey) {
+      Alert.alert(
+        'API Key Required',
+        'Set up your API key in Settings to use Scale Scan.',
+      );
+      return;
+    }
+    Alert.alert(
+      'Scan Scale',
+      'Capture or choose a photo of your scale display.',
+      [
+        { text: 'Take Photo', onPress: takePhotoAndScan },
+        { text: 'Choose from Library', onPress: pickPhotoAndScan },
+        { text: 'Cancel', style: 'cancel' },
+      ],
+    );
+  }, [scanning, takePhotoAndScan, pickPhotoAndScan]);
+
+  const dismissScanBanner = useCallback(() => setLastScan(null), []);
+
   return (
     <View style={styles.container}>
       <RepeatLastEntry
@@ -205,6 +340,44 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
             hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
           >
             <Ionicons name="trash-outline" size={18} color={Colors.danger} />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* TF-09: Scan banner — shown after a successful scale scan */}
+      {lastScan != null && (
+        <View
+          style={[
+            styles.scanBanner,
+            lastScan.confidence === 'low' && styles.scanBannerLow,
+          ]}
+        >
+          <Ionicons
+            name={lastScan.confidence === 'low' ? 'warning-outline' : 'checkmark-circle'}
+            size={18}
+            color={lastScan.confidence === 'low' ? Colors.warning : Colors.accent}
+          />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.scanBannerTitle}>
+              {lastScan.confidence === 'low'
+                ? 'Low confidence reading. Please verify.'
+                : `Detected: ${lastScan.weight.toFixed(1)} ${lastScan.unit}${
+                    lastScan.device && lastScan.device !== 'unknown'
+                      ? ` from ${lastScan.device}`
+                      : ''
+                  }`}
+            </Text>
+            {hasAdditionalMetrics(lastScan) && (
+              <Text style={styles.scanBannerDetail}>
+                {formatAdditionalMetrics(lastScan)}
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity
+            onPress={dismissScanBanner}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <Ionicons name="close" size={18} color={Colors.secondaryText} />
           </TouchableOpacity>
         </View>
       )}
@@ -244,6 +417,25 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
           <Text style={styles.pickerUnitText}>{unitLabel}</Text>
         </View>
       </View>
+      {/* TF-09: Scan Scale — sits between the picker and the Log button */}
+      <TouchableOpacity
+        style={[styles.scanBtn, scanning && styles.scanBtnDisabled]}
+        onPress={handleScanScale}
+        activeOpacity={0.7}
+        disabled={scanning}
+        accessibilityRole="button"
+        accessibilityLabel="Scan scale with camera"
+      >
+        {scanning ? (
+          <ActivityIndicator color={Colors.accentText} />
+        ) : (
+          <Ionicons name="camera-outline" size={20} color={Colors.accentText} />
+        )}
+        <Text style={styles.scanBtnText}>
+          {scanning ? 'Reading scale…' : 'Scan Scale'}
+        </Text>
+      </TouchableOpacity>
+
       <TouchableOpacity
         style={styles.logBtn}
         onPress={logWeight}
@@ -352,6 +544,53 @@ const styles = StyleSheet.create({
     color: Colors.primaryBackground,
     fontSize: 16,
     fontWeight: '600',
+  },
+  // TF-09 scan controls
+  scanBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    paddingVertical: 12,
+    minHeight: 48,
+    marginBottom: 12,
+  },
+  scanBtnDisabled: {
+    opacity: 0.6,
+  },
+  scanBtnText: {
+    color: Colors.accentText,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  scanBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: Colors.inputBackground,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.accent,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  scanBannerLow: {
+    borderColor: Colors.warning,
+  },
+  scanBannerTitle: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  scanBannerDetail: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    marginTop: 2,
   },
   unitToggle: {
     flexDirection: 'row',

@@ -114,11 +114,14 @@ describe('Compliance Engine', () => {
 
   it('returns 0% when no data logged (default goals)', async () => {
     const result = await calculateDailyCompliance(TEST_DATE);
-    // Default: food, water, exercise, habits — all should be incomplete
-    expect(result.total).toBe(4);
+    // TF-08: default goals are food, water, exercise, complete_habits — but
+    // complete_habits auto-skips when the user hasn't defined any habits yet,
+    // so a brand-new user sees 3 goals, not 4, and no red-0%-of-4 UX.
+    expect(result.total).toBe(3);
     expect(result.completed).toBe(0);
     expect(result.percentage).toBe(0);
     expect(result.items.every((i) => !i.completed)).toBe(true);
+    expect(result.items.some((i) => i.id === 'complete_habits')).toBe(false);
   });
 
   it('returns 100% when all goals completed', async () => {
@@ -271,18 +274,23 @@ describe('Compliance Engine', () => {
     expect(result.items[0].detail).toBe('Severity: mild');
   });
 
-  it('handles all goals enabled with no data (category-gated goals skipped)', async () => {
+  it('handles all goals enabled with no data (category-gated + unconfigured goals skipped)', async () => {
     const allGoalIds = ALL_DAILY_GOALS.map((g) => g.id);
     await setEnabledGoals(allGoalIds);
 
     const result = await calculateDailyCompliance(TEST_DATE);
-    // Category-gated goals (breastfeeding, perimenopause, migraine, body_measurements, medications, cycle) are skipped
-    // when their categories aren't enabled, so total = ALL - 6 gated
-    const expectedTotal = allGoalIds.length - 6; // 6 category-gated goals skipped
+    // Auto-skipped when their configuration/category is missing:
+    //   6 category-gated (breastfeeding, perimenopause, migraine,
+    //                     body_measurements, medications, cycle)
+    // + 2 config-gated  (complete_habits with no habits defined,
+    //                    take_supplements with no supplements scheduled/taken)
+    const expectedTotal = allGoalIds.length - 8;
     expect(result.total).toBe(expectedTotal);
     expect(result.completed).toBe(0);
     expect(result.percentage).toBe(0);
     expect(result.items).toHaveLength(expectedTotal);
+    expect(result.items.some((i) => i.id === 'complete_habits')).toBe(false);
+    expect(result.items.some((i) => i.id === 'take_supplements')).toBe(false);
   });
 });
 

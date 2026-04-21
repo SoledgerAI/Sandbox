@@ -586,6 +586,12 @@ export interface NotificationSettings {
     enabled: boolean;
     time: string; // HH:MM
   };
+  // TF-10: User-configurable Evening Check-in replaces the auto-derived
+  // EOD trigger. `time` is HH:MM local, range 17:00–23:00, default 21:00.
+  evening_checkin: {
+    enabled: boolean;
+    time: string; // HH:MM
+  };
   medication_reminders: {
     enabled: boolean;
   };

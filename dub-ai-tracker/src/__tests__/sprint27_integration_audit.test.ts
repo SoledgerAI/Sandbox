@@ -419,7 +419,7 @@ describe('Compliance Engine Audit', () => {
     expect(result.percentage).toBe(0);
   });
 
-  test('compliance with all defaults, nothing logged = 0%', async () => {
+  test('compliance with all defaults, nothing logged = 0% (habits auto-skipped)', async () => {
     await storageSet(STORAGE_KEYS.PROFILE, {
       name: 'Test', weight_lbs: 160, height_inches: 68, dob: '1990-01-01',
       sex: 'male', activity_level: 'moderately_active',
@@ -427,9 +427,12 @@ describe('Compliance Engine Audit', () => {
     });
     await setEnabledGoals(DEFAULT_DAILY_GOALS);
     const result = await calculateDailyCompliance(today);
-    expect(result.total).toBe(4);
+    // TF-08: complete_habits auto-skips when no habits are defined, so the
+    // 4 default goals become 3 measurable goals for a fresh user.
+    expect(result.total).toBe(3);
     expect(result.completed).toBe(0);
     expect(result.percentage).toBe(0);
+    expect(result.items.some((i) => i.id === 'complete_habits')).toBe(false);
   });
 
   test('log_food goal detects food entries', async () => {

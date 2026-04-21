@@ -1,5 +1,9 @@
 // Sprint 18: Daily Compliance Scorecard — Dashboard Card
-// Shows compliance percentage with expandable goal breakdown
+// Shows compliance percentage with expandable goal breakdown.
+// TF-08: Three presentation states to avoid negative feedback on day one:
+//   - empty  (nothing logged today)         → encouraging CTA, no ring/%
+//   - building (<3 total days of logging)   → muted indicators, warm copy
+//   - full   (3+ total days)                → color-coded current behavior
 
 import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, LayoutAnimation } from 'react-native';
@@ -11,7 +15,7 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { PremiumCard } from '../common/PremiumCard';
 import { hapticLight } from '../../utils/haptics';
@@ -26,7 +30,16 @@ const RING_STROKE = 7;
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
-export function ComplianceCard() {
+// TF-08: days of logging history below which we show the "building" state.
+const BUILDING_ROUTINE_THRESHOLD = 3;
+
+interface ComplianceCardProps {
+  /** Total unique days the user has logged anything, used to gate colored
+   *  indicators off during the first few days of use. */
+  totalDaysLogged?: number;
+}
+
+export function ComplianceCard({ totalDaysLogged = 0 }: ComplianceCardProps) {
   const [result, setResult] = useState<ComplianceResult | null>(null);
   const [expanded, setExpanded] = useState(false);
 
@@ -59,9 +72,60 @@ export function ComplianceCard() {
 
   if (!result || result.total === 0) return null;
 
+  const hasActivityToday = result.completed > 0;
+  const isBuildingRoutine = totalDaysLogged < BUILDING_ROUTINE_THRESHOLD;
+
+  // TF-08 (A): Empty today — show a compassionate CTA instead of 0%.
+  if (!hasActivityToday) {
+    return (
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => {
+          hapticLight();
+          router.push('/(tabs)/log');
+        }}
+        accessibilityRole="button"
+        accessibilityLabel="Start your day — log your first entry"
+      >
+        <PremiumCard>
+          <View style={styles.emptyTopRow}>
+            <View style={styles.emptyIconCircle}>
+              <Ionicons name="sunny-outline" size={22} color={Colors.accentText} />
+            </View>
+            <View style={styles.textContainer}>
+              <Text style={styles.cardTitle}>Start Your Day</Text>
+              <Text style={styles.subtitle}>
+                Log your first entry to start tracking daily goals.
+              </Text>
+            </View>
+          </View>
+          <View style={styles.ctaRow}>
+            <Text style={styles.ctaText}>Log Something</Text>
+            <Ionicons name="arrow-forward" size={16} color={Colors.accentText} />
+          </View>
+        </PremiumCard>
+      </TouchableOpacity>
+    );
+  }
+
   const pct = Math.round(result.percentage);
-  const ringColor = pct >= 80 ? Colors.accent : pct >= 50 ? Colors.warning : Colors.danger;
-  const textColor = pct >= 80 ? Colors.accentText : pct >= 50 ? Colors.warning : Colors.dangerText;
+
+  // TF-08 (B+C): Color choice — muted during first 3 days, graded afterwards.
+  const ringColor = isBuildingRoutine
+    ? Colors.accent
+    : pct >= 80 ? Colors.accent : pct >= 50 ? Colors.warning : Colors.danger;
+  const textColor = isBuildingRoutine
+    ? Colors.accentText
+    : pct >= 80 ? Colors.accentText : pct >= 50 ? Colors.warning : Colors.dangerText;
+  const missedIconColor = isBuildingRoutine ? Colors.secondaryText : Colors.danger;
+  const missedIconName: 'ellipse-outline' | 'close-circle' = isBuildingRoutine
+    ? 'ellipse-outline'
+    : 'close-circle';
+
+  const title = isBuildingRoutine ? 'Building Your Routine' : 'Daily Compliance';
+  const subtitle = isBuildingRoutine
+    ? `You've completed ${result.completed} of ${result.total} goals today. Keep going!`
+    : `${result.completed} of ${result.total} daily goals`;
 
   const handlePress = () => {
     hapticLight();
@@ -104,14 +168,10 @@ export function ComplianceCard() {
 
           {/* Text */}
           <View style={styles.textContainer}>
-            <Text style={styles.cardTitle}>Daily Compliance</Text>
-            <Text style={styles.subtitle}>
-              {result.completed} of {result.total} daily goals
-            </Text>
+            <Text style={styles.cardTitle}>{title}</Text>
+            <Text style={styles.subtitle}>{subtitle}</Text>
             {!expanded && result.items.some((i) => !i.completed) && (
-              <Text style={styles.missedHint}>
-                Tap to see details
-              </Text>
+              <Text style={styles.missedHint}>Tap to see details</Text>
             )}
           </View>
 
@@ -129,9 +189,9 @@ export function ComplianceCard() {
             {result.items.map((item) => (
               <View key={item.id} style={styles.goalRow}>
                 <Ionicons
-                  name={item.completed ? 'checkmark-circle' : 'close-circle'}
+                  name={item.completed ? 'checkmark-circle' : missedIconName}
                   size={18}
-                  color={item.completed ? Colors.success : Colors.danger}
+                  color={item.completed ? Colors.success : missedIconColor}
                 />
                 <Text
                   style={[
@@ -222,5 +282,32 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     fontSize: 11,
     fontVariant: ['tabular-nums'],
+  },
+  // TF-08 empty state
+  emptyTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  emptyIconCircle: {
+    width: RING_SIZE,
+    height: RING_SIZE,
+    borderRadius: RING_SIZE / 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: Colors.elevated,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  ctaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    marginTop: 10,
+    gap: 6,
+  },
+  ctaText: {
+    color: Colors.accentText,
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

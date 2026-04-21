@@ -16,6 +16,8 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   master_enabled: true,
   daily_logging: { enabled: true, time: '20:00' },
   morning_checkin: { enabled: true, time: '07:30' },
+  // TF-10: Evening Check-in — user-configurable time, default 9:00 PM
+  evening_checkin: { enabled: true, time: '21:00' },
   medication_reminders: { enabled: true },
   water_reminders: { enabled: true, interval_hours: 2, start_time: '08:00', end_time: '20:00' },
   doctor_followup: { enabled: true },
@@ -28,8 +30,20 @@ export { DEFAULT_SETTINGS as DEFAULT_NOTIFICATION_SETTINGS };
 // ============================================================
 
 export async function getNotificationSettings(): Promise<NotificationSettings> {
-  const stored = await storageGet<NotificationSettings>(STORAGE_KEYS.SETTINGS_NOTIFICATIONS);
-  return stored ?? DEFAULT_SETTINGS;
+  const stored = await storageGet<Partial<NotificationSettings>>(STORAGE_KEYS.SETTINGS_NOTIFICATIONS);
+  if (!stored) return DEFAULT_SETTINGS;
+  // TF-10: stored settings from earlier builds predate `evening_checkin`;
+  // merge forward so newly-added keys fall back to defaults.
+  return {
+    ...DEFAULT_SETTINGS,
+    ...stored,
+    daily_logging: { ...DEFAULT_SETTINGS.daily_logging, ...(stored.daily_logging ?? {}) },
+    morning_checkin: { ...DEFAULT_SETTINGS.morning_checkin, ...(stored.morning_checkin ?? {}) },
+    evening_checkin: { ...DEFAULT_SETTINGS.evening_checkin, ...(stored.evening_checkin ?? {}) },
+    medication_reminders: { ...DEFAULT_SETTINGS.medication_reminders, ...(stored.medication_reminders ?? {}) },
+    water_reminders: { ...DEFAULT_SETTINGS.water_reminders, ...(stored.water_reminders ?? {}) },
+    doctor_followup: { ...DEFAULT_SETTINGS.doctor_followup, ...(stored.doctor_followup ?? {}) },
+  };
 }
 
 export async function saveNotificationSettings(settings: NotificationSettings): Promise<void> {

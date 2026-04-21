@@ -47,6 +47,78 @@ export async function getEnabledGoals(): Promise<DailyGoalId[]> {
   return stored ?? DEFAULT_GOALS;
 }
 
+// TF-08: Priority ordering used when tier-based caps trim the goal list.
+// Essentials first, then quality-of-life, then specialty goals.
+const DAILY_GOAL_PRIORITY: DailyGoalId[] = [
+  'log_food',
+  'log_water',
+  'exercise',
+  'log_sleep',
+  'complete_habits',
+  'hit_calorie_target',
+  'hit_protein_target',
+  'log_weight',
+  'take_supplements',
+  'mood_logged',
+  'meditate',
+  'steps_goal',
+  'sleep_adherence',
+  'social_connection',
+  'sunlight',
+  'mobility',
+  'journal',
+  'log_allergy_status',
+  'pushups',
+  'pullups',
+  'situps',
+  'body_measurement_logged',
+  'medications_logged',
+  'cycle_logged',
+  'migraine_logged',
+  'perimenopause_logged',
+  'breastfeeding_logged',
+];
+
+/**
+ * TF-08: Tier-based cap on the number of compliance goals displayed.
+ * Returns null when no cap should be applied (no tier set yet, or the
+ * tier is maximal).
+ *  - flexible / mindful: 3 essentials (food, water, exercise first)
+ *  - balanced / structured: up to 5
+ *  - precision: no cap (show everything the user elected)
+ */
+export function getTierGoalLimit(tier: EngagementTier | null): number | null {
+  switch (tier) {
+    case 'mindful':
+    case 'flexible':
+      return 3;
+    case 'balanced':
+    case 'structured':
+      return 5;
+    case 'precision':
+      return null;
+    default:
+      return null;
+  }
+}
+
+/**
+ * TF-08: Trim items to the tier cap while respecting priority. Items not in
+ * the priority list are treated as lowest priority (preserves engine-side
+ * category-gating already done upstream).
+ */
+function applyTierCap(items: ComplianceItem[], limit: number | null): ComplianceItem[] {
+  if (limit == null || items.length <= limit) return items;
+  const priorityIndex = (id: DailyGoalId): number => {
+    const idx = DAILY_GOAL_PRIORITY.indexOf(id);
+    return idx === -1 ? DAILY_GOAL_PRIORITY.length : idx;
+  };
+  // Stable sort by priority, then by current order for equal priorities.
+  const indexed = items.map((item, i) => ({ item, i, p: priorityIndex(item.id) }));
+  indexed.sort((a, b) => a.p - b.p || a.i - b.i);
+  return indexed.slice(0, limit).map((x) => x.item);
+}
+
 /**
  * Save the user's enabled daily goals.
  */
@@ -250,6 +322,9 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
       case 'take_supplements': {
         // Check if all scheduled (selected) supplements have been taken
         const scheduled = selectedSupplements ?? [];
+        // TF-08: skip silently when the user hasn't configured any supplements
+        // and hasn't logged any today — nothing to measure against.
+        if (scheduled.length === 0 && supplements.length === 0) continue;
         if (scheduled.length === 0) {
           item.completed = supplements.length > 0 && supplements.every((s) => s.taken);
           item.detail = supplements.length > 0
@@ -264,14 +339,12 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
         break;
       }
       case 'complete_habits': {
-        if (habits.length === 0) {
-          item.completed = false;
-          item.detail = 'No habits defined';
-        } else {
-          const completedCount = habits.filter((h) => h.completed).length;
-          item.completed = completedCount === habits.length;
-          item.detail = `${completedCount}/${habits.length} completed`;
-        }
+        // TF-08: skip silently when the user hasn't defined any habits yet
+        // rather than marking the default goal as failed on day one.
+        if (habits.length === 0) continue;
+        const completedCount = habits.filter((h) => h.completed).length;
+        item.completed = completedCount === habits.length;
+        item.detail = `${completedCount}/${habits.length} completed`;
         break;
       }
       case 'log_allergy_status': {
@@ -439,15 +512,20 @@ export async function calculateDailyCompliance(date: string): Promise<Compliance
     items.push(item);
   }
 
-  const completedCount = items.filter((i) => i.completed).length;
-  const total = items.length;
+  // TF-08: Apply tier-based cap (if the user has an engagement tier set).
+  // This reduces overwhelm for casual tiers without hiding data the user
+  // explicitly tracks — they can always bump their tier up for more goals.
+  const cappedItems = applyTierCap(items, getTierGoalLimit(tier));
+
+  const completedCount = cappedItems.filter((i) => i.completed).length;
+  const total = cappedItems.length;
   const percentage = total > 0 ? Math.round((completedCount / total) * 10000) / 100 : 0;
 
   return {
     completed: completedCount,
     total,
     percentage,
-    items,
+    items: cappedItems,
   };
 }
 
