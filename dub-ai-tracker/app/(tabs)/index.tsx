@@ -37,6 +37,7 @@ import { StreakBadge } from '../../src/components/dashboard/StreakBadge';
 import { DoctorFollowUpCard } from '../../src/components/dashboard/DoctorFollowUpCard';
 import { ComplianceCard } from '../../src/components/dashboard/ComplianceCard';
 import { DailySnapshotCard } from '../../src/components/dashboard/DailySnapshotCard';
+import { QuickActionTiles } from '../../src/components/dashboard/QuickActionTiles';
 import { TodaysPrioritiesCard } from '../../src/components/dashboard/TodaysPrioritiesCard';
 import { RecentCoachCard } from '../../src/components/dashboard/RecentCoachCard';
 import { UpcomingRemindersCard } from '../../src/components/dashboard/UpcomingRemindersCard';
@@ -244,7 +245,13 @@ export default function DashboardScreen() {
         {/* Left spacer (matches share button width for centering) */}
         <View style={styles.headerSide} />
         <View style={styles.headerCenter}>
-          <Text style={styles.greeting}>{greeting}</Text>
+          <Text
+            style={styles.greeting}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+          >
+            {greeting}
+          </Text>
           <Text style={styles.date}>{dateDisplay}</Text>
         </View>
         <View style={styles.headerSide}>
@@ -291,27 +298,8 @@ export default function DashboardScreen() {
         </TouchableOpacity>
       )}
 
-      {/* Fix 1: Empty state hero card */}
-      {isDashboardEmpty && (
-        <View style={styles.heroCard}>
-          <Text style={styles.heroTitle}>Welcome to DUB!</Text>
-          <Text style={styles.heroSubtitle}>Start by logging something — here are the quickest ways:</Text>
-          <View style={styles.heroCtaRow}>
-            <TouchableOpacity style={styles.heroCta} onPress={() => router.push('/log/food')} activeOpacity={0.7}>
-              <Ionicons name="restaurant-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.heroCtaText}>Log Food</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.heroCta} onPress={() => router.push('/log/water')} activeOpacity={0.7}>
-              <Ionicons name="water-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.heroCtaText}>Log Water</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.heroCta} onPress={() => router.push('/log/body')} activeOpacity={0.7}>
-              <Ionicons name="scale-outline" size={20} color="#FFFFFF" />
-              <Text style={styles.heroCtaText}>Log Weight</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      )}
+      {/* TF-05: Quick-action tiles (3x2 grid, configurable) */}
+      <QuickActionTiles enabledTags={enabledTags} />
 
       {/* Sprint 25: Daily Snapshot Card — top of dashboard (replaces inline score ring for returning users) */}
       {dashboardReady && !isDashboardEmpty && (
@@ -601,45 +589,6 @@ const styles = StyleSheet.create({
     color: Colors.secondaryText,
     fontSize: 13,
     marginTop: 2,
-  },
-  // Fix 1: Hero card
-  heroCard: {
-    backgroundColor: Colors.cardBackground,
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: Spacing.lg,
-    alignItems: 'center',
-  },
-  heroTitle: {
-    color: Colors.text,
-    fontSize: FontSize.xl,
-    fontWeight: FontWeight.bold,
-    marginBottom: 8,
-  },
-  heroSubtitle: {
-    color: Colors.secondaryText,
-    fontSize: 14,
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  heroCtaRow: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  heroCta: {
-    flex: 1,
-    backgroundColor: Colors.accent,
-    borderRadius: 10,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    minHeight: 48,
-  },
-  heroCtaText: {
-    color: '#FFFFFF',
-    fontSize: 12,
-    fontWeight: FontWeight.semibold,
   },
   // Sprint 25: Insights link
   insightsLink: {

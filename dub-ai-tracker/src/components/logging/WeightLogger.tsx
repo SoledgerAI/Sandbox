@@ -1,7 +1,10 @@
 // Weight logging component -- entry in lbs or kg per unit preference
 // Phase 9: Body Metrics and Weight Tracking
+// TF-06: dual-wheel picker for 0.1 lb/kg precision. Left wheel holds the
+// whole-number portion, right wheel holds tenths (0–9). Combined value is
+// persisted as a float with 1-decimal precision in BodyEntry.weight_lbs.
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { hapticSuccess } from '../../utils/haptics';
 import {
   StyleSheet,
@@ -33,12 +36,38 @@ interface WeightLoggerProps {
   onEntryLogged?: () => void;
 }
 
+type UnitPref = 'imperial' | 'metric';
+
+const RANGES: Record<UnitPref, { min: number; max: number }> = {
+  imperial: { min: 50, max: 400 },
+  metric: { min: 25, max: 200 },
+};
+
+function clampWhole(whole: number, unitPref: UnitPref): number {
+  const { min, max } = RANGES[unitPref];
+  return Math.max(min, Math.min(max, whole));
+}
+
+/** Snap a display value to 0.1 precision, then split into whole + tenths (0–9). */
+function splitValue(v: number, unitPref: UnitPref): { whole: number; tenths: number } {
+  const snapped = Math.round(v * 10) / 10;
+  const clamped = Math.max(RANGES[unitPref].min, Math.min(RANGES[unitPref].max, snapped));
+  const whole = Math.floor(clamped);
+  const tenths = Math.round((clamped - whole) * 10);
+  // Handle floating-point edge case where tenths rounds to 10
+  if (tenths >= 10) return { whole: clampWhole(whole + 1, unitPref), tenths: 0 };
+  return { whole, tenths };
+}
+
 export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
   const { lastEntry, loading: lastLoading, saveAsLast } = useLastEntry<BodyEntry>('body.measurements');
   const [entryTimestamp, setEntryTimestamp] = useState(new Date());
-  const [selectedWeight, setSelectedWeight] = useState<number>(150);
-  const [units, setUnits] = useState<'imperial' | 'metric'>('imperial');
+  const [wholeValue, setWholeValue] = useState<number>(150);
+  const [decimalTenths, setDecimalTenths] = useState<number>(0);
+  const [units, setUnits] = useState<UnitPref>('imperial');
   const [todayEntry, setTodayEntry] = useState<BodyEntry | null>(null);
+
+  const selectedWeight = wholeValue + decimalTenths / 10;
 
   const loadData = useCallback(async () => {
     const today = getActiveDate();
@@ -47,20 +76,16 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
     setTodayEntry(stored);
 
     const profile = await storageGet<Partial<UserProfile>>(STORAGE_KEYS.PROFILE);
-    if (profile?.units) {
-      setUnits(profile.units);
-    }
+    const unitPref: UnitPref = profile?.units ?? 'imperial';
+    setUnits(unitPref);
+
     // Default picker to last logged weight or profile weight
-    if (stored?.weight_lbs) {
-      const displayVal = profile?.units === 'metric'
-        ? Math.round(stored.weight_lbs / LBS_PER_KG * 2) / 2
-        : Math.round(stored.weight_lbs);
-      setSelectedWeight(displayVal);
-    } else if (profile?.weight_lbs) {
-      const displayVal = profile?.units === 'metric'
-        ? Math.round(profile.weight_lbs / LBS_PER_KG * 2) / 2
-        : Math.round(profile.weight_lbs);
-      setSelectedWeight(displayVal);
+    const sourceLbs = stored?.weight_lbs ?? profile?.weight_lbs;
+    if (sourceLbs != null) {
+      const displayVal = unitPref === 'metric' ? sourceLbs / LBS_PER_KG : sourceLbs;
+      const { whole, tenths } = splitValue(displayVal, unitPref);
+      setWholeValue(whole);
+      setDecimalTenths(tenths);
     }
   }, []);
 
@@ -83,7 +108,10 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
       return;
     }
 
-    const weightLbs = units === 'metric' ? value * LBS_PER_KG : value;
+    // Persist with 1-decimal precision. Metric → lbs conversion can introduce
+    // floating-point artifacts (e.g. 88.1 kg → 194.224… lbs); round to 0.1.
+    const rawLbs = units === 'metric' ? value * LBS_PER_KG : value;
+    const weightLbs = Math.round(rawLbs * 10) / 10;
 
     const today = getActiveDate();
     const key = dateKey(STORAGE_KEYS.LOG_BODY, today);
@@ -123,10 +151,29 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
   const handleRepeatLast = useCallback(() => {
     if (!lastEntry?.weight_lbs) return;
     const displayVal = units === 'metric'
-      ? Math.round(lastEntry.weight_lbs / LBS_PER_KG * 2) / 2
-      : Math.round(lastEntry.weight_lbs);
-    setSelectedWeight(displayVal);
+      ? lastEntry.weight_lbs / LBS_PER_KG
+      : lastEntry.weight_lbs;
+    const { whole, tenths } = splitValue(displayVal, units);
+    setWholeValue(whole);
+    setDecimalTenths(tenths);
   }, [lastEntry, units]);
+
+  const handleUnitChange = useCallback((next: UnitPref) => {
+    if (next === units) return;
+    // Convert the current picker value into the new unit, then snap.
+    const currentInNewUnit = next === 'metric'
+      ? selectedWeight / LBS_PER_KG
+      : selectedWeight * LBS_PER_KG;
+    const { whole, tenths } = splitValue(currentInNewUnit, next);
+    setWholeValue(whole);
+    setDecimalTenths(tenths);
+    setUnits(next);
+  }, [units, selectedWeight]);
+
+  const wholeItems = useMemo(() => {
+    const { min, max } = RANGES[units];
+    return Array.from({ length: max - min + 1 }, (_, i) => min + i);
+  }, [units]);
 
   const repeatSubtitle = lastEntry?.weight_lbs != null
     ? `${lastEntry.weight_lbs.toFixed(1)} lbs`
@@ -168,21 +215,34 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
       </Text>
       <View style={styles.pickerContainer}>
         <Picker
-          selectedValue={selectedWeight}
+          selectedValue={wholeValue}
           onValueChange={(v) => {
             const safe = Number(v);
-            if (!isNaN(safe)) setSelectedWeight(safe);
+            if (!isNaN(safe)) setWholeValue(safe);
           }}
           style={styles.picker}
           itemStyle={styles.pickerItem}
         >
-          {(units === 'metric'
-            ? Array.from({ length: 401 }, (_, i) => 25 + i * 0.5)
-            : Array.from({ length: 451 }, (_, i) => 50 + i)
-          ).map((val) => (
-            <Picker.Item key={val} label={`${val} ${unitLabel}`} value={val} />
+          {wholeItems.map((val) => (
+            <Picker.Item key={val} label={`${val}`} value={val} />
           ))}
         </Picker>
+        <Picker
+          selectedValue={decimalTenths}
+          onValueChange={(v) => {
+            const safe = Number(v);
+            if (!isNaN(safe)) setDecimalTenths(safe);
+          }}
+          style={styles.picker}
+          itemStyle={styles.pickerItem}
+        >
+          {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((val) => (
+            <Picker.Item key={val} label={`.${val}`} value={val} />
+          ))}
+        </Picker>
+        <View style={styles.pickerUnit}>
+          <Text style={styles.pickerUnitText}>{unitLabel}</Text>
+        </View>
       </View>
       <TouchableOpacity
         style={styles.logBtn}
@@ -196,7 +256,7 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
       <View style={styles.unitToggle}>
         <TouchableOpacity
           style={[styles.unitBtn, units === 'imperial' && styles.unitBtnActive]}
-          onPress={() => setUnits('imperial')}
+          onPress={() => handleUnitChange('imperial')}
         >
           <Text
             style={[styles.unitBtnText, units === 'imperial' && styles.unitBtnTextActive]}
@@ -206,7 +266,7 @@ export function WeightLogger({ onEntryLogged }: WeightLoggerProps) {
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.unitBtn, units === 'metric' && styles.unitBtnActive]}
-          onPress={() => setUnits('metric')}
+          onPress={() => handleUnitChange('metric')}
         >
           <Text
             style={[styles.unitBtnText, units === 'metric' && styles.unitBtnTextActive]}
@@ -253,18 +313,30 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   pickerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: Colors.cardBackground,
     borderRadius: 12,
     marginBottom: 16,
     overflow: 'hidden',
   },
   picker: {
+    flex: 1,
     color: Colors.text,
     height: 180,
   },
   pickerItem: {
     color: Colors.text,
     fontSize: 20,
+    fontWeight: '600',
+  },
+  pickerUnit: {
+    paddingHorizontal: 12,
+    justifyContent: 'center',
+  },
+  pickerUnitText: {
+    color: Colors.secondaryText,
+    fontSize: 16,
     fontWeight: '600',
   },
   logBtn: {

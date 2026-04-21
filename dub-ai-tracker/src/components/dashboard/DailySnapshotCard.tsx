@@ -102,7 +102,7 @@ export function DailySnapshotCard({
     },
     {
       label: 'Weight',
-      value: summary.weight_lbs != null ? `${summary.weight_lbs} lbs` : '--',
+      value: summary.weight_lbs != null ? `${summary.weight_lbs.toFixed(1)} lbs` : '--',
       emoji: '\u{2696}',
       route: '/log/body',
       visible: enabledTags.includes('body.measurements'),

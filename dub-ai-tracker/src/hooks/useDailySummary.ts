@@ -327,8 +327,8 @@ export function useDailySummary(): DailySummaryResult {
     load();
   }, [load]);
 
-  const name = profile?.name ?? 'there';
-  const greeting = `Good ${getGreetingTimeOfDay()}, ${name}`;
+  const firstName = profile?.name?.trim().split(/\s+/)[0] || 'there';
+  const greeting = `Good ${getGreetingTimeOfDay()}, ${firstName}`;
 
   const now = new Date();
   const dateDisplay = now.toLocaleDateString('en-US', {

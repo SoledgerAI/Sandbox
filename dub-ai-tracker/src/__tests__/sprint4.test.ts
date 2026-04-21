@@ -3,17 +3,20 @@
 
 // ============================================================
 // Fix 1: Dashboard Empty State
+//   TF-05 superseded the original 3-tile hero card with the
+//   configurable QuickActionTiles grid. Empty-state handling now
+//   lives in QuickActionTiles (always visible) and the score-ring
+//   first-use label path (still gated on isDashboardEmpty).
 // ============================================================
 
 describe('Fix 1: Dashboard Empty State', () => {
-  it('Dashboard has hero card for empty state', () => {
+  it('Dashboard integrates QuickActionTiles and retains empty-state gate', () => {
     const source = require('fs').readFileSync(
       require('path').resolve(__dirname, '../../app/(tabs)/index.tsx'),
       'utf8',
     );
-    expect(source).toContain('Welcome to DUB!');
+    expect(source).toContain('QuickActionTiles');
     expect(source).toContain('isDashboardEmpty');
-    expect(source).toContain('heroCard');
   });
 
   it('Dashboard has profile incomplete banner', () => {

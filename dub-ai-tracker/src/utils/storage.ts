@@ -125,6 +125,7 @@ export const STORAGE_KEYS = {
   SETTINGS_ENABLED_CATEGORIES: 'dub.settings.enabled_categories',
   SETTINGS_LOG_SECTIONS_COLLAPSED: 'dub.settings.log_sections_collapsed',
   SETTINGS_QUICK_ACCESS: 'dub.settings.quick_access',
+  SETTINGS_DASHBOARD_TILES: 'dub.settings.dashboard_tiles',
 
   // Compliance
   COMPLIANCE: 'dub.compliance',
