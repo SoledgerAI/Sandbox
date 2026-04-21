@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react';
 import {
   Animated,
+  PanResponder,
   Pressable,
   StyleSheet,
   Text,
-  View,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
@@ -14,7 +14,9 @@ export type ToastType = 'success' | 'error' | 'info';
 interface ToastProps {
   message: string;
   type?: ToastType;
-  duration?: number;
+  /** When true, toast animates out. Unmount is handled by the parent. */
+  dismissing: boolean;
+  /** Called on tap or swipe-up to request dismissal from parent. */
   onDismiss?: () => void;
 }
 
@@ -30,39 +32,69 @@ const BG_MAP: Record<ToastType, string> = {
   info: Colors.cardBackground,
 };
 
+const SLIDE_DURATION = 280;
+const OFFSCREEN_Y = -140;
+const SWIPE_DISMISS_THRESHOLD = -30;
+
 export function Toast({
   message,
   type = 'info',
-  duration = 3000,
+  dismissing,
   onDismiss,
 }: ToastProps) {
-  const translateY = useRef(new Animated.Value(-100)).current;
+  const translateY = useRef(new Animated.Value(OFFSCREEN_Y)).current;
 
+  // Slide in on mount.
   useEffect(() => {
     Animated.timing(translateY, {
       toValue: 0,
-      duration: 300,
+      duration: SLIDE_DURATION,
       useNativeDriver: true,
     }).start();
+  }, [translateY]);
 
-    const timer = setTimeout(() => {
+  // TF-03: slide out when parent sets dismissing=true. The parent owns the
+  // unmount timer, so we don't rely on the animation callback firing — we
+  // just trigger the visual transition.
+  useEffect(() => {
+    if (dismissing) {
       Animated.timing(translateY, {
-        toValue: -100,
-        duration: 300,
+        toValue: OFFSCREEN_Y,
+        duration: SLIDE_DURATION,
         useNativeDriver: true,
-      }).start(() => onDismiss?.());
-    }, duration);
+      }).start();
+    }
+  }, [dismissing, translateY]);
 
-    return () => clearTimeout(timer);
-  }, [duration, onDismiss, translateY]);
-
-  const handlePress = () => {
-    Animated.timing(translateY, {
-      toValue: -100,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => onDismiss?.());
-  };
+  // TF-03 bonus: swipe-up to dismiss.
+  const panResponder = useRef(
+    PanResponder.create({
+      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dy) > 5,
+      onPanResponderMove: (_, g) => {
+        if (g.dy < 0) {
+          translateY.setValue(g.dy);
+        }
+      },
+      onPanResponderRelease: (_, g) => {
+        if (g.dy < SWIPE_DISMISS_THRESHOLD) {
+          onDismiss?.();
+        } else {
+          Animated.timing(translateY, {
+            toValue: 0,
+            duration: 150,
+            useNativeDriver: true,
+          }).start();
+        }
+      },
+      onPanResponderTerminate: () => {
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }).start();
+      },
+    }),
+  ).current;
 
   return (
     <Animated.View
@@ -70,8 +102,15 @@ export function Toast({
         styles.container,
         { backgroundColor: BG_MAP[type], transform: [{ translateY }] },
       ]}
+      {...panResponder.panHandlers}
     >
-      <Pressable style={styles.content} onPress={handlePress}>
+      <Pressable
+        style={styles.content}
+        onPress={onDismiss}
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss notification"
+        accessibilityHint="Tap or swipe up to dismiss"
+      >
         <Ionicons name={ICON_MAP[type]} size={20} color="#FFFFFF" />
         <Text style={styles.message}>{message}</Text>
       </Pressable>

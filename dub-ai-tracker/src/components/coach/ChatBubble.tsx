@@ -207,8 +207,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   photoPreview: {
-    width: '100%',
-    height: 160,
+    width: 220,
+    height: 180,
     borderRadius: 10,
     marginBottom: 6,
   },

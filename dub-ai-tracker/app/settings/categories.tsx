@@ -2,7 +2,7 @@
 // Toggle optional logging categories on/off
 // Disabling preserves all existing data
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useFocusEffect } from 'expo-router';
 import {
   StyleSheet,
@@ -35,6 +35,14 @@ export default function MyCategoriesScreen() {
   const [loading, setLoading] = useState(true);
   const { showToast } = useToast();
 
+  // TF-03: debounce the toast so rapid toggles of the same switch
+  // don't flash through intermediate states ("Enabled → Disabled → Enabled").
+  // Only the final state 300ms after the last change is announced.
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
+
   const loadData = useCallback(async () => {
     const enabled = await getEnabledCategories();
     setEnabledIds(enabled);
@@ -62,12 +70,16 @@ export default function MyCategoriesScreen() {
       onCategoryDisabled(categoryId).catch(() => {});
     }
     const cat = ALL_ELECT_IN_CATEGORIES.find((c) => c.id === categoryId);
-    if (cat) {
+    if (!cat) return;
+
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => {
+      toastTimerRef.current = null;
       showToast(
         nowEnabled ? `${cat.label} enabled` : `${cat.label} disabled`,
         nowEnabled ? 'success' : 'info',
       );
-    }
+    }, 300);
   }, [showToast]);
 
   const renderGroup = (groupId: ElectInCategoryGroup, groupLabel: string) => {

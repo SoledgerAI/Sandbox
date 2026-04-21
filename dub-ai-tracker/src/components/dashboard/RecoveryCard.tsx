@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Pressable, Alert } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { LoadingIndicator } from '../common/LoadingIndicator';
@@ -132,27 +133,43 @@ export function RecoveryCard() {
   }
 
   if (recovery == null || !recovery.sufficient_data) {
+    // TF-02: no recovery data yet — tap routes to sleep logger, the
+    // single biggest input into the recovery score. Matches the hint
+    // text: "Log sleep, body metrics, and workouts…".
     return (
-      <DashboardCard title="Recovery">
-        <Text style={styles.insufficientText}>
-          Insufficient Data
-        </Text>
-        <Text style={styles.insufficientHint}>
-          Log sleep, body metrics, and workouts to see your recovery score
-        </Text>
-      </DashboardCard>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => router.push('/log/sleep')}
+        accessibilityRole="button"
+        accessibilityLabel="Log sleep to build recovery score"
+      >
+        <DashboardCard title="Recovery">
+          <Text style={styles.insufficientText}>
+            Insufficient Data
+          </Text>
+          <Text style={styles.insufficientHint}>
+            Log sleep, body metrics, and workouts to see your recovery score — tap to start
+          </Text>
+        </DashboardCard>
+      </TouchableOpacity>
     );
   }
 
   const color = scoreColor(recovery.total_score);
 
+  // TF-02: whole card toggles expand so tapping the title/edges works,
+  // not just the mainRow. Inner Pressables (population-info Alert,
+  // methodology toggle) remain innermost and take priority via RN's
+  // responder system.
   return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={() => setExpanded(!expanded)}
+      accessibilityRole="button"
+      accessibilityLabel={expanded ? 'Collapse recovery breakdown' : 'Expand recovery breakdown'}
+    >
     <DashboardCard title="Recovery">
-      <TouchableOpacity
-        onPress={() => setExpanded(!expanded)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.mainRow}>
+      <View style={styles.mainRow}>
           <CircularGauge score={recovery.total_score} color={color} />
           <View style={styles.summarySection}>
             <Text style={[styles.statusText, { color }]}>
@@ -182,7 +199,6 @@ export function RecoveryCard() {
             )}
           </View>
         </View>
-      </TouchableOpacity>
 
       {expanded && (
         <View style={styles.breakdown}>
@@ -226,6 +242,7 @@ export function RecoveryCard() {
         </View>
       )}
     </DashboardCard>
+    </TouchableOpacity>
   );
 }
 

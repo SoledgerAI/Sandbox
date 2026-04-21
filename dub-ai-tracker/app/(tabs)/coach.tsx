@@ -20,6 +20,7 @@ import { useScrollToTop } from '@react-navigation/native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { stripExifMetadata } from '../../src/utils/imagePrivacy';
 import { Colors } from '../../src/constants/colors';
 import { FontSize, FontWeight } from '../../src/constants/typography';
 import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
@@ -185,6 +186,23 @@ export default function CoachScreen() {
   };
 
   // Photo capture for Coach chat (Feature 4)
+  // TF-01: strip EXIF + resize immediately on capture so the stored URI is a
+  // stable file in the app cache (not a transient ImagePicker temp URI that
+  // can fail to render, showing the bubble's gold background as a blank
+  // rectangle). Mirrors the pattern in PhotoFoodEntry.
+  const prepareAndSendPhoto = useCallback(async (rawUri: string) => {
+    let strippedUri: string;
+    try {
+      strippedUri = await stripExifMetadata(rawUri, 0.7);
+    } catch {
+      Alert.alert('Photo Error', 'Unable to prepare photo. Please try again.');
+      return;
+    }
+    const text = inputText.trim() || '';
+    setInputText('');
+    await sendUserMessage(text, strippedUri);
+  }, [inputText, sendUserMessage]);
+
   const handlePhotoCapture = useCallback(async () => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
@@ -196,11 +214,9 @@ export default function CoachScreen() {
       allowsEditing: false,
     });
     if (!result.canceled && result.assets[0]) {
-      const text = inputText.trim() || '';
-      setInputText('');
-      await sendUserMessage(text, result.assets[0].uri);
+      await prepareAndSendPhoto(result.assets[0].uri);
     }
-  }, [inputText, sendUserMessage]);
+  }, [prepareAndSendPhoto]);
 
   const handlePhotoLibrary = useCallback(async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -213,11 +229,9 @@ export default function CoachScreen() {
       allowsEditing: false,
     });
     if (!result.canceled && result.assets[0]) {
-      const text = inputText.trim() || '';
-      setInputText('');
-      await sendUserMessage(text, result.assets[0].uri);
+      await prepareAndSendPhoto(result.assets[0].uri);
     }
-  }, [inputText, sendUserMessage]);
+  }, [prepareAndSendPhoto]);
 
   const renderEmpty = () => {
     if (loading) {

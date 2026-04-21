@@ -3,7 +3,8 @@
 // Redesign: P1 plain-language weight display
 
 import { useState, useEffect, useCallback } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { FontSize } from '../../constants/typography';
@@ -101,12 +102,23 @@ export function BodyCard() {
   const showFluctuationNote =
     dailyDelta != null && Math.abs(dailyDelta) > fluctuationThreshold;
 
+  // TF-02: whole card is a tap target → body log screen. Matches
+  // TagCardWithData pattern (outer TouchableOpacity, activeOpacity 0.7).
+  const openBodyLog = () => router.push('/log/body');
+
   // No data at all
   if (todayWeight == null) {
     return (
-      <DashboardCard title="Body">
-        <Text style={styles.emptyText}>No weight data logged yet</Text>
-      </DashboardCard>
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={openBodyLog}
+        accessibilityRole="button"
+        accessibilityLabel="Log body metrics"
+      >
+        <DashboardCard title="Body">
+          <Text style={styles.emptyText}>No weight data logged yet — tap to log</Text>
+        </DashboardCard>
+      </TouchableOpacity>
     );
   }
 
@@ -122,6 +134,12 @@ export function BodyCard() {
         : 'remove-outline';
 
   return (
+    <TouchableOpacity
+      activeOpacity={0.7}
+      onPress={openBodyLog}
+      accessibilityRole="button"
+      accessibilityLabel="Log body metrics"
+    >
     <DashboardCard title="Body">
       {/* PRIMARY: 7-day rolling average or "needs more data" prompt */}
       {needsMoreData ? (
@@ -179,6 +197,7 @@ export function BodyCard() {
         </Text>
       )}
     </DashboardCard>
+    </TouchableOpacity>
   );
 }
 

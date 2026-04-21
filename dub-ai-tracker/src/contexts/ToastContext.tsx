@@ -5,6 +5,7 @@ interface ToastState {
   message: string;
   type: ToastType;
   key: number;
+  dismissing: boolean;
 }
 
 interface ToastContextValue {
@@ -15,10 +16,14 @@ const ToastContext = createContext<ToastContextValue>({
   showToast: () => {},
 });
 
-// Toast visible duration (ms) + buffer for slide-out animation.
-// Provider-level safety timer ensures dismissal even if Toast's internal
-// Animated callback fails to fire (Bug #7: TestFlight reports of stuck toasts).
-const TOAST_SAFETY_MS = 3500;
+// TF-03: Provider owns both timers. Dismissal does NOT depend on the
+// Animated.timing callback firing (iOS native-driver callbacks can silently
+// fail when animations interact with screen transitions). Timeline:
+//   0ms                              — toast mounts, slides in
+//   VISIBLE_MS                       — provider sets dismissing=true, slide-out starts
+//   VISIBLE_MS + EXIT_MS + buffer    — provider unmounts toast (setToast(null))
+const VISIBLE_MS = 3000;
+const EXIT_MS = 320; // slightly more than Toast's SLIDE_DURATION
 
 export function useToast() {
   return useContext(ToastContext);
@@ -26,30 +31,44 @@ export function useToast() {
 
 export function ToastProvider({ children }: { children: React.ReactNode }) {
   const [toast, setToast] = useState<ToastState | null>(null);
-  const safetyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const visibleTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const clearSafetyTimer = () => {
-    if (safetyTimerRef.current) {
-      clearTimeout(safetyTimerRef.current);
-      safetyTimerRef.current = null;
+  const clearTimers = () => {
+    if (visibleTimerRef.current) {
+      clearTimeout(visibleTimerRef.current);
+      visibleTimerRef.current = null;
+    }
+    if (exitTimerRef.current) {
+      clearTimeout(exitTimerRef.current);
+      exitTimerRef.current = null;
     }
   };
 
-  const showToast = useCallback((message: string, type: ToastType = 'info') => {
-    clearSafetyTimer();
-    setToast({ message, type, key: Date.now() });
-    safetyTimerRef.current = setTimeout(() => {
+  const startExit = useCallback(() => {
+    setToast((prev) => (prev ? { ...prev, dismissing: true } : null));
+    exitTimerRef.current = setTimeout(() => {
+      exitTimerRef.current = null;
       setToast(null);
-      safetyTimerRef.current = null;
-    }, TOAST_SAFETY_MS);
+    }, EXIT_MS);
   }, []);
+
+  const showToast = useCallback((message: string, type: ToastType = 'info') => {
+    clearTimers();
+    setToast({ message, type, key: Date.now(), dismissing: false });
+    visibleTimerRef.current = setTimeout(() => {
+      visibleTimerRef.current = null;
+      startExit();
+    }, VISIBLE_MS);
+  }, [startExit]);
 
   const handleDismiss = useCallback(() => {
-    clearSafetyTimer();
-    setToast(null);
-  }, []);
+    if (exitTimerRef.current) return; // already exiting
+    clearTimers();
+    startExit();
+  }, [startExit]);
 
-  useEffect(() => () => clearSafetyTimer(), []);
+  useEffect(() => () => clearTimers(), []);
 
   return (
     <ToastContext.Provider value={{ showToast }}>
@@ -59,6 +78,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           key={toast.key}
           message={toast.message}
           type={toast.type}
+          dismissing={toast.dismissing}
           onDismiss={handleDismiss}
         />
       )}
