@@ -257,9 +257,18 @@ describe('Sprint 24 — Schedule/Cancel Functions', () => {
   });
 
   it('scheduleDoctorFollowups creates one-time notifications for future follow-ups', async () => {
-    // Store a doctor visit with a future follow-up date
-    const visit = makeDoctorVisit({ follow_up_date: '2026-04-20' });
-    await storageSet(dateKey(STORAGE_KEYS.LOG_DOCTOR_VISITS, '2026-04-01'), [visit]);
+    // Store a doctor visit with a future follow-up date.
+    // Dates computed dynamically so the test does not rot.
+    const futureFollowUp = new Date();
+    futureFollowUp.setDate(futureFollowUp.getDate() + 14);
+    const followUpStr = `${futureFollowUp.getFullYear()}-${String(futureFollowUp.getMonth() + 1).padStart(2, '0')}-${String(futureFollowUp.getDate()).padStart(2, '0')}`;
+
+    const visitDate = new Date();
+    visitDate.setDate(visitDate.getDate() - 1); // yesterday's visit
+    const visitDateStr = `${visitDate.getFullYear()}-${String(visitDate.getMonth() + 1).padStart(2, '0')}-${String(visitDate.getDate()).padStart(2, '0')}`;
+
+    const visit = makeDoctorVisit({ follow_up_date: followUpStr });
+    await storageSet(dateKey(STORAGE_KEYS.LOG_DOCTOR_VISITS, visitDateStr), [visit]);
 
     const ids = await scheduleDoctorFollowups();
     expect(ids.length).toBe(1);

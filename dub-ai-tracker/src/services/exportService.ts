@@ -100,9 +100,11 @@ export function getDateRange(options: ExportOptions): { start: Date; end: Date }
     return options.customRange;
   }
   const end = new Date();
+  end.setHours(12, 0, 0, 0);
   const start = new Date();
   const days = options.datePreset === '7d' ? 7 : options.datePreset === '30d' ? 30 : 90;
   start.setDate(start.getDate() - days);
+  start.setHours(12, 0, 0, 0);
   return { start, end };
 }
 
