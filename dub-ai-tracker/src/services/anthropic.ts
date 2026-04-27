@@ -141,6 +141,105 @@ export const COACH_TOOLS = [
       required: ['type', 'description'],
     },
   },
+  // Sprint 30: multi-field extraction tools
+  {
+    name: 'log_body_composition' as const,
+    description:
+      'Log body composition metrics from a smart scale screenshot or manual entry. Use this when a scale photo is shared OR when the user reports body composition numbers. Always call alongside log_weight when both are present in the same source.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        body_fat_pct: { type: 'number' as const, description: '0-100' },
+        skeletal_muscle_lbs: { type: 'number' as const },
+        bone_mass_lbs: { type: 'number' as const },
+        bmi: { type: 'number' as const },
+        visceral_fat_rating: { type: 'number' as const, description: '0-30 typical Garmin/Withings' },
+        body_water_pct: { type: 'number' as const, description: '0-100' },
+        metabolic_age_years: { type: 'number' as const, description: 'integer years' },
+        source: { type: 'string' as const, description: "e.g. 'garmin_scale_photo'" },
+        extraction_source: {
+          type: 'string' as const,
+          enum: ['user_text', 'image_vision', 'inferred'],
+          description: 'How this value was obtained',
+        },
+      },
+    },
+  },
+  {
+    name: 'log_sleep' as const,
+    description:
+      'Log a sleep entry for the previous night. Use when the user reports bedtime, wake time, or total sleep hours.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        hours: { type: 'number' as const, description: '0-16, total sleep duration' },
+        quality: { type: 'number' as const, description: '1-5' },
+        bedtime: { type: 'string' as const, description: 'HH:MM 24h' },
+        wake_time: { type: 'string' as const, description: 'HH:MM 24h' },
+        wake_count: { type: 'number' as const, description: 'integer' },
+        source: { type: 'string' as const },
+        extraction_source: {
+          type: 'string' as const,
+          enum: ['user_text', 'image_vision', 'inferred'],
+        },
+      },
+      required: ['hours'],
+    },
+  },
+  {
+    name: 'log_mood' as const,
+    description:
+      'Log a mental/mood entry. Use when user shares a feeling, stress level, or mood rating.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        mood_rating: { type: 'number' as const, description: '1-5' },
+        stress_level: { type: 'number' as const, description: '1-5' },
+        note: { type: 'string' as const, description: 'max 280 chars' },
+        triggers: {
+          type: 'array' as const,
+          items: { type: 'string' as const },
+          description: 'free-text tags',
+        },
+        source: { type: 'string' as const },
+        extraction_source: {
+          type: 'string' as const,
+          enum: ['user_text', 'image_vision', 'inferred'],
+        },
+      },
+      required: ['mood_rating'],
+    },
+  },
+  {
+    name: 'log_substance' as const,
+    description:
+      'Log a substance use entry (alcohol, cannabis, nicotine, etc.). Use ONLY when user explicitly asks to log it. This is sensitive data — never log substance use inferred from images alone without explicit user instruction.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        category: {
+          type: 'string' as const,
+          enum: ['alcohol', 'cannabis', 'hemp', 'tobacco', 'other'],
+        },
+        amount: { type: 'number' as const },
+        unit: {
+          type: 'string' as const,
+          enum: ['oz', 'g', 'mg', 'puffs', 'cigarettes', 'units'],
+        },
+        method: {
+          type: 'string' as const,
+          enum: ['beverage', 'smoked', 'edible', 'vape', 'patch', 'other'],
+        },
+        note: { type: 'string' as const, description: 'max 280 chars' },
+        source: { type: 'string' as const },
+        extraction_source: {
+          type: 'string' as const,
+          enum: ['user_text', 'image_vision', 'inferred'],
+        },
+      },
+      required: ['category'],
+    },
+  },
 ];
 
 // ============================================================

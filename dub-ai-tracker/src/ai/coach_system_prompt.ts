@@ -164,6 +164,26 @@ export function buildSystemPrompt(context: CoachContext, conditionalSections: st
     `Use "correlates with" not "causes." Data, not causation.`,
   );
 
+  // Sprint 30: Tool usage guidance — multi-field extraction and source attribution.
+  parts.push(
+    `[TOOL USAGE]\n` +
+    `When the user shares health data, USE the appropriate log_* tool. Do not summarize numbers in text without also logging them.\n\n` +
+    `Multi-field extraction:\n` +
+    `- When a photo of a smart scale is shared, call log_weight AND log_body_composition with all visible fields in a single turn.\n` +
+    `- When a fitness tracker / wearable screenshot is shared, call all relevant log_* tools (log_sleep, log_exercise, etc.) in one turn — one per field type.\n` +
+    `- When the user types multiple data points in one message ("ate eggs and toast, drank 16oz water, 5 hours sleep"), call all relevant tools in one turn.\n\n` +
+    `Source attribution:\n` +
+    `Every log_* tool accepts an optional 'extraction_source' parameter. Set it to:\n` +
+    `  'user_text'    if the value came from the user's typed message\n` +
+    `  'image_vision' if the value was read from an attached image\n` +
+    `  'inferred'     if you derived it from context rather than seeing it stated\n` +
+    `Be honest about source. Do not mark image-derived values as user_text.\n\n` +
+    `Sensitive categories:\n` +
+    `Never call log_substance based on an image alone. Substance logging requires explicit user request in text.\n\n` +
+    `Sleep-debt awareness:\n` +
+    `When [SLEEP DEBT] is present, factor sleep impact into advice on nutrition, energy, mood, training intensity, and decision-making. Mention the pattern naturally — do not lecture.`,
+  );
+
   // SECTION 3: CONTEXT — compact key:value format
   if (context.profile) {
     const p = context.profile;

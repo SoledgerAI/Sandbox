@@ -101,6 +101,50 @@ describe('Anthropic Service', () => {
     expect(mod.AnthropicError).toBeDefined();
   });
 
+  // Sprint 30: COACH_TOOLS extended from 6 → 10
+  it('exports COACH_TOOLS containing all 10 expected tools with valid schemas', () => {
+    const { COACH_TOOLS } = require('../services/anthropic');
+    expect(Array.isArray(COACH_TOOLS)).toBe(true);
+    expect(COACH_TOOLS).toHaveLength(10);
+    const names = COACH_TOOLS.map((t: { name: string }) => t.name);
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'log_drink',
+        'log_food',
+        'log_weight',
+        'log_exercise',
+        'log_supplement',
+        'log_feedback',
+        'log_body_composition',
+        'log_sleep',
+        'log_mood',
+        'log_substance',
+      ]),
+    );
+    for (const t of COACH_TOOLS) {
+      expect(typeof t.name).toBe('string');
+      expect(typeof t.description).toBe('string');
+      expect(t.input_schema).toBeDefined();
+      expect(t.input_schema.type).toBe('object');
+      expect(t.input_schema.properties).toBeDefined();
+    }
+  });
+
+  it('Sprint 30 tools include the optional extraction_source enum', () => {
+    const { COACH_TOOLS } = require('../services/anthropic');
+    const newToolNames = ['log_body_composition', 'log_sleep', 'log_mood', 'log_substance'];
+    for (const name of newToolNames) {
+      const tool = COACH_TOOLS.find((t: { name: string }) => t.name === name);
+      expect(tool).toBeDefined();
+      expect(tool.input_schema.properties.extraction_source).toBeDefined();
+      expect(tool.input_schema.properties.extraction_source.enum).toEqual([
+        'user_text',
+        'image_vision',
+        'inferred',
+      ]);
+    }
+  });
+
   it('uses correct endpoint and model', async () => {
     const SecureStore = require('expo-secure-store');
     SecureStore.getItemAsync.mockResolvedValueOnce('test-api-key');

@@ -49,7 +49,17 @@ export type CoachToolName =
   | 'log_weight'
   | 'log_exercise'
   | 'log_supplement'
-  | 'log_feedback';
+  | 'log_feedback'
+  | 'log_body_composition'
+  | 'log_sleep'
+  | 'log_mood'
+  | 'log_substance';
+
+/** Sprint 30: How the model derived a tool's input values */
+export type ExtractionSource = 'user_text' | 'image_vision' | 'inferred';
+
+/** Sprint 30: Tier classification for confirmation UX */
+export type ToolTier = 'auto_commit' | 'checklist' | 'explicit';
 
 export interface ToolUseRequest {
   toolUseId: string;
@@ -57,6 +67,8 @@ export interface ToolUseRequest {
   input: Record<string, unknown>;
   /** User's confirmation state */
   status: 'pending' | 'confirmed' | 'cancelled';
+  /** Sprint 30: tier classification — undefined for legacy callers */
+  tier?: ToolTier;
 }
 
 export interface SuggestedPrompt {

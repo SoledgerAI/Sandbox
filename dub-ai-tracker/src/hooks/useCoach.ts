@@ -3,7 +3,7 @@
 // Sprint 12: Streaming, expert panel, tool use, photo capture
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { storageGet, storageSet, storageAppend, STORAGE_KEYS, dateKey } from '../utils/storage';
+import { storageGet, storageSet, STORAGE_KEYS } from '../utils/storage';
 import {
   sendMessageStreaming,
   sendToolResult,
@@ -16,10 +16,17 @@ import { buildCoachContext } from '../ai/context_builder';
 import { buildSystemPrompt, filterCoachResponse } from '../ai/coach_system_prompt';
 import { runPatternEngine } from '../ai/pattern_engine';
 import { parseExpertMention, stripMention, getExpert } from '../ai/experts';
-import { logFeedback } from '../utils/feedbackLog';
 import { estimateTokens } from '../utils/tokenEstimator';
 import { readAsStringAsync, EncodingType } from 'expo-file-system/legacy';
-import type { ChatMessage, ExpertId, ToolUseRequest, CoachToolName } from '../types/coach';
+import type { ChatMessage, ExpertId, ToolUseRequest, CoachToolName, ToolTier } from '../types/coach';
+import {
+  executeTool as executeToolImpl,
+  reverseLastTool as reverseLastToolImpl,
+  MAX_TOOL_TURNS,
+  type UndoRecord,
+  type ExecuteToolResult,
+} from '../services/coachToolExecutor';
+import { classifyTier } from '../services/coachToolRouter';
 
 const MAX_HISTORY = 200;
 
@@ -38,13 +45,24 @@ export interface UseCoachResult {
   lastUserMessage: string | null;
   activeExpert: ExpertId | undefined;
   pendingToolUse: ToolUseRequest | null;
+  /** Sprint 30: multi-tool checklist batch awaiting confirmation */
+  pendingBatch: ToolUseRequest[] | null;
+  /** Sprint 30: most recent auto_commit tool that can be undone within 5s */
+  undoableTool: { record: UndoRecord; expiresAt: number } | null;
   sendUserMessage: (text: string, imageUri?: string) => Promise<void>;
   confirmTool: () => Promise<void>;
   cancelTool: () => void;
+  /** Sprint 30: confirm a multi-tool checklist batch */
+  confirmBatch: (tools: ToolUseRequest[]) => Promise<void>;
+  cancelBatch: () => void;
+  /** Sprint 30: undo the most recent auto-committed tool */
+  undoLastTool: () => Promise<void>;
   retry: () => Promise<void>;
   clearHistory: () => Promise<void>;
   refresh: () => Promise<void>;
 }
+
+const UNDO_WINDOW_MS = 5000;
 
 export function useCoach(): UseCoachResult {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -57,6 +75,8 @@ export function useCoach(): UseCoachResult {
   const [lastUserMessage, setLastUserMessage] = useState<string | null>(null);
   const [activeExpert, setActiveExpert] = useState<ExpertId | undefined>(undefined);
   const [pendingToolUse, setPendingToolUse] = useState<ToolUseRequest | null>(null);
+  const [pendingBatch, setPendingBatch] = useState<ToolUseRequest[] | null>(null);
+  const [undoableTool, setUndoableTool] = useState<{ record: UndoRecord; expiresAt: number } | null>(null);
   const messagesRef = useRef<ChatMessage[]>([]);
   const streamingMsgIdRef = useRef<string | null>(null);
   // Store context for tool result continuation
@@ -65,7 +85,11 @@ export function useCoach(): UseCoachResult {
     tier: import('../types/profile').EngagementTier;
     expertId: ExpertId | undefined;
     userMessageText: string;
+    userMessageHadImage: boolean;
   } | null>(null);
+  const undoableToolRef = useRef<{ record: UndoRecord; expiresAt: number } | null>(null);
+  /** Sprint 30: tool_use blocks emitted during the current stream */
+  const turnToolsRef = useRef<ToolUseRequest[]>([]);
 
   // Keep ref in sync
   useEffect(() => {
@@ -136,7 +160,13 @@ export function useCoach(): UseCoachResult {
       }
 
       // Store context for tool continuation
-      pendingContextRef.current = { systemPrompt, tier: context.tier, expertId, userMessageText: cleanText };
+      pendingContextRef.current = {
+        systemPrompt,
+        tier: context.tier,
+        expertId,
+        userMessageText: cleanText,
+        userMessageHadImage: imageUri != null,
+      };
 
       // Build conversation history for API (last 10 messages for context window)
       const recentMessages = updatedMessages.slice(-10);
@@ -213,6 +243,7 @@ export function useCoach(): UseCoachResult {
       setMessages(withPlaceholder);
       messagesRef.current = withPlaceholder;
       setStreaming(true);
+      turnToolsRef.current = [];
 
       // Send with streaming
       await sendMessageStreaming({
@@ -234,56 +265,113 @@ export function useCoach(): UseCoachResult {
             );
           },
           onToolUse: (toolUseId, name, input) => {
+            // Sprint 30: classify the tool's tier and either queue it for the
+            // post-stream dispatcher (auto_commit, checklist, explicit) or
+            // immediately auto-confirm legacy feedback logging.
+            const tier: ToolTier = name === 'log_feedback'
+              ? 'auto_commit'
+              : classifyTier({
+                  toolName: name,
+                  toolInput: input,
+                  userMessageHadImage: imageUri != null,
+                  userMessageText: cleanText,
+                });
             const toolReq: ToolUseRequest = {
               toolUseId,
               name,
               input,
-              status: name === 'log_feedback' ? 'confirmed' : 'pending',
+              status: tier === 'auto_commit' ? 'confirmed' : 'pending',
+              tier,
             };
+            turnToolsRef.current.push(toolReq);
 
-            if (name === 'log_feedback') {
-              // Auto-confirm feedback logging — no user confirmation needed
-              executeTool(toolReq, cleanText);
-            } else {
-              // Show confirmation UI
-              setPendingToolUse(toolReq);
-              // Update message with tool use info
-              setMessages((prev) =>
-                prev.map((m) =>
-                  m.id === assistantMsgId ? { ...m, toolUse: toolReq } : m,
-                ),
-              );
+            if (tier !== 'auto_commit') {
+              // Show confirmation UI for the FIRST non-auto tool only — multi-tool
+              // checklists are rendered as a consolidated card after onDone.
+              setMessages((prev) => prev.map((m) =>
+                m.id === assistantMsgId ? { ...m, toolUse: toolReq } : m,
+              ));
               messagesRef.current = messagesRef.current.map((m) =>
                 m.id === assistantMsgId ? { ...m, toolUse: toolReq } : m,
               );
             }
           },
-          onDone: (fullText, _stopReason) => {
+          onDone: (fullText, stopReason) => {
             // Apply post-generation safety filter
             const { text: filteredText } = filterCoachResponse(fullText, context);
 
             // Finalize the message
-            setMessages((prev) =>
-              prev.map((m) =>
-                m.id === assistantMsgId
-                  ? { ...m, content: filteredText, streaming: undefined }
-                  : m,
-              ),
-            );
+            setMessages((prev) => prev.map((m) =>
+              m.id === assistantMsgId
+                ? { ...m, content: filteredText, streaming: undefined }
+                : m,
+            ));
             messagesRef.current = messagesRef.current.map((m) =>
               m.id === assistantMsgId
                 ? { ...m, content: filteredText, streaming: undefined }
                 : m,
             );
 
-            setStreaming(false);
-            setSending(false);
             setLastUserMessage(null);
             streamingMsgIdRef.current = null;
 
-            // Persist
-            const toSave = messagesRef.current.slice(-MAX_HISTORY);
-            storageSet(STORAGE_KEYS.COACH_HISTORY, toSave).catch(() => {});
+            // Sprint 30: dispatch the collected tool batch.
+            const collected = turnToolsRef.current;
+            turnToolsRef.current = [];
+
+            const autoCommit = collected.filter((t) => t.tier === 'auto_commit');
+            const checklist = collected.filter((t) => t.tier === 'checklist');
+            const explicit = collected.filter((t) => t.tier === 'explicit');
+
+            if (collected.length === 0 || stopReason !== 'tool_use') {
+              setStreaming(false);
+              setSending(false);
+              const toSave = messagesRef.current.slice(-MAX_HISTORY);
+              storageSet(STORAGE_KEYS.COACH_HISTORY, toSave).catch(() => {});
+              return;
+            }
+
+            // Run the dispatcher in a microtask so React state from this
+            // onDone settles first.
+            (async () => {
+              if (autoCommit.length > 0 && checklist.length === 0 && explicit.length === 0) {
+                // All auto_commit — execute and continue the conversation.
+                const labels = new Map<string, string>();
+                for (const t of autoCommit) {
+                  const r = await executeTool(t, cleanText, { trackUndo: true });
+                  labels.set(t.toolUseId, r.ok ? r.label : t.name);
+                }
+                const apiMessages = buildContinuationMessages(autoCommit, labels);
+                await runContinuationLoop(apiMessages);
+              } else if (checklist.length > 0 && explicit.length === 0) {
+                // Render consolidated checklist card; do not execute yet.
+                setPendingBatch(checklist);
+                setStreaming(false);
+                setSending(false);
+              } else if (explicit.length === 1 && checklist.length === 0 && autoCommit.length === 0) {
+                // Single explicit tool — existing pendingToolUse path.
+                setPendingToolUse(explicit[0]);
+                setStreaming(false);
+                setSending(false);
+              } else {
+                // Mixed — fall back to checklist for everything that needs
+                // confirmation, after auto-committing the rest.
+                for (const t of autoCommit) {
+                  await executeTool(t, cleanText, { trackUndo: true });
+                }
+                setPendingBatch([...checklist, ...explicit]);
+                setStreaming(false);
+                setSending(false);
+              }
+              const toSave = messagesRef.current.slice(-MAX_HISTORY);
+              storageSet(STORAGE_KEYS.COACH_HISTORY, toSave).catch(() => {});
+            })().catch((e) => {
+              if (typeof console !== 'undefined' && console.warn) {
+                console.warn('[Coach] dispatch failed:', e);
+              }
+              setStreaming(false);
+              setSending(false);
+            });
           },
           onError: (err) => {
             const e = err as AnthropicError & { response?: { data?: unknown; status?: number } };
@@ -314,204 +402,244 @@ export function useCoach(): UseCoachResult {
     }
   }, []);
 
-  // Execute a tool (write data to AsyncStorage)
-  const executeTool = useCallback(async (toolReq: ToolUseRequest, userMessageText: string) => {
-    const today = new Date().toISOString().slice(0, 10);
-
-    try {
-      switch (toolReq.name) {
-        case 'log_drink': {
-          await storageAppend(dateKey(STORAGE_KEYS.LOG_WATER, today), {
-            id: generateId(),
-            timestamp: (toolReq.input.timestamp as string) || new Date().toISOString(),
-            amount_oz: toolReq.input.amount_oz,
-            beverage_type: toolReq.input.beverage_type,
-            source: 'coach',
-          });
-          break;
+  // Execute a tool (write data to AsyncStorage). Sprint 30: returns the
+  // executor's result so callers can format tool_result content and track
+  // undo records. Errors are returned, not thrown.
+  const executeTool = useCallback(async (
+    toolReq: ToolUseRequest,
+    userMessageText: string,
+    options?: { trackUndo?: boolean },
+  ): Promise<ExecuteToolResult> => {
+    const result = await executeToolImpl(toolReq, userMessageText);
+    if (result.ok && options?.trackUndo && toolReq.name !== 'log_feedback') {
+      const record: UndoRecord = {
+        toolUseId: toolReq.toolUseId,
+        toolName: toolReq.name,
+        storageKey: result.storageKey,
+        prevValue: result.prevValue,
+        executedAt: Date.now(),
+      };
+      const slot = { record, expiresAt: Date.now() + UNDO_WINDOW_MS };
+      undoableToolRef.current = slot;
+      setUndoableTool(slot);
+      // Auto-clear after the undo window expires.
+      setTimeout(() => {
+        if (undoableToolRef.current && undoableToolRef.current.record.toolUseId === toolReq.toolUseId) {
+          undoableToolRef.current = null;
+          setUndoableTool(null);
         }
-        case 'log_food': {
-          await storageAppend(dateKey(STORAGE_KEYS.LOG_FOOD, today), {
-            id: generateId(),
-            timestamp: (toolReq.input.timestamp as string) || new Date().toISOString(),
-            name: toolReq.input.food_name,
-            meal_type: toolReq.input.meal_type || 'snack',
-            calories: toolReq.input.calories,
-            protein_g: toolReq.input.protein_g || 0,
-            carbs_g: toolReq.input.carbs_g || 0,
-            fat_g: toolReq.input.fat_g || 0,
-            source: 'coach',
-          });
-          break;
-        }
-        case 'log_weight': {
-          await storageAppend(dateKey(STORAGE_KEYS.LOG_BODY, today), {
-            id: generateId(),
-            timestamp: (toolReq.input.timestamp as string) || new Date().toISOString(),
-            weight_lbs: toolReq.input.weight_lbs,
-            source: 'coach',
-          });
-          break;
-        }
-        case 'log_exercise': {
-          await storageAppend(dateKey(STORAGE_KEYS.LOG_WORKOUT, today), {
-            id: generateId(),
-            timestamp: (toolReq.input.timestamp as string) || new Date().toISOString(),
-            exercise_type: toolReq.input.exercise_type,
-            duration_minutes: toolReq.input.duration_minutes,
-            calories_burned: toolReq.input.calories_burned || 0,
-            distance_miles: toolReq.input.distance_miles,
-            source: 'coach',
-          });
-          break;
-        }
-        case 'log_supplement': {
-          await storageAppend(dateKey(STORAGE_KEYS.LOG_SUPPLEMENTS, today), {
-            id: generateId(),
-            timestamp: (toolReq.input.timestamp as string) || new Date().toISOString(),
-            supplement_name: toolReq.input.supplement_name,
-            dosage: toolReq.input.dosage || '',
-            source: 'coach',
-          });
-          break;
-        }
-        case 'log_feedback': {
-          await logFeedback({
-            type: (toolReq.input.type as 'bug' | 'feature_request' | 'question') || 'question',
-            description: (toolReq.input.description as string) || '',
-            screen: (toolReq.input.screen as string) || '',
-            userMessage: userMessageText,
-          });
-          break;
-        }
-      }
-    } catch (e) {
-      if (__DEV__) console.warn('[Coach] Tool execution failed:', e);
+      }, UNDO_WINDOW_MS);
     }
+    return result;
   }, []);
 
-  // User confirms a tool use
+  /**
+   * Sprint 30: drive the model through repeated tool_use → tool_result
+   * rounds using the active streaming session. Capped at MAX_TOOL_TURNS to
+   * prevent runaway loops.
+   */
+  const runContinuationLoop = useCallback(async (
+    initialApiMessages: AnthropicMessage[],
+  ): Promise<void> => {
+    const ctx = pendingContextRef.current;
+    if (!ctx) return;
+    let apiMessages = initialApiMessages;
+    let turn = 0;
+
+    while (turn < MAX_TOOL_TURNS) {
+      const continuationId = generateId();
+      streamingMsgIdRef.current = continuationId;
+      const contMsg: ChatMessage = {
+        id: continuationId,
+        role: 'assistant',
+        content: '',
+        timestamp: new Date().toISOString(),
+        expertId: ctx.expertId,
+        streaming: true,
+      };
+      const withCont = [...messagesRef.current, contMsg];
+      setMessages(withCont);
+      messagesRef.current = withCont;
+      setStreaming(true);
+
+      const collectedTools: ToolUseRequest[] = [];
+      let finalText = '';
+      let stopReason = 'end_turn';
+      let errored = false;
+
+      await sendToolResult({
+        systemPrompt: ctx.systemPrompt,
+        messages: apiMessages,
+        tier: ctx.tier,
+        callbacks: {
+          onText: (fullText) => {
+            finalText = fullText;
+            setMessages((prev) => prev.map((m) => (m.id === continuationId ? { ...m, content: fullText } : m)));
+            messagesRef.current = messagesRef.current.map((m) =>
+              m.id === continuationId ? { ...m, content: fullText } : m,
+            );
+          },
+          onToolUse: (id, name, input) => {
+            collectedTools.push({ toolUseId: id, name, input, status: 'pending' });
+          },
+          onDone: (fullText, sr) => {
+            finalText = fullText;
+            stopReason = sr;
+          },
+          onError: () => { errored = true; },
+        },
+      });
+
+      // Finalize this assistant message regardless of branch.
+      setMessages((prev) => prev.map((m) =>
+        m.id === continuationId ? { ...m, content: finalText, streaming: undefined } : m,
+      ));
+      messagesRef.current = messagesRef.current.map((m) =>
+        m.id === continuationId ? { ...m, content: finalText, streaming: undefined } : m,
+      );
+
+      if (errored || stopReason !== 'tool_use' || collectedTools.length === 0) {
+        break;
+      }
+
+      // Execute every tool in this batch; errors don't break the loop.
+      const assistantBlocks: AnthropicContentBlock[] = [];
+      if (finalText) assistantBlocks.push({ type: 'text', text: finalText });
+      const toolResults: AnthropicContentBlock[] = [];
+      for (const t of collectedTools) {
+        assistantBlocks.push({ type: 'tool_use', id: t.toolUseId, name: t.name, input: t.input });
+        const result = await executeTool(t, ctx.userMessageText, { trackUndo: true });
+        toolResults.push({
+          type: 'tool_result',
+          tool_use_id: t.toolUseId,
+          content: result.ok ? `Logged: ${result.label}` : `Error: ${result.error}`,
+        });
+      }
+
+      apiMessages = [
+        ...apiMessages,
+        { role: 'assistant', content: assistantBlocks },
+        { role: 'user', content: toolResults },
+      ];
+
+      turn++;
+      if (turn >= MAX_TOOL_TURNS) {
+        if (typeof console !== 'undefined' && console.warn) {
+          console.warn('[Coach] Tool turn limit reached');
+        }
+        break;
+      }
+    }
+
+    setStreaming(false);
+    setSending(false);
+    streamingMsgIdRef.current = null;
+    const toSave = messagesRef.current.slice(-MAX_HISTORY);
+    storageSet(STORAGE_KEYS.COACH_HISTORY, toSave).catch(() => {});
+  }, [executeTool]);
+
+  /**
+   * Build the API messages array carrying the assistant tool_use blocks and
+   * the user tool_result blocks for the given confirmed tools, preserving
+   * conversation history.
+   */
+  const buildContinuationMessages = useCallback((
+    confirmedTools: ToolUseRequest[],
+    toolLabels: Map<string, string>,
+  ): AnthropicMessage[] => {
+    const recentMessages = messagesRef.current.slice(-12);
+    const out: AnthropicMessage[] = [];
+    const handledToolUseIds = new Set(confirmedTools.map((t) => t.toolUseId));
+
+    for (const m of recentMessages) {
+      if (m.role === 'user') {
+        out.push({ role: 'user', content: m.content });
+      } else if (m.role === 'assistant') {
+        if (m.toolUse && handledToolUseIds.has(m.toolUse.toolUseId)) {
+          const blocks: AnthropicContentBlock[] = [];
+          if (m.content) blocks.push({ type: 'text', text: m.content });
+          for (const t of confirmedTools) {
+            if (t.toolUseId === m.toolUse.toolUseId) {
+              blocks.push({ type: 'tool_use', id: t.toolUseId, name: t.name, input: t.input });
+            }
+          }
+          out.push({ role: 'assistant', content: blocks });
+        } else {
+          out.push({ role: 'assistant', content: m.content });
+        }
+      }
+    }
+
+    const toolResults: AnthropicContentBlock[] = confirmedTools.map((t) => ({
+      type: 'tool_result',
+      tool_use_id: t.toolUseId,
+      content: `Logged successfully: ${toolLabels.get(t.toolUseId) ?? t.name}`,
+    }));
+    out.push({ role: 'user', content: toolResults });
+
+    while (out.length > 0 && out[0].role !== 'user') out.shift();
+    return out;
+  }, []);
+
+  // User confirms a tool use (single-tool explicit/checklist tier)
   const confirmTool = useCallback(async () => {
     if (!pendingToolUse || !pendingContextRef.current) return;
 
     const confirmed = { ...pendingToolUse, status: 'confirmed' as const };
     setPendingToolUse(null);
 
-    // Execute the tool
-    await executeTool(confirmed, pendingContextRef.current.userMessageText);
-
-    // Update message to show confirmed state
-    setMessages((prev) =>
-      prev.map((m) =>
-        m.toolUse?.toolUseId === confirmed.toolUseId
-          ? { ...m, toolUse: confirmed }
-          : m,
-      ),
-    );
-    messagesRef.current = messagesRef.current.map((m) =>
-      m.toolUse?.toolUseId === confirmed.toolUseId
-        ? { ...m, toolUse: confirmed }
-        : m,
-    );
-
-    // Send tool_result back to continue conversation
     const ctx = pendingContextRef.current;
-    const recentMessages = messagesRef.current.slice(-12);
-    const apiMessages: AnthropicMessage[] = [];
+    const result = await executeTool(confirmed, ctx.userMessageText, { trackUndo: false });
 
-    for (const m of recentMessages) {
-      if (m.role === 'user') {
-        apiMessages.push({ role: 'user', content: m.content });
-      } else if (m.role === 'assistant') {
-        if (m.toolUse && m.toolUse.toolUseId === confirmed.toolUseId) {
-          // Build assistant message with tool_use block
-          const contentBlocks: AnthropicContentBlock[] = [];
-          if (m.content) contentBlocks.push({ type: 'text', text: m.content });
-          contentBlocks.push({
-            type: 'tool_use',
-            id: confirmed.toolUseId,
-            name: confirmed.name,
-            input: confirmed.input,
-          });
-          apiMessages.push({ role: 'assistant', content: contentBlocks });
-        } else {
-          apiMessages.push({ role: 'assistant', content: m.content });
-        }
-      }
+    setMessages((prev) => prev.map((m) =>
+      m.toolUse?.toolUseId === confirmed.toolUseId ? { ...m, toolUse: confirmed } : m,
+    ));
+    messagesRef.current = messagesRef.current.map((m) =>
+      m.toolUse?.toolUseId === confirmed.toolUseId ? { ...m, toolUse: confirmed } : m,
+    );
+
+    const labels = new Map<string, string>();
+    labels.set(confirmed.toolUseId, result.ok ? result.label : confirmed.name);
+    const apiMessages = buildContinuationMessages([confirmed], labels);
+    await runContinuationLoop(apiMessages);
+  }, [pendingToolUse, executeTool, buildContinuationMessages, runContinuationLoop]);
+
+  // User confirms a multi-tool checklist batch
+  const confirmBatch = useCallback(async (tools: ToolUseRequest[]) => {
+    if (!pendingContextRef.current || tools.length === 0) return;
+    const ctx = pendingContextRef.current;
+    setPendingBatch(null);
+
+    const labels = new Map<string, string>();
+    const confirmedTools: ToolUseRequest[] = [];
+    for (const t of tools) {
+      const confirmed = { ...t, status: 'confirmed' as const };
+      confirmedTools.push(confirmed);
+      const result = await executeTool(confirmed, ctx.userMessageText, { trackUndo: false });
+      labels.set(t.toolUseId, result.ok ? result.label : t.name);
     }
+    const apiMessages = buildContinuationMessages(confirmedTools, labels);
+    await runContinuationLoop(apiMessages);
+  }, [executeTool, buildContinuationMessages, runContinuationLoop]);
 
-    // Add tool_result as user message
-    const toolLabel = getToolLabel(confirmed.name, confirmed.input);
-    apiMessages.push({
-      role: 'user',
-      content: [{ type: 'tool_result', tool_use_id: confirmed.toolUseId, content: `Logged successfully: ${toolLabel}` }],
-    });
+  const cancelBatch = useCallback(() => {
+    setPendingBatch(null);
+    setStreaming(false);
+    setSending(false);
+  }, []);
 
-    // Ensure alternation
-    while (apiMessages.length > 0 && apiMessages[0].role !== 'user') {
-      apiMessages.shift();
+  const undoLastTool = useCallback(async () => {
+    const slot = undoableToolRef.current;
+    if (!slot) return;
+    if (Date.now() > slot.expiresAt) {
+      undoableToolRef.current = null;
+      setUndoableTool(null);
+      return;
     }
-
-    // Create new streaming assistant message for continuation
-    const continuationId = generateId();
-    streamingMsgIdRef.current = continuationId;
-    const contMsg: ChatMessage = {
-      id: continuationId,
-      role: 'assistant',
-      content: '',
-      timestamp: new Date().toISOString(),
-      expertId: ctx.expertId,
-      streaming: true,
-    };
-    const withCont = [...messagesRef.current, contMsg];
-    setMessages(withCont);
-    messagesRef.current = withCont;
-    setStreaming(true);
-
-    await sendToolResult({
-      systemPrompt: ctx.systemPrompt,
-      messages: apiMessages,
-      tier: ctx.tier,
-      callbacks: {
-        onText: (fullText) => {
-          setMessages((prev) =>
-            prev.map((m) => (m.id === continuationId ? { ...m, content: fullText } : m)),
-          );
-          messagesRef.current = messagesRef.current.map((m) =>
-            m.id === continuationId ? { ...m, content: fullText } : m,
-          );
-        },
-        onToolUse: () => {
-          // Nested tool use not supported in continuation
-        },
-        onDone: (fullText) => {
-          setMessages((prev) =>
-            prev.map((m) =>
-              m.id === continuationId ? { ...m, content: fullText, streaming: undefined } : m,
-            ),
-          );
-          messagesRef.current = messagesRef.current.map((m) =>
-            m.id === continuationId ? { ...m, content: fullText, streaming: undefined } : m,
-          );
-          setStreaming(false);
-          setSending(false);
-          streamingMsgIdRef.current = null;
-          const toSave = messagesRef.current.slice(-MAX_HISTORY);
-          storageSet(STORAGE_KEYS.COACH_HISTORY, toSave).catch(() => {});
-        },
-        onError: () => {
-          // Remove empty continuation on error
-          if (!messagesRef.current.find((m) => m.id === continuationId)?.content) {
-            setMessages((prev) => prev.filter((m) => m.id !== continuationId));
-            messagesRef.current = messagesRef.current.filter((m) => m.id !== continuationId);
-          }
-          setStreaming(false);
-          setSending(false);
-          streamingMsgIdRef.current = null;
-        },
-      },
-    });
-  }, [pendingToolUse, executeTool]);
+    await reverseLastToolImpl(slot.record);
+    undoableToolRef.current = null;
+    setUndoableTool(null);
+  }, []);
 
   // User cancels a tool use
   const cancelTool = useCallback(() => {
@@ -575,9 +703,14 @@ export function useCoach(): UseCoachResult {
     lastUserMessage,
     activeExpert,
     pendingToolUse,
+    pendingBatch,
+    undoableTool,
     sendUserMessage,
     confirmTool,
     cancelTool,
+    confirmBatch,
+    cancelBatch,
+    undoLastTool,
     retry,
     clearHistory,
     refresh,
@@ -602,6 +735,19 @@ function getToolLabel(name: CoachToolName, input: Record<string, unknown>): stri
       return `${input.supplement_name}${input.dosage ? ` ${input.dosage}` : ''}`;
     case 'log_feedback':
       return `${input.type}: ${input.description}`;
+    case 'log_body_composition': {
+      const parts: string[] = [];
+      if (input.body_fat_pct != null) parts.push(`BF ${input.body_fat_pct}%`);
+      if (input.skeletal_muscle_lbs != null) parts.push(`SMM ${input.skeletal_muscle_lbs}`);
+      if (input.bmi != null) parts.push(`BMI ${input.bmi}`);
+      return parts.length > 0 ? parts.join(', ') : 'body composition';
+    }
+    case 'log_sleep':
+      return `${input.hours ?? '?'}h sleep`;
+    case 'log_mood':
+      return `mood ${input.mood_rating ?? '?'}/5`;
+    case 'log_substance':
+      return `${input.category ?? 'substance'}${input.amount != null ? ` ${input.amount}${input.unit ?? ''}` : ''}`;
     default:
       return name;
   }

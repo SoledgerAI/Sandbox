@@ -235,4 +235,30 @@ describe('Coach Prompt Safety Preservation', () => {
       expect(basePrompt).toContain('NOT a licensed professional');
     });
   });
+
+  // Sprint 30: tool-use guidance
+  describe('[TOOL USAGE] section (Sprint 30)', () => {
+    it('includes the [TOOL USAGE] header', () => {
+      expect(basePrompt).toContain('[TOOL USAGE]');
+    });
+
+    it('instructs the model to call multiple tools per turn for screenshots', () => {
+      expect(basePrompt).toContain('log_weight AND log_body_composition');
+    });
+
+    it('describes the extraction_source values', () => {
+      expect(basePrompt).toContain('user_text');
+      expect(basePrompt).toContain('image_vision');
+      expect(basePrompt).toContain('inferred');
+    });
+
+    it('flags log_substance from images as requiring explicit text confirmation', () => {
+      expect(basePrompt).toContain('Never call log_substance based on an image alone');
+    });
+
+    it('includes sleep-debt awareness directive', () => {
+      expect(basePrompt).toContain('[SLEEP DEBT]');
+      expect(basePrompt).toMatch(/Mention the pattern naturally/);
+    });
+  });
 });
