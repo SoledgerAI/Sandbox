@@ -256,6 +256,75 @@ function invalidateKeyCache(): void {
 }
 
 // ============================================================
+// Storage Change Pub/Sub (S29-C)
+// ============================================================
+// Lightweight broadcast bus so live screens (Home dashboard) can
+// re-query when another surface (Coach DUB tool-use, logger
+// component, background sync) writes to the same key. Avoids the
+// "weight logged in Coach doesn't appear until force-quit" bug.
+//
+// Listeners are keyed by the exact storage key. Callers may also
+// subscribe to a prefix (e.g. STORAGE_KEYS.LOG_BODY) and receive
+// notifications for any dated child like dub.log.body.2026-04-27.
+//
+// Notifications fire AFTER the write has settled and only on success.
+// Listener errors are caught so one bad subscriber can't take down the
+// rest. Notifications are dispatched synchronously after the write so
+// React state updates queue together.
+
+type StorageListener = (key: string) => void;
+
+const exactListeners = new Map<string, Set<StorageListener>>();
+const prefixListeners = new Map<string, Set<StorageListener>>();
+
+function notifyStorageChange(key: string): void {
+  const direct = exactListeners.get(key);
+  if (direct) {
+    for (const fn of direct) {
+      try { fn(key); } catch (e) { console.warn('[Storage] listener error:', e); }
+    }
+  }
+  for (const [prefix, fns] of prefixListeners) {
+    if (key === prefix || key.startsWith(prefix + '.')) {
+      for (const fn of fns) {
+        try { fn(key); } catch (e) { console.warn('[Storage] listener error:', e); }
+      }
+    }
+  }
+}
+
+/**
+ * Subscribe to changes on a single storage key. Returns an unsubscribe
+ * function. Pass `{ prefix: true }` to receive notifications for any
+ * dated child of the key (e.g. all dub.log.body.YYYY-MM-DD writes).
+ */
+export function storageSubscribe(
+  key: string,
+  listener: StorageListener,
+  options?: { prefix?: boolean },
+): () => void {
+  const bucket = options?.prefix ? prefixListeners : exactListeners;
+  let set = bucket.get(key);
+  if (!set) {
+    set = new Set();
+    bucket.set(key, set);
+  }
+  set.add(listener);
+  return () => {
+    const live = bucket.get(key);
+    if (!live) return;
+    live.delete(listener);
+    if (live.size === 0) bucket.delete(key);
+  };
+}
+
+/** Test helper — clears all listeners. Not exported in production code paths. */
+export function _resetStorageListeners(): void {
+  exactListeners.clear();
+  prefixListeners.clear();
+}
+
+// ============================================================
 // Write Lock for Atomicity (MASTER-67)
 // ============================================================
 
@@ -382,6 +451,9 @@ export async function storageSet<T>(key: string, value: T): Promise<void> {
 
     // MASTER-60: Invalidate key cache on write
     invalidateKeyCache();
+
+    // S29-C: Broadcast change after successful write.
+    notifyStorageChange(key);
   } catch (error) {
     if (error instanceof StorageError) throw error;
     throw new StorageError(
@@ -402,6 +474,8 @@ export async function storageDelete(key: string): Promise<void> {
     await AsyncStorage.removeItem(key);
     // MASTER-60: Invalidate key cache on delete
     invalidateKeyCache();
+    // S29-C: deletions are observable too.
+    notifyStorageChange(key);
   } catch (error) {
     throw new StorageError(
       `Failed to delete key "${key}"`,
@@ -468,6 +542,8 @@ export async function storageDeleteMultiple(keys: string[]): Promise<void> {
   try {
     await AsyncStorage.multiRemove(keys);
     invalidateKeyCache();
+    // S29-C: notify per key so granular subscribers update once each.
+    for (const k of keys) notifyStorageChange(k);
   } catch (error) {
     throw new StorageError(
       `Failed to delete multiple keys`,

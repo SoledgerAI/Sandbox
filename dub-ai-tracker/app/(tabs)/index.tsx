@@ -12,7 +12,7 @@ import { Colors } from '../../src/constants/colors';
 import { Spacing } from '../../src/constants/spacing';
 import { FontSize, FontWeight } from '../../src/constants/typography';
 import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
-import { storageGet, STORAGE_KEYS } from '../../src/utils/storage';
+import { storageGet, STORAGE_KEYS, dateKey } from '../../src/utils/storage';
 import type { AppSettings } from '../../src/types/profile';
 import type { ComplianceResult, HydrationGoalSettings } from '../../src/types';
 import type { ChatMessage } from '../../src/types/coach';
@@ -20,6 +20,7 @@ import { useDailySummary } from '../../src/hooks/useDailySummary';
 import { useDeferredSetup } from '../../src/hooks/useDeferredSetup';
 import { useMoodTrend } from '../../src/hooks/useMoodTrend';
 import { useMilestone } from '../../src/hooks/useMilestone';
+import { useStorageWatcher } from '../../src/hooks/useStorageWatcher';
 import { ScoreRing } from '../../src/components/charts/ScoreRing';
 import { CalorieSummary } from '../../src/components/dashboard/CalorieSummary';
 import { StreakCounter } from '../../src/components/dashboard/StreakCounter';
@@ -177,6 +178,29 @@ export default function DashboardScreen() {
       });
     }, [refresh, loadDashboardExtras]),
   );
+
+  // S29-C: Live refresh while the Home tab is foregrounded. Subscribes
+  // to today's dated log keys plus a small set of aggregates. When
+  // Coach DUB writes weight (or any other logger writes), the
+  // dashboard re-queries without requiring a tab change or restart.
+  // Subscription set is intentionally narrow — current-day keys only —
+  // to avoid render storms.
+  const watchedKeys = [
+    dateKey(STORAGE_KEYS.LOG_FOOD, todayDateString()),
+    dateKey(STORAGE_KEYS.LOG_WATER, todayDateString()),
+    dateKey(STORAGE_KEYS.LOG_BODY, todayDateString()),
+    dateKey(STORAGE_KEYS.LOG_WORKOUT, todayDateString()),
+    dateKey(STORAGE_KEYS.LOG_SLEEP, todayDateString()),
+    dateKey(STORAGE_KEYS.LOG_MOOD, todayDateString()),
+    dateKey(STORAGE_KEYS.LOG_CAFFEINE, todayDateString()),
+    STORAGE_KEYS.STREAKS,
+    STORAGE_KEYS.COMPLIANCE,
+    STORAGE_KEYS.COACH_HISTORY,
+  ];
+  useStorageWatcher(watchedKeys, () => {
+    refresh();
+    loadDashboardExtras();
+  });
 
   const onPullRefresh = useCallback(async () => {
     setRefreshing(true);

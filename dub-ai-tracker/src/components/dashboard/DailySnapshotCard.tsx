@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { PremiumCard } from '../common/PremiumCard';
 import { storageGet, STORAGE_KEYS, dateKey } from '../../utils/storage';
+import { useStorageWatcher } from '../../hooks/useStorageWatcher';
 import { yesterdayDateString } from '../../utils/dayBoundary';
 import { setActiveDate } from '../../services/dateContextService';
 import type { DailySummary, SleepEntry } from '../../types';
@@ -89,13 +90,19 @@ export function DailySnapshotCard({
   // always be a day behind."
   const yesterday = yesterdayDateString();
   const [yesterdaySleep, setYesterdaySleep] = useState<SleepEntry | null>(null);
+  const yesterdaySleepKey = dateKey(STORAGE_KEYS.LOG_SLEEP, yesterday);
   useEffect(() => {
     let cancelled = false;
-    storageGet<SleepEntry>(dateKey(STORAGE_KEYS.LOG_SLEEP, yesterday)).then((entry) => {
+    storageGet<SleepEntry>(yesterdaySleepKey).then((entry) => {
       if (!cancelled) setYesterdaySleep(entry);
     });
     return () => { cancelled = true; };
-  }, [yesterday]);
+  }, [yesterdaySleepKey]);
+  // S29-C: keep the sleep tile in sync if the SleepLogger writes
+  // yesterday's entry while the dashboard is open.
+  useStorageWatcher([yesterdaySleepKey], () => {
+    storageGet<SleepEntry>(yesterdaySleepKey).then((entry) => setYesterdaySleep(entry));
+  });
 
   const sleepHours = computeSleepHoursFromEntry(yesterdaySleep);
   const sleepValue = sleepHours != null

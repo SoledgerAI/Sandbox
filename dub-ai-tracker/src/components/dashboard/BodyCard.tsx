@@ -16,6 +16,7 @@ import {
   storageList,
   STORAGE_KEYS,
 } from '../../utils/storage';
+import { useStorageWatcher } from '../../hooks/useStorageWatcher';
 import type { BodyEntry } from '../../types';
 import type { UserProfile } from '../../types/profile';
 
@@ -93,6 +94,11 @@ export function BodyCard() {
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // S29-C: Re-fetch when any dub.log.body.YYYY-MM-DD entry is written —
+  // including weight logged via Coach DUB tool-use. Without this, the
+  // BodyCard sat stale until the user force-quit the app.
+  useStorageWatcher([STORAGE_KEYS.LOG_BODY], loadData, { prefix: true });
 
   const unitLabel = units === 'metric' ? 'kg' : 'lbs';
   const fluctuationThreshold =
