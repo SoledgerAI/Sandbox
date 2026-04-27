@@ -27,6 +27,7 @@ import { LoadingIndicator } from '../../src/components/common/LoadingIndicator';
 import { ChatBubble } from '../../src/components/coach/ChatBubble';
 import { SuggestedPrompts } from '../../src/components/coach/SuggestedPrompts';
 import { DataContextBanner } from '../../src/components/coach/DataContextBanner';
+import { ToolConfirmationCard } from '../../src/components/coach/ToolConfirmationCard';
 import { APIKeySetupWizard } from '../../src/components/APIKeySetupWizard';
 import { AnthropicConsentModal, CONSENT_VERSION } from '../../src/components/coach/AnthropicConsentModal';
 import { useCoach } from '../../src/hooks/useCoach';
@@ -50,9 +51,12 @@ export default function CoachScreen() {
     lastUserMessage,
     activeExpert,
     pendingToolUse,
+    pendingBatch,
     sendUserMessage,
     confirmTool,
     cancelTool,
+    confirmBatch,
+    cancelBatch,
     retry,
     refresh,
   } = useCoach();
@@ -120,6 +124,15 @@ export default function CoachScreen() {
       return () => clearInterval(interval);
     }
   }, [streaming]);
+
+  // Reveal the Tier 2 batch confirmation card when it appears
+  useEffect(() => {
+    if (pendingBatch) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+  }, [pendingBatch]);
 
   // Refresh API key status on focus
   useEffect(() => {
@@ -411,6 +424,17 @@ export default function CoachScreen() {
           />
         )}
         ListEmptyComponent={renderEmpty}
+        ListFooterComponent={
+          pendingBatch ? (
+            <View style={styles.batchCardWrapper}>
+              <ToolConfirmationCard
+                tools={pendingBatch}
+                onLogAll={confirmBatch}
+                onCancel={cancelBatch}
+              />
+            </View>
+          ) : null
+        }
         contentContainerStyle={messages.length === 0 ? styles.emptyList : styles.messageList}
         onContentSizeChange={() => {
           if (messages.length > 0) {
@@ -568,6 +592,9 @@ const styles = StyleSheet.create({
   messageList: {
     paddingVertical: 8,
     paddingTop: 12,
+  },
+  batchCardWrapper: {
+    paddingHorizontal: 12,
   },
   emptyList: {
     flexGrow: 1,
