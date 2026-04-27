@@ -117,9 +117,16 @@ function TilesPickerModal({
   onSave,
 }: TilesPickerModalProps) {
   const [draft, setDraft] = useState<string[]>(initialSelection);
+  // S29-F: inline cap hint instead of freezing the whole list. When the
+  // user taps a 7th tile we surface a short message under that row and
+  // clear it on the next interaction.
+  const [capHintForId, setCapHintForId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (visible) setDraft(initialSelection);
+    if (visible) {
+      setDraft(initialSelection);
+      setCapHintForId(null);
+    }
   }, [visible, initialSelection]);
 
   const availableTiles = ALL_DASHBOARD_TILES.filter(
@@ -130,15 +137,25 @@ function TilesPickerModal({
     hapticLight();
     setDraft((current) => {
       if (current.includes(id)) {
+        // S29-F: deselection always works, including from the cap hint state.
+        setCapHintForId(null);
         return current.filter((x) => x !== id);
       }
-      if (current.length >= MAX_DASHBOARD_TILES) return current;
+      if (current.length >= MAX_DASHBOARD_TILES) {
+        // S29-F: show inline hint on the tapped row instead of disabling
+        // the touch handler — a `disabled` prop would also block gesture
+        // pass-through and freeze ScrollView dragging.
+        setCapHintForId(id);
+        return current;
+      }
+      setCapHintForId(null);
       return [...current, id];
     });
   };
 
   const selectedCount = draft.length;
   const canSave = selectedCount > 0;
+  const atCap = selectedCount >= MAX_DASHBOARD_TILES;
 
   return (
     <Modal
@@ -152,7 +169,9 @@ function TilesPickerModal({
           <View style={styles.sheetHandle} />
           <Text style={styles.sheetTitle}>Customize Tiles</Text>
           <Text style={styles.sheetSubtitle}>
-            Select up to {MAX_DASHBOARD_TILES} actions for your dashboard ({selectedCount}/{MAX_DASHBOARD_TILES})
+            {atCap
+              ? `${selectedCount} of ${MAX_DASHBOARD_TILES} — deselect to swap`
+              : `Select up to ${MAX_DASHBOARD_TILES} actions for your dashboard (${selectedCount}/${MAX_DASHBOARD_TILES})`}
           </Text>
 
           <ScrollView
@@ -162,26 +181,30 @@ function TilesPickerModal({
           >
             {availableTiles.map((tile) => {
               const isSelected = draft.includes(tile.id);
-              const atCap = !isSelected && selectedCount >= MAX_DASHBOARD_TILES;
+              const dimmed = !isSelected && atCap;
+              const showHint = capHintForId === tile.id;
               return (
-                <TouchableOpacity
-                  key={tile.id}
-                  style={[styles.option, isSelected && styles.optionSelected, atCap && styles.optionDisabled]}
-                  onPress={() => toggle(tile.id)}
-                  activeOpacity={0.7}
-                  disabled={atCap}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: isSelected, disabled: atCap }}
-                  accessibilityLabel={tile.label}
-                >
-                  <Ionicons name={tile.icon as never} size={20} color={isSelected ? Colors.accent : Colors.secondaryText} />
-                  <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>{tile.label}</Text>
-                  <Ionicons
-                    name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
-                    size={22}
-                    color={isSelected ? Colors.accent : Colors.secondaryText}
-                  />
-                </TouchableOpacity>
+                <View key={tile.id}>
+                  <TouchableOpacity
+                    style={[styles.option, isSelected && styles.optionSelected, dimmed && styles.optionDisabled]}
+                    onPress={() => toggle(tile.id)}
+                    activeOpacity={0.7}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{ checked: isSelected }}
+                    accessibilityLabel={tile.label}
+                  >
+                    <Ionicons name={tile.icon as never} size={20} color={isSelected ? Colors.accent : Colors.secondaryText} />
+                    <Text style={[styles.optionLabel, isSelected && styles.optionLabelSelected]}>{tile.label}</Text>
+                    <Ionicons
+                      name={isSelected ? 'checkmark-circle' : 'ellipse-outline'}
+                      size={22}
+                      color={isSelected ? Colors.accent : Colors.secondaryText}
+                    />
+                  </TouchableOpacity>
+                  {showHint && (
+                    <Text style={styles.capHint}>Max reached — deselect one to add</Text>
+                  )}
+                </View>
               );
             })}
           </ScrollView>
@@ -310,6 +333,14 @@ const styles = StyleSheet.create({
   },
   optionDisabled: {
     opacity: 0.4,
+  },
+  capHint: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    marginTop: -4,
+    marginBottom: 8,
+    paddingHorizontal: 14,
+    fontStyle: 'italic',
   },
   optionLabel: {
     flex: 1,

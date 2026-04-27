@@ -133,15 +133,14 @@ export function RecoveryCard() {
   }
 
   if (recovery == null || !recovery.sufficient_data) {
-    // TF-02: no recovery data yet — tap routes to sleep logger, the
-    // single biggest input into the recovery score. Matches the hint
-    // text: "Log sleep, body metrics, and workouts…".
+    // S29-B: no recovery data yet — route to the Recovery landing screen
+    // where the user can see what's logged and jump to the right logger.
     return (
       <TouchableOpacity
         activeOpacity={0.7}
-        onPress={() => router.push('/log/sleep')}
+        onPress={() => router.push('/recovery')}
         accessibilityRole="button"
-        accessibilityLabel="Log sleep to build recovery score"
+        accessibilityLabel="Open recovery summary"
       >
         <DashboardCard title="Recovery">
           <Text style={styles.insufficientText}>
@@ -157,16 +156,16 @@ export function RecoveryCard() {
 
   const color = scoreColor(recovery.total_score);
 
-  // TF-02: whole card toggles expand so tapping the title/edges works,
-  // not just the mainRow. Inner Pressables (population-info Alert,
-  // methodology toggle) remain innermost and take priority via RN's
-  // responder system.
+  // S29-B: tap routes to the Recovery landing screen for the full
+  // breakdown. The inline expander stays for power users via the
+  // chevron, but the primary tap target is the deep link.
   return (
     <TouchableOpacity
       activeOpacity={0.7}
-      onPress={() => setExpanded(!expanded)}
+      onPress={() => router.push('/recovery')}
+      onLongPress={() => setExpanded(!expanded)}
       accessibilityRole="button"
-      accessibilityLabel={expanded ? 'Collapse recovery breakdown' : 'Expand recovery breakdown'}
+      accessibilityLabel="Open recovery summary"
     >
     <DashboardCard title="Recovery">
       <View style={styles.mainRow}>
@@ -180,7 +179,7 @@ export function RecoveryCard() {
                   : 'Low Recovery'}
             </Text>
             <Text style={styles.tapHint}>
-              {expanded ? 'Tap to collapse' : 'Tap for breakdown'}
+              Tap for full recovery view
             </Text>
             {popEnabled && hrvComparison && (
               <View style={styles.popComparisonRow}>

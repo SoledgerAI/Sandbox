@@ -9,12 +9,10 @@ import {
   View,
   TouchableOpacity,
   TextInput,
-  ScrollView,
   Switch,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
+import { KeyboardAwareScreen } from '../KeyboardAwareScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import {
@@ -117,8 +115,7 @@ export function JournalLogger({ onEntryLogged }: JournalLoggerProps) {
   }, [entries]);
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScreen contentContainerStyle={styles.content}>
 
       {/* Streak */}
       {streak > 0 && (
@@ -226,8 +223,7 @@ export function JournalLogger({ onEntryLogged }: JournalLoggerProps) {
       )}
 
       <View style={{ height: 24 }} />
-    </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScreen>
   );
 }
 

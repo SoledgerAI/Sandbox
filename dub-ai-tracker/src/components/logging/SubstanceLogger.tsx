@@ -9,11 +9,9 @@ import {
   View,
   TouchableOpacity,
   TextInput,
-  ScrollView,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
+import { KeyboardAwareScreen } from '../KeyboardAwareScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import {
@@ -623,12 +621,7 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
   );
 
   return (
-    <KeyboardAvoidingView
-      style={{ flex: 1 }}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-    >
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScreen contentContainerStyle={styles.content}>
       <RepeatLastEntry
         tagLabel="substance"
         subtitle={lastEntry?.substance ?? undefined}
@@ -715,8 +708,7 @@ export function SubstanceLogger({ initialTab = 'alcohol', onEntryLogged }: Subst
             ))}
         </>
       )}
-    </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScreen>
   );
 }
 

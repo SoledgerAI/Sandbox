@@ -13,6 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { Colors } from '../src/constants/colors';
 import { storageGet, STORAGE_KEYS } from '../src/utils/storage';
+import { findUnresolvableTileRoutes } from '../src/constants/dashboardTiles';
 import { runMigrations } from '../src/utils/schemaMigration';
 import { processQueue } from '../src/utils/offline';
 import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
@@ -64,6 +65,20 @@ export default function RootLayout() {
       setSplashMinTimeMet(true);
     }, SPLASH_MIN_MS);
     return () => clearTimeout(timer);
+  }, []);
+
+  // S29-D: Dev-time tile route validator. Catches typos like
+  // '/log/mood_mental' (the file is mood-mental.tsx) at boot instead of
+  // when the user taps the tile and lands on Unmatched Route.
+  useEffect(() => {
+    if (!__DEV__) return;
+    const broken = findUnresolvableTileRoutes();
+    if (broken.length > 0) {
+      console.warn(
+        '[S29-D] Unresolvable dashboard tile routes:',
+        broken.map((t) => `${t.id} → ${t.route}`).join(', '),
+      );
+    }
   }, []);
 
   // Load privacy_screen_enabled setting

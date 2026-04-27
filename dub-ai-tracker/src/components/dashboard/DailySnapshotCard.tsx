@@ -1,12 +1,16 @@
 // Sprint 25: Daily Snapshot Card — top of dashboard
 // Shows compliance ring, streak flame, quick stats row
 
+import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { Colors } from '../../constants/colors';
 import { PremiumCard } from '../common/PremiumCard';
-import type { DailySummary } from '../../types';
+import { storageGet, STORAGE_KEYS, dateKey } from '../../utils/storage';
+import { yesterdayDateString } from '../../utils/dayBoundary';
+import { setActiveDate } from '../../services/dateContextService';
+import type { DailySummary, SleepEntry } from '../../types';
 import type { StreakData } from '../../types/profile';
 
 interface QuickStat {
@@ -15,6 +19,8 @@ interface QuickStat {
   emoji: string;
   route: string;
   visible: boolean;
+  /** Optional: pre-fill log date before navigating (S29-E sleep tile). */
+  prefillDate?: string;
 }
 
 interface DailySnapshotCardProps {
@@ -49,6 +55,21 @@ function formatSleepDuration(hours: number | null): string {
   return m > 0 ? `${h}h ${m}m` : `${h}h`;
 }
 
+// S29-E: derive total sleep hours from a SleepEntry. Prefers the
+// Sprint-23 total_duration_hours field; falls back to bedtime/wake_time
+// for older entries (handles overnight sleep where wake < bed).
+function computeSleepHoursFromEntry(entry: SleepEntry | null): number | null {
+  if (entry == null) return null;
+  if (entry.total_duration_hours != null) return entry.total_duration_hours;
+  if (entry.bedtime == null || entry.wake_time == null) return null;
+  const bed = new Date(entry.bedtime).getTime();
+  const wake = new Date(entry.wake_time).getTime();
+  if (Number.isNaN(bed) || Number.isNaN(wake)) return null;
+  let diff = wake - bed;
+  if (diff < 0) diff += 24 * 60 * 60 * 1000;
+  return diff / (60 * 60 * 1000);
+}
+
 export function DailySnapshotCard({
   greeting,
   dateDisplay,
@@ -62,19 +83,43 @@ export function DailySnapshotCard({
   // Count consecutive days with 70%+ compliance (we approximate using streak data)
   // For now, we use the logging streak as a proxy
 
+  // S29-E: Sleep tile is anchored to YESTERDAY (last night's sleep).
+  // Today's sleep window hasn't completed yet, so showing "--" for the
+  // current calendar day was always misleading. Per Josh: "it should
+  // always be a day behind."
+  const yesterday = yesterdayDateString();
+  const [yesterdaySleep, setYesterdaySleep] = useState<SleepEntry | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    storageGet<SleepEntry>(dateKey(STORAGE_KEYS.LOG_SLEEP, yesterday)).then((entry) => {
+      if (!cancelled) setYesterdaySleep(entry);
+    });
+    return () => { cancelled = true; };
+  }, [yesterday]);
+
+  const sleepHours = computeSleepHoursFromEntry(yesterdaySleep);
+  const sleepValue = sleepHours != null
+    ? `${formatSleepDuration(sleepHours)} ${qualityEmoji(yesterdaySleep?.quality ?? null)}`.trim()
+    : 'Log last night';
+
   const quickStats: QuickStat[] = [
     {
       label: 'Sleep',
-      value: `${formatSleepDuration(summary.sleep_hours)} ${qualityEmoji(summary.sleep_quality)}`,
+      value: sleepValue,
       emoji: '\u{1F4A4}',
       route: '/log/sleep',
+      // S29-E: tapping the tile pre-fills yesterday's date so the user
+      // arrives at the SleepLogger pointed at last night, not today.
+      prefillDate: yesterday,
       visible: true,
     },
     {
       label: 'Mood',
+      // S29-D: route uses the actual file name (mood-mental.tsx). The
+      // underscored variant triggered expo-router's "Unmatched Route".
       value: summary.mood_avg != null ? `${summary.mood_avg}/10 ${moodEmoji(summary.mood_avg)}` : '--',
       emoji: '\u{1F60A}',
-      route: '/log/mood_mental',
+      route: '/log/mood-mental',
       visible: true,
     },
     {
@@ -141,7 +186,10 @@ export function DailySnapshotCard({
           <TouchableOpacity
             key={stat.label}
             style={styles.statItem}
-            onPress={() => router.push(stat.route as any)}
+            onPress={() => {
+              if (stat.prefillDate) setActiveDate(stat.prefillDate);
+              router.push(stat.route as any);
+            }}
             activeOpacity={0.7}
           >
             <Text style={styles.statEmoji}>{stat.emoji}</Text>

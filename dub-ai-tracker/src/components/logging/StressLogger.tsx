@@ -9,10 +9,8 @@ import {
   View,
   TouchableOpacity,
   TextInput,
-  ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
+import { KeyboardAwareScreen } from '../KeyboardAwareScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import {
@@ -114,8 +112,7 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
   );
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScreen contentContainerStyle={styles.content}>
       <RepeatLastEntry
         tagLabel="stress"
         subtitle={lastEntry ? `Level ${lastEntry.score}` : undefined}
@@ -248,8 +245,7 @@ export function StressLogger({ onEntryLogged }: StressLoggerProps) {
             ))}
         </>
       )}
-    </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScreen>
   );
 }
 

@@ -6,13 +6,13 @@ import {
   StyleSheet,
   Text,
   View,
-  ScrollView,
   TouchableOpacity,
   TextInput,
   LayoutAnimation,
   Platform,
   UIManager,
 } from 'react-native';
+import { KeyboardAwareScreen } from '../KeyboardAwareScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
@@ -202,7 +202,7 @@ export function MoodMentalLogger() {
   );
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <KeyboardAwareScreen contentContainerStyle={styles.content}>
       {/* Quick mode toggle */}
       <PremiumCard>
         <TouchableOpacity
@@ -373,7 +373,7 @@ export function MoodMentalLogger() {
       <CrisisSupport988 />
 
       <View style={{ height: 40 }} />
-    </ScrollView>
+    </KeyboardAwareScreen>
   );
 }
 

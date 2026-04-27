@@ -11,9 +11,8 @@ import {
   TouchableOpacity,
   TextInput,
   ScrollView,
-  KeyboardAvoidingView,
-  Platform,
 } from 'react-native';
+import { KeyboardAwareScreen } from '../KeyboardAwareScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import {
@@ -210,8 +209,7 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
     : null;
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-    <ScrollView ref={scrollRef} style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScreen scrollRef={scrollRef} contentContainerStyle={styles.content}>
       <RepeatLastEntry
         tagLabel="mood"
         subtitle={lastEntry ? `${AXES[0].labels[lastEntry.score] ?? `Score: ${lastEntry.score}`}, E:${lastEntry.energy ?? '?'}, A:${lastEntry.anxiety ?? '?'}` : undefined}
@@ -308,8 +306,7 @@ export function MoodPicker({ onEntryLogged }: MoodPickerProps) {
             ))}
         </>
       )}
-    </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScreen>
   );
 }
 

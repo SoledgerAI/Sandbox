@@ -45,6 +45,60 @@ export function getTileById(id: string): DashboardTile | undefined {
   return ALL_DASHBOARD_TILES.find((t) => t.id === id);
 }
 
+// S29-D: Authoritative list of every log route registered under app/log/.
+// Used to validate dashboard tile + snapshot routes at dev-time so a typo
+// like '/log/mood_mental' (file is mood-mental.tsx) surfaces on boot
+// instead of as an "Unmatched Route" page when the user taps a tile.
+export const KNOWN_LOG_ROUTES: ReadonlySet<string> = new Set([
+  '/log/allergies',
+  '/log/bloodpressure',
+  '/log/bloodwork',
+  '/log/body',
+  '/log/body-measurements',
+  '/log/breastfeeding',
+  '/log/caffeine',
+  '/log/custom',
+  '/log/cycle',
+  '/log/digestive',
+  '/log/doctor',
+  '/log/food',
+  '/log/glucose',
+  '/log/gratitude',
+  '/log/habits',
+  '/log/injury',
+  '/log/journal',
+  '/log/medications',
+  '/log/meditation',
+  '/log/migraine',
+  '/log/mobility',
+  '/log/mood',
+  '/log/mood-mental',
+  '/log/nutrient-report',
+  '/log/pantry',
+  '/log/perimenopause',
+  '/log/personalcare',
+  '/log/reps',
+  '/log/sexual',
+  '/log/sleep',
+  '/log/social',
+  '/log/strength',
+  '/log/stress',
+  '/log/substances',
+  '/log/sunlight',
+  '/log/supplements',
+  '/log/therapy',
+  '/log/water',
+  '/log/workout',
+]);
+
+/**
+ * Validate that every tile route resolves to a known log route. Returns
+ * the offenders (empty array means all good). Pure, no side effects.
+ */
+export function findUnresolvableTileRoutes(): DashboardTile[] {
+  return ALL_DASHBOARD_TILES.filter((t) => !KNOWN_LOG_ROUTES.has(t.route));
+}
+
 /**
  * Resolve the user's selection into a list of tiles to render.
  * Filters out tiles whose tagGate category is disabled, then fills any

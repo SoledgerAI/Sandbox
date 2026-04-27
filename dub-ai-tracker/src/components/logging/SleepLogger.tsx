@@ -12,11 +12,11 @@ import {
   TextInput,
   Switch,
   Alert,
-  KeyboardAvoidingView,
   Platform,
   UIManager,
   LayoutAnimation,
 } from 'react-native';
+import { KeyboardAwareScreen } from '../KeyboardAwareScreen';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors } from '../../constants/colors';
 import { Spacing } from '../../constants/spacing';
@@ -298,8 +298,7 @@ export function SleepLogger() {
   }
 
   return (
-    <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'} keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}>
-    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+    <KeyboardAwareScreen contentContainerStyle={styles.content}>
       {/* Quick Log Toggle */}
       <PremiumCard>
         <View style={styles.quickLogRow}>
@@ -581,8 +580,7 @@ export function SleepLogger() {
       />
 
       <View style={{ height: 32 }} />
-    </ScrollView>
-    </KeyboardAvoidingView>
+    </KeyboardAwareScreen>
   );
 }
 
