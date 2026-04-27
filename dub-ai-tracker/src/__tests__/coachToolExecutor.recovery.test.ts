@@ -166,4 +166,75 @@ describe('coachToolExecutor — log_recovery_metrics (Sprint 31)', () => {
     const stored = await storageGet<Array<Record<string, unknown>>>(todayKey());
     expect(stored![0].extraction_source).toBe('wearable_scan');
   });
+
+  // S31 C2: morning scan of last night's data must land under the
+  // calendar day the data represents, not the day the scan ran.
+  it('files entry under input.timestamp date when timestamp is provided', async () => {
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    yesterdayDate.setHours(0, 0, 0, 0);
+    const yesterdayIso = yesterdayDate.toISOString();
+    const yyyy = yesterdayDate.getFullYear();
+    const mm = String(yesterdayDate.getMonth() + 1).padStart(2, '0');
+    const dd = String(yesterdayDate.getDate()).padStart(2, '0');
+    const yesterdayKey = dateKey(STORAGE_KEYS.LOG_RECOVERY_METRICS, `${yyyy}-${mm}-${dd}`);
+
+    const result = await executeTool(
+      makeReq({
+        sleep_score: 84,
+        timestamp: yesterdayIso,
+        extraction_source: 'wearable_scan',
+      }),
+      'morning scan',
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.storageKey).toBe(yesterdayKey);
+
+    const storedYesterday = await storageGet<Array<Record<string, unknown>>>(yesterdayKey);
+    expect(storedYesterday).toHaveLength(1);
+    expect(storedYesterday![0]).toMatchObject({
+      sleep_score: 84,
+      date: `${yyyy}-${mm}-${dd}`,
+      extraction_source: 'wearable_scan',
+    });
+
+    const storedToday = await storageGet<Array<Record<string, unknown>>>(todayKey());
+    expect(storedToday).toBeNull();
+  });
+
+  it('falls back to today when input.timestamp is absent', async () => {
+    const result = await executeTool(
+      makeReq({ sleep_score: 80, extraction_source: 'text' }),
+      'no timestamp',
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.storageKey).toBe(todayKey());
+    const stored = await storageGet<Array<Record<string, unknown>>>(todayKey());
+    expect(stored).toHaveLength(1);
+  });
+
+  it('falls back to today and warns when input.timestamp is malformed', async () => {
+    const warnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const result = await executeTool(
+        makeReq({
+          sleep_score: 75,
+          timestamp: 'not-a-real-date',
+          extraction_source: 'text',
+        }),
+        'malformed',
+      );
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.storageKey).toBe(todayKey());
+      expect(warnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('[log_recovery_metrics]'),
+        'not-a-real-date',
+      );
+    } finally {
+      warnSpy.mockRestore();
+    }
+  });
 });

@@ -18,6 +18,7 @@ export const ALL_DASHBOARD_TILES: DashboardTile[] = [
   { id: 'workout',      label: 'Workout',     icon: 'fitness-outline',    route: '/log/workout',           tagGate: 'fitness.workout' },
   { id: 'supplements',  label: 'Supplements', icon: 'medkit-outline',     route: '/log/supplements',       tagGate: 'supplements.daily' },
   { id: 'sleep',        label: 'Sleep',       icon: 'moon-outline',       route: '/log/sleep',             tagGate: 'sleep.tracking' },
+  { id: 'recovery',     label: 'Recovery',    icon: 'pulse-outline',      route: '/log/wearable',          tagGate: 'sleep.tracking' },
   { id: 'mood',         label: 'Mood',        icon: 'happy-outline',      route: '/log/mood',              tagGate: 'mental.wellness' },
   { id: 'habits',       label: 'Habits',      icon: 'checkbox-outline',   route: '/log/habits',            tagGate: null },
   { id: 'body-metrics', label: 'Body',        icon: 'body-outline',       route: '/log/body-measurements', tagGate: 'body.measurements' },
@@ -88,6 +89,7 @@ export const KNOWN_LOG_ROUTES: ReadonlySet<string> = new Set([
   '/log/supplements',
   '/log/therapy',
   '/log/water',
+  '/log/wearable',
   '/log/workout',
 ]);
 

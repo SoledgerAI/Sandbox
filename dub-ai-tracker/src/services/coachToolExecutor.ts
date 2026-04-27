@@ -42,6 +42,28 @@ function yesterdayString(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+// S31 C2: parse a tool input timestamp into a YYYY-MM-DD storage-key
+// segment in local time. Falls back to `fallback` on absent /
+// non-string / unparseable input, and warns on malformed strings so
+// drift surfaces in dev builds without breaking the write.
+function deriveRecoveryDateKey(rawTimestamp: unknown, fallback: string): string {
+  if (rawTimestamp == null) return fallback;
+  if (typeof rawTimestamp !== 'string') {
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('[log_recovery_metrics] non-string timestamp, using today', rawTimestamp);
+    }
+    return fallback;
+  }
+  const d = new Date(rawTimestamp);
+  if (Number.isNaN(d.getTime())) {
+    if (typeof console !== 'undefined' && console.warn) {
+      console.warn('[log_recovery_metrics] unparseable timestamp, using today', rawTimestamp);
+    }
+    return fallback;
+  }
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
 function num(v: unknown): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null;
 }
@@ -298,12 +320,17 @@ export async function executeTool(
         };
         const hasAny = Object.values(fields).some((v) => v != null);
         if (!hasAny) return { ok: false, error: 'log_recovery_metrics requires at least one numeric field' };
-        const key = dateKey(STORAGE_KEYS.LOG_RECOVERY_METRICS, today);
+        // S31 C2: derive the dated storage key + entry.date from
+        // input.timestamp when present, so morning scans of last
+        // night's wearable data file under the correct calendar
+        // day. Falls back to today on absent / unparseable input.
+        const recoveryDate = deriveRecoveryDateKey(input.timestamp, today);
+        const key = dateKey(STORAGE_KEYS.LOG_RECOVERY_METRICS, recoveryDate);
         const prev = await storageGet<unknown[]>(key);
         await storageAppend(key, {
           id: genId(),
           timestamp: str(input.timestamp) ?? new Date().toISOString(),
-          date: today,
+          date: recoveryDate,
           ...fields,
           extraction_source: str(input.extraction_source) ?? 'text',
           source: sourceTag,
