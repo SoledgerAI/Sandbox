@@ -183,4 +183,58 @@ describe('classifyTier — Sprint 30', () => {
       }),
     ).toBe('auto_commit');
   });
+
+  // ---------------------------------------------------------------------------
+  // Sprint 31 — log_recovery_metrics tier rules
+  // ---------------------------------------------------------------------------
+
+  it("classifies log_recovery_metrics with extraction_source 'wearable_scan' as checklist", () => {
+    expect(
+      classifyTier({
+        toolName: 'log_recovery_metrics',
+        toolInput: { sleep_score: 84, extraction_source: 'wearable_scan' },
+        userMessageHadImage: false,
+        userMessageText: 'wearable scan',
+      }),
+    ).toBe('checklist');
+  });
+
+  it("classifies log_recovery_metrics with extraction_source 'image' as checklist", () => {
+    expect(
+      classifyTier({
+        toolName: 'log_recovery_metrics',
+        toolInput: { sleep_score: 84, extraction_source: 'image' },
+        userMessageHadImage: true,
+        userMessageText: '',
+      }),
+    ).toBe('checklist');
+  });
+
+  it("classifies log_recovery_metrics with text + 1 field as auto_commit", () => {
+    expect(
+      classifyTier({
+        toolName: 'log_recovery_metrics',
+        toolInput: { sleep_score: 84, extraction_source: 'text' },
+        userMessageHadImage: false,
+        userMessageText: 'sleep score 84',
+      }),
+    ).toBe('auto_commit');
+  });
+
+  it("classifies log_recovery_metrics with text + 4 fields as checklist (existing 3+ rule)", () => {
+    expect(
+      classifyTier({
+        toolName: 'log_recovery_metrics',
+        toolInput: {
+          sleep_score: 84,
+          hrv_ms: 52,
+          body_battery: 78,
+          training_readiness: 81,
+          extraction_source: 'text',
+        },
+        userMessageHadImage: false,
+        userMessageText: 'sleep 84, hrv 52, battery 78, readiness 81',
+      }),
+    ).toBe('checklist');
+  });
 });

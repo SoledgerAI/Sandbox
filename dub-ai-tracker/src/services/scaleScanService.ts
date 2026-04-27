@@ -4,6 +4,7 @@
 // the weight logger. Mirrors the foodScanService pattern.
 
 import { getApiKey, AnthropicError } from './anthropic';
+import { logTokenUsage } from '../utils/tokenLog';
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
 const API_VERSION = '2023-06-01';
@@ -122,6 +123,16 @@ export async function scanScale(
   const textBlock = data.content?.find((b: { type: string; text?: string }) => b.type === 'text');
   if (!textBlock?.text) {
     throw new AnthropicError('Empty response from API', undefined, 'EMPTY_RESPONSE');
+  }
+
+  try {
+    await logTokenUsage({
+      feature: 'scale_scan',
+      input_tokens: data.usage?.input_tokens ?? 0,
+      output_tokens: data.usage?.output_tokens ?? 0,
+    });
+  } catch (e) {
+    console.warn('[token_log] failed to log usage', e);
   }
 
   return parseScaleResponse(textBlock.text);

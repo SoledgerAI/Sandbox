@@ -284,6 +284,49 @@ export async function executeTool(
         };
       }
 
+      // Sprint 31: wearable-derived recovery metrics
+      case 'log_recovery_metrics': {
+        const fields = {
+          sleep_score: num(input.sleep_score),
+          sleep_duration_hours: num(input.sleep_duration_hours),
+          hrv_ms: num(input.hrv_ms),
+          body_battery: num(input.body_battery),
+          stress_baseline: num(input.stress_baseline),
+          training_readiness: num(input.training_readiness),
+          vo2_max: num(input.vo2_max),
+          resting_heart_rate: num(input.resting_heart_rate),
+        };
+        const hasAny = Object.values(fields).some((v) => v != null);
+        if (!hasAny) return { ok: false, error: 'log_recovery_metrics requires at least one numeric field' };
+        const key = dateKey(STORAGE_KEYS.LOG_RECOVERY_METRICS, today);
+        const prev = await storageGet<unknown[]>(key);
+        await storageAppend(key, {
+          id: genId(),
+          timestamp: str(input.timestamp) ?? new Date().toISOString(),
+          date: today,
+          ...fields,
+          extraction_source: str(input.extraction_source) ?? 'text',
+          source: sourceTag,
+        });
+        const labelParts: string[] = [];
+        if (fields.sleep_score != null) labelParts.push(`sleep ${fields.sleep_score}`);
+        if (fields.hrv_ms != null) labelParts.push(`HRV ${fields.hrv_ms}ms`);
+        if (fields.body_battery != null) labelParts.push(`body battery ${fields.body_battery}`);
+        if (fields.training_readiness != null) labelParts.push(`readiness ${fields.training_readiness}`);
+        if (fields.vo2_max != null) labelParts.push(`VO2 ${fields.vo2_max}`);
+        if (fields.resting_heart_rate != null) labelParts.push(`RHR ${fields.resting_heart_rate}`);
+        if (fields.sleep_duration_hours != null && fields.sleep_score == null) {
+          labelParts.push(`${fields.sleep_duration_hours}h sleep`);
+        }
+        if (fields.stress_baseline != null) labelParts.push(`stress ${fields.stress_baseline}`);
+        return {
+          ok: true,
+          label: labelParts.length > 0 ? `Recovery: ${labelParts.join(', ')}` : 'Recovery logged',
+          storageKey: key,
+          prevValue: prev,
+        };
+      }
+
       default: {
         const _exhaustive: never = toolReq.name;
         return { ok: false, error: `Unknown tool: ${String(_exhaustive)}` };

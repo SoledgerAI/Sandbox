@@ -2,6 +2,7 @@
 // Sprint 20: Recipe Builder — import from photo or pasted text
 
 import { getApiKey, AnthropicError } from './anthropic';
+import { logTokenUsage } from '../utils/tokenLog';
 import type { MyRecipeIngredient } from '../types/food';
 
 const API_URL = 'https://api.anthropic.com/v1/messages';
@@ -117,6 +118,16 @@ async function handleResponse(response: Response): Promise<RecipeParseResult> {
   const textBlock = data.content?.find((b: { type: string; text?: string }) => b.type === 'text');
   if (!textBlock?.text) {
     throw new AnthropicError('Empty response from API', undefined, 'EMPTY_RESPONSE');
+  }
+
+  try {
+    await logTokenUsage({
+      feature: 'recipe_scan',
+      input_tokens: data.usage?.input_tokens ?? 0,
+      output_tokens: data.usage?.output_tokens ?? 0,
+    });
+  } catch (e) {
+    console.warn('[token_log] failed to log usage', e);
   }
 
   const raw = textBlock.text;

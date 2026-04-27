@@ -61,6 +61,18 @@ export function classifyTier(input: ClassifyTierInput): ToolTier {
     }
   }
 
+  // RULE 1.5 (Sprint 31) — wearable recovery metrics from a photo/scan
+  // always require checklist confirmation regardless of field count.
+  // Recovery uses its own extraction_source enum ('image' | 'text' |
+  // 'wearable_scan'), so we read the raw input value rather than going
+  // through resolveExtractionSource which is keyed on the older enum.
+  if (input.toolName === 'log_recovery_metrics') {
+    const src = input.toolInput.extraction_source;
+    if (src === 'image' || src === 'wearable_scan') {
+      return 'checklist';
+    }
+  }
+
   // RULE 2 — checklist (multi-field or image-derived)
   if (input.userMessageHadImage) return 'checklist';
   if (countMeaningfulFields(input.toolInput) >= 3) return 'checklist';

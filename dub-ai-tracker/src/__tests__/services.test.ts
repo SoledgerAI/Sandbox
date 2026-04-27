@@ -102,10 +102,11 @@ describe('Anthropic Service', () => {
   });
 
   // Sprint 30: COACH_TOOLS extended from 6 → 10
-  it('exports COACH_TOOLS containing all 10 expected tools with valid schemas', () => {
+  // Sprint 31: extended again to 11 (added log_recovery_metrics)
+  it('exports COACH_TOOLS containing all 11 expected tools with valid schemas', () => {
     const { COACH_TOOLS } = require('../services/anthropic');
     expect(Array.isArray(COACH_TOOLS)).toBe(true);
-    expect(COACH_TOOLS).toHaveLength(10);
+    expect(COACH_TOOLS).toHaveLength(11);
     const names = COACH_TOOLS.map((t: { name: string }) => t.name);
     expect(names).toEqual(
       expect.arrayContaining([
@@ -119,6 +120,7 @@ describe('Anthropic Service', () => {
         'log_sleep',
         'log_mood',
         'log_substance',
+        'log_recovery_metrics',
       ]),
     );
     for (const t of COACH_TOOLS) {

@@ -56,13 +56,20 @@ function buildFields(tools: ToolUseRequest[]): CardField[] {
   return out;
 }
 
+type FieldFlag = 'low_confidence' | 'out_of_range';
+
 interface ToolConfirmationCardProps {
   tools: ToolUseRequest[];
   onLogAll: (checkedTools: ToolUseRequest[]) => void;
   onCancel: () => void;
+  // Sprint 31: keyed by `${toolUseId}.${fieldKey}` to match the card's
+  // existing per-field state keys. Caller (Commit-2 wearable route) is
+  // responsible for transforming bare service-layer keys into the
+  // compound format before passing them in.
+  fieldFlags?: Record<string, FieldFlag>;
 }
 
-export function ToolConfirmationCard({ tools, onLogAll, onCancel }: ToolConfirmationCardProps) {
+export function ToolConfirmationCard({ tools, onLogAll, onCancel, fieldFlags }: ToolConfirmationCardProps) {
   const initialFields = useMemo(() => buildFields(tools), [tools]);
   const [checked, setChecked] = useState<Record<string, boolean>>(() => {
     const m: Record<string, boolean> = {};
@@ -125,6 +132,7 @@ export function ToolConfirmationCard({ tools, onLogAll, onCancel }: ToolConfirma
       {initialFields.map((f) => {
         const id = `${f.toolUseId}.${f.fieldKey}`;
         const isChecked = checked[id];
+        const flag = fieldFlags?.[id];
         return (
           <View key={id} style={styles.row}>
             <Pressable onPress={() => toggleField(id)} style={styles.checkboxBtn} accessibilityRole="checkbox" accessibilityState={{ checked: isChecked }}>
@@ -144,6 +152,13 @@ export function ToolConfirmationCard({ tools, onLogAll, onCancel }: ToolConfirma
             ) : (
               <Text style={styles.value}>{formatValueForLabel(f.fieldKey, f.rawValue)}</Text>
             )}
+            {flag ? (
+              <View style={[styles.badge, flag === 'out_of_range' ? styles.badgeRed : styles.badgeYellow]}>
+                <Text style={styles.badgeText}>
+                  {flag === 'out_of_range' ? 'out of range' : 'low confidence'}
+                </Text>
+              </View>
+            ) : null}
           </View>
         );
       })}
@@ -230,5 +245,22 @@ const styles = StyleSheet.create({
   secondaryBtnText: {
     color: Colors.text,
     fontSize: 13,
+  },
+  badge: {
+    marginLeft: 8,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  badgeYellow: {
+    backgroundColor: '#D4A843',
+  },
+  badgeRed: {
+    backgroundColor: '#C0392B',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
   },
 });

@@ -240,6 +240,31 @@ export const COACH_TOOLS = [
       required: ['category'],
     },
   },
+  // Sprint 31: wearable recovery metrics (Garmin / Oura / WHOOP)
+  {
+    name: 'log_recovery_metrics' as const,
+    description:
+      'Logs wearable-derived recovery metrics from a Garmin/Oura/WHOOP screenshot or from explicit user text. Use only when the user provides specific numeric values, not when they describe how they feel qualitatively.',
+    input_schema: {
+      type: 'object' as const,
+      properties: {
+        sleep_score: { type: 'number' as const, minimum: 0, maximum: 100 },
+        sleep_duration_hours: { type: 'number' as const, minimum: 0, maximum: 14 },
+        hrv_ms: { type: 'number' as const, minimum: 5, maximum: 200 },
+        body_battery: { type: 'number' as const, minimum: 0, maximum: 100 },
+        stress_baseline: { type: 'number' as const, minimum: 0, maximum: 100 },
+        training_readiness: { type: 'number' as const, minimum: 0, maximum: 100 },
+        vo2_max: { type: 'number' as const, minimum: 15, maximum: 90 },
+        resting_heart_rate: { type: 'number' as const, minimum: 30, maximum: 120 },
+        timestamp: { type: 'string' as const, description: 'ISO 8601' },
+        extraction_source: {
+          type: 'string' as const,
+          enum: ['image', 'text', 'wearable_scan'],
+        },
+      },
+      required: ['extraction_source'],
+    },
+  },
 ];
 
 // ============================================================

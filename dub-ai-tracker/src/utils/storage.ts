@@ -188,6 +188,10 @@ export const STORAGE_KEYS = {
 
   // Sprint 30 (H2): Schema migration framework
   SCHEMA_VERSION: 'dub.schema_version',
+
+  // Sprint 31: Wearable screenshot scanner
+  LOG_RECOVERY_METRICS: 'dub.log.recovery_metrics',
+  TOKEN_LOG_BUFFER: 'dub.cache.token_log',
 } as const;
 
 export type StorageKey = typeof STORAGE_KEYS[keyof typeof STORAGE_KEYS];

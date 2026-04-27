@@ -654,6 +654,7 @@ export const EXPORT_PRIVACY_MAP: Record<string, 'included' | 'excluded_always' |
   [STORAGE_KEYS.LOG_SUPPLEMENTS]: 'included',
   [STORAGE_KEYS.LOG_BODY]: 'included',
   [STORAGE_KEYS.LOG_BODY_MEASUREMENTS]: 'included',
+  [STORAGE_KEYS.LOG_RECOVERY_METRICS]: 'included',
   [STORAGE_KEYS.LOG_CYCLE]: 'included',
   [STORAGE_KEYS.LOG_MIGRAINE]: 'included',
   [STORAGE_KEYS.LOG_MEDITATION]: 'included',

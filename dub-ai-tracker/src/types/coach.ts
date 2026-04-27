@@ -53,7 +53,27 @@ export type CoachToolName =
   | 'log_body_composition'
   | 'log_sleep'
   | 'log_mood'
-  | 'log_substance';
+  | 'log_substance'
+  | 'log_recovery_metrics';
+
+/**
+ * Sprint 31: Wearable-derived recovery metrics input.
+ * ToolUseRequest itself stays a single broad-input interface (matches every
+ * other tool's pattern); the executor handler casts toolReq.input to this
+ * type at runtime when toolReq.name === 'log_recovery_metrics'.
+ */
+export interface LogRecoveryMetricsInput {
+  sleep_score?: number;
+  sleep_duration_hours?: number;
+  hrv_ms?: number;
+  body_battery?: number;
+  stress_baseline?: number;
+  training_readiness?: number;
+  vo2_max?: number;
+  resting_heart_rate?: number;
+  timestamp?: string;
+  extraction_source: 'image' | 'text' | 'wearable_scan';
+}
 
 /** Sprint 30: How the model derived a tool's input values */
 export type ExtractionSource = 'user_text' | 'image_vision' | 'inferred';
