@@ -74,6 +74,7 @@ import { getEnabledCategories } from '../utils/categoryElection';
 import { todayDateString } from '../utils/dayBoundary';
 import { getCachedCompliance, getComplianceTrend } from '../services/complianceEngine';
 import { getDailyNutrientReport, formatReportForCoach } from '../services/nutrientAggregator';
+import { getSleepTargetHours } from '../utils/sleepTarget';
 
 
 function pastDateString(daysAgo: number): string {
@@ -1182,6 +1183,61 @@ export async function buildCoachContext(userMessage: string): Promise<{
     }
   }
 
+  // Sprint 30: sleep-debt flags (CORE — always computed, regardless of category
+  // gating or message keywords). Conservative partial-data rule per Josh:
+  //   3d flag requires >= 2 of last 3 nights with data
+  //   7d flag requires >= 4 of last 7 nights with data
+  // When data is below threshold, the flag is undefined (not false), so the
+  // prompt cannot assert "no debt" from sparse logs.
+  let sleepDebt3d: boolean | undefined;
+  let sleepDebt7d: boolean | undefined;
+  let sleepDebtAvg3d: number | null = null;
+  let sleepDebtAvg7d: number | null = null;
+  const sleepTargetHours = await getSleepTargetHours();
+  {
+    const hours7: number[] = [];
+    for (let i = 1; i <= 7; i++) {
+      const d = pastDateString(i);
+      const entry = await storageGet<SleepEntry>(dateKey(STORAGE_KEYS.LOG_SLEEP, d));
+      if (!entry) continue;
+      let h: number | null = null;
+      if (entry.total_duration_hours != null) {
+        h = entry.total_duration_hours;
+      } else if (entry.bedtime && entry.wake_time) {
+        const bed = new Date(entry.bedtime).getTime();
+        let wake = new Date(entry.wake_time).getTime();
+        if (wake <= bed) wake += 24 * 60 * 60 * 1000;
+        h = (wake - bed) / 3600000;
+      }
+      if (h != null && Number.isFinite(h)) hours7.push(h);
+      else hours7.push(NaN);
+    }
+    const last3 = hours7.slice(0, 3).filter((v) => Number.isFinite(v));
+    const last7 = hours7.filter((v) => Number.isFinite(v));
+    if (last3.length >= 2) {
+      const avg3 = last3.reduce((s, v) => s + v, 0) / last3.length;
+      sleepDebtAvg3d = avg3;
+      sleepDebt3d = avg3 < sleepTargetHours - 1.0;
+    }
+    if (last7.length >= 4) {
+      const avg7 = last7.reduce((s, v) => s + v, 0) / last7.length;
+      sleepDebtAvg7d = avg7;
+      sleepDebt7d = avg7 < sleepTargetHours - 1.0;
+    }
+    if (sleepDebt3d || sleepDebt7d) {
+      const lines: string[] = [`Target: ${sleepTargetHours}h/night.`];
+      if (sleepDebt3d && sleepDebtAvg3d != null) {
+        const gap = (sleepTargetHours - sleepDebtAvg3d).toFixed(1);
+        lines.push(`Last 3 days averaged ${sleepDebtAvg3d.toFixed(1)}h — short ${gap}h vs target.`);
+      }
+      if (sleepDebt7d && sleepDebtAvg7d != null) {
+        const gap = (sleepTargetHours - sleepDebtAvg7d).toFixed(1);
+        lines.push(`Last 7 days averaged ${sleepDebtAvg7d.toFixed(1)}h — short ${gap}h vs target.`);
+      }
+      conditionalSections.push(`[SLEEP DEBT]\n${lines.join(' ')}`);
+    }
+  }
+
   // Sprint 23: Body Measurements context (category-gated)
   if (isCatEnabled('body_measurements')) {
     const bmEntry = await storageGet<BodyMeasurementEntry>(dateKey(STORAGE_KEYS.LOG_BODY_MEASUREMENTS, today));
@@ -1314,6 +1370,9 @@ export async function buildCoachContext(userMessage: string): Promise<{
     ed_risk_flags: edRiskFlags,
     mood_trend_alert: moodTrend.triggered,
     active_milestone: activeMilestone,
+    sleep_debt_3d: sleepDebt3d,
+    sleep_debt_7d: sleepDebt7d,
+    sleep_target_hours: sleepTargetHours,
   };
 
   // Therapy note firewall: verify no therapy content leaked

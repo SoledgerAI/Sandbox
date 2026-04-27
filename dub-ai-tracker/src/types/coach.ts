@@ -123,6 +123,12 @@ export interface CoachContext {
   mood_trend_alert: boolean;
   /** Active milestone event string, e.g. "milestone: 100 days logged" (P2-05) */
   active_milestone: string | null;
+  /** Sprint 30: sleep-debt 3-day flag. Undefined when partial data (<2 of 3 days). */
+  sleep_debt_3d?: boolean;
+  /** Sprint 30: sleep-debt 7-day flag. Undefined when partial data (<4 of 7 days). */
+  sleep_debt_7d?: boolean;
+  /** Sprint 30: derived target hours used to compute the debt flags. */
+  sleep_target_hours?: number;
 }
 
 export interface TodayDataSummary {
