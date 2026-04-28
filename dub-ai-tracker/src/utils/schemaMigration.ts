@@ -45,7 +45,7 @@ import type { BodyRegion } from '../config/exerciseCatalog';
  * Increment this every time you add a new migration.
  * Must match the highest `version` in MIGRATIONS.
  */
-export const CURRENT_SCHEMA_VERSION = 2;
+export const CURRENT_SCHEMA_VERSION = 3;
 
 /** AsyncStorage key holding the current schema version (number). */
 export const SCHEMA_VERSION_KEY = STORAGE_KEYS.SCHEMA_VERSION;
@@ -100,6 +100,11 @@ export const MIGRATIONS: Migration[] = [
     version: 2,
     description: 'S36 — strength v2: equipment election, exercise election, region session counters with backfill',
     migrate: migrateV1ToV2,
+  },
+  {
+    version: 3,
+    description: 'S33-A — rep presets + pain logger: register new keyspaces; no data backfill',
+    migrate: migrateV2ToV3,
   },
 ];
 
@@ -433,3 +438,37 @@ export async function __resetSchemaVersionForTests(): Promise<void> {
 //
 // The framework handles ordering, version persistence, and failure
 // recovery.
+
+// ============================================================
+// V2 → V3 migration (S33-A)
+// ============================================================
+
+interface V2V3Backup {
+  pre_version: number;
+  performed_at: number;
+  expires_at: number;
+  touched_keys: string[];
+}
+
+/**
+ * S33-A migration. No data backfill — both new keyspaces
+ * (dub.strength.rep_presets.* and dub.log.pain.*) start empty
+ * and populate as the user uses the new surfaces.
+ *
+ * Idempotent by construction: the only side effect is writing
+ * the rollback backup record, which is gated on its own
+ * absence. Running the migration twice produces the same
+ * stored state.
+ */
+export async function migrateV2ToV3(): Promise<void> {
+  const existingBackup = await storageGet<V2V3Backup>(STORAGE_KEYS.MIGRATION_V2_V3_BACKUP);
+  if (existingBackup != null) return; // already ran
+  const now = Date.now();
+  const backup: V2V3Backup = {
+    pre_version: 2,
+    performed_at: now,
+    expires_at: now + ROLLBACK_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+    touched_keys: [], // no data backfill in this migration
+  };
+  await storageSet(STORAGE_KEYS.MIGRATION_V2_V3_BACKUP, backup);
+}

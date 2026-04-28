@@ -1485,3 +1485,42 @@ export interface FastingEntry {
   end_time: string | null; // ISO datetime, null if still fasting
   completed: boolean;
 }
+
+// -- S33-A: REP PRESETS (per-exercise saved schemes) --
+
+export type AmrapMarker = 'AMRAP';
+
+export interface RepPreset {
+  id: string;
+  /** Number of sets, 1-10. */
+  sets: number;
+  /** Reps per set, 1-50, or 'AMRAP' (as many reps as possible). */
+  reps: number | AmrapMarker;
+  /** Optional weight in lb. Persisted as a number; user's unit setting
+   *  governs display. */
+  weight_lb?: number;
+  /** Optional user label, e.g. "warmup" or "heavy". */
+  label?: string;
+  /** Epoch ms (LOCAL-time derived). */
+  created_at: number;
+  /** Increments only on chip-tap selection (not on edit-then-commit). */
+  times_used: number;
+}
+
+// -- S33-A: PAIN LOGGER (ongoing-state, distinct from InjuryEntry) --
+
+export type PainSeverity = 1 | 2 | 3 | 4 | 5;
+
+export interface PainEntry {
+  id: string;
+  /** Epoch ms. Derived from local-time getters per H46. */
+  timestamp: number;
+  /** Multi-select chip; reuses JointPainArea from the perimenopause type. */
+  areas: JointPainArea[];
+  /** 1=barely there, 5=can't ignore. */
+  severity: PainSeverity;
+  /** User-estimated days the pain has been ongoing. Optional. */
+  duration_days?: number;
+  /** Optional freeform notes, max 500 chars (enforced by UI). */
+  notes?: string;
+}

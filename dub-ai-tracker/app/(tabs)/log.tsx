@@ -194,6 +194,7 @@ const SECTION_DEFS: SectionDef[] = [
     items: [
       { id: 'sexual_health', label: 'Sexual Health', icon: 'heart-half-outline', route: '/log/sexual', searchTerms: 'sexual activity intimacy', electInCategory: 'sexual_health' },
       { id: 'injuries', label: 'Injuries', icon: 'bandage-outline', route: '/log/injury', searchTerms: 'injury pain hurt sore recovery', electInCategory: 'injuries' },
+      { id: 'pain', label: 'Pain', icon: 'pulse-outline', route: '/log/pain', searchTerms: 'pain ache sore chronic ongoing joints back knees shoulders', electInCategory: 'injuries' },
     ],
   },
   {

@@ -75,6 +75,7 @@ export const KNOWN_LOG_ROUTES: ReadonlySet<string> = new Set([
   '/log/mood',
   '/log/mood-mental',
   '/log/nutrient-report',
+  '/log/pain',
   '/log/pantry',
   '/log/perimenopause',
   '/log/personalcare',

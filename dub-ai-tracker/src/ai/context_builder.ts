@@ -80,6 +80,7 @@ import {
   getUndertrainedFlags,
 } from '../services/strengthService';
 import type { StrengthEntry } from '../types/strength';
+import { buildPainContext } from '../services/painLogService';
 
 
 function pastDateString(daysAgo: number): string {
@@ -1340,6 +1341,9 @@ export async function buildCoachContext(userMessage: string): Promise<{
   const last28Regions = regionsHitFromEntries(allStrengthEntries, now, 28);
   const undertrainedFlags = await getUndertrainedFlags(now, 4);
 
+  // S33-A: pain context flags. Empty pain log → all three arrays empty.
+  const painSummary = await buildPainContext(now);
+
   const context: CoachContext = {
     profile: profile ?? {
       name: 'User',
@@ -1395,6 +1399,9 @@ export async function buildCoachContext(userMessage: string): Promise<{
     last_7_days_regions_hit: last7Regions,
     last_28_days_regions_hit: last28Regions,
     region_undertrained_flags: undertrainedFlags,
+    pain_areas_last_14d: painSummary.pain_areas_last_14d,
+    persistent_pain_areas: painSummary.persistent_pain_areas,
+    chronic_pain_areas: painSummary.chronic_pain_areas,
   };
 
   // Therapy note firewall: verify no therapy content leaked

@@ -663,6 +663,14 @@ export const EXPORT_PRIVACY_MAP: Record<string, 'included' | 'excluded_always' |
   [STORAGE_KEYS.LOG_DIGESTIVE]: 'included',
   [STORAGE_KEYS.LOG_PERSONALCARE]: 'included',
   [STORAGE_KEYS.LOG_INJURY]: 'included',
+  // S33-A: pain log entries are health-relevant; default included.
+  // Indexes are derivable from entries themselves and not needed in
+  // exports — but the key constants live under dub.log.* so they
+  // must be classified here too. Both indexes treated as not user-
+  // visible data (they're internal redundancy, not new information).
+  [STORAGE_KEYS.PAIN_LOG_PREFIX]: 'included',
+  [STORAGE_KEYS.PAIN_LOG_INDEX_BY_DATE]: 'not_user_data',
+  [STORAGE_KEYS.PAIN_LOG_INDEX_BY_AREA]: 'not_user_data',
   [STORAGE_KEYS.LOG_BLOODWORK]: 'included',
   [STORAGE_KEYS.LOG_GLUCOSE]: 'included',
   [STORAGE_KEYS.LOG_BP]: 'included',

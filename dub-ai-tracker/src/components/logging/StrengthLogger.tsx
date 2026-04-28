@@ -45,6 +45,15 @@ import {
 } from '../../services/strengthService';
 import { storageList } from '../../utils/storage';
 import { ExercisePickerTree } from './ExercisePickerTree';
+import { PresetSaveDialog, type PresetDraft } from './PresetSaveDialog';
+import {
+  getPresetsForExercise,
+  savePreset,
+  updatePreset,
+  deletePreset,
+  incrementPresetUsage,
+} from '../../services/repPresetService';
+import type { RepPreset } from '../../types';
 
 const MODE_PREF_KEY = STORAGE_KEYS.STRENGTH_MODE_PREF;
 const TAG_ID = 'strength.training';
@@ -150,6 +159,14 @@ export function StrengthLogger() {
   const [electedExercises, setElectedExercisesState] = useState<string[]>([]);
   const [usageCounts, setUsageCounts] = useState<Record<string, number>>({});
 
+  // S33-A — rep presets per current exercise.
+  const [presets, setPresets] = useState<RepPreset[]>([]);
+  // most-recently-tapped preset id; cleared on form edit.
+  const [tappedPresetId, setTappedPresetId] = useState<string | null>(null);
+  const [presetEdited, setPresetEdited] = useState<boolean>(false);
+  const [presetDialogOpen, setPresetDialogOpen] = useState<boolean>(false);
+  const [editingPreset, setEditingPreset] = useState<RepPreset | null>(null);
+
   // Quick-log form
   const [quickForm, setQuickForm] = useState<QuickExerciseForm>(emptyQuickForm);
 
@@ -182,6 +199,30 @@ export function StrengthLogger() {
       setUsageCounts(counts);
     })();
   }, []);
+
+  // S33-A: load presets for the currently-selected catalog exercise
+  // (free-text entries don't get presets).
+  const currentExerciseId = mode === 'quick' ? quickForm.exerciseId : detailedForm.exerciseId;
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!currentExerciseId) {
+        if (!cancelled) {
+          setPresets([]);
+          setTappedPresetId(null);
+          setPresetEdited(false);
+        }
+        return;
+      }
+      const list = await getPresetsForExercise(currentExerciseId);
+      if (!cancelled) {
+        setPresets(list);
+        setTappedPresetId(null);
+        setPresetEdited(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [currentExerciseId]);
 
   // Persist mode preference
   const toggleMode = useCallback(async (newMode: StrengthLogMode) => {
@@ -327,8 +368,17 @@ export function StrengthLogger() {
     }
     setUsageCounts(updatedCounts);
 
+    // S33-A: increment times_used iff a preset chip was tapped AND the
+    // form wasn't edited afterwards. Edit-then-commit means the user
+    // diverged from the preset, so the count would be misleading.
+    if (tappedPresetId && !presetEdited && currentExerciseId) {
+      await incrementPresetUsage(currentExerciseId, tappedPresetId);
+    }
+    setTappedPresetId(null);
+    setPresetEdited(false);
+
     showToast(`${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} logged`, 'success');
-  }, [exercises, entries, mode, saveAsLast, usageCounts, entryTimestamp]);
+  }, [exercises, entries, mode, saveAsLast, usageCounts, entryTimestamp, tappedPresetId, presetEdited, currentExerciseId, showToast]);
 
   // -- Repeat last full session --
 
@@ -394,6 +444,133 @@ export function StrengthLogger() {
     await toggleElectedExercise(exerciseId);
   }, []);
 
+  // S33-A: User mutated the form after tapping a preset chip. Cancels
+  // the times_used increment that would otherwise fire on save.
+  const markPresetEdited = useCallback(() => {
+    if (tappedPresetId) setPresetEdited(true);
+  }, [tappedPresetId]);
+
+  // S33-A: format a preset as chip text, e.g. "5×5", "3×AMRAP @ 135lb", "warmup".
+  const formatPresetChip = useCallback((p: RepPreset): string => {
+    if (p.label && p.label.length > 0) return p.label;
+    const reps = p.reps === 'AMRAP' ? 'AMRAP' : `${p.reps}`;
+    const base = `${p.sets}×${reps}`;
+    return p.weight_lb != null ? `${base} @ ${p.weight_lb}lb` : base;
+  }, []);
+
+  // Tap a chip → autofill form fields. tappedPresetId is the increment
+  // signal on save; presetEdited cancels it if the user mutates the form.
+  const applyPreset = useCallback((p: RepPreset) => {
+    setTappedPresetId(p.id);
+    setPresetEdited(false);
+    if (mode === 'quick') {
+      setQuickForm((prev) => ({
+        ...prev,
+        sets: String(p.sets),
+        weight: p.weight_lb != null ? String(p.weight_lb) : prev.weight,
+        repRange: p.reps === 'AMRAP' ? 'AMRAP' : String(p.reps),
+      }));
+    } else {
+      setDetailedForm((prev) => ({
+        ...prev,
+        sets: Array.from({ length: p.sets }, () => ({
+          weight: p.weight_lb != null ? String(p.weight_lb) : '',
+          reps: p.reps === 'AMRAP' ? '' : String(p.reps),
+          rpe: '',
+        })),
+      }));
+    }
+  }, [mode]);
+
+  // S33-A: Save current form values as a new preset. Reads sets/reps/weight
+  // from the active form (quick or detailed). Detailed mode uses the first
+  // set's reps + weight as a representative scheme.
+  const handleOpenSaveDialog = useCallback(() => {
+    setEditingPreset(null);
+    setPresetDialogOpen(true);
+  }, []);
+
+  const handleEditPreset = useCallback((preset: RepPreset) => {
+    setEditingPreset(preset);
+    setPresetDialogOpen(true);
+  }, []);
+
+  const handleDeletePreset = useCallback(async (preset: RepPreset) => {
+    if (!currentExerciseId) return;
+    await deletePreset(currentExerciseId, preset.id);
+    setPresets(await getPresetsForExercise(currentExerciseId));
+    if (tappedPresetId === preset.id) {
+      setTappedPresetId(null);
+      setPresetEdited(false);
+    }
+  }, [currentExerciseId, tappedPresetId]);
+
+  const handlePresetDialogSave = useCallback(async (draft: PresetDraft) => {
+    if (!currentExerciseId) return;
+    if (editingPreset) {
+      await updatePreset(currentExerciseId, editingPreset.id, draft);
+    } else {
+      await savePreset(currentExerciseId, draft);
+    }
+    setPresets(await getPresetsForExercise(currentExerciseId));
+    setPresetDialogOpen(false);
+    setEditingPreset(null);
+  }, [currentExerciseId, editingPreset]);
+
+  // Compute the initial draft for the dialog: edit -> existing preset;
+  // new save -> current form values.
+  const presetDialogInitial = useMemo<PresetDraft | undefined>(() => {
+    if (editingPreset) {
+      return {
+        sets: editingPreset.sets,
+        reps: editingPreset.reps,
+        weight_lb: editingPreset.weight_lb,
+        label: editingPreset.label,
+      };
+    }
+    if (mode === 'quick') {
+      const sets = parseInt(quickForm.sets, 10) || 3;
+      const range = quickForm.repRange.trim();
+      let reps: number | 'AMRAP' = 10;
+      if (range.toUpperCase() === 'AMRAP') reps = 'AMRAP';
+      else {
+        const parts = range.split('-').map((s) => parseInt(s, 10));
+        if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+          reps = Math.round((parts[0] + parts[1]) / 2);
+        } else if (!isNaN(parts[0])) {
+          reps = parts[0];
+        }
+      }
+      const weight = parseFloat(quickForm.weight);
+      return {
+        sets,
+        reps,
+        ...(Number.isFinite(weight) && weight > 0 ? { weight_lb: weight } : {}),
+      };
+    }
+    const setCount = detailedForm.sets.length || 3;
+    const firstSet = detailedForm.sets[0];
+    const reps = firstSet?.reps ? parseInt(firstSet.reps, 10) : 10;
+    const weight = firstSet?.weight ? parseFloat(firstSet.weight) : NaN;
+    return {
+      sets: setCount,
+      reps: isNaN(reps) ? 10 : reps,
+      ...(Number.isFinite(weight) && weight > 0 ? { weight_lb: weight } : {}),
+    };
+  }, [editingPreset, mode, quickForm, detailedForm]);
+
+  const longPressPresetMenu = useCallback((p: RepPreset) => {
+    Alert.alert(
+      formatPresetChip(p),
+      'Edit or delete this scheme?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Edit', onPress: () => handleEditPreset(p) },
+        { text: 'Delete', style: 'destructive', onPress: () => handleDeletePreset(p) },
+      ],
+    );
+  }, [formatPresetChip, handleEditPreset, handleDeletePreset]);
+
   // Add/remove set in detailed mode
   const addDetailedSet = useCallback(() => {
     hapticMedium();
@@ -418,8 +595,9 @@ export function StrengthLogger() {
           i === index ? { ...s, [field]: value } : s,
         ),
       }));
+      markPresetEdited();
     },
-    [],
+    [markPresetEdited],
   );
 
   // Summary stats for current session
@@ -595,6 +773,56 @@ export function StrengthLogger() {
           </TouchableOpacity>
         )}
 
+        {/* S33-A: Saved schemes chip row (catalog exercises only). */}
+        {currentExerciseId && (
+          <View style={styles.presetSection}>
+            <Text style={styles.presetSectionLabel}>Your saved schemes</Text>
+            {presets.length === 0 ? (
+              <Text style={styles.presetEmpty}>
+                No saved schemes yet. Save one with the + button after entering your first set.
+              </Text>
+            ) : (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                contentContainerStyle={styles.presetChipRow}
+              >
+                {presets.map((p) => {
+                  const tapped = p.id === tappedPresetId && !presetEdited;
+                  return (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={[styles.presetChip, tapped && styles.presetChipTapped]}
+                      onPress={() => applyPreset(p)}
+                      onLongPress={() => longPressPresetMenu(p)}
+                      activeOpacity={0.7}
+                      testID={`preset-chip-${p.id}`}
+                    >
+                      <Text style={[styles.presetChipText, tapped && styles.presetChipTextTapped]}>
+                        {formatPresetChip(p)}
+                      </Text>
+                      {p.times_used > 0 && (
+                        <Text style={[styles.presetChipBadge, tapped && styles.presetChipTextTapped]}>
+                          ×{p.times_used}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            )}
+            <TouchableOpacity
+              style={styles.presetSaveAddBtn}
+              onPress={handleOpenSaveDialog}
+              activeOpacity={0.7}
+              testID="preset-save-current-btn"
+            >
+              <Ionicons name="add-circle-outline" size={16} color={Colors.accent} />
+              <Text style={styles.presetSaveAddText}>Save current</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {mode === 'quick' ? (
           /* -- QUICK LOG MODE: 4 fields -- */
           <View style={styles.quickForm}>
@@ -604,7 +832,7 @@ export function StrengthLogger() {
                 <TextInput
                   style={styles.input}
                   value={quickForm.sets}
-                  onChangeText={(v) => setQuickForm((p) => ({ ...p, sets: v }))}
+                  onChangeText={(v) => { setQuickForm((p) => ({ ...p, sets: v })); markPresetEdited(); }}
                   keyboardType="number-pad"
                   placeholder="4"
                   placeholderTextColor={Colors.secondaryText}
@@ -615,7 +843,7 @@ export function StrengthLogger() {
                 <TextInput
                   style={styles.input}
                   value={quickForm.weight}
-                  onChangeText={(v) => setQuickForm((p) => ({ ...p, weight: v }))}
+                  onChangeText={(v) => { setQuickForm((p) => ({ ...p, weight: v })); markPresetEdited(); }}
                   keyboardType="numeric"
                   placeholder="135"
                   placeholderTextColor={Colors.secondaryText}
@@ -626,7 +854,7 @@ export function StrengthLogger() {
                 <TextInput
                   style={styles.input}
                   value={quickForm.repRange}
-                  onChangeText={(v) => setQuickForm((p) => ({ ...p, repRange: v }))}
+                  onChangeText={(v) => { setQuickForm((p) => ({ ...p, repRange: v })); markPresetEdited(); }}
                   placeholder="8-12"
                   placeholderTextColor={Colors.secondaryText}
                 />
@@ -749,6 +977,15 @@ export function StrengthLogger() {
           </>
         )}
       </ScrollView>
+
+      {/* S33-A: preset save/edit dialog mounts at root so it overlays the form. */}
+      <PresetSaveDialog
+        visible={presetDialogOpen}
+        initial={presetDialogInitial}
+        isEdit={editingPreset != null}
+        onCancel={() => { setPresetDialogOpen(false); setEditingPreset(null); }}
+        onSave={handlePresetDialogSave}
+      />
     </KeyboardAvoidingView>
   );
 }
@@ -1091,5 +1328,67 @@ const styles = StyleSheet.create({
     fontSize: 13,
     textAlign: 'center',
     lineHeight: 18,
+  },
+  presetSection: {
+    marginTop: 4,
+    marginBottom: 8,
+  },
+  presetSectionLabel: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 6,
+  },
+  presetEmpty: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    paddingVertical: 4,
+  },
+  presetChipRow: {
+    gap: 8,
+    paddingVertical: 2,
+  },
+  presetChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    backgroundColor: Colors.cardBackground,
+    borderWidth: 1,
+    borderColor: Colors.divider,
+  },
+  presetChipTapped: {
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
+  },
+  presetChipText: {
+    color: Colors.text,
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  presetChipTextTapped: {
+    color: Colors.primaryBackground,
+  },
+  presetChipBadge: {
+    color: Colors.secondaryText,
+    fontSize: 10,
+    fontVariant: ['tabular-nums'],
+  },
+  presetSaveAddBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    marginTop: 6,
+    alignSelf: 'flex-start',
+  },
+  presetSaveAddText: {
+    color: Colors.accent,
+    fontSize: 12,
+    fontWeight: '600',
   },
 });

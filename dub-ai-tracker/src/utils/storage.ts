@@ -174,6 +174,13 @@ export const STORAGE_KEYS = {
   STRENGTH_TILE_ENABLED: 'dub.settings.strength_tile_enabled',     // optional dashboard tile
   MIGRATION_V1_V2_BACKUP: 'dub._migration.v1_v2_backup',           // 30-day rollback
 
+  // Sprint S33-A: rep presets + pain logger
+  REP_PRESETS_PREFIX:    'dub.strength.rep_presets',         // dub.strength.rep_presets.<exercise_id>
+  PAIN_LOG_PREFIX:       'dub.log.pain',                     // dub.log.pain.<entry_id>
+  PAIN_LOG_INDEX_BY_DATE:'dub.log.pain.index.by_date',       // dub.log.pain.index.by_date.<YYYY-MM-DD>
+  PAIN_LOG_INDEX_BY_AREA:'dub.log.pain.index.by_area',       // dub.log.pain.index.by_area.<area>
+  MIGRATION_V2_V3_BACKUP:'dub._migration.v2_v3_backup',      // 30-day rollback
+
   // Offline Queue
   OFFLINE_QUEUE: 'dub.offline.queue',
 

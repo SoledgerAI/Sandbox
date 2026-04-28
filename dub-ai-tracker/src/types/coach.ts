@@ -159,6 +159,12 @@ export interface CoachContext {
     sessions_per_week_avg: number;
     target: number;
   }>;
+  /** S33-A: distinct pain areas with any entry in last 14 days, freq desc. */
+  pain_areas_last_14d?: string[];
+  /** S33-A: areas with ≥3 pain entries in last 14 days. */
+  persistent_pain_areas?: string[];
+  /** S33-A: areas with at least one entry in ≥4 of the last 6 ISO weeks. */
+  chronic_pain_areas?: string[];
 }
 
 export interface TodayDataSummary {
