@@ -238,3 +238,91 @@ describe('coachToolExecutor — log_recovery_metrics (Sprint 31)', () => {
     }
   });
 });
+
+// H46 regression — pin todayString() to local-calendar date so the
+// production bug fixed 2026-04-27 (entries routing to wrong storage key
+// during UTC rollover) cannot silently return.
+describe('todayString() local-time contract (H46 regression)', () => {
+  function localDateKey(baseKey: string): string {
+    const d = new Date();
+    const local = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    return dateKey(baseKey, local);
+  }
+  function utcDateKey(baseKey: string): string {
+    return dateKey(baseKey, new Date().toISOString().slice(0, 10));
+  }
+
+  test('todayString() returns local-calendar date, not UTC (via log_supplement key)', async () => {
+    // Mocked instant: 2026-04-28T01:00:00Z = 2026-04-27 20:00 CDT.
+    // Local CDT is 2026-04-27, UTC has rolled to 2026-04-28.
+    jest.useFakeTimers({ now: new Date('2026-04-28T01:00:00Z') });
+    try {
+      const expectedLocal = localDateKey(STORAGE_KEYS.LOG_SUPPLEMENTS);
+      const utc = utcDateKey(STORAGE_KEYS.LOG_SUPPLEMENTS);
+
+      const result = await executeTool(
+        {
+          toolUseId: 'tu_supp_h46_1',
+          name: 'log_supplement',
+          input: { name: 'creatine', dosage: '5g' },
+          status: 'pending',
+          tier: 'checklist',
+        },
+        '5g creatine',
+      );
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.storageKey).toBe(expectedLocal);
+      // When the runner sits in a non-UTC zone, the two keys differ and the
+      // assertion below is a real UTC-regression sentinel. On a UTC runner
+      // the keys collide, so this becomes a tautology — that's acceptable.
+      if (expectedLocal !== utc) {
+        expect(result.storageKey).not.toBe(utc);
+      }
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  test('executeTool routes log_drink to local date during UTC rollover window', async () => {
+    // Mocked instant: 2026-04-28T03:30:00Z = 2026-04-27 22:30 CDT — typical
+    // pre-bed Coach log. Pre-fix, this entry filed under
+    // dub.log.water.2026-04-28 (UTC); post-fix it must land on
+    // dub.log.water.2026-04-27 (local).
+    jest.useFakeTimers({ now: new Date('2026-04-28T03:30:00Z') });
+    try {
+      const expectedLocal = localDateKey(STORAGE_KEYS.LOG_WATER);
+      const utc = utcDateKey(STORAGE_KEYS.LOG_WATER);
+
+      const result = await executeTool(
+        {
+          toolUseId: 'tu_drink_h46_2',
+          name: 'log_drink',
+          input: { beverage_type: 'water', amount_oz: 12 },
+          status: 'pending',
+          tier: 'checklist',
+        },
+        '12 oz water before bed',
+      );
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.storageKey).toBe(expectedLocal);
+
+      const stored = await storageGet<Array<Record<string, unknown>>>(expectedLocal);
+      expect(stored).toHaveLength(1);
+      expect(stored![0]).toMatchObject({
+        amount_oz: 12,
+        beverage_type: 'water',
+      });
+
+      if (expectedLocal !== utc) {
+        const utcBucket = await storageGet<Array<Record<string, unknown>>>(utc);
+        expect(utcBucket).toBeNull();
+      }
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+});

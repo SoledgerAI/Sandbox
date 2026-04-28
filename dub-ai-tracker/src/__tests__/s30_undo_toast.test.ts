@@ -4,7 +4,10 @@ import { executeTool, reverseLastTool, type UndoRecord } from '../services/coach
 import { storageGet, storageSet, STORAGE_KEYS, dateKey, _resetStorageListeners } from '../utils/storage';
 import type { ToolUseRequest } from '../types/coach';
 
-const today = () => new Date().toISOString().slice(0, 10);
+const today = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
 const yesterday = () => {
   const d = new Date();
   d.setDate(d.getDate() - 1);

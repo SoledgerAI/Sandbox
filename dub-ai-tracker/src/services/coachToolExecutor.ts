@@ -29,8 +29,13 @@ function genId(): string {
   return `coach_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+// Local-time YYYY-MM-DD for daily storage keys.
+// Matches yesterdayString and deriveRecoveryDateKey. Do not change to UTC —
+// production bug fixed 2026-04-27 (H46): UTC variant routed entries to the
+// wrong calendar-day key during the local/UTC rollover window.
 function todayString(): string {
-  return new Date().toISOString().slice(0, 10);
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 // Sleep is reported in the morning for the previous night, so by default
