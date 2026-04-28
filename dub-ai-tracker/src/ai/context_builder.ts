@@ -75,6 +75,11 @@ import { todayDateString } from '../utils/dayBoundary';
 import { getCachedCompliance, getComplianceTrend } from '../services/complianceEngine';
 import { getDailyNutrientReport, formatReportForCoach } from '../services/nutrientAggregator';
 import { getSleepTargetHours } from '../utils/sleepTarget';
+import {
+  regionsHitFromEntries,
+  getUndertrainedFlags,
+} from '../services/strengthService';
+import type { StrengthEntry } from '../types/strength';
 
 
 function pastDateString(daysAgo: number): string {
@@ -1321,6 +1326,20 @@ export async function buildCoachContext(userMessage: string): Promise<{
     conditionalSections.push(`[${activeMilestone.toUpperCase()}]`);
   }
 
+  // S36: Strength region trends. last_7/28_days_regions_hit derive from
+  // catalog-tagged StrengthEntry records; region_undertrained_flags compares
+  // a 4-week rolling average against the configured target.
+  const strengthKeys = await storageList(STORAGE_KEYS.LOG_STRENGTH);
+  const allStrengthEntries: StrengthEntry[] = [];
+  for (const k of strengthKeys) {
+    const entries = await storageGet<StrengthEntry[]>(k);
+    if (Array.isArray(entries)) allStrengthEntries.push(...entries);
+  }
+  const now = new Date();
+  const last7Regions = regionsHitFromEntries(allStrengthEntries, now, 7);
+  const last28Regions = regionsHitFromEntries(allStrengthEntries, now, 28);
+  const undertrainedFlags = await getUndertrainedFlags(now, 4);
+
   const context: CoachContext = {
     profile: profile ?? {
       name: 'User',
@@ -1373,6 +1392,9 @@ export async function buildCoachContext(userMessage: string): Promise<{
     sleep_debt_3d: sleepDebt3d,
     sleep_debt_7d: sleepDebt7d,
     sleep_target_hours: sleepTargetHours,
+    last_7_days_regions_hit: last7Regions,
+    last_28_days_regions_hit: last28Regions,
+    region_undertrained_flags: undertrainedFlags,
   };
 
   // Therapy note firewall: verify no therapy content leaked

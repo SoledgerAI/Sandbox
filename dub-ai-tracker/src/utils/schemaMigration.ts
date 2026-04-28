@@ -26,6 +26,16 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { storageGet, storageSet, storageDelete, storageList, STORAGE_KEYS } from './storage';
+import type { StrengthEntry } from '../types/strength';
+import {
+  matchExerciseName,
+  isoWeekKey,
+  usageCountKey,
+  regionSessionsKey,
+  getUsageCount,
+  getRegionSessions,
+} from '../services/strengthService';
+import type { BodyRegion } from '../config/exerciseCatalog';
 
 // ============================================================
 // Version constant & storage key
@@ -35,7 +45,7 @@ import { storageGet, storageSet, storageDelete, storageList, STORAGE_KEYS } from
  * Increment this every time you add a new migration.
  * Must match the highest `version` in MIGRATIONS.
  */
-export const CURRENT_SCHEMA_VERSION = 1;
+export const CURRENT_SCHEMA_VERSION = 2;
 
 /** AsyncStorage key holding the current schema version (number). */
 export const SCHEMA_VERSION_KEY = STORAGE_KEYS.SCHEMA_VERSION;
@@ -86,7 +96,149 @@ export const MIGRATIONS: Migration[] = [
       // a baseline to compare against.
     },
   },
+  {
+    version: 2,
+    description: 'S36 — strength v2: equipment election, exercise election, region session counters with backfill',
+    migrate: migrateV1ToV2,
+  },
 ];
+
+// ============================================================
+// V1 → V2 migration (S36)
+// ============================================================
+
+const ROLLBACK_WINDOW_DAYS = 30;
+
+interface V1V2Backup {
+  pre_version: number;
+  performed_at: number;        // epoch ms
+  expires_at: number;          // epoch ms
+  touched_keys: string[];
+  backfill_stats: {
+    entries_scanned: number;
+    matches_found: number;
+    unmatched: number;
+  };
+}
+
+/**
+ * One-time migration that:
+ *   - Initializes equipment election to ['bodyweight'] if absent.
+ *   - Initializes elected_exercises to [] if absent.
+ *   - Backfills usage_count + region_sessions counters from existing
+ *     StrengthEntry records via case-insensitive substring match.
+ *   - Records a rollback backup record (30-day TTL).
+ *
+ * Idempotent: re-running with v2 already applied is a no-op because
+ * (a) the framework's runMigrations early-exits when fromVersion >= target,
+ * and (b) initialization steps use defaultIfAbsent semantics.
+ *
+ * Direct-call idempotency relies on the touched_keys backup — if a backup
+ * already exists from a prior successful run, the backfill scan is skipped.
+ */
+export async function migrateV1ToV2(): Promise<void> {
+  const existingBackup = await storageGet<V1V2Backup>(STORAGE_KEYS.MIGRATION_V1_V2_BACKUP);
+  const alreadyRan = existingBackup != null;
+
+  const touched = new Set<string>();
+
+  // 1. Equipment election default.
+  const equip = await storageGet<unknown>(STORAGE_KEYS.SETTINGS_EQUIPMENT);
+  if (equip == null) {
+    await storageSet(STORAGE_KEYS.SETTINGS_EQUIPMENT, ['bodyweight']);
+    touched.add(STORAGE_KEYS.SETTINGS_EQUIPMENT);
+  }
+
+  // 2. Elected exercises default.
+  const elected = await storageGet<unknown>(STORAGE_KEYS.SETTINGS_ELECTED_EXERCISES);
+  if (elected == null) {
+    await storageSet(STORAGE_KEYS.SETTINGS_ELECTED_EXERCISES, []);
+    touched.add(STORAGE_KEYS.SETTINGS_ELECTED_EXERCISES);
+  }
+
+  // 3. Backfill counters from existing StrengthEntry records.
+  // Skip if a previous run already did this (idempotency).
+  let entriesScanned = 0;
+  let matchesFound = 0;
+  let unmatched = 0;
+
+  if (!alreadyRan) {
+    const strengthKeys = await storageList(STORAGE_KEYS.LOG_STRENGTH);
+    // Per (week, region, day) ledger to avoid double-counting same-day sessions.
+    const sessionLedger = new Set<string>();
+    // Local accumulators keep us from re-reading per increment.
+    const usageDeltas = new Map<string, number>();
+    const regionDeltas = new Map<string, number>(); // key: weekKey|region
+
+    for (const key of strengthKeys) {
+      const entries = await storageGet<StrengthEntry[]>(key);
+      if (!Array.isArray(entries)) continue;
+      for (const entry of entries) {
+        for (const ex of entry.exercises) {
+          entriesScanned += 1;
+          const matched = matchExerciseName(ex.name);
+          if (!matched) {
+            unmatched += 1;
+            continue;
+          }
+          matchesFound += 1;
+          usageDeltas.set(matched.id, (usageDeltas.get(matched.id) ?? 0) + 1);
+          const t = Date.parse(entry.timestamp);
+          if (!Number.isFinite(t)) continue;
+          const d = new Date(t);
+          const week = isoWeekKey(d);
+          const day = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+          const region = matched.primary;
+          const ledgerKey = `${week}|${region}|${day}`;
+          if (!sessionLedger.has(ledgerKey)) {
+            sessionLedger.add(ledgerKey);
+            const rk = `${week}|${region}`;
+            regionDeltas.set(rk, (regionDeltas.get(rk) ?? 0) + 1);
+          }
+        }
+      }
+    }
+
+    // Apply usage deltas.
+    for (const [exId, delta] of usageDeltas) {
+      const k = usageCountKey(exId);
+      const prev = await getUsageCount(exId);
+      await storageSet(k, prev + delta);
+      touched.add(k);
+    }
+
+    // Apply region deltas.
+    for (const [weekRegion, delta] of regionDeltas) {
+      const [week, region] = weekRegion.split('|');
+      const k = regionSessionsKey(week, region as BodyRegion);
+      const prev = await getRegionSessions(week, region as BodyRegion);
+      await storageSet(k, prev + delta);
+      touched.add(k);
+    }
+  } else {
+    // Already-ran path: keep stats from the prior run for visibility.
+    entriesScanned = existingBackup!.backfill_stats.entries_scanned;
+    matchesFound = existingBackup!.backfill_stats.matches_found;
+    unmatched = existingBackup!.backfill_stats.unmatched;
+  }
+
+  // 4. Write rollback backup if it doesn't already exist.
+  if (!alreadyRan) {
+    const now = Date.now();
+    const backup: V1V2Backup = {
+      pre_version: 1,
+      performed_at: now,
+      expires_at: now + ROLLBACK_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+      touched_keys: Array.from(touched),
+      backfill_stats: {
+        entries_scanned: entriesScanned,
+        matches_found: matchesFound,
+        unmatched,
+      },
+    };
+    await storageSet(STORAGE_KEYS.MIGRATION_V1_V2_BACKUP, backup);
+  }
+}
 
 // ============================================================
 // runMigrations

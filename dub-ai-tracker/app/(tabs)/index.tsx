@@ -39,6 +39,7 @@ import { DoctorFollowUpCard } from '../../src/components/dashboard/DoctorFollowU
 import { ComplianceCard } from '../../src/components/dashboard/ComplianceCard';
 import { DailySnapshotCard } from '../../src/components/dashboard/DailySnapshotCard';
 import { QuickActionTiles } from '../../src/components/dashboard/QuickActionTiles';
+import { StrengthFrequencyTile } from '../../src/components/dashboard/StrengthFrequencyTile';
 import { TodaysPrioritiesCard } from '../../src/components/dashboard/TodaysPrioritiesCard';
 import { RecentCoachCard } from '../../src/components/dashboard/RecentCoachCard';
 import { UpcomingRemindersCard } from '../../src/components/dashboard/UpcomingRemindersCard';
@@ -334,6 +335,9 @@ export default function DashboardScreen() {
 
       {/* TF-05: Quick-action tiles (3x2 grid, configurable) */}
       <QuickActionTiles enabledTags={enabledTags} />
+
+      {/* S36: Optional strength frequency tile — opt-in via Customize Tiles. */}
+      <StrengthFrequencyTile />
 
       {/* Sprint 25: Daily Snapshot Card — top of dashboard (replaces inline score ring for returning users) */}
       {dashboardReady && !isDashboardEmpty && (

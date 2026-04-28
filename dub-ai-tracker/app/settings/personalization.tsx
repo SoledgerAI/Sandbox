@@ -23,6 +23,10 @@ import { hapticSelection } from '../../src/utils/haptics';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
 import type { AppSettings, UserProfile, BiologicalSex } from '../../src/types/profile';
 import {
+  type Equipment,
+  FULL_GYM_EXPANSION,
+} from '../../src/config/exerciseCatalog';
+import {
   getUserSex,
   setUserSex as saveUserSex,
   getUserAgeRange,
@@ -71,14 +75,19 @@ export default function PersonalizationScreen() {
   const [eatingWindowEnd, setEatingWindowEnd] = useState(20);
   const [showFastingProtocol, setShowFastingProtocol] = useState(false);
 
+  // S36: Strength equipment election. Stored as Equipment[]; "Full gym" is
+  // a display checkbox that maps to the FULL_GYM_EXPANSION items.
+  const [equipment, setEquipment] = useState<Equipment[]>(['bodyweight']);
+
   useEffect(() => {
     (async () => {
-      const [profile, sex, age, zip, appSettings] = await Promise.all([
+      const [profile, sex, age, zip, appSettings, equip] = await Promise.all([
         storageGet<UserProfile>(STORAGE_KEYS.PROFILE),
         getUserSex(),
         getUserAgeRange(),
         getUserZip(),
         storageGet<AppSettings>(STORAGE_KEYS.SETTINGS),
+        storageGet<Equipment[]>(STORAGE_KEYS.SETTINGS_EQUIPMENT),
       ]);
       setUserSexState(sex);
       setUserAgeRangeState(age);
@@ -89,9 +98,28 @@ export default function PersonalizationScreen() {
       if (appSettings?.fasting_protocol) setFastingProtocol(appSettings.fasting_protocol);
       if (appSettings?.eating_window_start != null) setEatingWindowStart(appSettings.eating_window_start);
       if (appSettings?.eating_window_end != null) setEatingWindowEnd(appSettings.eating_window_end);
+      if (Array.isArray(equip) && equip.length > 0) setEquipment(equip);
       setLoading(false);
     })();
   }, []);
+
+  const fullGymChecked = FULL_GYM_EXPANSION.every((eq) => equipment.includes(eq));
+
+  async function toggleEquipment(item: Equipment | 'full_gym') {
+    hapticSelection();
+    let next: Equipment[];
+    if (item === 'full_gym') {
+      next = fullGymChecked
+        ? equipment.filter((eq) => !FULL_GYM_EXPANSION.includes(eq))
+        : Array.from(new Set([...equipment, ...FULL_GYM_EXPANSION]));
+    } else {
+      next = equipment.includes(item)
+        ? equipment.filter((eq) => eq !== item)
+        : [...equipment, item];
+    }
+    setEquipment(next);
+    await storageSet(STORAGE_KEYS.SETTINGS_EQUIPMENT, next);
+  }
 
   async function handleSexChange(sex: BiologicalSex) {
     await saveUserSex(sex);
@@ -270,10 +298,38 @@ export default function PersonalizationScreen() {
               onValueChange={handlePopulationComparisonToggle}
               disabled={!hasProfileForComparison}
             />
+
+            <Text style={styles.sectionHeader}>Strength Training Equipment</Text>
+            <Text style={styles.sectionSubheader}>
+              Filters the exercise picker to what you can actually do.
+            </Text>
+            <CheckboxRow icon="body-outline"      label="Bodyweight only"  checked={equipment.includes('bodyweight')} onPress={() => toggleEquipment('bodyweight')} />
+            <CheckboxRow icon="barbell-outline"   label="Dumbbells"        checked={equipment.includes('dumbbells')}  onPress={() => toggleEquipment('dumbbells')} />
+            <CheckboxRow icon="barbell-outline"   label="Barbell + plates" checked={equipment.includes('barbell')}    onPress={() => toggleEquipment('barbell')} />
+            <CheckboxRow icon="ellipse-outline"   label="Kettlebells"      checked={equipment.includes('kettlebell')} onPress={() => toggleEquipment('kettlebell')} />
+            <CheckboxRow icon="reorder-four-outline" label="Resistance bands" checked={equipment.includes('bands')}    onPress={() => toggleEquipment('bands')} />
+            <CheckboxRow icon="business-outline"  label="Full gym"         subtitle="Cables, machines, smith, TRX, bench" checked={fullGymChecked} onPress={() => toggleEquipment('full_gym')} />
           </View>
         )}
       </ScrollView>
     </ScreenWrapper>
+  );
+}
+
+function CheckboxRow({ icon, label, subtitle, checked, onPress }: { icon: string; label: string; subtitle?: string; checked: boolean; onPress: () => void }) {
+  return (
+    <TouchableOpacity style={styles.settingRow} onPress={onPress} activeOpacity={0.7}>
+      <Ionicons name={icon as any} size={22} color={Colors.accent} />
+      <View style={styles.settingInfo}>
+        <Text style={styles.settingLabel}>{label}</Text>
+        {subtitle != null && <Text style={styles.settingSubtitle}>{subtitle}</Text>}
+      </View>
+      <Ionicons
+        name={checked ? 'checkbox' : 'square-outline'}
+        size={24}
+        color={checked ? Colors.accent : Colors.secondaryText}
+      />
+    </TouchableOpacity>
   );
 }
 
@@ -371,4 +427,18 @@ const styles = StyleSheet.create({
   zipInput: { flex: 1, backgroundColor: Colors.cardBackground, color: Colors.text, fontSize: 18, fontWeight: '600', textAlign: 'center', borderRadius: 8, paddingVertical: 10, paddingHorizontal: 12, letterSpacing: 4 },
   zipSaveBtn: { backgroundColor: Colors.accent, borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20 },
   zipSaveBtnText: { color: Colors.primaryBackground, fontSize: 15, fontWeight: '600' },
+  sectionHeader: {
+    color: Colors.accent,
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: 18,
+    marginBottom: 4,
+  },
+  sectionSubheader: {
+    color: Colors.secondaryText,
+    fontSize: 12,
+    marginBottom: 8,
+  },
 });

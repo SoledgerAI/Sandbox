@@ -28,6 +28,7 @@ import { BarChart } from '../../src/components/charts/BarChart';
 import { StackedBar } from '../../src/components/charts/StackedBar';
 import { DualAxis } from '../../src/components/charts/DualAxis';
 import { NutrientTrendChart } from '../../src/components/trends/NutrientTrendChart';
+import { StrengthCoverageChart } from '../../src/components/charts/StrengthCoverageChart';
 import type { TimeRange, ChartDataPoint, ChartSeries } from '../../src/components/charts/types';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -527,6 +528,15 @@ export default function TrendsScreen() {
         windowSize={5}
         ListFooterComponent={
           <>
+            {(categoryFilter === 'All' || categoryFilter === 'Fitness') &&
+              (enabledTags ?? []).includes('strength.training') && (
+                <View>
+                  <View style={styles.sectionHeader}>
+                    <Text style={styles.sectionTitle}>Strength Coverage</Text>
+                  </View>
+                  <StrengthCoverageChart />
+                </View>
+              )}
             {(categoryFilter === 'All' || categoryFilter === 'Nutrition') && (
               <View>
                 <View style={styles.sectionHeader}>

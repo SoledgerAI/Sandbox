@@ -34,16 +34,17 @@ import type {
 } from '../../types/strength';
 import { todayDateString } from '../../utils/dayBoundary';
 import { getActiveDate } from '../../services/dateContextService';
-
-// -- Common exercises for quick selection --
-
-const COMMON_EXERCISES = [
-  'Bench Press', 'Squat', 'Deadlift', 'Overhead Press',
-  'Barbell Row', 'Pull-ups', 'Lat Pulldown', 'Leg Press',
-  'Romanian Deadlift', 'Incline Bench', 'Dumbbell Curl',
-  'Tricep Pushdown', 'Lateral Raise', 'Cable Fly',
-  'Leg Curl', 'Leg Extension', 'Calf Raise', 'Face Pull',
-];
+import {
+  EXERCISE_CATALOG,
+  type Equipment,
+} from '../../config/exerciseCatalog';
+import {
+  toggleElectedExercise,
+  incrementUsageCount,
+  recordRegionSession,
+} from '../../services/strengthService';
+import { storageList } from '../../utils/storage';
+import { ExercisePickerTree } from './ExercisePickerTree';
 
 const MODE_PREF_KEY = STORAGE_KEYS.STRENGTH_MODE_PREF;
 const TAG_ID = 'strength.training';
@@ -95,13 +96,15 @@ function quickToDetailedSets(
 
 interface QuickExerciseForm {
   name: string;
-  sets: string;       // count as string for input
-  weight: string;     // lbs as string
-  repRange: string;   // e.g. "8-12"
+  exerciseId: string | null; // S36: catalog id when picked from tree
+  sets: string;              // count as string for input
+  weight: string;            // lbs as string
+  repRange: string;          // e.g. "8-12"
 }
 
 const emptyQuickForm: QuickExerciseForm = {
   name: '',
+  exerciseId: null,
   sets: '4',
   weight: '',
   repRange: '8-12',
@@ -117,12 +120,14 @@ interface DetailedSetForm {
 
 interface DetailedExerciseForm {
   name: string;
+  exerciseId: string | null; // S36: catalog id when picked from tree
   sets: DetailedSetForm[];
 }
 
 function emptyDetailedForm(numSets: number = 4): DetailedExerciseForm {
   return {
     name: '',
+    exerciseId: null,
     sets: Array.from({ length: numSets }, () => ({
       weight: '',
       reps: '',
@@ -139,6 +144,12 @@ export function StrengthLogger() {
   const [exercises, setExercises] = useState<StrengthExercise[]>([]);
   const [showExercisePicker, setShowExercisePicker] = useState(false);
 
+  // S36 — body-region tree picker state (owned here so it persists
+  // across picker open/close)
+  const [equipment, setEquipment] = useState<Equipment[]>(['bodyweight']);
+  const [electedExercises, setElectedExercisesState] = useState<string[]>([]);
+  const [usageCounts, setUsageCounts] = useState<Record<string, number>>({});
+
   // Quick-log form
   const [quickForm, setQuickForm] = useState<QuickExerciseForm>(emptyQuickForm);
 
@@ -148,15 +159,27 @@ export function StrengthLogger() {
   // Last entry for repeat and same-as-last-time
   const { lastEntry, saveAsLast } = useLastEntry<StrengthEntry>(TAG_ID);
 
-  // Load mode preference and today's data
+  // Load mode preference, today's data, equipment, election, usage counts
   useEffect(() => {
     (async () => {
-      const [pref, today] = await Promise.all([
+      const [pref, today, equip, elected, usageKeys] = await Promise.all([
         storageGet<StrengthLogMode>(MODE_PREF_KEY),
         storageGet<StrengthEntry[]>(dateKey(STORAGE_KEYS.LOG_STRENGTH, getActiveDate())),
+        storageGet<Equipment[]>(STORAGE_KEYS.SETTINGS_EQUIPMENT),
+        storageGet<string[]>(STORAGE_KEYS.SETTINGS_ELECTED_EXERCISES),
+        storageList(STORAGE_KEYS.EXERCISE_USAGE_COUNT_PREFIX),
       ]);
       if (pref) setMode(pref);
       setEntries(today ?? []);
+      if (Array.isArray(equip) && equip.length > 0) setEquipment(equip);
+      if (Array.isArray(elected)) setElectedExercisesState(elected);
+      const counts: Record<string, number> = {};
+      for (const k of usageKeys) {
+        const id = k.slice(STORAGE_KEYS.EXERCISE_USAGE_COUNT_PREFIX.length + 1);
+        const v = await storageGet<number>(k);
+        if (typeof v === 'number' && v > 0) counts[id] = v;
+      }
+      setUsageCounts(counts);
     })();
   }, []);
 
@@ -186,6 +209,7 @@ export function StrengthLogger() {
         const maxReps = Math.max(...match.sets.map((s) => s.reps));
         setQuickForm({
           name: match.name,
+          exerciseId: match.exercise_id ?? null,
           sets: String(match.sets.length),
           weight: String(allSameWeight ? firstSet.weight_lbs : firstSet.weight_lbs),
           repRange: minReps === maxReps ? String(minReps) : `${minReps}-${maxReps}`,
@@ -193,6 +217,7 @@ export function StrengthLogger() {
       } else {
         setDetailedForm({
           name: match.name,
+          exerciseId: match.exercise_id ?? null,
           sets: match.sets.map((s) => ({
             weight: String(s.weight_lbs),
             reps: String(s.reps),
@@ -219,6 +244,7 @@ export function StrengthLogger() {
       id: generateId(),
       name,
       sets: quickToDetailedSets(setCount, weight, quickForm.repRange),
+      ...(quickForm.exerciseId ? { exercise_id: quickForm.exerciseId } : {}),
     };
 
     setExercises((prev) => [...prev, exercise]);
@@ -250,6 +276,7 @@ export function StrengthLogger() {
       id: generateId(),
       name,
       sets,
+      ...(detailedForm.exerciseId ? { exercise_id: detailedForm.exerciseId } : {}),
     };
 
     setExercises((prev) => [...prev, exercise]);
@@ -287,8 +314,21 @@ export function StrengthLogger() {
     // Save as last entry for repeat-last
     await saveAsLast(entry);
 
+    // S36: increment usage_count + record region session for catalog-tagged
+    // exercises. Free-text entries don't increment (no catalog id to attach to).
+    const updatedCounts = { ...usageCounts };
+    const sessionDate = entryTimestamp;
+    for (const ex of entry.exercises) {
+      if (!ex.exercise_id) continue;
+      const next = await incrementUsageCount(ex.exercise_id);
+      updatedCounts[ex.exercise_id] = next;
+      const cat = EXERCISE_CATALOG.find((e) => e.id === ex.exercise_id);
+      if (cat) await recordRegionSession(cat.primary, sessionDate);
+    }
+    setUsageCounts(updatedCounts);
+
     showToast(`${exercises.length} exercise${exercises.length !== 1 ? 's' : ''} logged`, 'success');
-  }, [exercises, entries, mode, saveAsLast]);
+  }, [exercises, entries, mode, saveAsLast, usageCounts, entryTimestamp]);
 
   // -- Repeat last full session --
 
@@ -315,11 +355,11 @@ export function StrengthLogger() {
   // -- Select exercise name --
 
   const selectExerciseName = useCallback(
-    (name: string) => {
+    (name: string, exerciseId: string | null = null) => {
       if (mode === 'quick') {
-        setQuickForm((prev) => ({ ...prev, name }));
+        setQuickForm((prev) => ({ ...prev, name, exerciseId }));
       } else {
-        setDetailedForm((prev) => ({ ...prev, name }));
+        setDetailedForm((prev) => ({ ...prev, name, exerciseId }));
       }
       setShowExercisePicker(false);
 
@@ -342,6 +382,17 @@ export function StrengthLogger() {
     },
     [mode, lastEntry, prefillFromLast],
   );
+
+  // S36: toggle a catalog exercise into/out of the elected (starred) list.
+  const handleToggleElected = useCallback(async (exerciseId: string) => {
+    // Optimistic UI: flip locally first, persist async.
+    setElectedExercisesState((prev) =>
+      prev.includes(exerciseId)
+        ? prev.filter((id) => id !== exerciseId)
+        : Array.from(new Set([...prev, exerciseId])),
+    );
+    await toggleElectedExercise(exerciseId);
+  }, []);
 
   // Add/remove set in detailed mode
   const addDetailedSet = useCallback(() => {
@@ -393,55 +444,22 @@ export function StrengthLogger() {
 
   const currentName = mode === 'quick' ? quickForm.name : detailedForm.name;
 
-  // Exercise picker view
+  // Exercise picker view — body-region tree (S36)
   if (showExercisePicker) {
-    // Group exercises: from last session first, then common
-    const lastSessionNames = lastEntry?.exercises.map((e) => e.name) ?? [];
-    const commonFiltered = COMMON_EXERCISES.filter(
-      (n) => !lastSessionNames.includes(n),
-    );
-
+    const lastSessionExercises =
+      lastEntry?.exercises.map((e) => ({ name: e.name, exercise_id: e.exercise_id })) ?? [];
     return (
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <View style={styles.pickerHeader}>
-          <Text style={styles.pickerTitle}>Select Exercise</Text>
-          <TouchableOpacity onPress={() => setShowExercisePicker(false)}>
-            <Ionicons name="close" size={24} color={Colors.text} />
-          </TouchableOpacity>
-        </View>
-
-        {lastSessionNames.length > 0 && (
-          <>
-            <Text style={styles.sectionLabel}>From Last Session</Text>
-            {lastSessionNames.map((name) => (
-              <TouchableOpacity
-                key={`last_${name}`}
-                style={styles.exerciseRow}
-                onPress={() => selectExerciseName(name)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="time-outline" size={18} color={Colors.accent} />
-                <Text style={styles.exerciseName}>{name}</Text>
-                <Ionicons name="chevron-forward" size={16} color={Colors.secondaryText} />
-              </TouchableOpacity>
-            ))}
-          </>
-        )}
-
-        <Text style={styles.sectionLabel}>Common Exercises</Text>
-        {commonFiltered.map((name) => (
-          <TouchableOpacity
-            key={name}
-            style={styles.exerciseRow}
-            onPress={() => selectExerciseName(name)}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="barbell-outline" size={18} color={Colors.secondaryText} />
-            <Text style={styles.exerciseName}>{name}</Text>
-            <Ionicons name="chevron-forward" size={16} color={Colors.secondaryText} />
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      <View style={styles.container}>
+        <ExercisePickerTree
+          equipment={equipment}
+          electedExercises={electedExercises}
+          usageCounts={usageCounts}
+          lastSessionExercises={lastSessionExercises}
+          onSelect={selectExerciseName}
+          onToggleElection={handleToggleElected}
+          onClose={() => setShowExercisePicker(false)}
+        />
+      </View>
     );
   }
 
@@ -1023,5 +1041,55 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: 14,
     fontWeight: '500',
+  },
+  exerciseRowBody: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  exerciseUsageBadge: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    fontVariant: ['tabular-nums'],
+  },
+  regionChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: Colors.cardBackground,
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 8,
+    gap: 12,
+  },
+  regionChipLabel: {
+    flex: 1,
+    color: Colors.text,
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  expandAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    marginTop: 4,
+  },
+  expandAllText: {
+    color: Colors.accentText,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  emptyState: {
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    color: Colors.secondaryText,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

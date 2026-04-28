@@ -165,6 +165,15 @@ export const STORAGE_KEYS = {
   // Strength Logger
   STRENGTH_MODE_PREF: 'dub.strength.mode_pref',
 
+  // Sprint 36: Strength v2 — body-region tree, equipment election, frequency
+  SETTINGS_EQUIPMENT: 'dub.settings.equipment',
+  SETTINGS_ELECTED_EXERCISES: 'dub.settings.elected_exercises',
+  EXERCISE_USAGE_COUNT_PREFIX: 'dub.exercise.usage_count',         // dub.exercise.usage_count.<id>
+  STRENGTH_REGION_SESSIONS_PREFIX: 'dub.strength.region_sessions', // dub.strength.region_sessions.<YYYY-WW>.<region>
+  STRENGTH_TARGET_PER_WEEK: 'dub.strength.target_per_week',        // number, default 2
+  STRENGTH_TILE_ENABLED: 'dub.settings.strength_tile_enabled',     // optional dashboard tile
+  MIGRATION_V1_V2_BACKUP: 'dub._migration.v1_v2_backup',           // 30-day rollback
+
   // Offline Queue
   OFFLINE_QUEUE: 'dub.offline.queue',
 

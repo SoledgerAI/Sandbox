@@ -149,6 +149,16 @@ export interface CoachContext {
   sleep_debt_7d?: boolean;
   /** Sprint 30: derived target hours used to compute the debt flags. */
   sleep_target_hours?: number;
+  /** Sprint 36: BodyRegion[] of regions trained at least once in the last 7 days. */
+  last_7_days_regions_hit?: string[];
+  /** Sprint 36: BodyRegion[] of regions trained at least once in the last 28 days. */
+  last_28_days_regions_hit?: string[];
+  /** Sprint 36: regions whose 4-week rolling avg is below 50% of the configured target. */
+  region_undertrained_flags?: Array<{
+    region: string;
+    sessions_per_week_avg: number;
+    target: number;
+  }>;
 }
 
 export interface TodayDataSummary {

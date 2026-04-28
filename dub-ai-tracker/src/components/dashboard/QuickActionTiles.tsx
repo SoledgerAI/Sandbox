@@ -121,13 +121,21 @@ function TilesPickerModal({
   // user taps a 7th tile we surface a short message under that row and
   // clear it on the next interaction.
   const [capHintForId, setCapHintForId] = useState<string | null>(null);
+  // S36: optional strength frequency tile. Stored separately because it
+  // doesn't compete with the 6-action cap and renders below the grid.
+  const [strengthTileEnabled, setStrengthTileEnabled] = useState<boolean>(false);
 
   useEffect(() => {
     if (visible) {
       setDraft(initialSelection);
       setCapHintForId(null);
+      storageGet<boolean>(STORAGE_KEYS.STRENGTH_TILE_ENABLED).then((v) => {
+        setStrengthTileEnabled(v === true);
+      });
     }
   }, [visible, initialSelection]);
+
+  const showStrengthTileOption = enabledTags.includes('strength.training');
 
   const availableTiles = ALL_DASHBOARD_TILES.filter(
     (t) => t.tagGate === null || enabledTags.includes(t.tagGate),
@@ -209,6 +217,31 @@ function TilesPickerModal({
             })}
           </ScrollView>
 
+          {showStrengthTileOption && (
+            <TouchableOpacity
+              style={[styles.option, strengthTileEnabled && styles.optionSelected]}
+              onPress={() => { hapticLight(); setStrengthTileEnabled((v) => !v); }}
+              activeOpacity={0.7}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: strengthTileEnabled }}
+              accessibilityLabel="Strength frequency tile"
+              testID="strength-tile-toggle"
+            >
+              <Ionicons name="bar-chart-outline" size={20} color={strengthTileEnabled ? Colors.accent : Colors.secondaryText} />
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.optionLabel, strengthTileEnabled && styles.optionLabelSelected]}>
+                  Strength frequency
+                </Text>
+                <Text style={styles.capHint}>Shows region sessions vs target</Text>
+              </View>
+              <Ionicons
+                name={strengthTileEnabled ? 'checkmark-circle' : 'ellipse-outline'}
+                size={22}
+                color={strengthTileEnabled ? Colors.accent : Colors.secondaryText}
+              />
+            </TouchableOpacity>
+          )}
+
           <View style={styles.sheetActions}>
             <TouchableOpacity
               style={styles.cancelBtn}
@@ -219,7 +252,10 @@ function TilesPickerModal({
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
-              onPress={() => canSave && onSave(draft)}
+              onPress={() => {
+                if (!canSave) return;
+                storageSet(STORAGE_KEYS.STRENGTH_TILE_ENABLED, strengthTileEnabled).then(() => onSave(draft));
+              }}
               disabled={!canSave}
               accessibilityRole="button"
             >

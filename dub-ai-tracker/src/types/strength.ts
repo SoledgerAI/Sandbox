@@ -12,6 +12,12 @@ export interface StrengthExercise {
   id: string;
   name: string;
   sets: StrengthSet[];
+  /**
+   * S36: catalog id (e.g. 'barbell-bench-press') when the user picked
+   * this exercise from the body-region tree. Optional for back-compat
+   * with pre-S36 entries that only carry free-text `name`.
+   */
+  exercise_id?: string;
 }
 
 export type StrengthLogMode = 'quick' | 'detailed';
