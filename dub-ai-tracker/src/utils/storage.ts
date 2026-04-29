@@ -187,6 +187,7 @@ export const STORAGE_KEYS = {
 
   // Sprint S34-A: Strava PKCE migration + expires_at on DeviceSyncState
   MIGRATION_V4_V5_BACKUP:'dub._migration.v4_v5_backup',      // 30-day rollback
+  MIGRATION_STRAVA_TOKENS_DONE: 'dub._migration.strava_tokens.done', // one-shot marker
 
   // Offline Queue
   OFFLINE_QUEUE: 'dub.offline.queue',
