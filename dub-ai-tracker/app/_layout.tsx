@@ -20,10 +20,16 @@ import { ErrorBoundary } from '../src/components/common/ErrorBoundary';
 import { OfflineBanner } from '../src/components/common/OfflineBanner';
 import { AuthGate } from '../src/components/AuthGate';
 import { LoadingIndicator } from '../src/components/common/LoadingIndicator';
-import { ToastProvider } from '../src/contexts/ToastContext';
+import { ToastProvider, useToast } from '../src/contexts/ToastContext';
 import { ThemeProvider } from '../src/contexts/ThemeContext';
 import { isOnboardingComplete } from '../src/services/onboardingService';
-import { handleStravaCallback } from '../src/services/strava';
+import {
+  handleStravaCallback,
+  StravaError,
+  stravaErrorToUserCopy,
+} from '../src/services/strava';
+import { logAuditEvent } from '../src/utils/audit';
+import { migrateStravaTokensToSecureStore } from '../src/utils/stravaTokenMigration';
 import { onAppLaunchSync } from '../src/services/notificationService';
 import type { AppSettings } from '../src/types/profile';
 
@@ -123,34 +129,9 @@ export default function RootLayout() {
     return () => subscription.remove();
   }, []);
 
-  // Sprint 11: Strava OAuth deep link handler
-  useEffect(() => {
-    function handleDeepLink(event: { url: string }) {
-      const url = event.url;
-      if (!url) return;
-
-      // Handle Strava callback: dubaitracker://strava-callback?code=...&state=...
-      if (url.includes('strava-callback') || url.includes('strava/callback')) {
-        const params = new URL(url).searchParams;
-        const code = params.get('code');
-        const returnedState = params.get('state');
-        if (code) {
-          handleStravaCallback(code, returnedState).catch(() => {
-            // Error handled inside service; typed UX added in step 6.
-          });
-        }
-      }
-    }
-
-    const linkingSub = Linking.addEventListener('url', handleDeepLink);
-
-    // Check if app was opened via deep link
-    Linking.getInitialURL().then((url) => {
-      if (url) handleDeepLink({ url });
-    });
-
-    return () => linkingSub.remove();
-  }, []);
+  // Sprint 11/S34-A: Strava OAuth deep link handler is rendered inside
+  // ToastProvider (see <StravaDeepLinkHandler /> below) so it can call
+  // useToast() to surface typed errors.
 
   // D8-002: Triple-tap handler
   const handleTouchEnd = useCallback(() => {
@@ -190,6 +171,16 @@ export default function RootLayout() {
           console.log(
             `[MIGRATION] Ran ${migrationResult.migrationsRun} migration(s): v${migrationResult.fromVersion} → v${migrationResult.toVersion}`,
           );
+        }
+
+        // S34-A: One-shot move of Strava tokens from AsyncStorage
+        // (legacy DEVICES_STRAVA) to SecureStore. Idempotent; the
+        // helper sets its own marker. Failure is logged and retried
+        // on next boot — never fatal.
+        try {
+          await migrateStravaTokensToSecureStore();
+        } catch (e) {
+          console.warn('[STRAVA] Token migration deferred:', e);
         }
 
         if (__DEV__) console.log('[ONBOARD-08] _layout init: checking onboarding status...');
@@ -269,6 +260,7 @@ export default function RootLayout() {
     <ErrorBoundary>
       <ThemeProvider>
       <ToastProvider>
+      <StravaDeepLinkHandler />
       <AuthGate>
         <StatusBar style="light" />
         <View style={{ flex: 1, backgroundColor: Colors.primaryBackground }}>
@@ -364,4 +356,48 @@ export default function RootLayout() {
     </ErrorBoundary>
     </GestureHandlerRootView>
   );
+}
+
+// S34-A step 6: Deep-link handler lives inside ToastProvider so
+// PKCE state-mismatch and token-exchange errors can be surfaced to
+// the user via toast. Mounting an empty component is intentional —
+// we want the side effect, not visible markup.
+function StravaDeepLinkHandler() {
+  const { showToast } = useToast();
+
+  useEffect(() => {
+    function handleDeepLink(event: { url: string }) {
+      const url = event.url;
+      if (!url) return;
+
+      if (!url.includes('strava-callback') && !url.includes('strava/callback')) {
+        return;
+      }
+
+      const params = new URL(url).searchParams;
+      const code = params.get('code');
+      const returnedState = params.get('state');
+      if (!code) return;
+
+      handleStravaCallback(code, returnedState).catch((err: unknown) => {
+        if (err instanceof StravaError) {
+          showToast(stravaErrorToUserCopy(err), 'error');
+          logAuditEvent('STRAVA_DEEP_LINK_ERROR', { code: err.code }).catch(() => {});
+        } else {
+          showToast('Connection failed. Please try again.', 'error');
+          logAuditEvent('STRAVA_DEEP_LINK_ERROR', { code: 'UNKNOWN' }).catch(() => {});
+        }
+      });
+    }
+
+    const linkingSub = Linking.addEventListener('url', handleDeepLink);
+
+    Linking.getInitialURL().then((url) => {
+      if (url) handleDeepLink({ url });
+    });
+
+    return () => linkingSub.remove();
+  }, [showToast]);
+
+  return null;
 }
