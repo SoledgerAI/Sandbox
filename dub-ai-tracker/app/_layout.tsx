@@ -129,13 +129,14 @@ export default function RootLayout() {
       const url = event.url;
       if (!url) return;
 
-      // Handle Strava callback: dubaitracker://strava-callback?code=...
+      // Handle Strava callback: dubaitracker://strava-callback?code=...&state=...
       if (url.includes('strava-callback') || url.includes('strava/callback')) {
         const params = new URL(url).searchParams;
         const code = params.get('code');
+        const returnedState = params.get('state');
         if (code) {
-          handleStravaCallback(code).catch(() => {
-            // Error handled inside service
+          handleStravaCallback(code, returnedState).catch(() => {
+            // Error handled inside service; typed UX added in step 6.
           });
         }
       }

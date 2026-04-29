@@ -21,7 +21,16 @@ export type AuditEventType =
   | 'DATA_DELETION_INITIATED'
   | 'DATA_DELETION_COMPLETED'
   | 'HEALTH_REPORT_GENERATED'
-  | 'DATA_CLEAR_CATEGORY';
+  | 'DATA_CLEAR_CATEGORY'
+  // S34-A: Strava PKCE flow telemetry. STRAVA_REVOKED fires on a 401
+  // during refresh (silent disconnect), distinct from DEVICE_REVOKED
+  // which fires when the user explicitly disconnects.
+  | 'STRAVA_AUTH_INITIATED'
+  | 'STRAVA_PKCE_STATE_MISMATCH'
+  | 'STRAVA_TOKEN_EXCHANGE_FAILED'
+  | 'STRAVA_REFRESH_FAILED'
+  | 'STRAVA_REVOKED'
+  | 'STRAVA_DEEP_LINK_ERROR';
 
 export interface AuditEntry {
   timestamp: string; // ISO datetime
