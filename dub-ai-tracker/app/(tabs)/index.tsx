@@ -45,7 +45,8 @@ import { RecentCoachCard } from '../../src/components/dashboard/RecentCoachCard'
 import { UpcomingRemindersCard } from '../../src/components/dashboard/UpcomingRemindersCard';
 import { ActiveStreaksCard } from '../../src/components/dashboard/ActiveStreaksCard';
 import { NutrientAlertCard } from '../../src/components/dashboard/NutrientAlertCard';
-import { calculateAllStreaks, type CategoryStreak } from '../../src/utils/streakCalculator';
+import { calculateAllStreaks, calculateAllHabitStreaks, type CategoryStreak } from '../../src/utils/streakCalculator';
+import { loadHabitDefinitions } from '../../src/components/logging/HabitsChecklist';
 import { refreshCompliance } from '../../src/services/complianceEngine';
 import { todayDateString } from '../../src/utils/dayBoundary';
 import { hydrationToOz } from '../../src/types';
@@ -138,14 +139,17 @@ export default function DashboardScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   // Sprint 25: Load dashboard extras in parallel
+  // S33-B: habit streaks merged into activeStreaks (category streaks first,
+  // then top-5 habit streaks sorted desc by current count).
   const loadDashboardExtras = useCallback(async () => {
     const today = todayDateString();
-    const [complianceResult, coachHistory, streakSummary, hydrationGoal, electedCats] = await Promise.all([
+    const [complianceResult, coachHistory, streakSummary, hydrationGoal, electedCats, habitDefs] = await Promise.all([
       refreshCompliance(today),
       storageGet<ChatMessage[]>(STORAGE_KEYS.COACH_HISTORY),
       calculateAllStreaks(),
       storageGet<HydrationGoalSettings>(STORAGE_KEYS.SETTINGS_HYDRATION_GOAL),
       getEnabledCategories(),
+      loadHabitDefinitions(),
     ]);
     setEnabledCategories(electedCats);
 
@@ -159,7 +163,8 @@ export default function DashboardScreen() {
       setLastCoachMessage(lastAssistant ?? null);
     }
 
-    setActiveStreaks(streakSummary.streaks);
+    const habitStreaks = await calculateAllHabitStreaks(habitDefs);
+    setActiveStreaks([...streakSummary.streaks, ...habitStreaks]);
 
     // Calculate water goal in oz
     if (hydrationGoal) {

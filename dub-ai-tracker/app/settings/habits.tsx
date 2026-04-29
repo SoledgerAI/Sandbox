@@ -22,8 +22,11 @@ import { Colors } from '../../src/constants/colors';
 import { PremiumCard } from '../../src/components/common/PremiumCard';
 import { PremiumButton } from '../../src/components/common/PremiumButton';
 import { storageGet, storageSet, STORAGE_KEYS } from '../../src/utils/storage';
-import type { HabitDefinition } from '../../src/types';
+import type { HabitDefinition, CadenceRule } from '../../src/types';
+import { normalizeHabit } from '../../src/types';
 import { loadHabitDefinitions } from '../../src/components/logging/HabitsChecklist';
+import { CadencePickerModal } from '../../src/components/common/CadencePickerModal';
+import { describeRule } from '../../src/utils/cadence';
 import { hapticSuccess, hapticMedium, hapticWarning } from '../../src/utils/haptics';
 import { useToast } from '../../src/contexts/ToastContext';
 
@@ -36,21 +39,34 @@ export default function HabitsSettingsScreen() {
   const [newHabitName, setNewHabitName] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState('');
+  // S33-B: cadence picker modal state.
+  // pendingNew: name typed, awaiting cadence confirmation.
+  // editingCadenceId: existing habit whose cadence is being edited.
+  const [pendingNewName, setPendingNewName] = useState<string | null>(null);
+  const [editingCadenceId, setEditingCadenceId] = useState<string | null>(null);
   const { showToast } = useToast();
 
   const loadData = useCallback(async () => {
     const defs = await loadHabitDefinitions();
-    setHabits(defs.sort((a, b) => a.order - b.order));
+    setHabits(defs.filter((d) => !d.archived).sort((a, b) => a.order - b.order));
   }, []);
 
   useEffect(() => {
     loadData();
   }, [loadData]);
 
-  const saveHabits = useCallback(async (updated: HabitDefinition[]) => {
-    // Re-index order
-    const reordered = updated.map((h, i) => ({ ...h, order: i }));
-    await storageSet(STORAGE_KEYS.SETTINGS_HABITS, reordered);
+  /**
+   * S33-B: persistence works against the FULL stored list (visible + archived)
+   * to avoid data loss. `habits` state holds only the visible (non-archived)
+   * subset; we merge with the on-disk archived items before saving.
+   */
+  const saveHabits = useCallback(async (updatedVisible: HabitDefinition[]) => {
+    const stored = await storageGet<HabitDefinition[]>(STORAGE_KEYS.SETTINGS_HABITS);
+    const archived = (stored ?? []).filter((h) => h.archived);
+    // Re-index visible order; archived retain their stored order.
+    const reordered = updatedVisible.map((h, i) => ({ ...h, order: i }));
+    const full = [...reordered, ...archived];
+    await storageSet(STORAGE_KEYS.SETTINGS_HABITS, full);
     setHabits(reordered);
   }, []);
 
@@ -61,39 +77,73 @@ export default function HabitsSettingsScreen() {
       showToast('Habit already exists', 'error');
       return;
     }
-    const newHabit: HabitDefinition = {
-      id: generateId(),
-      name,
-      order: habits.length,
-    };
-    const updated = [...habits, newHabit];
-    saveHabits(updated);
-    setNewHabitName('');
-    hapticSuccess();
-    showToast(`Added "${name}"`, 'success');
-  }, [newHabitName, habits, saveHabits, showToast]);
+    // S33-B: open cadence picker before persisting.
+    setPendingNewName(name);
+  }, [newHabitName, habits, showToast]);
 
-  const removeHabit = useCallback((id: string) => {
+  const handleCadenceSaveForNew = useCallback(
+    (cadence: CadenceRule, target?: number) => {
+      const name = pendingNewName;
+      if (!name) return;
+      const newHabit: HabitDefinition = {
+        id: generateId(),
+        name,
+        order: habits.length,
+        cadence,
+        ...(target != null ? { target } : {}),
+        created_at: Date.now(),
+      };
+      const updated = [...habits, newHabit];
+      saveHabits(updated);
+      setPendingNewName(null);
+      setNewHabitName('');
+      hapticSuccess();
+      showToast(`Added "${name}"`, 'success');
+    },
+    [pendingNewName, habits, saveHabits, showToast],
+  );
+
+  const handleCadenceSaveForEdit = useCallback(
+    (cadence: CadenceRule, target?: number) => {
+      const id = editingCadenceId;
+      if (!id) return;
+      const updated = habits.map((h) =>
+        h.id === id ? { ...h, cadence, ...(target != null ? { target } : {}) } : h,
+      );
+      saveHabits(updated);
+      setEditingCadenceId(null);
+      hapticMedium();
+      showToast('Cadence updated', 'success');
+    },
+    [editingCadenceId, habits, saveHabits, showToast],
+  );
+
+  const archiveHabit = useCallback((id: string) => {
     const habit = habits.find((h) => h.id === id);
     if (!habit) return;
     hapticWarning();
     Alert.alert(
-      'Remove Habit',
-      `Remove "${habit.name}" from your daily habits?`,
+      'Archive Habit',
+      `Archive "${habit.name}"? It will be hidden from your daily checklist but past completion data is preserved.`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Remove',
+          text: 'Archive',
           style: 'destructive',
-          onPress: () => {
-            const updated = habits.filter((h) => h.id !== id);
-            saveHabits(updated);
-            showToast(`Removed "${habit.name}"`, 'info');
+          onPress: async () => {
+            // Read full list (visible + archived), flip the flag.
+            const stored = await storageGet<HabitDefinition[]>(STORAGE_KEYS.SETTINGS_HABITS);
+            const full = (stored ?? []).map((h) =>
+              h.id === id ? { ...h, archived: true } : h,
+            );
+            await storageSet(STORAGE_KEYS.SETTINGS_HABITS, full);
+            setHabits(habits.filter((h) => h.id !== id));
+            showToast(`Archived "${habit.name}"`, 'info');
           },
         },
       ],
     );
-  }, [habits, saveHabits, showToast]);
+  }, [habits, showToast]);
 
   const startEditing = useCallback((habit: HabitDefinition) => {
     setEditingId(habit.id);
@@ -124,56 +174,81 @@ export default function HabitsSettingsScreen() {
   );
 
   const renderItem = useCallback(
-    ({ item: habit, drag, isActive }: RenderItemParams<HabitDefinition>) => (
-      <ScaleDecorator>
-        <View style={[styles.habitRow, isActive && styles.habitRowActive]}>
-          {/* Drag handle */}
-          <TouchableOpacity
-            onLongPress={drag}
-            delayLongPress={150}
-            disabled={isActive}
-            hitSlop={8}
-            style={styles.gripBtn}
-            accessibilityLabel="Drag to reorder"
-          >
-            <Ionicons name="reorder-three" size={22} color={Colors.secondaryText} />
-          </TouchableOpacity>
-
-          {/* Name (editable) */}
-          {editingId === habit.id ? (
-            <TextInput
-              style={styles.editInput}
-              value={editingName}
-              onChangeText={setEditingName}
-              onBlur={finishEditing}
-              onSubmitEditing={finishEditing}
-              autoFocus
-              maxLength={50}
-            />
-          ) : (
+    ({ item: habit, drag, isActive }: RenderItemParams<HabitDefinition>) => {
+      const norm = normalizeHabit(habit);
+      return (
+        <ScaleDecorator>
+          <View style={[styles.habitRow, isActive && styles.habitRowActive]}>
+            {/* Drag handle */}
             <TouchableOpacity
-              style={styles.nameWrap}
-              onPress={() => startEditing(habit)}
-              activeOpacity={0.7}
+              onLongPress={drag}
+              delayLongPress={150}
+              disabled={isActive}
+              hitSlop={8}
+              style={styles.gripBtn}
+              accessibilityLabel="Drag to reorder"
             >
-              <Text style={styles.habitName}>{habit.name}</Text>
-              <Ionicons name="create-outline" size={14} color={Colors.secondaryText} />
+              <Ionicons name="reorder-three" size={22} color={Colors.secondaryText} />
             </TouchableOpacity>
-          )}
 
-          {/* Delete */}
-          <TouchableOpacity
-            onPress={() => removeHabit(habit.id)}
-            hitSlop={8}
-            style={styles.deleteBtn}
-          >
-            <Ionicons name="trash-outline" size={18} color={Colors.dangerText} />
-          </TouchableOpacity>
-        </View>
-      </ScaleDecorator>
-    ),
-    [editingId, editingName, finishEditing, removeHabit, startEditing],
+            {/* Name + cadence column */}
+            <View style={styles.nameCol}>
+              {editingId === habit.id ? (
+                <TextInput
+                  style={styles.editInput}
+                  value={editingName}
+                  onChangeText={setEditingName}
+                  onBlur={finishEditing}
+                  onSubmitEditing={finishEditing}
+                  autoFocus
+                  maxLength={50}
+                />
+              ) : (
+                <TouchableOpacity
+                  style={styles.nameWrap}
+                  onPress={() => startEditing(habit)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.habitName}>{habit.name}</Text>
+                  <Ionicons name="create-outline" size={14} color={Colors.secondaryText} />
+                </TouchableOpacity>
+              )}
+              {/* Cadence chip — tap to edit */}
+              <TouchableOpacity
+                onPress={() => setEditingCadenceId(habit.id)}
+                style={styles.cadenceChip}
+                accessibilityLabel="Edit cadence"
+              >
+                <Ionicons name="calendar-outline" size={11} color={Colors.secondaryText} />
+                <Text style={styles.cadenceChipText}>{describeRule(norm.cadence)}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Archive */}
+            <TouchableOpacity
+              onPress={() => archiveHabit(habit.id)}
+              hitSlop={8}
+              style={styles.deleteBtn}
+              accessibilityLabel="Archive habit"
+            >
+              <Ionicons name="archive-outline" size={18} color={Colors.dangerText} />
+            </TouchableOpacity>
+          </View>
+        </ScaleDecorator>
+      );
+    },
+    [editingId, editingName, finishEditing, archiveHabit, startEditing],
   );
+
+  const habitBeingEdited = editingCadenceId
+    ? habits.find((h) => h.id === editingCadenceId)
+    : null;
+  const editInitial = habitBeingEdited
+    ? {
+        cadence: normalizeHabit(habitBeingEdited).cadence,
+        target: habitBeingEdited.target,
+      }
+    : undefined;
 
   return (
     <ScreenWrapper>
@@ -234,6 +309,21 @@ export default function HabitsSettingsScreen() {
             )}
           </PremiumCard>
         </ScrollView>
+
+        {/* S33-B: cadence picker for new habit */}
+        <CadencePickerModal
+          visible={pendingNewName != null}
+          onCancel={() => setPendingNewName(null)}
+          onSave={handleCadenceSaveForNew}
+        />
+
+        {/* S33-B: cadence picker for editing existing habit */}
+        <CadencePickerModal
+          visible={editingCadenceId != null}
+          initial={editInitial}
+          onCancel={() => setEditingCadenceId(null)}
+          onSave={handleCadenceSaveForEdit}
+        />
       </View>
     </ScreenWrapper>
   );
@@ -315,8 +405,12 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     marginBottom: 8,
   },
-  nameWrap: {
+  nameCol: {
     flex: 1,
+    flexDirection: 'column',
+    gap: 4,
+  },
+  nameWrap: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -325,6 +419,19 @@ const styles = StyleSheet.create({
     color: Colors.text,
     fontSize: 15,
     flex: 1,
+  },
+  cadenceChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  cadenceChipText: {
+    color: Colors.secondaryText,
+    fontSize: 11,
+    fontStyle: 'italic',
   },
   editInput: {
     flex: 1,

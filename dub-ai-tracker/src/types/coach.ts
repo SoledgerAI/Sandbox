@@ -165,6 +165,23 @@ export interface CoachContext {
   persistent_pain_areas?: string[];
   /** S33-A: areas with at least one entry in ≥4 of the last 6 ISO weeks. */
   chronic_pain_areas?: string[];
+  /** S33-B: per-habit current streak counts, non-archived only. */
+  habit_streaks?: Array<{
+    habit_id: string;
+    habit_name: string;
+    current_streak: number;
+  }>;
+  /** S33-B: names of habits whose cadence rule says they're due today. */
+  habits_due_today?: string[];
+  /** S33-B: names of habits the user has marked completed today. */
+  habits_completed_today?: string[];
+  /** S33-B: weekly-target habits falling short in the last 7 days. */
+  habits_off_track?: Array<{
+    habit_id: string;
+    habit_name: string;
+    missed_in_last_7d: number;
+    target_per_7d: number;
+  }>;
 }
 
 export interface TodayDataSummary {

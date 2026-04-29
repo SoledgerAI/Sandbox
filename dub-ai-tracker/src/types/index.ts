@@ -812,12 +812,45 @@ export interface OfflineQueueItem {
 
 // -- DAILY HABITS --
 
+/**
+ * S33-B: bitmask. Sunday=1 (1<<0), Monday=2 (1<<1), Tuesday=4 (1<<2), ...,
+ * Saturday=64 (1<<6). Bit position = Date.prototype.getDay() return value
+ * (0..6, Sun=0). e.g. M-W-F = 2+8+32 = 42; Sun-Thu = 1+2+4+8+16 = 31.
+ */
+export type WeekdayMask = number;
+
+export type CadenceRule =
+  | { kind: 'daily' }
+  | { kind: 'weekdays'; days: WeekdayMask }
+  | { kind: 'count_per_week'; count: number }   // 1-7
+  | { kind: 'every_n_days'; n: number };        // 2-30
+
 export interface HabitDefinition {
   id: string;
   name: string;
   order: number;
+  /** S33-B: defaults to {kind:'daily'} at read-time when absent. */
+  cadence?: CadenceRule;
+  /** S33-B: optional weekly target (count_per_week implicitly sets it). */
+  target?: number;
+  /** S33-B: soft-delete flag. Archived habits don't appear in checklist. */
+  archived?: boolean;
+  /** S33-B: epoch ms, for sorting. */
+  created_at?: number;
 }
 
+/**
+ * S33-B: read-time normalization. Returns h with cadence defaulted to
+ * {kind:'daily'} if absent. Pure — does not mutate input.
+ */
+export function normalizeHabit(
+  h: HabitDefinition,
+): HabitDefinition & { cadence: CadenceRule } {
+  if (h.cadence) return h as HabitDefinition & { cadence: CadenceRule };
+  return { ...h, cadence: { kind: 'daily' } };
+}
+
+/** Sprint 16: bathroom routine. Scope-locked, not modified by S33-B. */
 export const DEFAULT_HABITS: Omit<HabitDefinition, 'id'>[] = [
   { name: 'Brush teeth (morning)', order: 0 },
   { name: 'Brush teeth (evening)', order: 1 },
@@ -825,6 +858,46 @@ export const DEFAULT_HABITS: Omit<HabitDefinition, 'id'>[] = [
   { name: 'Make bed', order: 3 },
   { name: 'Face cream (morning)', order: 4 },
   { name: 'Face cream (evening)', order: 5 },
+];
+
+/** S33-B: optional health-habit grouping for onboarding/settings. */
+export const DEFAULT_HEALTH_HABITS: HabitDefinition[] = [
+  {
+    id: 'h_creatine',
+    name: 'Take creatine',
+    order: 100,
+    cadence: { kind: 'daily' },
+  },
+  {
+    id: 'h_water_80oz',
+    name: 'Drink 80oz water',
+    order: 101,
+    cadence: { kind: 'daily' },
+  },
+  {
+    id: 'h_walk_30min',
+    name: '30 min walk',
+    order: 102,
+    cadence: { kind: 'daily' },
+  },
+  {
+    id: 'h_strength_3x',
+    name: 'Strength session',
+    order: 103,
+    cadence: { kind: 'count_per_week', count: 3 },
+  },
+  {
+    id: 'h_mobility_10min',
+    name: '10 min mobility / stretch',
+    order: 104,
+    cadence: { kind: 'daily' },
+  },
+  {
+    id: 'h_sleep_7h',
+    name: 'Sleep 7+ hours',
+    order: 105,
+    cadence: { kind: 'daily' },
+  },
 ];
 
 export interface HabitEntry {

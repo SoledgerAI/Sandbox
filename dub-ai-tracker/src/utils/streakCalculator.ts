@@ -1,9 +1,20 @@
 // Sprint 25: Streak Calculator for Dashboard
 // Calculates per-category daily streaks and milestone thresholds
+// S33-B: per-habit streaks added (calculateHabitStreak, calculateAllHabitStreaks)
 
 import { storageGet, storageList, STORAGE_KEYS, dateKey } from './storage';
 import { todayDateString } from './dayBoundary';
-import type { FoodEntry, WaterEntry, SleepEntry, MoodMentalEntry } from '../types';
+import type {
+  FoodEntry,
+  WaterEntry,
+  SleepEntry,
+  MoodMentalEntry,
+  HabitDefinition,
+  HabitEntry,
+  CadenceRule,
+} from '../types';
+import { normalizeHabit } from '../types';
+import { isDueOnDate } from './cadence';
 import type { WorkoutEntry } from '../types/workout';
 
 export interface CategoryStreak {
@@ -24,6 +35,24 @@ export interface StreakSummary {
 }
 
 const MILESTONES = [7, 30, 100];
+
+/**
+ * S33-B: finer-grained tiers for habit streaks. Habit chains build at lower
+ * thresholds than category streaks (3 days = pattern starting; 7 = first-
+ * week win), so this list intentionally diverges from MILESTONES.
+ */
+export const HABIT_MILESTONES = [3, 7, 14, 30, 60, 100, 365];
+
+function nextHabitMilestone(streak: number): number | null {
+  for (const m of HABIT_MILESTONES) {
+    if (streak < m) return m;
+  }
+  return null;
+}
+
+function atHabitMilestone(streak: number): boolean {
+  return HABIT_MILESTONES.includes(streak);
+}
 
 function nextMilestone(streak: number): number | null {
   for (const m of MILESTONES) {
@@ -188,4 +217,143 @@ export async function calculateAllStreaks(): Promise<StreakSummary> {
   const streaks = [logging, exercise, hydration, sleep].filter((s) => s.currentStreak > 0);
 
   return { logging, exercise, hydration, sleep, streaks };
+}
+
+// ============================================================
+// S33-B: per-habit streaks
+// ============================================================
+
+function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number);
+  return new Date(y, m - 1, d);
+}
+
+/**
+ * S33-B: streak count for a single habit, respecting its cadence rule.
+ *
+ * Counting semantics by cadence (D-1 in S33-B deliverable):
+ *   - daily: delegates to calculateCategoryStreak (skip-day concept N/A).
+ *   - count_per_week: rolling-window checkFn passed to
+ *     calculateCategoryStreak. A day is "good" when completions in the
+ *     trailing 7-day window ending that day meet `count`.
+ *   - weekdays / every_n_days: custom due-day walker. Counts confirmed
+ *     completions of due-days; skip days are pass-through (don't
+ *     increment, don't break). The spec edge-case test "M-W-F, completed
+ *     M and W, today F not yet done → streak = 2" requires this — pure
+ *     calculateCategoryStreak reuse would inflate the count with skip
+ *     days (~6 instead of 2).
+ *
+ * Archived habits return 0 unconditionally.
+ */
+export async function calculateHabitStreak(
+  habit: HabitDefinition,
+  today: Date,
+): Promise<number> {
+  if (habit.archived) return 0;
+
+  const norm = normalizeHabit(habit);
+  const cadence = norm.cadence;
+  const habitId = habit.id;
+
+  const cache = new Map<string, boolean>();
+
+  async function isCompletedOn(dateStr: string): Promise<boolean> {
+    const cached = cache.get(dateStr);
+    if (cached !== undefined) return cached;
+    const entries = await storageGet<HabitEntry[]>(
+      dateKey(STORAGE_KEYS.LOG_HABITS, dateStr),
+    );
+    const completed = !!entries?.find((e) => e.id === habitId && e.completed);
+    cache.set(dateStr, completed);
+    return completed;
+  }
+
+  if (cadence.kind === 'daily') {
+    return calculateCategoryStreak('', (dateStr) => isCompletedOn(dateStr));
+  }
+
+  if (cadence.kind === 'count_per_week') {
+    const target = cadence.count;
+    return calculateCategoryStreak('', async (dateStr) => {
+      const date = parseLocalDate(dateStr);
+      let cnt = 0;
+      const d = new Date(date);
+      for (let i = 0; i < 7; i++) {
+        if (await isCompletedOn(formatDate(d))) cnt++;
+        d.setDate(d.getDate() - 1);
+      }
+      return cnt >= target;
+    });
+  }
+
+  // weekdays | every_n_days: custom due-day walker.
+  return dueDayWalker(cadence, today, isCompletedOn);
+}
+
+async function dueDayWalker(
+  cadence: Extract<CadenceRule, { kind: 'weekdays' } | { kind: 'every_n_days' }>,
+  today: Date,
+  isCompletedOn: (dateStr: string) => Promise<boolean>,
+): Promise<number> {
+  let streak = 0;
+  let lastCompletion: Date | undefined;
+
+  // Step 1: examine today.
+  const todayStr = formatDate(today);
+  const todayDue = isDueOnDate(cadence, today);
+  if (todayDue) {
+    if (await isCompletedOn(todayStr)) {
+      streak = 1;
+      lastCompletion = today;
+    }
+    // else: today is in-progress; don't break — continue to walk back.
+  }
+  // If not due today: continue to walk back from yesterday.
+
+  // Step 2: walk back day by day.
+  const d = new Date(today);
+  d.setDate(d.getDate() - 1);
+  for (let i = 0; i < 365; i++) {
+    const due = isDueOnDate(cadence, d, lastCompletion);
+    if (due) {
+      const ds = formatDate(d);
+      if (await isCompletedOn(ds)) {
+        streak += 1;
+        lastCompletion = new Date(d);
+      } else {
+        break;
+      }
+    }
+    // skip day → pass through.
+    d.setDate(d.getDate() - 1);
+  }
+
+  return streak;
+}
+
+/**
+ * S33-B: compute streaks for all non-archived habit definitions, returned as
+ * CategoryStreak[] for direct merge with calculateAllStreaks output. Sorted
+ * desc by streak; only nonzero streaks included; capped at top 5.
+ */
+export async function calculateAllHabitStreaks(
+  habits: HabitDefinition[],
+  today: Date = new Date(),
+): Promise<CategoryStreak[]> {
+  const results: CategoryStreak[] = [];
+  for (const h of habits) {
+    if (h.archived) continue;
+    const streak = await calculateHabitStreak(h, today);
+    if (streak <= 0) continue;
+    results.push({
+      category: `habit:${h.id}`,
+      label: h.name,
+      icon: 'checkmark-circle-outline',
+      currentStreak: streak,
+      milestone: nextHabitMilestone(streak),
+      atMilestone: atHabitMilestone(streak),
+    });
+  }
+  results.sort((a, b) => b.currentStreak - a.currentStreak);
+  return results.slice(0, 5);
 }

@@ -29,6 +29,9 @@ import {
   LBS_PER_KG,
   CM_PER_INCH,
 } from '../constants/formulas';
+import { normalizeHabit } from '../types';
+import { isDueOnDate } from '../utils/cadence';
+import { calculateHabitStreak } from '../utils/streakCalculator';
 import { evaluateMoodTrend } from '../utils/mood_trend';
 import { sanitizeForPrompt } from '../utils/sanitize';
 import type {
@@ -87,6 +90,68 @@ function pastDateString(daysAgo: number): string {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/**
+ * S33-B: identify habits with weekly targets that the user is falling
+ * behind on in the trailing 7 days. Daily-cadence habits surface in
+ * habit_streaks + habits_completed_today and are excluded here.
+ *
+ * For weekdays cadence: target_per_7d = number of weekday-bits set in
+ *   the trailing-7-day window (capped at 7).
+ * For count_per_week: target_per_7d = cadence.count.
+ * For every_n_days: skipped (no weekly cadence to compare against).
+ */
+async function computeOffTrackHabits(
+  defs: HabitDefinition[],
+  now: Date,
+): Promise<NonNullable<CoachContext['habits_off_track']>> {
+  const out: NonNullable<CoachContext['habits_off_track']> = [];
+  // Build the 7-day window once.
+  const windowDays: { date: Date; dateStr: string }[] = [];
+  for (let i = 0; i < 7; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i);
+    const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    windowDays.push({ date: d, dateStr });
+  }
+
+  for (const h of defs) {
+    const norm = normalizeHabit(h);
+    let target_per_7d = 0;
+    if (norm.cadence.kind === 'weekdays') {
+      let bits = 0;
+      for (const { date } of windowDays) {
+        if ((norm.cadence.days & (1 << date.getDay())) !== 0) bits++;
+      }
+      target_per_7d = bits;
+    } else if (norm.cadence.kind === 'count_per_week') {
+      target_per_7d = norm.cadence.count;
+    } else {
+      // daily and every_n_days: not surfaced in off_track.
+      continue;
+    }
+
+    if (target_per_7d <= 0) continue;
+
+    let actual = 0;
+    for (const { dateStr } of windowDays) {
+      const entries = await storageGet<HabitEntry[]>(
+        dateKey(STORAGE_KEYS.LOG_HABITS, dateStr),
+      );
+      if (entries?.find((e) => e.id === h.id && e.completed)) actual++;
+    }
+    const missed = target_per_7d - actual;
+    if (missed >= 1) {
+      out.push({
+        habit_id: h.id,
+        habit_name: sanitizeForPrompt(h.name, 50),
+        missed_in_last_7d: missed,
+        target_per_7d,
+      });
+    }
+  }
+  return out;
 }
 
 // Keyword matching for conditional context (simple, not AI)
@@ -168,6 +233,9 @@ export async function buildCoachContext(userMessage: string): Promise<{
   conditionalSections: string[];
 }> {
   const today = todayDateString();
+  // S33-B: local-time Date for cadence evaluation in the [HABITS] section
+  // and for the top-level habit_* fields below.
+  const nowDate = new Date();
 
   // Always-load data (sobriety goals are safety-critical — MASTER-03)
   const [profile, tier, sobrietyGoalEntries, consistencyData, compliance7dData, hydrationGoalData] = await Promise.all([
@@ -579,20 +647,29 @@ export async function buildCoachContext(userMessage: string): Promise<{
     }
   }
 
-  // Daily habits (conditional)
+  // Daily habits (conditional). S33-B: cadence-aware total — only habits
+  // whose cadence rule says they're due TODAY count toward the denominator.
   if (messageMatchesKeywords(userMessage, HABIT_KEYWORDS)) {
     const habitDefs = await storageGet<HabitDefinition[]>(STORAGE_KEYS.SETTINGS_HABITS);
     const habitEntries = await storageGet<HabitEntry[]>(dateKey(STORAGE_KEYS.LOG_HABITS, today));
     if (habitEntries && habitEntries.length > 0 && habitDefs) {
-      const completed = habitEntries.filter((h) => h.completed);
-      const missed = habitEntries.filter((h) => !h.completed);
+      const dueIds = new Set(
+        habitDefs
+          .filter((d) => !d.archived && isDueOnDate(normalizeHabit(d).cadence, nowDate))
+          .map((d) => d.id),
+      );
+      const dueEntries = habitEntries.filter((e) => dueIds.has(e.id));
+      const completed = dueEntries.filter((h) => h.completed);
+      const missed = dueEntries.filter((h) => !h.completed);
       const missedNames = missed
         .map((h) => sanitizeForPrompt(h.name, 50))
         .join(', ');
       const missedPart = missed.length > 0 ? ` (missed: ${missedNames})` : '';
-      conditionalSections.push(
-        `[HABITS ${today}] ${completed.length}/${habitEntries.length} completed${missedPart}`,
-      );
+      if (dueEntries.length > 0) {
+        conditionalSections.push(
+          `[HABITS ${today}] ${completed.length}/${dueEntries.length} completed${missedPart}`,
+        );
+      }
     }
   }
 
@@ -1344,6 +1421,42 @@ export async function buildCoachContext(userMessage: string): Promise<{
   // S33-A: pain context flags. Empty pain log → all three arrays empty.
   const painSummary = await buildPainContext(now);
 
+  // S33-B: habit-related compliance + streak signals. Mirror the
+  // region_undertrained_flags shape — lazily compute and pass as top-
+  // level CoachContext fields. Empty habit list → all four undefined.
+  const habitContextDefs = await storageGet<HabitDefinition[]>(STORAGE_KEYS.SETTINGS_HABITS);
+  let habit_streaks: CoachContext['habit_streaks'];
+  let habits_due_today: CoachContext['habits_due_today'];
+  let habits_completed_today: CoachContext['habits_completed_today'];
+  let habits_off_track: CoachContext['habits_off_track'];
+  if (Array.isArray(habitContextDefs) && habitContextDefs.length > 0) {
+    const activeDefs = habitContextDefs.filter((h) => !h.archived);
+    const todayEntries = await storageGet<HabitEntry[]>(
+      dateKey(STORAGE_KEYS.LOG_HABITS, today),
+    );
+
+    habit_streaks = await Promise.all(
+      activeDefs.map(async (h) => ({
+        habit_id: h.id,
+        habit_name: sanitizeForPrompt(h.name, 50),
+        current_streak: await calculateHabitStreak(h, now),
+      })),
+    );
+
+    habits_due_today = activeDefs
+      .filter((h) => isDueOnDate(normalizeHabit(h).cadence, now))
+      .map((h) => sanitizeForPrompt(h.name, 50));
+
+    const completedIds = new Set(
+      (todayEntries ?? []).filter((e) => e.completed).map((e) => e.id),
+    );
+    habits_completed_today = activeDefs
+      .filter((h) => completedIds.has(h.id))
+      .map((h) => sanitizeForPrompt(h.name, 50));
+
+    habits_off_track = await computeOffTrackHabits(activeDefs, now);
+  }
+
   const context: CoachContext = {
     profile: profile ?? {
       name: 'User',
@@ -1402,6 +1515,10 @@ export async function buildCoachContext(userMessage: string): Promise<{
     pain_areas_last_14d: painSummary.pain_areas_last_14d,
     persistent_pain_areas: painSummary.persistent_pain_areas,
     chronic_pain_areas: painSummary.chronic_pain_areas,
+    habit_streaks,
+    habits_due_today,
+    habits_completed_today,
+    habits_off_track,
   };
 
   // Therapy note firewall: verify no therapy content leaked

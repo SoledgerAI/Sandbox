@@ -181,6 +181,10 @@ export const STORAGE_KEYS = {
   PAIN_LOG_INDEX_BY_AREA:'dub.log.pain.index.by_area',       // dub.log.pain.index.by_area.<area>
   MIGRATION_V2_V3_BACKUP:'dub._migration.v2_v3_backup',      // 30-day rollback
 
+  // Sprint S33-B: habits with cadence + per-habit streaks
+  HABIT_STREAK_PREFIX:   'dub.habit.streak',                 // dub.habit.streak.<habit_id>
+  MIGRATION_V3_V4_BACKUP:'dub._migration.v3_v4_backup',      // 30-day rollback
+
   // Offline Queue
   OFFLINE_QUEUE: 'dub.offline.queue',
 

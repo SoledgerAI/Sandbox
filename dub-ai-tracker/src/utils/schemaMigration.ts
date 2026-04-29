@@ -36,6 +36,7 @@ import {
   getRegionSessions,
 } from '../services/strengthService';
 import type { BodyRegion } from '../config/exerciseCatalog';
+import type { HabitDefinition } from '../types';
 
 // ============================================================
 // Version constant & storage key
@@ -45,7 +46,7 @@ import type { BodyRegion } from '../config/exerciseCatalog';
  * Increment this every time you add a new migration.
  * Must match the highest `version` in MIGRATIONS.
  */
-export const CURRENT_SCHEMA_VERSION = 3;
+export const CURRENT_SCHEMA_VERSION = 4;
 
 /** AsyncStorage key holding the current schema version (number). */
 export const SCHEMA_VERSION_KEY = STORAGE_KEYS.SCHEMA_VERSION;
@@ -105,6 +106,11 @@ export const MIGRATIONS: Migration[] = [
     version: 3,
     description: 'S33-A — rep presets + pain logger: register new keyspaces; no data backfill',
     migrate: migrateV2ToV3,
+  },
+  {
+    version: 4,
+    description: 'S33-B — habits with cadence: backfill cadence/archived/created_at/target on stored HabitDefinitions',
+    migrate: migrateV3ToV4,
   },
 ];
 
@@ -471,4 +477,87 @@ export async function migrateV2ToV3(): Promise<void> {
     touched_keys: [], // no data backfill in this migration
   };
   await storageSet(STORAGE_KEYS.MIGRATION_V2_V3_BACKUP, backup);
+}
+
+// ============================================================
+// V3 → V4 migration (S33-B)
+// ============================================================
+
+interface V3V4Backup {
+  pre_version: number;
+  performed_at: number;
+  expires_at: number;
+  touched_keys: string[];
+  backfill_stats: {
+    habits_count: number;
+    habits_already_normalized: number;
+    habits_backfilled: number;
+  };
+}
+
+/**
+ * S33-B migration. For each stored HabitDefinition:
+ *   - cadence  ← {kind:'daily'} if absent
+ *   - archived ← false if absent
+ *   - created_at ← Date.now() if absent
+ *   - target ← cadence.count when cadence.kind === 'count_per_week' and
+ *              target absent. Other kinds left unchanged.
+ *
+ * Idempotent: gated on backup existence. If backup exists, returns.
+ */
+export async function migrateV3ToV4(): Promise<void> {
+  const existingBackup = await storageGet<V3V4Backup>(STORAGE_KEYS.MIGRATION_V3_V4_BACKUP);
+  if (existingBackup != null) return; // already ran
+
+  const stored = await storageGet<HabitDefinition[]>(STORAGE_KEYS.SETTINGS_HABITS);
+  let habitsCount = 0;
+  let alreadyNormalized = 0;
+  let backfilled = 0;
+  const touched = new Set<string>();
+
+  if (Array.isArray(stored) && stored.length > 0) {
+    habitsCount = stored.length;
+    const updated = stored.map((h) => {
+      const needsCadence = h.cadence === undefined;
+      const needsArchived = h.archived === undefined;
+      const needsCreatedAt = h.created_at === undefined;
+      const needsTarget =
+        h.target === undefined &&
+        h.cadence != null &&
+        h.cadence.kind === 'count_per_week';
+      const noChange =
+        !needsCadence && !needsArchived && !needsCreatedAt && !needsTarget;
+      if (noChange) {
+        alreadyNormalized++;
+        return h;
+      }
+      backfilled++;
+      const next: HabitDefinition = { ...h };
+      if (needsCadence) next.cadence = { kind: 'daily' };
+      if (needsArchived) next.archived = false;
+      if (needsCreatedAt) next.created_at = Date.now();
+      if (needsTarget && next.cadence?.kind === 'count_per_week') {
+        next.target = next.cadence.count;
+      }
+      return next;
+    });
+    if (backfilled > 0) {
+      await storageSet(STORAGE_KEYS.SETTINGS_HABITS, updated);
+      touched.add(STORAGE_KEYS.SETTINGS_HABITS);
+    }
+  }
+
+  const now = Date.now();
+  const backup: V3V4Backup = {
+    pre_version: 3,
+    performed_at: now,
+    expires_at: now + ROLLBACK_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+    touched_keys: Array.from(touched),
+    backfill_stats: {
+      habits_count: habitsCount,
+      habits_already_normalized: alreadyNormalized,
+      habits_backfilled: backfilled,
+    },
+  };
+  await storageSet(STORAGE_KEYS.MIGRATION_V3_V4_BACKUP, backup);
 }

@@ -671,6 +671,8 @@ export const EXPORT_PRIVACY_MAP: Record<string, 'included' | 'excluded_always' |
   [STORAGE_KEYS.PAIN_LOG_PREFIX]: 'included',
   [STORAGE_KEYS.PAIN_LOG_INDEX_BY_DATE]: 'not_user_data',
   [STORAGE_KEYS.PAIN_LOG_INDEX_BY_AREA]: 'not_user_data',
+  // S33-B: per-habit streak cache. Derivable from LOG_HABITS — not user data.
+  [STORAGE_KEYS.HABIT_STREAK_PREFIX]: 'not_user_data',
   [STORAGE_KEYS.LOG_BLOODWORK]: 'included',
   [STORAGE_KEYS.LOG_GLUCOSE]: 'included',
   [STORAGE_KEYS.LOG_BP]: 'included',
