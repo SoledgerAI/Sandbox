@@ -47,7 +47,7 @@ let sessionInitComplete = false;
 
 const BRAND_GOLD = '#D4A843';
 const TAGLINE_COLOR = '#888';
-const TAGLINE_TEXT = 'Bloomberg Terminal for the Body';
+const TAGLINE_TEXT = 'The Body Ledger';
 
 export default function RootLayout() {
   const [initDone, setInitDone] = useState(sessionInitComplete);
