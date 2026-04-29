@@ -18,11 +18,9 @@ import {
 } from '../services/stravaTokenStorage';
 import type { DeviceSyncState } from '../types/profile';
 
-interface LegacyStravaState extends DeviceSyncState {
-  // last_sync is `string | null` (ISO datetime) in the legacy shape;
-  // DeviceSyncState already declares it that way, but we re-spell here
-  // for clarity at the migration boundary.
-}
+// At the migration boundary the legacy shape is just DeviceSyncState
+// with the original last_sync ISO string. Aliased for read-site clarity.
+type LegacyStravaState = DeviceSyncState;
 
 function legacyLastSyncToMs(value: string | null | undefined): number | null {
   if (value == null) return null;
