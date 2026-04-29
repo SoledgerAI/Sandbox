@@ -26,6 +26,7 @@ import {
   STORAGE_KEYS,
   dateKey,
 } from '../../src/utils/storage';
+import { getStravaSyncState } from '../../src/services/strava';
 import { todayDateString } from '../../src/utils/dayBoundary';
 import { getActiveDate, setActiveDate as setContextDate, resetToToday } from '../../src/services/dateContextService';
 import { DateContextBanner } from '../../src/components/DateContextBanner';
@@ -37,7 +38,6 @@ import {
   getQuickAccessCategories,
 } from '../../src/utils/categoryElection';
 import type { ElectInCategoryId } from '../../src/types';
-import type { DeviceSyncState } from '../../src/types/profile';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android') {
@@ -294,11 +294,12 @@ export default function LogScreen() {
     const entries: Record<string, LastEntry> = {};
 
     // Load elect-in categories, collapsed state, quick access, strava in parallel
+    // S34-A PQ-A7: Strava state comes through the service (SecureStore-backed).
     const [enabled, collapsed, quickAccess, strava] = await Promise.all([
       getEnabledCategories(),
       getCollapsedSections(),
       getQuickAccessCategories(),
-      storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_STRAVA),
+      getStravaSyncState(),
     ]);
     setEnabledCategories(enabled);
     setCollapsedSections(collapsed);

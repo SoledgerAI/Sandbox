@@ -1,7 +1,8 @@
-// NOT WIRED UP — scheduled for future sprint
 // Unified health device hook
 // Phase 18: Device Integrations
 // Sprint 11: Strava OAuth integration added
+// Sprint S34-A: Strava sync state now read through getStravaSyncState
+// (no direct DEVICES_STRAVA AsyncStorage reads).
 // Provides a single interface for all health device integrations.
 // Platform-aware: Apple Health on iOS, Health Connect on Android.
 
@@ -29,6 +30,7 @@ import {
   syncFromStrava,
   disconnectStrava,
   isStravaConfigured,
+  getStravaSyncState,
 } from '../services/strava';
 
 import {
@@ -84,7 +86,8 @@ export function useHealth(): UseHealthResult {
     const [appleState, googleState, stravaState] = await Promise.all([
       storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_APPLE),
       storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_GOOGLE),
-      storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_STRAVA),
+      // S34-A PQ-A7: tokens live in SecureStore; read via the service.
+      getStravaSyncState(),
     ]);
 
     const stravaConfigured = isStravaConfigured();
