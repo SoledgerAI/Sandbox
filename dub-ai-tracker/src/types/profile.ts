@@ -117,4 +117,9 @@ export interface DeviceSyncState {
   last_sync: string | null; // ISO datetime
   access_token: string | null;
   refresh_token: string | null;
+  // S34-A: Unix timestamp (seconds) at which the access token expires.
+  // 0 = unknown / forces refresh on next call (used by the v4->v5
+  // forward-fill migration for users connected before this field
+  // existed). Optional for backward-compat with stored v4 records.
+  expires_at?: number | null;
 }

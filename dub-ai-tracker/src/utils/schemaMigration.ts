@@ -37,6 +37,7 @@ import {
 } from '../services/strengthService';
 import type { BodyRegion } from '../config/exerciseCatalog';
 import type { HabitDefinition } from '../types';
+import type { DeviceSyncState } from '../types/profile';
 
 // ============================================================
 // Version constant & storage key
@@ -46,7 +47,7 @@ import type { HabitDefinition } from '../types';
  * Increment this every time you add a new migration.
  * Must match the highest `version` in MIGRATIONS.
  */
-export const CURRENT_SCHEMA_VERSION = 4;
+export const CURRENT_SCHEMA_VERSION = 5;
 
 /** AsyncStorage key holding the current schema version (number). */
 export const SCHEMA_VERSION_KEY = STORAGE_KEYS.SCHEMA_VERSION;
@@ -111,6 +112,11 @@ export const MIGRATIONS: Migration[] = [
     version: 4,
     description: 'S33-B — habits with cadence: backfill cadence/archived/created_at/target on stored HabitDefinitions',
     migrate: migrateV3ToV4,
+  },
+  {
+    version: 5,
+    description: 'S34-A — Strava PKCE: forward-fill expires_at=0 on connected DeviceSyncState',
+    migrate: migrateV4ToV5,
   },
 ];
 
@@ -560,4 +566,66 @@ export async function migrateV3ToV4(): Promise<void> {
     },
   };
   await storageSet(STORAGE_KEYS.MIGRATION_V3_V4_BACKUP, backup);
+}
+
+// ============================================================
+// V4 → V5 migration (S34-A)
+// ============================================================
+
+interface V4V5Backup {
+  pre_version: number;
+  performed_at: number;
+  expires_at: number;
+  touched_keys: string[];
+  backfill_stats: {
+    devices_strava_forward_filled: number;
+  };
+}
+
+/**
+ * S34-A migration. The Strava integration moves from a legacy
+ * client_secret OAuth flow to PKCE on expo-crypto, and DeviceSyncState
+ * gains an `expires_at` field so we can refresh tokens proactively.
+ *
+ * Forward-fill rule: any already-connected DEVICES_STRAVA record that
+ * lacks expires_at gets expires_at = 0. Zero is treated as "expired
+ * now" by the new flow, which forces a refresh on the next call —
+ * letting us discover the real expiry without prompting the user to
+ * reconnect.
+ *
+ * Disconnected records pass through unchanged. Records that already
+ * carry expires_at are preserved (no overwrite).
+ *
+ * Idempotent: gated on backup existence. If backup exists, returns.
+ */
+export async function migrateV4ToV5(): Promise<void> {
+  const existingBackup = await storageGet<V4V5Backup>(STORAGE_KEYS.MIGRATION_V4_V5_BACKUP);
+  if (existingBackup != null) return; // already ran
+
+  const touched = new Set<string>();
+  let forwardFilled = 0;
+
+  const stravaState = await storageGet<DeviceSyncState>(STORAGE_KEYS.DEVICES_STRAVA);
+  if (
+    stravaState != null &&
+    stravaState.connected === true &&
+    (stravaState.expires_at === undefined || stravaState.expires_at === null)
+  ) {
+    const next: DeviceSyncState = { ...stravaState, expires_at: 0 };
+    await storageSet(STORAGE_KEYS.DEVICES_STRAVA, next);
+    touched.add(STORAGE_KEYS.DEVICES_STRAVA);
+    forwardFilled = 1;
+  }
+
+  const now = Date.now();
+  const backup: V4V5Backup = {
+    pre_version: 4,
+    performed_at: now,
+    expires_at: now + ROLLBACK_WINDOW_DAYS * 24 * 60 * 60 * 1000,
+    touched_keys: Array.from(touched),
+    backfill_stats: {
+      devices_strava_forward_filled: forwardFilled,
+    },
+  };
+  await storageSet(STORAGE_KEYS.MIGRATION_V4_V5_BACKUP, backup);
 }

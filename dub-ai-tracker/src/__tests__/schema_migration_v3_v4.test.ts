@@ -21,7 +21,7 @@ beforeEach(async () => {
 });
 
 describe('schema migration v3 → v4', () => {
-  it('runs from v3 starting state to v4', async () => {
+  it('runs from v3 starting state through v4 onward', async () => {
     // Stored shape pre-S33B: only {id, name, order}.
     const pre: HabitDefinition[] = [
       { id: 'h1', name: 'Old habit', order: 0 },
@@ -32,7 +32,7 @@ describe('schema migration v3 → v4', () => {
     const result = await runMigrations();
     expect(result.success).toBe(true);
     expect(result.toVersion).toBe(CURRENT_SCHEMA_VERSION);
-    expect(CURRENT_SCHEMA_VERSION).toBe(4);
+    expect(CURRENT_SCHEMA_VERSION).toBeGreaterThanOrEqual(4);
   });
 
   it('migration is idempotent (run twice produces same backup record)', async () => {
@@ -43,7 +43,7 @@ describe('schema migration v3 → v4', () => {
     expect(b2?.performed_at).toBe(b1?.performed_at);
   });
 
-  it('schemaVersion persisted = 4 post-migration', async () => {
+  it('schemaVersion persisted = current target post-migration', async () => {
     await runMigrations();
     const v = await storageGet<number>(SCHEMA_VERSION_KEY);
     expect(v).toBe(CURRENT_SCHEMA_VERSION);

@@ -185,6 +185,9 @@ export const STORAGE_KEYS = {
   HABIT_STREAK_PREFIX:   'dub.habit.streak',                 // dub.habit.streak.<habit_id>
   MIGRATION_V3_V4_BACKUP:'dub._migration.v3_v4_backup',      // 30-day rollback
 
+  // Sprint S34-A: Strava PKCE migration + expires_at on DeviceSyncState
+  MIGRATION_V4_V5_BACKUP:'dub._migration.v4_v5_backup',      // 30-day rollback
+
   // Offline Queue
   OFFLINE_QUEUE: 'dub.offline.queue',
 
