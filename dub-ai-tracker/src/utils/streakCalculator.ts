@@ -76,8 +76,8 @@ function formatDate(d: Date): string {
 export async function calculateCategoryStreak(
   storageKeyPrefix: string,
   checkFn?: (date: string) => Promise<boolean>,
+  today: Date = new Date(),
 ): Promise<number> {
-  const today = new Date();
   const todayStr = formatDate(today);
   const yesterdayStr = formatDate(new Date(today.getTime() - 86400000));
 
@@ -143,7 +143,9 @@ export async function calculateCategoryStreak(
 /**
  * Calculate all active streaks for the dashboard.
  */
-export async function calculateAllStreaks(): Promise<StreakSummary> {
+export async function calculateAllStreaks(
+  today: Date = new Date(),
+): Promise<StreakSummary> {
   // Logging streak: any log entry on a given day
   const loggingStreak = await calculateCategoryStreak('', async (date) => {
     const prefixes = [
@@ -158,25 +160,25 @@ export async function calculateAllStreaks(): Promise<StreakSummary> {
       }
     }
     return false;
-  });
+  }, today);
 
   // Exercise streak: workout logged
   const exerciseStreak = await calculateCategoryStreak(STORAGE_KEYS.LOG_WORKOUT, async (date) => {
     const val = await storageGet<WorkoutEntry[]>(dateKey(STORAGE_KEYS.LOG_WORKOUT, date));
     return val != null && val.length > 0;
-  });
+  }, today);
 
   // Hydration streak: water logged (any amount)
   const hydrationStreak = await calculateCategoryStreak(STORAGE_KEYS.LOG_WATER, async (date) => {
     const val = await storageGet<WaterEntry[]>(dateKey(STORAGE_KEYS.LOG_WATER, date));
     return val != null && val.length > 0;
-  });
+  }, today);
 
   // Sleep streak: sleep entry logged
   const sleepStreak = await calculateCategoryStreak(STORAGE_KEYS.LOG_SLEEP, async (date) => {
     const val = await storageGet<SleepEntry>(dateKey(STORAGE_KEYS.LOG_SLEEP, date));
     return val != null;
-  });
+  }, today);
 
   const logging: CategoryStreak = {
     category: 'logging',
@@ -269,7 +271,7 @@ export async function calculateHabitStreak(
   }
 
   if (cadence.kind === 'daily') {
-    return calculateCategoryStreak('', (dateStr) => isCompletedOn(dateStr));
+    return calculateCategoryStreak('', (dateStr) => isCompletedOn(dateStr), today);
   }
 
   if (cadence.kind === 'count_per_week') {
@@ -283,7 +285,7 @@ export async function calculateHabitStreak(
         d.setDate(d.getDate() - 1);
       }
       return cnt >= target;
-    });
+    }, today);
   }
 
   // weekdays | every_n_days: custom due-day walker.

@@ -14,6 +14,18 @@ import {
 } from '../utils/streakCalculator';
 import type { HabitDefinition, HabitEntry } from '../types';
 
+// Fixed anchor. 2026-04-29 is a Wednesday. All test dates derive from this
+// via offsets; calculateHabitStreak is always called with TODAY, which now
+// threads through calculateCategoryStreak — so the suite is clock-independent
+// without any global timer manipulation.
+const TODAY = new Date(2026, 3, 29);
+
+function offsetDays(days: number): Date {
+  const d = new Date(TODAY);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
 beforeEach(async () => {
   await AsyncStorage.clear();
 });
@@ -34,9 +46,6 @@ function setEntry(habitId: string, name: string, date: Date, completed: boolean)
 }
 
 describe('calculateHabitStreak', () => {
-  // 2026-04-29 (Wed). Anchor for all tests.
-  const TODAY = new Date(2026, 3, 29);
-
   it('new habit, no entries: streak = 0', async () => {
     const h: HabitDefinition = {
       id: 'h_new',
@@ -55,9 +64,7 @@ describe('calculateHabitStreak', () => {
       cadence: { kind: 'daily' },
     };
     for (let i = 0; i < 5; i++) {
-      const d = new Date(TODAY);
-      d.setDate(d.getDate() - i);
-      await setEntry(h.id, h.name, d, true);
+      await setEntry(h.id, h.name, offsetDays(-i), true);
     }
     expect(await calculateHabitStreak(h, TODAY)).toBe(5);
   });
@@ -73,58 +80,51 @@ describe('calculateHabitStreak', () => {
     expect(await calculateHabitStreak(h, TODAY)).toBe(0);
   });
 
-  it('M-W-F habit, M done, W done, today F not done: streak = 2 (in-progress, not broken)', async () => {
-    // Today = Friday May 1, 2026 (getDay() === 5). M-W-F mask = 42.
-    const friday = new Date(2026, 4, 1);
-    const wed = new Date(2026, 3, 29); // Apr 29 Wed
-    const mon = new Date(2026, 3, 27); // Apr 27 Mon
-    const lastFriday = new Date(2026, 3, 24); // Apr 24 Fri (NOT completed)
-
+  it('M-W-F habit, today Wed in-progress with 2 prior due days done: streak = 2', async () => {
+    // TODAY is Wed (a due day for M-W-F mask=42), not yet completed.
+    // Mon (TODAY-2) done, prev Fri (TODAY-5) done, prev Wed (TODAY-7) NOT done → walker stops at 2.
     const h: HabitDefinition = {
       id: 'h_mwf',
       name: 'MWF',
       order: 0,
       cadence: { kind: 'weekdays', days: 42 },
     };
-    await setEntry(h.id, h.name, mon, true);
-    await setEntry(h.id, h.name, wed, true);
-    // lastFriday: explicit miss (no completion stored).
-    void lastFriday;
+    await setEntry(h.id, h.name, offsetDays(-2), true); // Mon
+    await setEntry(h.id, h.name, offsetDays(-5), true); // prev Fri
+    // offsetDays(-7) (prev Wed): explicit miss (no completion stored).
 
-    expect(await calculateHabitStreak(h, friday)).toBe(2);
+    expect(await calculateHabitStreak(h, TODAY)).toBe(2);
   });
 
-  it('M-W-F habit, missed Wednesday: walker breaks at the missed due day', async () => {
-    // Today = Thursday Apr 30, 2026. Walker: Thu (skip) → Wed (due, missed) → break.
-    // streak = 0.
-    const thursday = new Date(2026, 3, 30);
+  it('M-W-F habit, prior due day Mon missed: walker breaks at the missed due day', async () => {
+    // TODAY is Wed (due, in-progress, not completed) → walker continues without break.
+    // Walks back: Tue skip → Mon (TODAY-2, due, NOT completed) → break.
+    // A completion further back (prev Fri TODAY-5) is unreachable.
     const h: HabitDefinition = {
       id: 'h_mwf',
       name: 'MWF',
       order: 0,
       cadence: { kind: 'weekdays', days: 42 },
     };
-    // Mon was completed but walker breaks before reaching it.
-    const mon = new Date(2026, 3, 27);
-    await setEntry(h.id, h.name, mon, true);
-    // Wed (Apr 29) explicitly NOT completed.
+    await setEntry(h.id, h.name, offsetDays(-5), true); // prev Fri — unreachable
+    // Mon (TODAY-2) explicitly NOT completed.
 
-    expect(await calculateHabitStreak(h, thursday)).toBe(0);
+    expect(await calculateHabitStreak(h, TODAY)).toBe(0);
   });
 
   it('count_per_week 3: rolling 7-day window evaluation', async () => {
-    // Trailing 7d ending TODAY (Wed Apr 29) = Apr 23..29.
-    // Complete 3 days in that window: Apr 27 (Mon), Apr 28 (Tue), Apr 29 (Wed).
-    // Today's window has count >= 3 → checkFn(today) = true → streak >= 1.
+    // Trailing 7d window ending TODAY = TODAY-6..TODAY.
+    // Complete 3 days in that window: TODAY-2, TODAY-1, TODAY.
+    // Today's window count >= 3 → checkFn(today) = true → streak >= 1.
     const h: HabitDefinition = {
       id: 'h_3pw',
       name: '3xWeek',
       order: 0,
       cadence: { kind: 'count_per_week', count: 3 },
     };
-    await setEntry(h.id, h.name, new Date(2026, 3, 27), true);
-    await setEntry(h.id, h.name, new Date(2026, 3, 28), true);
-    await setEntry(h.id, h.name, new Date(2026, 3, 29), true);
+    await setEntry(h.id, h.name, offsetDays(-2), true);
+    await setEntry(h.id, h.name, offsetDays(-1), true);
+    await setEntry(h.id, h.name, TODAY, true);
     expect(await calculateHabitStreak(h, TODAY)).toBeGreaterThanOrEqual(1);
   });
 
@@ -138,9 +138,7 @@ describe('calculateHabitStreak', () => {
     };
     // Past completions exist — should still return 0.
     for (let i = 0; i < 10; i++) {
-      const d = new Date(TODAY);
-      d.setDate(d.getDate() - i);
-      await setEntry(h.id, h.name, d, true);
+      await setEntry(h.id, h.name, offsetDays(-i), true);
     }
     expect(await calculateHabitStreak(h, TODAY)).toBe(0);
   });
@@ -164,7 +162,13 @@ describe('calculateHabitStreak', () => {
       order: 0,
       cadence: { kind: 'daily' },
     };
-    const todayLate = new Date(2026, 3, 29, 23, 50);
+    const todayLate = new Date(
+      TODAY.getFullYear(),
+      TODAY.getMonth(),
+      TODAY.getDate(),
+      23,
+      50,
+    );
     await setEntry(h.id, h.name, todayLate, true);
     expect(await calculateHabitStreak(h, TODAY)).toBeGreaterThanOrEqual(1);
   });
@@ -177,9 +181,7 @@ describe('calculateHabitStreak', () => {
       cadence: { kind: 'daily' },
     };
     for (let i = 0; i < 3; i++) {
-      const d = new Date(TODAY);
-      d.setDate(d.getDate() - i);
-      await setEntry(h.id, h.name, d, true);
+      await setEntry(h.id, h.name, offsetDays(-i), true);
     }
     const first = await calculateHabitStreak(h, TODAY);
     const second = await calculateHabitStreak(h, TODAY);
